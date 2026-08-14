@@ -1,0 +1,3791 @@
+.spkTableCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+    overflow: hidden;
+}
+
+.spkTableToolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #eef0f2;
+}
+
+.spkTableToolbarLeft,
+.spkTableToolbarRight {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.spkTablePageSizeLabel {
+    font-size: 0.8125rem;
+    color: #4b5563;
+    white-space: nowrap;
+}
+
+.spkTableScroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.spkTable {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 64rem;
+}
+
+.spkTable th,
+.spkTable td {
+    padding: 0.7rem 0.85rem;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 0.8125rem;
+    color: #1f2937;
+    border-bottom: 1px solid #eceff2;
+    white-space: nowrap;
+}
+
+.spkTable thead th {
+    font-weight: 700;
+    color: #111827;
+    background: #fff;
+}
+
+.spkTable tbody tr:hover {
+    background: #fafbfc;
+}
+
+.spkTableActionCol {
+    width: 2.75rem;
+    text-align: center !important;
+}
+
+.spkActionBtn {
+    appearance: none;
+    border: none;
+    width: 1.65rem;
+    height: 1.65rem;
+    border-radius: 0.2rem;
+    background: #22c55e;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.spkActionBtn:hover {
+    background: #16a34a;
+}
+
+.spkActionBtn ui5-icon {
+    width: 0.85rem;
+    height: 0.85rem;
+    color: #fff;
+}
+
+.spkProduksiLink {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.spkProduksiLink:hover {
+    text-decoration: underline;
+}
+
+.spkStatusBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.3;
+    background: transparent;
+}
+
+.spkStatusBadge--approved {
+    color: #16a34a;
+}
+
+.spkStatusBadge--pending {
+    color: #111827;
+}
+
+.spkStatusBadge--default {
+    color: #4b5563;
+}
+
+.spkTableFooter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #eef0f2;
+}
+
+.spkTableTotal {
+    font-size: 0.8125rem;
+    color: #374151;
+}
+
+.spkPagination {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.spkPageBtn {
+    appearance: none;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #374151;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.55rem;
+    border-radius: 0.35rem;
+    font-size: 0.8125rem;
+    cursor: pointer;
+}
+
+.spkPageBtn:hover:not(:disabled) {
+    background: #f3f4f6;
+}
+
+.spkPageBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkPageBtn.is-active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.spkTableMeta {
+    margin-top: 0.75rem;
+    padding: 0 0.25rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.spkTableShell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.spkTableActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.spkTableCard > .spkTableActions {
+    padding: 0.85rem 1rem 0;
+}
+
+/* Fiori Emphasized button (primary action) */
+.spkCreateBtn {
+    appearance: none;
+    box-sizing: border-box;
+    border: 1px solid var(--sapButton_Emphasized_BorderColor, #0070f2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: var(--sap-fiori-button-height, 2.25rem);
+    min-width: 2.25rem;
+    padding: 0 0.875rem;
+    border-radius: var(--sap-fiori-button-radius, 0.25rem);
+    background: var(--sapButton_Emphasized_Background, #0070f2);
+    color: var(--sapButton_Emphasized_TextColor, #fff);
+    font-family: var(--sapFontFamily, inherit);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: none;
+    transition:
+        background-color 0.1s ease-in,
+        border-color 0.1s ease-in,
+        color 0.1s ease-in;
+}
+
+.spkCreateBtn:hover {
+    background: var(--sapButton_Emphasized_Hover_Background, #0064d9);
+    border-color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+    color: var(--sapButton_Emphasized_Hover_TextColor, #fff);
+}
+
+.spkCreateBtn:active {
+    background: var(--sapButton_Emphasized_Active_Background, #0054b4);
+    border-color: var(--sapButton_Emphasized_Active_BorderColor, #0054b4);
+}
+
+.spkCreateBtn:focus-visible {
+    outline: 2px solid var(--sap-fiori-brand, #0070f2);
+    outline-offset: 0.125rem;
+}
+
+.spkCreateBtn ui5-icon {
+    width: 1rem;
+    height: 1rem;
+    color: currentColor;
+}
+
+.dashboardContent:has(.spkDetailShell) {
+    padding-top: 0;
+    padding-bottom: 0.4rem;
+}
+
+.spkDetailShell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.spkDetailStack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.spkRecordPagerBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 1.75rem;
+    margin: 0;
+    padding: 0;
+}
+
+.spkRecordPagerGroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    flex-shrink: 0;
+    margin-inline-start: auto;
+}
+
+.spkTopBarCard {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: auto;
+    margin-inline: -1.5rem;
+    padding: 0.7rem calc(1.5rem + 1rem);
+    background: #fff;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 0;
+    box-shadow: 0 1px 0 rgb(0 0 0 / 4%);
+}
+
+.spkTopBarMain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    width: 100%;
+}
+
+.spkTopBarLeft {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.spkDocSubtitle {
+    display: inline-block;
+    margin-top: 0.15rem;
+    color: #2563eb;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.spkDocSubtitle:hover {
+    text-decoration: underline;
+}
+
+.spkTopBarCard .spkStatusPipeline {
+    justify-content: flex-start;
+}
+
+.spkTopBarCard .spkDocTitle {
+    font-size: 1.75rem;
+}
+
+.spkInformasiProduksiBody {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+    overflow: visible;
+    padding: 0.85rem 1rem 1rem;
+    box-sizing: border-box;
+}
+
+.spkShowSection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.spkShowSectionTitle {
+    margin: 0;
+    color: #111827;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.spkShowMetaTable {
+    width: 100%;
+    max-width: 40rem;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.spkShowMetaTable th,
+.spkShowMetaTable td {
+    border: 1px solid #d1d5db;
+    padding: 0.4rem 0.55rem;
+    vertical-align: top;
+    text-align: left;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}
+
+.spkShowMetaTable th {
+    width: 38%;
+    background: #f3f4f6;
+    font-weight: 700;
+    color: #374151;
+}
+
+.spkShowMetaTable td {
+    color: #111827;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.spkInformasiProduksiBody .spkItemDetailGrid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.85rem;
+    align-items: stretch;
+}
+
+.spkInformasiProduksiBody .spkItemImageCol {
+    min-height: 22rem;
+}
+
+.spkInformasiProduksiBody .spkItemImagePreview,
+.spkInformasiProduksiBody .spkItemImagePlaceholder {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-height: 22rem;
+    max-height: none;
+    aspect-ratio: auto;
+}
+
+.spkInformasiProduksiBody .spkItemImagePreview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+
+.spkInformasiProduksiBody .spkItemMetaTable th,
+.spkInformasiProduksiBody .spkItemMetaTable td {
+    border: 1px solid #d1d5db;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.8125rem;
+}
+
+.spkInformasiProduksiBody .spkItemMetaTable th {
+    width: 32%;
+    background: #f3f4f6;
+    color: #374151;
+    font-weight: 700;
+}
+
+.spkInformasiProduksiBody .spkItemMetaTable td {
+    color: #111827;
+    font-weight: 500;
+}
+
+.spkInformasiProduksiBody .spkItemStoneSection {
+    margin-top: 0;
+}
+
+.spkInformasiProduksiBody .spkStoneCardHeader {
+    margin-bottom: 0.35rem;
+}
+
+.spkInformasiProduksiBody .spkFioriDetailBlockTitle {
+    margin: 0;
+    color: #111827;
+    font-size: 0.9375rem;
+    font-weight: 700;
+}
+
+.spkShowBottom {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 0.25rem;
+}
+
+.spkShowNotesSection {
+    width: 100%;
+}
+
+.spkShowNotes {
+    width: 100%;
+    min-height: 3.5rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #111827;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+    box-sizing: border-box;
+}
+
+.spkItemNotesText {
+    display: block;
+    min-height: 6rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.45rem;
+    background: #f9fafb;
+    color: #32363a;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+    box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+    .spkInformasiProduksiBody .spkItemDetailGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .spkInformasiProduksiBody .spkItemImageCol {
+        min-height: 16rem;
+    }
+
+    .spkInformasiProduksiBody .spkItemImagePreview,
+    .spkInformasiProduksiBody .spkItemImagePlaceholder {
+        min-height: 16rem;
+    }
+}
+
+.spkDetailBody {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+}
+
+.spkDetailLayout {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 0.4rem;
+    align-items: start;
+    padding: 0.75rem;
+    box-sizing: border-box;
+}
+
+.spkSidebar {
+    grid-column: span 3;
+    grid-row: 1;
+}
+
+.spkDetailItemPanel {
+    grid-column: span 9;
+    grid-row: 1;
+    align-self: stretch;
+    overflow: visible;
+}
+
+.spkMainStack {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+}
+
+.spkSectionTabs {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--sapGroup_TitleBorderColor, #e5e5e5);
+    background: transparent;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.spkSectionTabs::-webkit-scrollbar {
+    display: none;
+}
+
+.spkSectionTab {
+    appearance: none;
+    border: none;
+    border-bottom: 0.188rem solid transparent;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.15rem;
+    flex: 0 0 auto;
+    min-width: 0;
+    margin: 0 0 -1px;
+    padding: 0.65rem 1rem;
+    border-radius: 0;
+    background: transparent;
+    color: var(--sapContent_LabelColor, #6a6d70);
+    font-family: var(--sapFontFamily, inherit);
+    font-size: var(--sapFontSize, 0.875rem);
+    font-weight: 400;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.spkSectionTabLabel {
+    display: block;
+}
+
+.spkSectionTabLastProcess {
+    display: inline-flex;
+    align-items: center;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 0.05rem;
+    padding: 0.12rem 0.4rem;
+    border: 1px solid #dc2626;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.625rem;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.spkSectionTab--withLastProcess {
+    padding-block: 0.4rem 0.5rem;
+}
+
+.spkSectionTab:hover {
+    color: var(--sapTextColor, #32363a);
+}
+
+.spkSectionTab.is-active {
+    color: var(--sap-fiori-brand, #0070f2);
+    font-weight: 700;
+    border-bottom-color: var(--sap-fiori-brand, #0070f2);
+}
+
+.spkSectionTab.is-active .spkSectionTabLastProcess,
+.spkSectionTab:hover .spkSectionTabLastProcess {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+}
+
+.spkMainTabPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: visible;
+    padding: 0.75rem 1rem 1rem;
+    box-sizing: border-box;
+}
+
+.spkPlaceholderPanel {
+    min-height: 8rem;
+    color: var(--sapContent_LabelColor, #6a6d70);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.spkShrinkReport {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.spkShrinkReportHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+}
+
+.spkShrinkReportHeading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.75rem;
+    min-width: 0;
+}
+
+.spkShrinkReportMeta {
+    color: #6b7280;
+    font-size: 0.8125rem;
+}
+
+.spkShrinkSummaryGrid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.spkShrinkSummaryItem {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.55rem;
+    background: #f8fafc;
+    grid-column: span 2;
+}
+
+.spkShrinkSummaryItem.is-shrink,
+.spkShrinkSummaryItem.is-lost,
+.spkShrinkSummaryItem.is-diff {
+    grid-column: span 3;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.spkShrinkSummaryLabel {
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.spkShrinkSummaryValue {
+    color: #111827;
+    font-size: 0.875rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: normal;
+    line-height: 1.25;
+}
+
+.spkShrinkSummaryItem.is-shrink .spkShrinkSummaryValue,
+.spkShrinkSummaryItem.is-lost .spkShrinkSummaryValue,
+.spkShrinkSummaryItem.is-diff .spkShrinkSummaryValue {
+    color: #dc2626;
+}
+
+@media (max-width: 900px) {
+    .spkShrinkSummaryGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .spkShrinkSummaryItem,
+    .spkShrinkSummaryItem.is-shrink,
+    .spkShrinkSummaryItem.is-lost,
+    .spkShrinkSummaryItem.is-diff {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 520px) {
+    .spkShrinkSummaryGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkShrinkReportTableWrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #fff;
+}
+
+.spkShrinkReportTable {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 32rem;
+}
+
+.spkShrinkReportTable th,
+.spkShrinkReportTable td {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 0.8125rem;
+    color: #1f2937;
+    border-bottom: 1px solid #eceff2;
+    white-space: nowrap;
+}
+
+.spkShrinkReportTable thead th {
+    background: #f3f4f6;
+    color: #111827;
+    font-weight: 700;
+}
+
+.spkShrinkReportTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.spkShrinkReportTable tbody tr:hover {
+    background: #fafbfc;
+}
+
+.spkShrinkColNo {
+    width: 3.25rem;
+    text-align: center !important;
+    color: #6b7280;
+}
+
+.spkShrinkColProcess {
+    font-weight: 600;
+    color: #111827;
+    white-space: normal;
+}
+
+.spkShrinkColDate {
+    width: 11.5rem;
+    color: #4b5563;
+}
+
+.spkShrinkColStatus {
+    text-align: center;
+    white-space: nowrap;
+    width: 7.5rem;
+}
+
+.spkToleranceStatus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.spkToleranceStatus.is-ok {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.spkToleranceStatus.is-nok {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.spkGoldTypeBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.spkGoldTypeBadge.is-serah {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.spkGoldTypeBadge.is-kembali {
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.spkControlReport {
+    gap: 1rem;
+}
+
+.spkControlSection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.spkControlSectionTitle {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.spkShrinkColValue {
+    width: 8rem;
+    text-align: right !important;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #111827;
+}
+
+.spkShrinkReportEmpty {
+    text-align: center !important;
+    color: #6b7280;
+    padding: 1.25rem 0.75rem !important;
+    white-space: normal !important;
+}
+
+.spkLaporanPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.spkCraftsmanReport {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.spkCraftsmanReportEmpty {
+    padding: 1.25rem 1rem;
+    border: 1px dashed #d1d5db;
+    border-radius: 0.55rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+    text-align: center;
+    background: #fafafa;
+}
+
+.spkCraftsmanCardGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.spkCraftsmanCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.65rem;
+    background: #fff;
+}
+
+.spkCraftsmanCardHeader {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.spkCraftsmanCardIndex {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 0.35rem;
+    border-radius: 0.4rem;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.spkCraftsmanCardHeading {
+    min-width: 0;
+}
+
+.spkCraftsmanCardTitle {
+    margin: 0;
+    color: #111827;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.spkCraftsmanCardProcess {
+    margin: 0.15rem 0 0;
+    color: #64748b;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}
+
+.spkCraftsmanCardMetrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.spkCraftsmanCardMetric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #f8fafc;
+}
+
+.spkCraftsmanCardMetric.is-shrink {
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.spkCraftsmanCardMetricLabel {
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.spkCraftsmanCardMetricValue {
+    color: #111827;
+    font-size: 0.875rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+}
+
+.spkCraftsmanCardMetric.is-shrink .spkCraftsmanCardMetricValue {
+    color: #dc2626;
+}
+
+.spkCraftsmanCardMetricHint {
+    color: #94a3b8;
+    font-size: 0.7rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+    .spkCraftsmanCardGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .spkCraftsmanCardMetrics {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkProcessSection {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: visible;
+}
+
+.spkProcessTabs {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--sapGroup_TitleBorderColor, #e5e5e5);
+    background: transparent;
+}
+
+.spkProcessTab {
+    appearance: none;
+    border: none;
+    border-bottom: 0.188rem solid transparent;
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0 0 -1px;
+    padding: 0.55rem 0.35rem;
+    border-radius: 0;
+    background: transparent;
+    color: var(--sapContent_LabelColor, #6a6d70);
+    font-family: var(--sapFontFamily, inherit);
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    cursor: pointer;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.spkProcessTab:hover {
+    background: transparent;
+    color: var(--sapTextColor, #32363a);
+}
+
+.spkProcessTab.is-active {
+    background: transparent;
+    color: var(--sap-fiori-brand, #0070f2);
+    font-weight: 700;
+    border-bottom-color: var(--sap-fiori-brand, #0070f2);
+}
+
+.spkProcessTabCount {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-inline-start: 0.3rem;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: #e8f1fd;
+    color: var(--sap-fiori-brand, #0070f2);
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.spkProcessTab.is-active .spkProcessTabCount {
+    background: color-mix(in srgb, var(--sap-fiori-brand, #0070f2) 18%, #fff);
+}
+
+.spkProcessTabPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: visible;
+    padding: 0.75rem 1rem 1rem;
+    box-sizing: border-box;
+    background: #fff;
+}
+
+.spkProcessTabContent {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 8rem;
+}
+
+.spkProcessPanelHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+}
+
+.spkProcessSource {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.spkProcessSourceHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.spkProcessSourceTitle {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.spkProcessEmpty {
+    padding: 0.5rem 0;
+    color: #6b7280;
+    font-size: 0.8125rem;
+}
+
+.spkProcessTableWrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+.spkProcessTable {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 32rem;
+}
+
+.spkProcessTable th,
+.spkProcessTable td {
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    vertical-align: top;
+    font-size: 0.75rem;
+    border-bottom: 1px solid #eceff2;
+    white-space: nowrap;
+}
+
+.spkProcessTable thead th {
+    background: #f3f4f6;
+    font-weight: 700;
+    color: #111827;
+}
+
+.spkProcessTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.spkProcessColNo {
+    width: 2.5rem;
+    text-align: center;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+
+.spkProcessViewToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.spkProcessCardList {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.spkProcessCard {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    background: #fff;
+    overflow: hidden;
+}
+
+.spkProcessCardList > .spkProcessCard:last-child {
+    margin-bottom: 1rem;
+}
+
+.spkProcessCard.is-summary {
+    overflow: visible;
+}
+
+.spkProcessCardHeader {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.55rem 0.75rem;
+    border: none;
+    background: #f8fafc;
+    border-bottom: 1px solid #eef2f7;
+    box-sizing: border-box;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+}
+
+.spkProcessCardHeader.is-clickable {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.spkProcessCardHeader.is-clickable:hover {
+    background: #f1f5f9;
+}
+
+.spkProcessCardHeader.is-clickable:focus-visible {
+    outline: 2px solid var(--sap-fiori-brand, #0070f2);
+    outline-offset: -2px;
+}
+
+.spkProcessCard.is-summary .spkProcessCardHeader {
+    border-bottom: none;
+}
+
+.spkProcessCardHeaderChevron {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex-shrink: 0;
+    color: #94a3b8;
+}
+
+.spkProcessCardHeader.is-clickable:hover .spkProcessCardHeaderChevron {
+    color: #64748b;
+}
+
+.spkProcessCardHeaderMeta {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.85rem 1.25rem;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.spkProcessCardHeaderMetaItem {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.spkProcessCardHeaderMetaLabel {
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.spkProcessCardHeaderMetaValue {
+    color: #1f2937;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-align: right;
+}
+
+.spkProcessCardHeading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.spkProcessCardIndex {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.65rem;
+    height: 1.65rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: #e8eef7;
+    color: #1e3a5f;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.spkProcessCardHeadingText {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.5rem;
+    min-width: 0;
+}
+
+.spkProcessCardTitle {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.spkProcessCardSubtitle {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.8125rem;
+    line-height: 1.3;
+}
+
+.spkProcessCardStatus {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: #ecfdf3;
+    color: #166534;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.spkProcessCardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.75rem 1rem 1.15rem;
+}
+
+.spkProcessCardModal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: min(56rem, calc(100vw - 2rem));
+    max-width: min(56rem, calc(100vw - 2rem));
+    max-height: min(90vh, 52rem);
+    padding: 1rem 1.15rem 1.15rem;
+    overflow: hidden;
+}
+
+.spkProcessCardModalHeader {
+    padding-right: 1.75rem;
+    text-align: left;
+}
+
+.spkProcessCardModalBody {
+    min-height: 0;
+    overflow: auto;
+    margin: 0 -0.15rem;
+    padding: 0 0.15rem;
+}
+
+.spkProcessCard.is-modal {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.spkProcessCard.is-modal .spkProcessCardBody {
+    padding: 0.15rem 0 0.5rem;
+}
+
+.spkProcessCardCategoryText {
+    display: flex;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin: 0;
+    line-height: 1.3;
+    min-width: 0;
+}
+
+.spkProcessCardCategoryLabel {
+    flex: 0 0 auto;
+    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.spkProcessCardCategoryValue {
+    flex: 0 1 auto;
+    color: #1f2937;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: left;
+    word-break: break-word;
+}
+
+.spkProcessDetailRows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+    min-width: 0;
+}
+
+.spkProcessStackedLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.spkProcessDetailColumns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.5rem;
+    row-gap: 0.75rem;
+    align-items: start;
+}
+
+@media (max-width: 640px) {
+    .spkProcessDetailColumns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkProcessDetailRows .spkProcessInfoItem {
+    display: flex;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.spkProcessDetailRows .spkProcessInfoItem dt {
+    margin: 0;
+    flex: 0 0 auto;
+    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.spkProcessDetailRows .spkProcessInfoItem dd {
+    margin: 0;
+    flex: 0 1 auto;
+    color: #1f2937;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    word-break: break-word;
+}
+
+.spkProcessDetailRows .spkProcessInfoItem dd.is-shrink {
+    color: #dc2626;
+}
+
+.spkProcessDetailRows .spkProcessInfoItem dd.spkProcessQcStatusValue {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.spkProcessDetailRows .spkProcessInfoItem.is-with-breakdown dd {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.spkProcessInfoItem.is-coran-materials {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+    grid-template-columns: none;
+}
+
+.spkCoranDetailLabel {
+    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.spkCoranMaterialSplit {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    align-items: start;
+}
+
+.spkStoneBatchGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    align-items: start;
+}
+
+.spkStoneBatchPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .spkStoneBatchGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkCoranMaterialTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.spkCoranMaterialTable th,
+.spkCoranMaterialTable td {
+    padding: 0.45rem 0.65rem;
+    text-align: left;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    vertical-align: middle;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.spkCoranMaterialTable thead th {
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: #f8fafc;
+}
+
+.spkCoranMaterialTable thead th:last-child,
+.spkCoranMaterialTable td:last-child,
+.spkCoranMaterialTable tfoot td {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.spkCoranMaterialTable tbody tr.spkCoranCategoryRow th {
+    color: #111827;
+    font-weight: 700;
+    background: #fff;
+}
+
+.spkCoranMaterialTable tbody tr.spkCoranCategoryRow td {
+    color: #111827;
+    font-weight: 700;
+}
+
+.spkCoranMaterialTable tbody tr.spkCoranLineRow td:first-child {
+    color: #64748b;
+    font-weight: 500;
+    padding-left: 1.1rem;
+}
+
+.spkCoranMaterialTable tbody tr.spkCoranLineRow td:last-child {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+.spkCoranMaterialTable tbody tr:last-child th,
+.spkCoranMaterialTable tbody tr:last-child td {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.spkCoranMaterialTable tfoot th,
+.spkCoranMaterialTable tfoot td {
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc;
+    color: #111827;
+    font-weight: 700;
+}
+
+.spkCoranMaterialTable tfoot tr:last-child th,
+.spkCoranMaterialTable tfoot tr:last-child td {
+    border-bottom: none;
+}
+
+.spkCoranMaterialTable tfoot th {
+    text-align: left;
+}
+
+.spkCoranMaterialTable td.is-shrink,
+.spkCoranMaterialTable tfoot td.is-shrink {
+    color: #dc2626;
+}
+
+.spkCoranBreakdownEmpty {
+    color: #94a3b8 !important;
+    font-style: italic;
+    font-weight: 400 !important;
+    text-align: left !important;
+}
+
+@media (max-width: 720px) {
+    .spkCoranMaterialSplit {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkProcessMaterialLines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0.15rem 0 0;
+    list-style: none;
+    border-top: 1px dashed #e5e7eb;
+}
+
+.spkProcessMaterialLine {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: baseline;
+}
+
+.spkProcessMaterialName {
+    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.spkProcessMaterialNotes {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+.spkProcessMaterialWeight {
+    color: #475569;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.spkProcessInfoGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1rem;
+    row-gap: 0.25rem;
+    margin: 0;
+}
+
+.spkProcessInfoItem {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.spkProcessInfoItem dt {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.spkProcessInfoItem dd {
+    margin: 0;
+    color: #1f2937;
+    font-size: 0.875rem;
+    word-break: break-word;
+}
+
+.spkProcessNotesBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.spkProcessNoteItem {
+    margin: 0;
+    color: #1f2937;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.spkProcessNoteLabel {
+    color: #64748b;
+    font-weight: 600;
+}
+
+.spkProcessNoteValue {
+    color: #1f2937;
+}
+
+.spkProcessNoteItem.is-qc-ok .spkProcessNoteValue {
+    color: #15803d;
+    font-weight: 700;
+}
+
+.spkProcessNoteItem.is-qc-not-ok .spkProcessNoteValue {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+.spkProcessCardSection.is-meta {
+    padding-top: 0.35rem;
+    border-top: 1px dashed #e5e7eb;
+}
+
+.spkProcessCardSection.is-approval {
+    padding-top: 0.55rem;
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.15rem;
+    border-top: 1px dashed #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.spkApprovalTimeline {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0.35rem;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(11.5rem, 1fr);
+    align-items: start;
+    gap: 0;
+    overflow-x: auto;
+}
+
+.spkApprovalTimelineItem {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: relative;
+    min-width: 0;
+    padding: 0;
+}
+
+.spkApprovalTimelineMarker {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.1rem;
+    margin-bottom: 0.3rem;
+}
+
+.spkApprovalTimelineItem:not(.is-last) .spkApprovalTimelineMarker::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 1.5px;
+    transform: translateY(-50%);
+    background: #e5e7eb;
+    z-index: 0;
+}
+
+.spkApprovalTimelineDot {
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    border: 1.5px solid #94a3b8;
+    background: #fff;
+    box-shadow: 0 0 0 2px #fff;
+    z-index: 1;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.spkApprovalTimelineIcon {
+    width: 0.6rem;
+    height: 0.6rem;
+}
+
+.spkApprovalTimelineItem.is-ok .spkApprovalTimelineDot {
+    border-color: #16a34a;
+    background: #22c55e;
+    color: #fff;
+}
+
+.spkApprovalTimelineItem.is-not-ok .spkApprovalTimelineDot {
+    border-color: #dc2626;
+    background: #ef4444;
+    color: #fff;
+}
+
+.spkApprovalTimelineItem.is-last.is-ok .spkApprovalTimelineDot {
+    border-color: #15803d;
+    background: #16a34a;
+}
+
+.spkApprovalTimelineContent {
+    min-width: 0;
+    padding: 0 0.4rem;
+    text-align: center;
+}
+
+.spkApprovalTimelineHeader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.spkApprovalTimelineStatus {
+    margin: 0;
+    color: #1f2937;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.spkApprovalTimelineMeta {
+    margin: 0.1rem 0 0;
+    color: #64748b;
+    font-size: 0.65rem;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.spkApprovalTimelineNotes {
+    margin: 0.1rem 0 0;
+    color: #475569;
+    font-size: 0.65rem;
+    line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+    .spkApprovalTimeline {
+        grid-auto-columns: minmax(10.5rem, 70vw);
+    }
+}
+
+.spkProcessCardSection.is-meta .spkProcessInfoItem dd {
+    color: #64748b;
+}
+
+.spkProcessInfoItem.is-audit {
+    display: block;
+    grid-template-columns: none;
+}
+
+.spkProcessAuditLine {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+    .spkProcessInfoGrid,
+    .spkProcessDetailRows .spkProcessInfoItem {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .spkProcessCardHeadingText {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.1rem;
+    }
+}
+
+.spkItemStoneCard,
+.spkSidebar,
+.spkDetailItemPanel {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.spkMainPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    overflow: visible;
+    flex: 1 1 auto;
+    min-width: 0;
+    background: #fff;
+    border: none;
+    box-shadow: none;
+    border-radius: 0.75rem;
+}
+
+.spkItemStoneBody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.spkItemStoneCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+}
+
+.spkItemStoneSection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.spkItemStoneSection + .spkItemStoneSection {
+    padding-top: 0.75rem;
+}
+
+.spkItemStoneBody > .spkItemStoneSection:last-child {
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.15rem;
+    border-bottom: 1px solid #eceff2;
+}
+
+.spkItemDetailGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 1rem;
+    align-items: start;
+    width: 100%;
+}
+
+.spkItemImageCol {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    min-width: 0;
+    align-self: stretch;
+}
+
+.spkItemImagePlaceholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+    max-height: none;
+    padding: 1rem;
+    border: 1px dashed #d1d5db;
+    border-radius: 0.65rem;
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.spkItemImagePreview {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.65rem;
+    background: #f9fafb;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.spkItemImagePreview img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.spkItemImagePlaceholder ui5-icon {
+    width: 3.25rem;
+    height: 3.25rem;
+    color: #9ca3af;
+}
+
+.spkItemFieldsCol {
+    min-width: 0;
+    width: 100%;
+}
+
+.spkItemMetaTable {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.spkItemMetaTable th,
+.spkItemMetaTable td {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid #eceff2;
+}
+
+.spkItemMetaTable tr:last-child th,
+.spkItemMetaTable tr:last-child td {
+    border-bottom: none;
+}
+
+.spkItemMetaTable th {
+    width: 42%;
+    max-width: 14rem;
+    font-weight: 700;
+    color: #4b5563;
+    background: #f9fafb;
+    white-space: nowrap;
+}
+
+.spkItemMetaTable th:has(.spkItemMetaSizeLabels) {
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.spkItemMetaTable td {
+    color: #111827;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.spkItemTypeProductStack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.spkItemTypeProductLine {
+    color: #111827;
+    line-height: 1.35;
+}
+
+.spkItemSkuCode {
+    color: #4b5563;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.spkItemMetaTags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.spkItemMetaTag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.22rem 0.55rem;
+    border-radius: 0.3rem;
+    background: #111827;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spkItemMetaSizeLabels {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    white-space: normal;
+    font-weight: 700;
+    color: #4b5563;
+    line-height: 1.25;
+}
+
+.spkItemUkuranFields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+}
+
+.spkItemUkuranField {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 9.5rem) minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.spkItemUkuranField ui5-label {
+    font-size: 0.75rem;
+    color: #4b5563;
+    white-space: nowrap;
+}
+
+.spkFioriDetailBlock .spkItemUkuranField ui5-input {
+    width: 100%;
+    min-height: 1.6rem;
+}
+
+@media (max-width: 640px) {
+    .spkItemUkuranField {
+        grid-template-columns: 1fr;
+        gap: 0.15rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .spkItemDetailGrid {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .spkItemImagePlaceholder {
+        min-height: 12rem;
+        max-height: 16rem;
+        max-width: 16rem;
+        margin-inline: auto;
+    }
+}
+
+.spkStoneListPanel .spkSidebarTitle {
+    margin-bottom: 0;
+}
+
+.spkStoneCardHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.spkStoneEmpty {
+    padding: 0.75rem 0 0.25rem;
+    color: #6b7280;
+}
+
+.spkStoneTableWrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.spkStoneTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.spkStoneTable th,
+.spkStoneTable td {
+    padding: 0.55rem 0.65rem;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid #eceff2;
+    color: #1f2937;
+}
+
+.spkStoneTable thead th {
+    font-weight: 700;
+    color: #111827;
+    background: #fafbfc;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    line-height: 1.3;
+    min-width: 6.5rem;
+}
+
+.spkStoneTable tbody td {
+    white-space: nowrap;
+}
+
+.spkStoneTable thead th:nth-child(2),
+.spkStoneTable tbody td:nth-child(2) {
+    min-width: 9.5rem;
+}
+
+.spkStoneTable thead th:nth-child(3),
+.spkStoneTable tbody td:nth-child(3) {
+    min-width: 7.5rem;
+}
+
+.spkStoneTable tbody tr:hover {
+    background: #fafbfc;
+}
+
+.spkStoneShape {
+    font-weight: 600;
+    margin-right: 0.4rem;
+}
+
+.spkStoneShapeCode {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.25rem;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.spkSidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.7rem 1rem;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.spkDetailItemPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.7rem 1rem;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.spkDetailBadge {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: #111827;
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.spkControlBarRight,
+.spkRecordNav,
+.spkHeaderActions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.spkControlBarRight {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.45rem;
+    margin-inline-start: auto;
+    align-self: center;
+}
+
+.spkTopBarCard .spkRecordPagerGroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    flex-shrink: 0;
+}
+
+.spkBarcode {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    padding: 0.2rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.45rem;
+    background: #fff;
+    text-decoration: none;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.spkBarcodeDialog {
+    max-width: min(22rem, calc(100vw - 2rem)) !important;
+}
+
+.spkBarcodeDialogBody {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.25rem 0 0.5rem;
+}
+
+.spkBarcodeDialogLabel {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #111827;
+    text-align: center;
+    word-break: break-all;
+}
+
+.spkBarcodeDialogEmpty {
+    margin: 0;
+    padding: 1.5rem 0.5rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.spkBarcodeSvg,
+.spkBarcode svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.spkSidebarHeader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.15rem;
+}
+
+.spkSidebarHeader .spkSidebarTitle {
+    align-self: flex-start;
+    margin-bottom: 0;
+}
+
+.spkSidebarHeader .spkBarcode {
+    width: min(100%, 10rem);
+    height: auto;
+    aspect-ratio: 1 / 1;
+}
+
+.spkApprovalActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 0.25rem;
+}
+
+/* Approve: hijau solid (bukan pastel Positive default) */
+.spkApprovalApproveBtn::part(button) {
+    background: var(--sap-fiori-accept, #30914c);
+    border-color: var(--sap-fiori-accept, #30914c);
+    color: #fff;
+}
+
+.spkApprovalApproveBtn:hover::part(button) {
+    background: var(--sap-fiori-accept-hover, #257a3e);
+    border-color: var(--sap-fiori-accept-hover, #257a3e);
+    color: #fff;
+}
+
+.spkApprovalApproveBtn:active::part(button) {
+    background: var(--sap-fiori-accept-active, #1e6633);
+    border-color: var(--sap-fiori-accept-active, #1e6633);
+    color: #fff;
+}
+
+.spkApprovalRejectDialog {
+    max-width: min(28rem, calc(100vw - 2rem)) !important;
+}
+
+.spkHeaderActionBtn {
+    appearance: none;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.45rem;
+    background: #6b7280;
+    color: #fff;
+    cursor: pointer;
+    padding: 0;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+.spkHeaderActionBtn:hover {
+    background: #4b5563;
+}
+
+.spkHeaderActionBtn:active {
+    background: #374151;
+}
+
+.spkHeaderActionBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.spkHeaderActionBtn:disabled:hover,
+.spkHeaderActionBtn:disabled:active {
+    background: #6b7280;
+}
+
+.spkHeaderActionBtn ui5-icon {
+    width: 1.45rem;
+    height: 1.45rem;
+    color: #fff;
+}
+
+.spkHeaderActionBtn--danger {
+    background: #dc2626;
+}
+
+.spkHeaderActionBtn--danger:hover {
+    background: #b91c1c;
+}
+
+.spkHeaderActionBtn--danger:active {
+    background: #991b1b;
+}
+
+.spkBreadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    min-width: 0;
+}
+
+.spkBreadcrumbLink {
+    color: #714b67;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.spkBreadcrumbLink:hover {
+    text-decoration: underline;
+}
+
+.spkBreadcrumbSep {
+    color: #9ca3af;
+}
+
+.spkBreadcrumbCurrent {
+    color: #111827;
+    font-weight: 700;
+}
+
+.spkRecordPager {
+    font-size: 0.8125rem;
+    color: #4b5563;
+    padding: 0 0.35rem;
+    white-space: nowrap;
+}
+
+.spkStatusPipeline {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 0;
+}
+
+.spkStatusStage {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2rem;
+    padding: 0.35rem 1.15rem 0.35rem 1.35rem;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%, 10px 50%);
+    margin-left: -0.35rem;
+}
+
+.spkStatusStage:first-child {
+    margin-left: 0;
+    padding-left: 0.9rem;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%);
+    border-radius: 0.25rem 0 0 0.25rem;
+}
+
+.spkStatusStage:last-child {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 10px 50%);
+    border-radius: 0 0.25rem 0.25rem 0;
+    padding-right: 0.9rem;
+}
+
+.spkStatusStage.is-active {
+    background: #017e84;
+    color: #fff;
+    z-index: 1;
+}
+
+.spkStatusStage.is-done {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.spkSidebarFields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    max-height: min(70vh, 42rem);
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.spkSidebarTitle {
+    margin: 0 0 0.15rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.01em;
+}
+
+.spkSidebarTitle--spaced {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid #eceff2;
+}
+
+.spkDocTitleBlock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+}
+
+.spkDocTitleRow {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.spkTypeBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.spkTypeBadge--stock {
+    background: var(--app-brand-color, #1e3a8a);
+    border-color: var(--app-brand-color, #1e3a8a);
+    color: #fff;
+}
+
+.spkTypeBadge--pesanan {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+}
+
+.spkTypeBadge--refund-exchange {
+    background: #93c5fd;
+    border-color: #60a5fa;
+    color: #1e3a8a;
+}
+
+.spkTypeBadge--reparasi {
+    background: #facc15;
+    border-color: #eab308;
+    color: #713f12;
+}
+
+.spkTypeBadge--default {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+.spkQcStatusBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.spkQcStatusBadge--ok {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.spkQcStatusBadge--not-ok {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #b91c1c;
+}
+
+.spkPriorityLabel {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid #dc2626;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.spkOverdueLabel {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid #b45309;
+    background: #fff7ed;
+    color: #b45309;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.spkDocTitle {
+    margin: 0;
+    font-size: 1.65rem;
+    line-height: 1.15;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.02em;
+    word-break: break-word;
+}
+
+.spkFormGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 2.5rem;
+}
+
+.spkFormColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.spkFormField {
+    display: grid;
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+}
+
+.spkSidebar .spkFormField {
+    grid-template-columns: 8.25rem minmax(0, 1fr);
+    gap: 0.5rem;
+}
+
+.spkFormLabel {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    padding-top: 0.1rem;
+}
+
+.spkFormValue {
+    font-size: 0.875rem;
+    color: #111827;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.spkFormValue--accent {
+    color: #c2410c;
+}
+
+.spkFormValue--success {
+    color: #15803d;
+    font-weight: 600;
+}
+
+.spkFormLink {
+    color: #2563eb;
+    font-weight: 500;
+}
+
+@media (max-width: 1100px) {
+    .spkSidebar,
+    .spkDetailItemPanel {
+        grid-column: 1 / -1;
+        grid-row: auto;
+    }
+
+    .spkDetailItemPanel {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+    }
+}
+
+@media (max-width: 960px) {
+    .spkFormGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .spkDocTitle {
+        font-size: 1.35rem;
+    }
+
+    .spkFormField,
+    .spkSidebar .spkFormField {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+    }
+
+    .spkTopBarMain {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .spkStatusPipeline {
+        justify-content: flex-start;
+    }
+}
+
+.spkDetailHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.spkDetailSubtitle {
+    margin-top: 0.2rem;
+    color: #2563eb;
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.spkDetailCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+    padding: 1.25rem;
+}
+
+.spkDetailGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem 1.25rem;
+}
+
+.spkDetailField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.spkDetailValue {
+    color: #111827;
+    font-size: 0.875rem;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+@media (max-width: 960px) {
+    .spkDetailGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .spkDetailGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkCreateSelectorRow {
+    display: flex;
+    align-items: stretch;
+    gap: 0.75rem;
+}
+
+.spkCreateSelectorValue {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-height: 2.5rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #f9fafb;
+    font-size: 0.875rem;
+    color: #111827;
+}
+
+.spkCreateSelectorValue strong {
+    font-weight: 600;
+}
+
+.spkCreateSelectorValue span {
+    color: #4b5563;
+    font-size: 0.8125rem;
+}
+
+.spkCreateHint {
+    margin: 0;
+    padding: 0.75rem 0.9rem;
+    border-radius: 0.5rem;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.spkCreateDialog {
+    max-width: min(56rem, calc(100vw - 2rem)) !important;
+}
+
+.spkCreateDialogTableWrap {
+    max-height: 24rem;
+    overflow: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+.spkCreateDialogTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.spkCreateDialogTable th,
+.spkCreateDialogTable td {
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #eef0f2;
+    white-space: nowrap;
+}
+
+.spkCreateDialogTable thead th {
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+    font-weight: 700;
+    color: #111827;
+    z-index: 1;
+}
+
+.spkCreateDialogTable tbody tr {
+    cursor: pointer;
+}
+
+.spkCreateDialogTable tbody tr:hover {
+    background: #f0fdf4;
+}
+
+.spkEditPage {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    max-width: 72rem;
+}
+
+.spkEditBreadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    color: #2563eb;
+}
+
+.spkEditBreadcrumb a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.spkEditBreadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.spkEditTitle {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.02em;
+}
+
+.spkEditForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.spkEditCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.spkEditGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.5rem;
+}
+
+.spkEditField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.spkEditField--wide {
+    grid-column: 1 / 2;
+}
+
+.spkEditField--full {
+    grid-column: 1 / -1;
+}
+
+.spkEditSelect {
+    height: 2.25rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    padding: 0.35rem 0.65rem;
+    background: #fff;
+    font-size: 0.875rem;
+    color: #111827;
+}
+
+.spkRequired {
+    color: #dc2626;
+}
+
+.spkEditFileHint {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.spkEditStoneCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.spkEditStoneHeader {
+    background: #111827;
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.55rem 0.85rem;
+}
+
+.spkEditStoneTableWrap {
+    overflow-x: auto;
+}
+
+.spkEditStoneTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.spkEditStoneTable th,
+.spkEditStoneTable td {
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid #eef0f2;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.spkEditStoneTable thead th {
+    background: #f8fafc;
+    font-weight: 700;
+    color: #111827;
+}
+
+.spkEditStoneCreateCol {
+    width: 5.5rem;
+}
+
+.spkEditStoneCreateCol .spkCreateBtn {
+    height: 1.85rem;
+    padding: 0 0.75rem;
+    font-size: 0.75rem;
+}
+
+.spkEditStoneCreateCol .spkCreateBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.spkEditActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0 1rem;
+}
+
+.spkEditActions .ui-button,
+.spkEditActions button,
+.spkEditActions a {
+    min-width: 8.5rem;
+}
+
+@media (max-width: 900px) {
+    .spkEditGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .spkEditField--wide {
+        grid-column: 1;
+    }
+}
+
+.spkFioriForm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding-block: 0.35rem 0.65rem;
+}
+
+.spkFioriFormCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+    padding: 0.35rem 0.55rem 0.5rem;
+}
+
+.spkFioriFormCardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0.35rem 0.65rem;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 0.25rem;
+}
+
+.spkFioriFormCardHeaderMain {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.spkFioriFormCardTitle {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.3;
+}
+
+.spkFioriFormCardSubtitle {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: #6b7280;
+}
+
+.spkFioriFormCardActions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.45rem;
+}
+
+.spkFioriFormCardBtnGrey::part(button) {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+.spkFioriFormCardBtnGrey:hover::part(button) {
+    background: #d1d5db;
+    border-color: #9ca3af;
+    color: #1f2937;
+}
+
+.spkFioriFormCardBtnYellow::part(button) {
+    background: #f59e0b;
+    border-color: #d97706;
+    color: #111827;
+}
+
+.spkFioriFormCardBtnYellow:hover::part(button) {
+    background: #d97706;
+    border-color: #b45309;
+    color: #111827;
+}
+
+.spkFioriFormCardBtnYellow[disabled]::part(button),
+.spkFioriFormCardBtnYellow[aria-disabled='true']::part(button) {
+    background: #fcd34d;
+    border-color: #fbbf24;
+    color: #78350f;
+    opacity: 1;
+}
+
+.spkFioriFormCard ui5-form {
+    width: 100%;
+}
+
+.spkFioriFormCard ui5-form-item {
+    margin-block: 0.1rem;
+}
+
+.spkFioriFormCard ui5-form-group {
+    margin-block: 0.35rem;
+}
+
+.spkFioriFormCard ui5-form-group:first-of-type {
+    margin-top: 0;
+}
+
+.spkFioriFormCard ui5-form-group:last-of-type {
+    margin-bottom: 0;
+}
+
+.spkFioriFormCard ui5-input,
+.spkFioriFormCard ui5-select,
+.spkFioriFormCard ui5-combobox,
+.spkFioriFormCard ui5-date-picker,
+.spkFioriFormCard ui5-textarea,
+.spkFioriFormCard ui5-file-uploader {
+    width: 100%;
+    min-height: 2rem;
+    font-size: 0.8125rem;
+    --sapFontSize: 0.8125rem;
+}
+
+.spkFioriFormCard ui5-input::part(input),
+.spkFioriFormCard ui5-textarea::part(textarea),
+.spkFioriFormCard ui5-combobox::part(input),
+.spkFioriFormCard ui5-date-picker::part(input) {
+    font-size: 0.8125rem;
+}
+
+.spkFioriFormCard ui5-input::part(input)::placeholder,
+.spkFioriFormCard ui5-textarea::part(textarea)::placeholder,
+.spkFioriFormCard ui5-combobox::part(input)::placeholder,
+.spkFioriFormCard ui5-date-picker::part(input)::placeholder,
+.spkFioriFormCard ui5-file-uploader::part(input)::placeholder {
+    font-size: 0.75rem;
+    font-style: normal;
+    color: #8396a8;
+}
+
+.spkFioriComboBox {
+    width: 100%;
+}
+
+.spkFioriFormCard .spkEditStoneCard {
+    margin-block: 0.85rem 0;
+}
+
+.spkFioriFormCard .spkEditStoneHeader {
+    padding: 0.4rem 0.7rem;
+}
+
+.spkFioriFormCard .spkEditStoneTable th,
+.spkFioriFormCard .spkEditStoneTable td {
+    padding: 0.45rem 0.65rem;
+}
+
+.spkFioriFooterBar {
+    margin-top: 0.15rem;
+    margin-bottom: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: #fff;
+}
+
+.spkFioriInlineField {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.spkFioriInlineGrow {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.spkFioriTwinFields {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+.spkFioriQtyWithUnit {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.spkFioriQtyWithUnit > ui5-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto !important;
+    max-width: 100%;
+}
+
+.spkFioriUnitSelect {
+    flex: 0 0 7.5rem;
+    width: 7.5rem !important;
+    min-width: 7.5rem;
+}
+
+.spkFioriUnitHint {
+    flex: 0 0 auto;
+    font-size: 0.875rem !important;
+    color: #374151 !important;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.spkFioriTwinFields > ui5-input {
+    width: 100% !important;
+    max-width: 100%;
+}
+
+.spkFioriDeliveryHint {
+    font-size: 0.75rem !important;
+    color: #6b7280 !important;
+    line-height: 1.3;
+}
+
+.spkFioriTwinField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.spkFioriTwinLabel {
+    font-size: 0.75rem !important;
+}
+
+@media (max-width: 640px) {
+    .spkFioriTwinFields {
+        flex-wrap: wrap;
+    }
+}
+
+.spkFioriError {
+    color: #bb0000 !important;
+    font-size: 0.75rem !important;
+}
+
+.spkFioriHint {
+    color: #6b7280 !important;
+    font-size: 0.75rem !important;
+}
+
+.spkFioriFieldStack {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.spkFioriFieldStack > ui5-combobox,
+.spkFioriFieldStack > ui5-input,
+.spkFioriFieldStack > ui5-select {
+    width: 100%;
+}
+
+.spkFioriDetailBlock {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.35rem 0.5rem 0.65rem;
+    --spk-detail-font: 0.8125rem;
+    --spk-detail-control-height: 2rem;
+}
+
+.spkFioriDetailBlock .spkItemFieldsCol .spkItemStoneSection {
+    margin-top: 0.65rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid #eceff2;
+    gap: 0.4rem;
+}
+
+.spkFioriDetailBlock .spkItemStoneBody > .spkItemStoneSection:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.spkFioriDetailBlock .spkItemDetailGrid {
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+
+.spkFioriDetailBlock .spkItemImageCol {
+    gap: 0.65rem;
+}
+
+.spkFioriDetailBlock .spkItemNotesBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+    margin-top: 0.35rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid #eceff2;
+}
+
+.spkFioriDetailBlock .spkItemNotesBlock .spkFioriDetailBlockTitle {
+    margin-bottom: 0;
+}
+
+.spkFioriDetailBlock .spkItemNotesBlock .spkFioriNotesTextArea {
+    width: 100% !important;
+    min-height: 8rem;
+}
+
+.spkFioriDetailBlock .spkItemNotesBlock .spkFioriNotesTextArea::part(textarea) {
+    min-height: 8rem;
+}
+
+.spkFioriDetailBlock .spkItemMetaTable.spkItemMetaTable--sm th,
+.spkFioriDetailBlock .spkItemMetaTable.spkItemMetaTable--sm td {
+    padding: 0.35rem 0.55rem;
+    font-size: var(--spk-detail-font);
+    line-height: 1.35;
+}
+
+.spkFioriDetailBlock .spkItemMetaTable.spkItemMetaTable--sm th {
+    width: 34%;
+    max-width: 11rem;
+    font-weight: 600;
+    color: #6a6d70;
+    background: #f7f8f9;
+    vertical-align: top;
+}
+
+.spkFioriDetailBlock .spkItemMetaTable.spkItemMetaTable--sm td {
+    font-weight: 400;
+    color: #32363a;
+}
+
+.spkFioriDetailBlock .spkItemMetaTable ui5-input,
+.spkFioriDetailBlock .spkItemMetaTable ui5-select,
+.spkFioriDetailBlock .spkItemMetaTable ui5-textarea {
+    width: 100%;
+    min-height: var(--spk-detail-control-height);
+    font-size: var(--spk-detail-font);
+    --sapFontSize: var(--spk-detail-font);
+}
+
+.spkFioriDetailBlock .spkItemMetaTable--sm ui5-input,
+.spkFioriDetailBlock .spkItemMetaTable--sm ui5-select {
+    min-height: var(--spk-detail-control-height);
+}
+
+.spkFioriDetailBlock .spkItemMetaTable ui5-input::part(input),
+.spkFioriDetailBlock .spkItemMetaTable ui5-select::part(label),
+.spkFioriDetailBlock .spkItemMetaTable ui5-select::part(text),
+.spkFioriDetailBlock .spkItemMetaTable ui5-textarea::part(textarea) {
+    font-size: var(--spk-detail-font);
+}
+
+.spkFioriDetailBlock .spkItemMetaTable ui5-input::part(input)::placeholder,
+.spkFioriDetailBlock .spkItemMetaTable ui5-textarea::part(textarea)::placeholder {
+    font-size: 0.75rem;
+    font-style: normal;
+    color: #8396a8;
+}
+
+.spkFioriDetailBlock .spkItemDescriptionInput {
+    min-height: 4.5rem;
+    width: 100%;
+}
+
+.spkFioriDetailBlock .spkItemDescriptionInput::part(textarea) {
+    min-height: 4.5rem;
+}
+
+.spkFioriDetailBlock .spkItemUkuranField {
+    grid-template-columns: minmax(6.75rem, 8.5rem) minmax(0, 1fr);
+    gap: 0.4rem;
+}
+
+.spkFioriDetailBlock .spkItemUkuranFields {
+    gap: 0.25rem;
+}
+
+.spkFioriDetailBlock .spkItemUkuranField ui5-label {
+    font-size: var(--spk-detail-font);
+    font-weight: 400;
+    color: #6a6d70;
+}
+
+.spkFioriDetailBlock .spkItemUkuranLabel {
+    font-size: var(--spk-detail-font);
+    font-weight: 400;
+    color: #6a6d70;
+}
+
+.spkFioriDetailBlock .spkItemUkuranField strong {
+    font-size: var(--spk-detail-font);
+    font-weight: 600;
+    color: #32363a;
+}
+
+.spkFioriDetailBlock .spkStoneTable th,
+.spkFioriDetailBlock .spkStoneTable td {
+    padding: 0.4rem 0.55rem;
+    font-size: var(--spk-detail-font);
+    line-height: 1.35;
+    white-space: normal;
+}
+
+.spkFioriDetailBlock .spkStoneTable thead th {
+    font-weight: 600;
+    color: #6a6d70;
+    background: #f7f8f9;
+}
+
+.spkFioriDetailBlock .spkStoneTable tbody td {
+    font-weight: 400;
+    color: #32363a;
+}
+
+.spkFioriDetailBlock .spkStoneTable tfoot .spkStoneTableTotal td {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+    font-size: var(--spk-detail-font);
+    font-weight: 600;
+}
+
+.spkStoneTable tfoot .spkStoneTableTotal td {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+    font-weight: 700;
+    color: #111827;
+    background: #f3f4f6;
+    border-bottom: none;
+}
+
+.spkStoneTable tfoot .spkStoneTableTotalValue {
+    text-align: left;
+}
+
+.spkStoneTable--editable .spkStoneTableActionCol {
+    width: 5.5rem;
+    text-align: center;
+}
+
+.spkStoneTable--editable .spkStoneRowSelect,
+.spkStoneTable--editable .spkStoneRowInput {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 2rem;
+    padding: 0.25rem 0.45rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.35rem;
+    background: #fff;
+    font-size: 0.8125rem;
+    color: #111827;
+}
+
+.spkStoneTable--editable .spkStoneRowComboBox {
+    width: 100%;
+    min-width: 9rem;
+}
+
+.spkStoneTable--editable .spkStoneRowComboBox::part(input),
+.spkStoneTable--editable .spkStoneRowComboBox::part(root) {
+    font-size: 0.8125rem;
+}
+
+.spkStoneTable--editable .spkStoneRowSelect:focus,
+.spkStoneTable--editable .spkStoneRowInput:focus {
+    outline: 2px solid #0a6ed1;
+    outline-offset: 1px;
+}
+
+.spkStoneTable--editable .spkStoneRowActionBtn {
+    height: 1.85rem;
+    padding: 0 0.65rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.35rem;
+    background: #f8fafc;
+    color: #111827;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.spkStoneTable--editable .spkStoneRowActionBtn:hover {
+    background: #eef2f7;
+}
+
+.spkStoneTable--editable .spkStoneRowActionBtn--danger {
+    border-color: #f1c0c0;
+    background: #fff5f5;
+    color: #bb0000;
+}
+
+.spkStoneTable--editable .spkStoneTableDraftRow td {
+    background: #f8fafc;
+}
+
+.spkFioriDetailFile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.spkFioriDetailBlock .spkFioriDetailFile ui5-file-uploader {
+    min-height: var(--spk-detail-control-height);
+    font-size: var(--spk-detail-font);
+    --sapFontSize: var(--spk-detail-font);
+}
+
+.spkFioriDetailBlockTitle {
+    height: 1.5rem;
+    margin: 0 0 0.3rem;
+    color: #32363a;
+    font-size: var(--spk-detail-font);
+    font-weight: 700;
+    line-height: 1.5rem;
+}
+
+.spkStoneCardHeader .spkFioriDetailBlockTitle {
+    margin-bottom: 0;
+}
+
+.spkFioriDetailBlockMeta {
+    color: #6b7280 !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.5rem;
+}
+
+.spkFioriDetailForm {
+    width: 100%;
+}
+
+.spkFioriDetailForm::part(layout) {
+    padding: 0;
+}
+
+.spkFioriDetailAlert {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid #d9e2ef;
+    border-radius: 0.25rem;
+    background: #f5f9fc;
+    color: #32363a;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+
+.spkFioriFormCard ui5-form-item.spkFioriDetailAlertItem {
+    width: 100%;
+    grid-column: 1 / -1;
+}
+
+.spkFioriFormCard ui5-form-item.spkFioriNotesItem {
+    width: 100%;
+    grid-column: 1 / -1;
+}
+
+.spkFioriNotesTextArea {
+    width: 100% !important;
+    min-height: 10rem;
+}
+
+.spkFioriNotesTextArea::part(textarea) {
+    min-height: 10rem;
+    font-size: 0.8125rem;
+}
+
+.spkFioriNotesTextArea::part(textarea)::placeholder {
+    font-size: 0.75rem;
+    font-style: normal;
+    color: #8396a8;
+}
+
+.spkApprovalFooter {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 1rem;
+    padding: 0.85rem 0.5rem 0.35rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.spkApprovalFooterCol {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    text-align: left;
+}
+
+.spkApprovalFooterTitle {
+    margin: 0 0 0.35rem;
+    color: #32363a;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: left;
+}
+
+.spkApprovalFooterSign {
+    width: 100%;
+    min-height: 4.5rem;
+    margin-bottom: 0.45rem;
+}
+
+.spkApprovalFooterMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    max-width: none;
+}
+
+.spkApprovalFooterMetaRow {
+    display: grid;
+    grid-template-columns: 4.25rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0.35rem;
+    width: 100%;
+    text-align: left;
+    margin: 0;
+    padding: 0;
+    line-height: 1.25;
+    border: none;
+    border-bottom: none;
+    text-decoration: none;
+}
+
+.spkApprovalFooterMetaLabel {
+    color: #6a6d70;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    border: none;
+    text-decoration: none;
+}
+
+.spkApprovalFooterMetaValue {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: none !important;
+    border-bottom: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-image: none !important;
+    text-decoration: none !important;
+    color: #32363a;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.spkApprovalFooterMetaValue::before,
+.spkApprovalFooterMetaValue::after {
+    content: none !important;
+    display: none !important;
+    border: none !important;
+}
+
+@media (max-width: 640px) {
+    .spkApprovalFooter {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .spkApprovalFooterMeta {
+        max-width: none;
+    }
+}
+
+.spkFioriStoneTitle {
+    color: #fff !important;
+    font-size: 0.8125rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em;
+}
+
+.spkFioriFooterBar::part(bar) {
+    padding-inline: 0.75rem;
+}
+
+.dashboardContent:has(.spkFioriForm) {
+    padding-bottom: 1rem;
+}
+
+

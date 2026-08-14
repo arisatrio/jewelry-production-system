@@ -1,0 +1,37 @@
+import type { Metadata } from 'next';
+import './clientAssetsImport';
+import '@ui5/webcomponents-react/styles.css';
+import './globals.css';
+import { ThemeProvider } from '@ui5/webcomponents-react/ThemeProvider';
+
+export const metadata: Metadata = {
+  title: 'Jewelry Production System',
+  description: 'Dashboard sistem produksi perhiasan dengan SAP Fiori UI',
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="id">
+      <head>
+        <script
+          data-ui5-config
+          type="application/json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              theme: 'sap_horizon',
+            }),
+          }}
+        />
+      </head>
+      <body>
+        <div className="appShell">
+          <ThemeProvider staticCssInjected>{children}</ThemeProvider>
+        </div>
+      </body>
+    </html>
+  );
+}

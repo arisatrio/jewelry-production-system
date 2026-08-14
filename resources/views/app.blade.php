@@ -34,6 +34,10 @@
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
+        <script data-ui5-config type="application/json">
+            {!! json_encode(['theme' => 'sap_horizon']) !!}
+        </script>
+
         @fonts
 
         @viteReactRefresh

@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 840" width="960" height="840" role="img" aria-labelledby="title desc">
+  <title id="title">Alur pembuatan SPK</title>
+  <desc id="desc">Activity diagram dengan swimlane vertikal untuk Admin SPK, Approver SPK, dan Manager Produksi. Proses dimulai saat Admin SPK menerima Request Order dari Store.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#111"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="839" fill="#fff" stroke="#111" stroke-width="1"/>
+
+  <line x1="320" y1="0" x2="320" y2="840" stroke="#111" stroke-width="1"/>
+  <line x1="640" y1="0" x2="640" y2="840" stroke="#111" stroke-width="1"/>
+  <line x1="0" y1="48" x2="960" y2="48" stroke="#111" stroke-width="1"/>
+
+  <text x="160" y="31" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#111">Admin SPK</text>
+  <text x="480" y="31" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#111">Approver SPK</text>
+  <text x="800" y="31" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#111">Manager Produksi</text>
+
+  <circle cx="160" cy="74" r="8" fill="#111"/>
+
+  <!-- 1. Terima Request Order dari Store -->
+  <rect x="45" y="98" width="230" height="56" rx="18" fill="#99CCFF" stroke="#111" stroke-width="1.4"/>
+  <text x="160" y="120" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">
+    <tspan x="160" dy="0">Menerima Request Order</tspan>
+    <tspan x="160" dy="16">Stock/Pesanan dari Store</tspan>
+  </text>
+
+  <!-- 2. Membuat SPK -->
+  <rect x="45" y="178" width="230" height="56" rx="18" fill="#99CCFF" stroke="#111" stroke-width="1.4"/>
+  <text x="160" y="200" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">
+    <tspan x="160" dy="0">Membuat SPK melalui</tspan>
+    <tspan x="160" dy="16">aplikasi sistem produksi</tspan>
+  </text>
+
+  <!-- 3. Mengirim draft -->
+  <rect x="45" y="258" width="230" height="56" rx="18" fill="#99CCFF" stroke="#111" stroke-width="1.4"/>
+  <text x="160" y="280" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">
+    <tspan x="160" dy="0">Mengirim draft SPK</tspan>
+    <tspan x="160" dy="16">ke Approver SPK</tspan>
+  </text>
+
+  <!-- 4. Approver -->
+  <rect x="365" y="338" width="230" height="56" rx="18" fill="#99CCFF" stroke="#111" stroke-width="1.4"/>
+  <text x="480" y="360" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">
+    <tspan x="480" dy="0">Menerima draft SPK</tspan>
+    <tspan x="480" dy="16">dan menyetujui</tspan>
+  </text>
+
+  <!-- 5. Print -->
+  <rect x="45" y="418" width="230" height="56" rx="18" fill="#99CCFF" stroke="#111" stroke-width="1.4"/>
+  <text x="160" y="440" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">
+    <tspan x="160" dy="0">Print dokumen SPK</tspan>
+    <tspan x="160" dy="16">yang telah disetujui</tspan>
+  </text>
+
+  <!-- 6. Kirim workshop -->
+  <rect x="45" y="498" width="230" height="56" rx="18" fill="#99CCFF" stroke="#111" stroke-width="1.4"/>
+  <text x="160" y="520" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">
+    <tspan x="160" dy="0">Mengirim dokumen</tspan>
+    <tspan x="160" dy="16">ke workshop produksi</tspan>
+  </text>
+
+  <!-- 8. Ubah data (reject path) -->
+  <rect x="45" y="608" width="230" height="56" rx="18" fill="#99CCFF" stroke="#111" stroke-width="1.4"/>
+  <text x="160" y="630" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">
+    <tspan x="160" dy="0">Mengubah data SPK</tspan>
+    <tspan x="160" dy="16">(kembali ke Draft)</tspan>
+  </text>
+
+  <!-- 7. Decision -->
+  <polygon points="800,580 848,636 800,692 752,636" fill="#fff" stroke="#111" stroke-width="1.4"/>
+  <text x="800" y="632" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">Menerima</text>
+  <text x="800" y="648" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">SPK?</text>
+
+  <circle cx="800" cy="780" r="12" fill="#fff" stroke="#111" stroke-width="1.6"/>
+  <circle cx="800" cy="780" r="7" fill="#111"/>
+
+  <path d="M 160 82 L 160 98" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 160 154 L 160 178" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 160 234 L 160 258" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 275 286 L 480 286 L 480 338" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 480 394 L 480 410 L 160 410 L 160 418" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 160 474 L 160 498" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 275 526 L 800 526 L 800 580" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 800 692 L 800 768" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 752 636 L 275 636" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M 45 636 L 18 636 L 18 206 L 45 206" fill="none" stroke="#111" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+  <text x="814" y="738" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">[OK]</text>
+  <text x="430" y="624" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#111">[Tidak OK]</text>
+</svg>

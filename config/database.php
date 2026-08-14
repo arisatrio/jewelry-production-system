@@ -64,6 +64,46 @@ return [
             ]) : [],
         ],
 
+        'second' => [
+            'driver' => env('DB_SECOND_CONNECTION', 'mysql'),
+            'url' => env('DB_SECOND_URL'),
+            'host' => env('DB_SECOND_HOST', '127.0.0.1'),
+            'port' => env('DB_SECOND_PORT', '3306'),
+            'database' => env('DB_SECOND_DATABASE', 'laravel'),
+            'username' => env('DB_SECOND_USERNAME', 'root'),
+            'password' => env('DB_SECOND_PASSWORD', ''),
+            'unix_socket' => env('DB_SECOND_SOCKET', ''),
+            'charset' => env('DB_SECOND_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_SECOND_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        'third' => [
+            'driver' => env('DB_THIRD_CONNECTION', 'mysql'),
+            'url' => env('DB_THIRD_URL'),
+            'host' => env('DB_THIRD_HOST', '127.0.0.1'),
+            'port' => env('DB_THIRD_PORT', '3306'),
+            'database' => env('DB_THIRD_DATABASE', 'laravel'),
+            'username' => env('DB_THIRD_USERNAME', 'root'),
+            'password' => env('DB_THIRD_PASSWORD', ''),
+            'unix_socket' => env('DB_THIRD_SOCKET', ''),
+            'charset' => env('DB_THIRD_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_THIRD_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

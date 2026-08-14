@@ -1,0 +1,424 @@
+Saya ingin membangun ulang modul FORM Pembuatan SPK Produksi dari Form Order pada project baru, dengan alur bisnis dan struktur database mengikuti sistem legacy yang sudah ada.
+
+Tolong generate desain implementasi yang lengkap untuk modul ini, meliputi arsitektur, flow bisnis, daftar function/service, field form, endpoint API, validasi, query/data source, status workflow, dan acceptance criteria.
+
+Konteks bisnis:
+- Modul ini dipakai untuk membuat dokumen SPK Produksi.
+- SPK bisa dibuat dari beberapa tipe:
+  - Pesanan
+  - Exchange
+  - Refund
+  - Reparasi
+  - Stock
+- Untuk tipe Pesanan, SPK dibuat dari Form Order / Request Order yang sudah ada.
+- Untuk tipe Exchange, Refund, dan Reparasi, SPK baru mereferensi SPK lama yang sudah approved.
+- Untuk tipe Stock, SPK dibuat manual tanpa referensi order.
+- Setelah SPK selesai di-approve, jika SPK berasal dari Form Order maka status Request Order terkait harus diubah menjadi ON GOING.
+- SPK punya detail batu/stone sebagai child table.
+- SPK juga menjadi master referensi untuk proses produksi lanjutan seperti Request JWCAD, Resin, Coran, Finishing Handmade, Polish Frame, Diamond Mounting, Diamond Unload, Polish Finished Good, dan Grafir.
+
+Gunakan database/table semantics berikut:
+- Tabel header utama: spk
+- Tabel detail batu: spkstone
+- Tabel master pendukung:
+  - mssupplier
+  - msitem
+  - msshape
+  - trframe
+  - sysstatus
+  - sysapproval
+- Sumber Form Order existing:
+  - view/list: vw_request_orderlist pada koneksi database version_1
+  - tabel asli untuk update status: request_order pada koneksi database version_1
+
+Field header SPK yang harus didukung:
+- row_id
+- spk_no
+- spk_type
+- ref_spk_id
+- request_order_no
+- customer_name
+- item_name
+- item_type_id
+- description
+- order_date
+- work_estimated
+- estimated_delivery_time
+- supplier_id
+- status_order
+- jwcad_3d
+- item_id
+- qty
+- diameter_length_ringsize
+- gold_weight
+- gold_color
+- gold_content
+- priority
+- file_name
+- notes
+- frame_id
+- status
+- last_process
+- last_weight
+- is_coran
+- is_finishinghandmade
+- is_polishframe
+- is_diamondmounting
+- is_polishfinishedgood
+- is_grafir
+- is_inprocess
+- is_deleted
+- created_date
+- created_by
+- modified_date
+- modified_by
+- deleted_date
+- deleted_by
+
+Field detail SPK Stone yang harus didukung:
+- line_id
+- row_id
+- shape_id
+- pcs
+- carat
+- size
+- is_deleted
+- created_date
+- created_by
+- modified_date
+- modified_by
+- deleted_date
+- deleted_by
+
+Istilah label bisnis yang dipakai:
+- spk_no = Produksi No
+- spk_type = Tipe Produksi
+- request_order_no = Pesanan
+- customer_name = Customer
+- item = Item
+- order_date = Order date
+- work_estimated = Work estimated
+- estimated_delivery_time = Estimated delivery
+- supplier_id = Supplier
+- status_order = Status order
+- jwcad_3d = JWCAD/3D
+- qty = Qty
+- diameter_length_ringsize = Diameter/Length/Ring size
+- gold_weight = Gold weight
+- gold_color = Gold color
+- gold_content = Finishing type
+- notes = Note
+- last_process = Proses terakhir
+- last_weight = Berat setelah proses
+- frame_id = Rangka No.
+- priority = Prioritas
+
+Flow bisnis yang harus dibuat:
+1. Halaman index/list SPK
+- Tampilkan datatable server-side.
+- Kolom:
+  - action button
+  - Produksi No
+  - Tipe Produksi
+  - Customer
+  - Item
+  - Order date
+  - Work estimated
+  - Estimated delivery
+  - Status
+  - Last Process
+- Action button bergantung pada status:
+  - jika status kosong: bisa edit
+  - jika status SPK010: bisa print dan approval
+  - jika status SPKDONE:
+    - admin/role tertentu bisa edit dan print
+    - role lain minimal bisa print
+- List default urut row_id DESC
+- Filter role legacy:
+  - user access id 12 hanya melihat tipe Reparasi, Exchange, Refund
+
+2. Halaman add/create SPK
+- Langkah pertama hanya memilih Tipe Produksi.
+- Tampilkan panel dinamis berdasarkan tipe:
+  - jika Pesanan:
+    - wajib pilih request_order_no via popup selector
+    - data selector menampilkan:
+      - doc_no
+      - customer
+      - item
+      - SKU/ref_sku
+  - jika Exchange/Refund/Reparasi:
+    - pilih SPK referensi yang status-nya sudah SPKDONE
+    - popup menampilkan:
+      - spk_no
+      - customer_name
+      - item_name
+      - last_weight
+      - frame_no
+      - request_order_no
+  - jika Stock:
+    - tidak butuh referensi apapun
+- Saat create:
+  - generate spk_no format YYYY/PRD/00001
+  - order_date default current datetime/date
+  - status awal kosong
+  - created_date dan created_by harus terisi
+- Rule create per tipe:
+  - Pesanan:
+    - ambil data Request Order berdasarkan request_order_no
+    - copy customer_name dari customer_id_txt
+    - copy item_name dari item_id_txt
+    - simpan request_order_no
+  - Exchange/Refund/Reparasi:
+    - ambil SPK referensi
+    - copy field berikut dari SPK lama:
+      - description
+      - work_estimated
+      - item_id
+      - qty
+      - diameter_length_ringsize
+      - gold_weight
+      - gold_color
+      - gold_content
+      - priority
+      - item_type_id
+    - simpan ref_spk_id
+    - spk_type mengikuti pilihan baru
+  - Stock:
+    - hanya buat header kosong dengan nomor SPK baru
+- Catatan penting:
+  - Di legacy, validasi frontend untuk SPK referensi sempat tidak diwajibkan, tetapi di project baru wajibkan ref_spk_id untuk Exchange/Refund/Reparasi agar data konsisten.
+
+3. Halaman form/edit SPK
+- Setelah create, user diarahkan ke halaman form detail.
+- Informasi readonly di header:
+  - spk_type
+  - request_order_no jika tipe Pesanan
+  - customer_name jika tipe Pesanan
+  - item_name jika tipe Pesanan
+  - ringkasan SPK referensi jika tipe Exchange/Refund
+- Form field editable:
+  - order_date
+  - priority
+  - description
+  - estimated_delivery_time
+  - item_type_id
+  - frame_id
+  - supplier_id
+  - qty
+  - status_order
+  - diameter_length_ringsize
+  - gold_weight
+  - gold_color
+  - gold_content
+  - file_name upload gambar/dokumen
+  - notes
+- Perhitungan:
+  - work_estimated tidak perlu input bebas final
+  - hitung otomatis selisih hari antara order_date dan estimated_delivery_time
+  - simpan hasilnya ke work_estimated
+- Rule item:
+  - jika request_order_no ada:
+    - item_id diambil dari Request Order
+    - customer_name dan item_name direfresh dari Request Order
+  - jika request_order_no kosong:
+    - item_id bisa berasal dari item_type_id atau mapping item manual sesuai desain baru
+    - item_name diambil dari master item
+- Rule frame:
+  - jika frame_id dipilih lalu SPK disimpan, update trframe.is_used = YES
+- Audit:
+  - update modified_date dan modified_by saat save
+- Soft delete:
+  - delete SPK hanya set is_deleted = 1, isi deleted_date dan deleted_by
+
+4. Detail child table Stone
+- SPK memiliki subform Stone.
+- Tabel Stone di halaman form SPK menampilkan:
+  - Shape
+  - Size (MM)
+  - Carat per PCS
+  - Pcs
+  - Total Carat
+- Saat render list:
+  - carat_per_pcs = total_carat / pcs
+  - tampilkan total pcs dan total carat di footer
+- Form Stone field:
+  - shape_id
+  - pcs
+  - carat
+  - size
+- Catatan perilaku legacy:
+  - nilai carat yang disimpan di DB sebenarnya diperlakukan sebagai total carat per line
+  - tampilan "Carat per Pcs" dihitung saat render
+- Delete Stone juga soft delete
+
+5. Approval workflow
+- Gunakan engine approval generik berbasis sysstatus dan sysapproval.
+- doc_name untuk modul ini adalah spk
+- current status flow minimum:
+  - status awal kosong
+  - saat submit/approval pertama, ambil status pertama dari sysstatus berdasarkan doc_name = spk dan seq = 1
+  - di legacy terlihat kode approval awal memakai SPK010
+  - final approved status adalah SPKDONE
+- Saat approval disimpan:
+  - insert log ke sysapproval
+  - update status di tabel spk ke next_status
+- Side effect saat next_status = SPKDONE:
+  - jika request_order_no tidak kosong:
+    - update request_order.status = ON GOING pada database version_1
+
+6. Preview dan print
+- Buat halaman preview SPK yang menampilkan:
+  - informasi header lengkap
+  - tabel item/qty/material
+  - tabel stone
+  - status approval
+  - jika ada, histori proses turunan:
+    - requestjwcad
+    - resin
+    - coran
+    - finishinghandmade
+    - polishframe
+    - diamondmounting
+    - diamondunload
+    - polishfinishedgood
+    - grafir
+- Buat print layout gaya Form Order/Production Form.
+- Di legacy, untuk spk_type = Pesanan, print diberi border merah dan label PRIORITAS PRODUKSI. Ikuti behavior ini, walaupun nama field prioritas terpisah.
+- Print harus menampilkan:
+  - request order / tipe SPK
+  - item
+  - order date
+  - work estimated
+  - estimated delivery
+  - supplier
+  - status order
+  - spk_no
+  - JWCAD/3D
+  - tabel item detail
+  - gambar/file
+  - tabel stone
+  - notes
+  - approval trail
+
+Endpoint/API yang perlu dibuat:
+- GET /spk
+- POST /spk/list
+- GET /spk/add
+- POST /spk/create
+- GET /spk/form/{id}
+- POST /spk/save
+- GET /spk/delete?id={id}
+- GET /spk/preview/{id}
+- GET /spk/print/{id}
+- GET /spk/form-approval/{id}
+- POST /spk/approval
+- GET /spk/get-information?spk_id={id}
+- GET /spk/form-stone/{row_id}/{line_id}
+- POST /spk/save-stone
+- GET /spk/delete-stone?id={id}
+- POST /select-popup/request_order_no
+- POST /select-popup/spk_id
+- POST /select-popup/frame_id
+
+Function/service yang perlu dipecah:
+- SPKController::index
+- SPKController::datatable
+- SPKController::add
+- SPKController::create
+- SPKController::form
+- SPKController::save
+- SPKController::delete
+- SPKController::formApproval
+- SPKController::approval
+- SPKController::print
+- SPKController::preview
+- SPKController::getInformation
+- SPKController::formStone
+- SPKController::saveStone
+- SPKController::deleteStone
+- SPKService::generateNumber
+- SPKService::calculateWorkEstimated
+- SPKService::createFromRequestOrder
+- SPKService::createFromReferenceSPK
+- SPKService::saveHeader
+- SPKService::markFrameUsed
+- SPKService::handleApprovalSideEffect
+- SPKRepository
+- SPKStoneRepository
+- RequestOrderRepository
+- ApprovalService
+- SelectPopupService
+
+Validasi yang harus ada:
+- create:
+  - spk_type wajib
+  - jika Pesanan, request_order_no wajib
+  - jika Exchange/Refund/Reparasi, ref_spk_id wajib
+- save header:
+  - description wajib
+  - order_date wajib
+  - estimated_delivery_time wajib
+  - qty wajib
+  - diameter_length_ringsize wajib
+  - gold_weight wajib
+  - gold_color wajib
+  - priority wajib
+  - item_type_id wajib
+- save stone:
+  - shape_id wajib
+  - pcs wajib dan > 0
+  - carat wajib dan >= 0
+  - size wajib
+- approval:
+  - status approve wajib
+- relational validation:
+  - request_order_no harus valid di vw_request_orderlist
+  - ref_spk_id harus status SPKDONE
+  - frame_id jika diisi harus valid di trframe
+
+Query/data source behavior yang harus diikuti:
+- Request Order selector:
+  - source utama vw_request_orderlist
+  - ambil ref_sku dari tabel request_order berdasarkan row_id
+- SPK selector referensi:
+  - hanya SPK dengan status SPKDONE
+- SPK list:
+  - join sysstatus untuk status_txt
+  - join mssupplier untuk supplier name
+  - join trframe untuk frame_no
+  - join msitem untuk item_id_txt
+- Untuk tipe Pesanan, jika item_id di spk null, tampilan item bisa fallback ke item_type_id/master item sesuai behavior legacy
+
+Respons API standar:
+- selalu kembalikan status
+- msg
+- csrf/token jika framework memerlukannya
+- row_id untuk redirect setelah create/save
+- redirect flag jika perlu
+
+Acceptance criteria:
+- User bisa membuat SPK baru dari Form Order/Pesanan dan data customer/item otomatis terisi dari Request Order.
+- User bisa membuat SPK Exchange/Refund/Reparasi dari SPK lama yang sudah approved.
+- Nomor SPK otomatis tergenerate dengan format tahunan.
+- Save header menghitung work_estimated otomatis dari order_date dan estimated_delivery_time.
+- User bisa menambah, edit, dan soft delete detail Stone.
+- Approval mengubah status SPK mengikuti sysstatus.
+- Saat SPK final approved, Request Order terkait berubah menjadi ON GOING.
+- Preview dan print menampilkan seluruh data header, material, stone, dan approval.
+- Frame yang dipakai ditandai is_used = YES.
+- Data delete tidak hard delete.
+- Modul tetap kompatibel dengan struktur database lama.
+
+Tambahkan juga:
+- rekomendasi struktur folder/project modern
+- contoh DTO/request payload
+- contoh response JSON
+- pseudocode flow create/save/approval
+- daftar test case minimum untuk unit test dan integration test
+- daftar risiko migrasi dari legacy ke project baru
+
+Catatan implementasi penting:
+- Ikuti semantics field runtime dari kode legacy, bukan migration awal yang masih memakai field lama seperti request_order_id, length, diameter, ring_size secara terpisah.
+- Yang dipakai aktif di aplikasi saat ini adalah request_order_no dan diameter_length_ringsize.
+- Jika diperlukan, jelaskan mapping backward compatibility antara migration lama dan schema runtime yang dipakai form.

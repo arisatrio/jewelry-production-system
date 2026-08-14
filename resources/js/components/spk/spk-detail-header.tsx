@@ -1,0 +1,495 @@
+import { router } from '@inertiajs/react';
+import { useState, type ReactNode } from 'react';
+import barCodeIcon from '@ui5/webcomponents-icons/dist/bar-code.js';
+import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
+import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
+import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-arrow.js';
+import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
+import pictureIcon from '@ui5/webcomponents-icons/dist/picture.js';
+import printIcon from '@ui5/webcomponents-icons/dist/print.js';
+import { Button } from '@ui5/webcomponents-react/Button';
+import { Icon } from '@ui5/webcomponents-react/Icon';
+import ProductionController from '@/actions/App/Http/Controllers/ProductionController';
+import {
+    form as spkForm,
+    index as spkIndex,
+    show as spkShow,
+} from '@/routes/spk';
+import { SpkApprovalActions, type SpkApprovalAbilities } from '@/components/spk/spk-approval-actions';
+import { SpkBarcodeDialog } from '@/components/spk/spk-barcode-dialog';
+import { SpkCraftsmanReportSection } from '@/components/spk/spk-craftsman-report-section';
+import { SpkGoldReportTable } from '@/components/spk/spk-gold-report-table';
+import { SpkInformasiProduksiPanel } from '@/components/spk/spk-informasi-produksi-panel';
+import type { SpkApprovalFooterColumn } from '@/components/spk/spk-informasi-produksi-panel';
+import { SpkProcessPanel } from '@/components/spk/spk-process-panel';
+import { SpkProductionControlReportSection } from '@/components/spk/spk-production-control-report';
+import { SpkShrinkReportTable } from '@/components/spk/spk-shrink-report-table';
+import { SpkStoneReportTable } from '@/components/spk/spk-stone-report-table';
+import { SpkTypeBadge } from '@/components/spk/spk-type-badge';
+import type {
+    SpkCraftsmanReportCard,
+    SpkDetail,
+    SpkGoldReport,
+    SpkItemDetail,
+    SpkNavigation,
+    SpkProcessTab,
+    SpkProductionControlReport,
+    SpkShrinkReport,
+    SpkStoneItem,
+    SpkStoneReport,
+} from '@/components/spk/types';
+
+export type { SpkNavigation };
+
+type MainSectionTab = string;
+
+type SpkDetailLayoutProps = {
+    production: SpkDetail;
+    item: SpkItemDetail;
+    navigation: SpkNavigation;
+    detailUrl: string;
+    stones?: SpkStoneItem[];
+    processes: SpkProcessTab[];
+    shrinkReport: SpkShrinkReport;
+    craftsmanReport: SpkCraftsmanReportCard[];
+    goldReport: SpkGoldReport;
+    stoneReport: SpkStoneReport;
+    productionControlReport: SpkProductionControlReport;
+    activeTab: string;
+    onTabChange: (tab: string) => void;
+    initialMainSection?: string;
+    approval?: SpkApprovalAbilities;
+    approvalFooter?: SpkApprovalFooterColumn[];
+    children?: ReactNode;
+};
+
+function isProductionProcess(process: SpkProcessTab): boolean {
+    return (process.placement ?? 'proses-produksi') === 'proses-produksi';
+}
+
+export function SpkDetailLayout({
+    production,
+    item,
+    navigation,
+    detailUrl,
+    stones = [],
+    processes,
+    shrinkReport,
+    craftsmanReport,
+    goldReport,
+    stoneReport,
+    productionControlReport,
+    activeTab,
+    onTabChange,
+    initialMainSection = 'informasi-produksi',
+    approval,
+    approvalFooter,
+    children,
+}: SpkDetailLayoutProps) {
+    const [mainSection, setMainSection] =
+        useState<MainSectionTab>(initialMainSection);
+    const [barcodeOpen, setBarcodeOpen] = useState(false);
+    const workflowStatus = production.workflowStatus;
+    const activeStageIndex = workflowStatus?.stageIndex ?? 0;
+    const statusStages = workflowStatus?.stages ?? [
+        { key: 'draft', label: 'Draft' },
+        { key: 'confirmed', label: 'Confirmed' },
+        { key: 'inProgress', label: 'In Progress' },
+        { key: 'done', label: 'Done' },
+    ];
+    const isPriority = production.priority.trim().toUpperCase() === 'YES';
+    const isOverdue = workflowStatus?.isOverdue === true;
+    const productionProcesses = processes.filter(isProductionProcess);
+    const mainProcesses = processes.filter(
+        (process) => !isProductionProcess(process),
+    );
+    const mainSectionTabs: Array<{ id: MainSectionTab; label: string }> = [
+        { id: 'informasi-produksi', label: 'Informasi Produksi' },
+        { id: 'proses-produksi', label: 'Proses Produksi' },
+        ...mainProcesses.map((process) => ({
+            id: process.key,
+            label: process.label,
+        })),
+        { id: 'laporan-susut', label: 'Laporan Susut' },
+        { id: 'laporan-emas', label: 'Laporan Emas' },
+        { id: 'laporan-batu', label: 'Laporan Batu' },
+        { id: 'laporan-kontrol', label: 'Laporan Kontrol Produksi' },
+        { id: 'laporan-pengrajin', label: 'Laporan Pengrajin' },
+    ];
+    const activeMainProcess =
+        mainProcesses.find((process) => process.key === mainSection) ?? null;
+    const isInformasiProduksi = mainSection === 'informasi-produksi';
+    const lastProcessLabel = production.prosesTerakhir.trim();
+    const showLastProcessOnProsesTab =
+        workflowStatus?.key === 'inProgress' && lastProcessLabel !== '';
+
+    const goTo = (spkNo: string | null): void => {
+        if (!spkNo) {
+            return;
+        }
+
+        router.visit(spkShow.url(spkNo));
+    };
+
+    const openPrintPreview = (): void => {
+        const previewUrl = ProductionController.print.url(
+            Number(production.id),
+        );
+        const previewWindow = window.open(previewUrl, '_blank');
+
+        if (!previewWindow) {
+            window.alert(
+                'Gagal membuka preview print. Izinkan pop-up untuk situs ini, lalu coba lagi.',
+            );
+        }
+    };
+
+    const openItemImage = (): void => {
+        const imageUrl = item.imageUrl?.trim() ?? '';
+
+        if (imageUrl === '') {
+            window.alert('Gambar item belum tersedia untuk SPK ini.');
+
+            return;
+        }
+
+        const imageWindow = window.open(imageUrl, '_blank', 'noopener,noreferrer');
+
+        if (!imageWindow) {
+            window.alert(
+                'Gagal membuka gambar. Izinkan pop-up untuk situs ini, lalu coba lagi.',
+            );
+        }
+    };
+
+    const openEditForm = (): void => {
+        router.visit(spkForm.url(Number(production.id)));
+    };
+
+    const closeDetail = (): void => {
+        router.visit(spkIndex.url());
+    };
+
+    return (
+        <div className="spkDetailStack">
+            <div className="spkTopBarCard">
+                <div className="spkTopBarMain">
+                    <div className="spkTopBarLeft">
+                        <div className="spkDocTitleBlock">
+                            <div className="spkDocTitleRow">
+                                <h1 className="spkDocTitle">
+                                    {production.produksiNo}
+                                </h1>
+                                <SpkTypeBadge
+                                    type={production.tipeProduksi}
+                                />
+                                {isPriority ? (
+                                    <span className="spkPriorityLabel">
+                                        PRIORITAS
+                                    </span>
+                                ) : null}
+                                {isOverdue ? (
+                                    <span className="spkOverdueLabel">
+                                        OVERDUE
+                                    </span>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        <div
+                            className="spkStatusPipeline"
+                            aria-label="Status SPK"
+                        >
+                            {statusStages.map((stage, index) => (
+                                <div
+                                    key={stage.key}
+                                    className={[
+                                        'spkStatusStage',
+                                        index === activeStageIndex
+                                            ? 'is-active'
+                                            : '',
+                                        index < activeStageIndex
+                                            ? 'is-done'
+                                            : '',
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' ')}
+                                >
+                                    {stage.label}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="spkControlBarRight">
+                        <div className="spkRecordPagerGroup">
+                            <span className="spkRecordPager">
+                                {navigation.position} / {navigation.total}
+                            </span>
+                            <div className="spkRecordNav">
+                                <Button
+                                    design="Transparent"
+                                    icon={navigationLeftIcon}
+                                    tooltip="Previous"
+                                    disabled={!navigation.previousSpkNo}
+                                    onClick={() =>
+                                        goTo(navigation.previousSpkNo)
+                                    }
+                                />
+                                <Button
+                                    design="Transparent"
+                                    icon={navigationRightIcon}
+                                    tooltip="Next"
+                                    disabled={!navigation.nextSpkNo}
+                                    onClick={() => goTo(navigation.nextSpkNo)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="spkHeaderActions">
+                            {approval ? (
+                                <SpkApprovalActions
+                                    productionId={Number(production.id)}
+                                    approval={approval}
+                                />
+                            ) : null}
+                            <button
+                                type="button"
+                                className="spkHeaderActionBtn"
+                                aria-label="Edit"
+                                title="Edit SPK"
+                                disabled={approval?.canEdit === false}
+                                onClick={openEditForm}
+                            >
+                                <Icon name={editIcon} mode="Decorative" />
+                            </button>
+                            <button
+                                type="button"
+                                className="spkHeaderActionBtn"
+                                aria-label="Print"
+                                title="Preview Print"
+                                onClick={openPrintPreview}
+                            >
+                                <Icon name={printIcon} mode="Decorative" />
+                            </button>
+                            <button
+                                type="button"
+                                className="spkHeaderActionBtn"
+                                aria-label="QR Code"
+                                title="QR Code"
+                                onClick={() => setBarcodeOpen(true)}
+                            >
+                                <Icon name={barCodeIcon} mode="Decorative" />
+                            </button>
+                            <button
+                                type="button"
+                                className="spkHeaderActionBtn"
+                                aria-label="Gambar"
+                                title={
+                                    item.imageUrl
+                                        ? 'Buka gambar di tab baru'
+                                        : 'Gambar belum tersedia'
+                                }
+                                disabled={!item.imageUrl}
+                                onClick={openItemImage}
+                            >
+                                <Icon name={pictureIcon} mode="Decorative" />
+                            </button>
+                            <button
+                                type="button"
+                                className="spkHeaderActionBtn spkHeaderActionBtn--danger"
+                                aria-label="Tutup"
+                                title="Tutup"
+                                onClick={closeDetail}
+                            >
+                                <Icon name={declineIcon} mode="Decorative" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <SpkBarcodeDialog
+                open={barcodeOpen}
+                onOpenChange={setBarcodeOpen}
+                value={detailUrl}
+                label={production.produksiNo}
+            />
+
+            <div className="spkDetailBody">
+                <section className="spkMainPanel">
+                    <div
+                        className="spkSectionTabs"
+                        role="tablist"
+                        aria-label="Konten utama SPK"
+                    >
+                        {mainSectionTabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={mainSection === tab.id}
+                                className={[
+                                    'spkSectionTab',
+                                    mainSection === tab.id ? 'is-active' : '',
+                                    tab.id === 'proses-produksi' &&
+                                    showLastProcessOnProsesTab
+                                        ? 'spkSectionTab--withLastProcess'
+                                        : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                onClick={() => setMainSection(tab.id)}
+                            >
+                                <span className="spkSectionTabLabel">
+                                    {tab.label}
+                                </span>
+                                {tab.id === 'proses-produksi' &&
+                                showLastProcessOnProsesTab ? (
+                                    <span className="spkSectionTabLastProcess">
+                                        {lastProcessLabel}
+                                    </span>
+                                ) : null}
+                            </button>
+                        ))}
+                    </div>
+
+                    {isInformasiProduksi ? (
+                        <SpkInformasiProduksiPanel
+                            production={production}
+                            item={item}
+                            stones={stones}
+                            approvalFooter={approvalFooter}
+                        />
+                    ) : null}
+
+                    {mainSection === 'proses-produksi' ? (
+                        <div
+                            role="tabpanel"
+                            aria-label="Proses Produksi"
+                            className="spkProcessSection"
+                        >
+                            <div
+                                className="spkProcessTabs"
+                                role="tablist"
+                                aria-label="Proses SPK"
+                            >
+                                {productionProcesses.map((process) => (
+                                    <button
+                                        key={process.key}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={
+                                            activeTab === process.key
+                                        }
+                                        className={[
+                                            'spkProcessTab',
+                                            activeTab === process.key
+                                                ? 'is-active'
+                                                : '',
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' ')}
+                                        onClick={() =>
+                                            onTabChange(process.key)
+                                        }
+                                    >
+                                        {process.label}
+                                        {process.recordCount > 0 ? (
+                                            <span className="spkProcessTabCount">
+                                                {process.recordCount}
+                                            </span>
+                                        ) : null}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div
+                                className="spkProcessTabPanel"
+                                role="tabpanel"
+                                aria-label={`Panel ${activeTab}`}
+                            >
+                                {children}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {activeMainProcess ? (
+                        <div
+                            role="tabpanel"
+                            aria-label={activeMainProcess.label}
+                            className="spkProcessSection"
+                        >
+                            <div
+                                className="spkProcessTabPanel"
+                                role="tabpanel"
+                                aria-label={activeMainProcess.label}
+                            >
+                                <SpkProcessPanel
+                                    process={activeMainProcess}
+                                />
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {mainSection === 'laporan-susut' ? (
+                        <div
+                            role="tabpanel"
+                            aria-label="Laporan Susut"
+                            className="spkMainTabPanel spkLaporanPanel"
+                        >
+                            <SpkShrinkReportTable report={shrinkReport} />
+                        </div>
+                    ) : null}
+
+                    {mainSection === 'laporan-emas' ? (
+                        <div
+                            role="tabpanel"
+                            aria-label="Laporan Emas"
+                            className="spkMainTabPanel spkLaporanPanel"
+                        >
+                            <SpkGoldReportTable report={goldReport} />
+                        </div>
+                    ) : null}
+
+                    {mainSection === 'laporan-batu' ? (
+                        <div
+                            role="tabpanel"
+                            aria-label="Laporan Batu"
+                            className="spkMainTabPanel spkLaporanPanel"
+                        >
+                            <SpkStoneReportTable report={stoneReport} />
+                        </div>
+                    ) : null}
+
+                    {mainSection === 'laporan-kontrol' ? (
+                        <div
+                            role="tabpanel"
+                            aria-label="Laporan Kontrol Produksi"
+                            className="spkMainTabPanel spkLaporanPanel"
+                        >
+                            <SpkProductionControlReportSection
+                                report={productionControlReport}
+                            />
+                        </div>
+                    ) : null}
+
+                    {mainSection === 'laporan-pengrajin' ? (
+                        <div
+                            role="tabpanel"
+                            aria-label="Laporan Pengrajin"
+                            className="spkMainTabPanel spkLaporanPanel"
+                        >
+                            <SpkCraftsmanReportSection
+                                cards={craftsmanReport}
+                            />
+                        </div>
+                    ) : null}
+                </section>
+            </div>
+        </div>
+    );
+}
+
+/** @deprecated Use SpkDetailLayout */
+export const SpkDetailHeader = SpkDetailLayout;

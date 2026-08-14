@@ -1,0 +1,419 @@
+:not(:defined) {
+  display: none;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--sapBackgroundColor);
+  font-family: var(--sapFontFamily);
+}
+
+.appShell {
+  width: 100%;
+  height: 100%;
+}
+
+:root {
+  --app-navbar-inline-padding: 1.5rem;
+  --app-header-action-size: 2.25rem;
+}
+
+ui5-shellbar,
+ui5-shellbar[breakpoint-size='S'],
+ui5-shellbar[breakpoint-size='M'],
+ui5-shellbar[breakpoint-size='L'],
+ui5-shellbar[breakpoint-size='XL'],
+ui5-shellbar[breakpoint-size='XXL'] {
+  --_ui5_shellbar_root_height: 4.25rem;
+  height: 4.25rem;
+  position: relative;
+  box-sizing: border-box;
+  /* Padding kiri-kanan sama; kanan + ruang tombol setting */
+  padding-inline-start: var(--app-navbar-inline-padding) !important;
+  padding-inline-end: calc(
+    var(--app-navbar-inline-padding) + var(--app-header-action-size) + 0.25rem
+  ) !important;
+
+  /* Override biru default SAP untuk teks shell */
+  --sapButton_Lite_TextColor: #3f3f3f;
+  --sapButton_Lite_Hover_TextColor: #1a1a1a;
+  --sapButton_Lite_Active_TextColor: #1a1a1a;
+  --sapButton_IconColor: #3f3f3f;
+  --sapShell_InteractiveTextColor: #3f3f3f;
+  --sapShell_TextColor: #3f3f3f;
+  --sapShell_Hover_TextColor: #1a1a1a;
+  --sapLinkColor: #3f3f3f;
+
+  /* Hapus garis vertikal bawaan ShellBar di samping title */
+  --_ui5-shellbar_separator-color: transparent;
+}
+
+.shellHeaderWrap {
+  position: relative;
+}
+
+.shellSettingsBtn {
+  position: absolute;
+  right: var(--app-navbar-inline-padding);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  appearance: none;
+  border: none;
+  background: transparent;
+  width: var(--app-header-action-size);
+  height: var(--app-header-action-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  color: #3f3f3f;
+  cursor: pointer;
+  padding: 0;
+}
+
+.shellSettingsBtn:hover {
+  background: #f0f0f0;
+}
+
+.shellSettingsBtn ui5-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #3f3f3f;
+}
+
+/* Samakan avatar profil dengan icon action header */
+ui5-shellbar .shellProfileAvatar,
+ui5-shellbar ui5-avatar.shellProfileAvatar {
+  --sapContent_ContrastIconColor: #3f3f3f;
+  --sapAvatar_Background: transparent;
+  --sapAvatar_BorderColor: transparent;
+  --sapAvatar_Hover_Background: #f0f0f0;
+  --sapAvatar_Hover_BorderColor: transparent;
+  color: #3f3f3f;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+}
+
+.appNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  padding-block: 0;
+  padding-inline: var(--app-navbar-inline-padding);
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+  box-sizing: border-box;
+}
+
+.appNavItem {
+  appearance: none;
+  border: none;
+  background: transparent;
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  color: #3f3f3f;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  position: relative;
+}
+
+.appNavItem + .appNavItem::before {
+  content: '|';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #c4c4c4;
+  font-weight: 300;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.appNavItem:hover {
+  color: #1a1a1a;
+  background: #f5f5f5;
+}
+
+.appNavItem.is-active {
+  color: var(--sapBrandColor, #0070f2);
+  box-shadow: inset 0 -2px 0 var(--sapBrandColor, #0070f2);
+}
+
+.appNavItem.is-active .appNavChevron {
+  color: var(--sapBrandColor, #0070f2);
+}
+
+.appNavItemLaporan,
+.appNavItemDropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.appNavChevron {
+  font-size: 0.65rem;
+  color: #8a8a8a;
+}
+
+.shellBrand {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  max-height: none;
+  height: auto;
+  padding-block: 0.15rem;
+}
+
+.shellBrandMark {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  line-height: 1.1;
+  gap: 0.15rem;
+}
+
+.shellBrandDivider {
+  width: 1px;
+  height: 2rem;
+  background: #c4c4c4;
+  flex-shrink: 0;
+}
+
+.shellPageTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #3f3f3f;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.shellLogo {
+  height: 1.75rem;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.shellBrandText {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sapShell_TextColor, var(--sapContent_LabelColor));
+  white-space: nowrap;
+}
+
+.shellUserMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.1rem;
+  padding-inline: 0.75rem 0.25rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.shellDate {
+  font-size: 0.7rem;
+  color: #8a8a8a;
+}
+
+.shellGreeting {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #3f3f3f;
+}
+
+.shellSearchForm {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: min(28rem, 42vw);
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  box-sizing: border-box;
+  background: #f4f6f8;
+  border: 1px solid #d9dde3;
+  border-radius: 0.5rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.shellSearchForm:focus-within {
+  background: #fff;
+  border-color: var(--sapBrandColor, #0070f2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sapBrandColor, #0070f2) 20%, transparent);
+}
+
+.shellSearchIcon {
+  color: #6a6a6a;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.shellSearchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #3f3f3f;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+}
+
+.shellSearchInput::placeholder {
+  color: #9a9a9a;
+}
+
+.shellSearchInput::-webkit-search-decoration,
+.shellSearchInput::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.shellSearchClear {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #8a8a8a;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.shellSearchClear:hover {
+  color: #3f3f3f;
+  background: #e8ebef;
+}
+
+@media (max-width: 900px) {
+  .shellSearchForm {
+    width: min(18rem, 36vw);
+  }
+}
+
+@media (max-width: 720px) {
+  .shellSearchForm {
+    display: none;
+  }
+}
+
+.dashboardContent {
+  padding: 1rem 1.5rem;
+  box-sizing: border-box;
+  overflow: auto;
+  height: calc(100% - 4.25rem - 2.5rem);
+}
+
+.dashboardRow {
+  display: grid;
+  grid-template-columns: 2fr 10fr;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  align-items: start;
+}
+
+.dashboardCol {
+  min-width: 0;
+  width: 100%;
+}
+
+.dashboardCol2 .kpiGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.dashboardCol2 .kpiGrid > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.dashboardCol10 .chartsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+@media (max-width: 960px) {
+  .dashboardRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chartCardBody {
+  padding: 0.5rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chartCardBodyScroll {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.barRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.barLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.barCount {
+  font-size: 0.75rem;
+  color: var(--sapContent_LabelColor);
+  white-space: nowrap;
+}
+
+.kpiCardBody {
+  padding: 0 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tableSection {
+  margin-top: 0.5rem;
+}

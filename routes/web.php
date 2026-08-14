@@ -1,8 +1,70 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MsItemController;
+use App\Http\Controllers\MsItemVarianceController;
+use App\Http\Controllers\MsItemVarianceStoneController;
+use App\Http\Controllers\ProductionController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::get('/', [DashboardController::class, 'index'])->name('home');
+Route::get('spk', [ProductionController::class, 'index'])->name('spk.index');
+Route::get('spk/create', [ProductionController::class, 'create'])->name('spk.create');
+Route::post('spk', [ProductionController::class, 'store'])->name('spk.store');
+Route::match(['get', 'post'], 'spk/print', [ProductionController::class, 'printPreview'])
+    ->name('spk.print');
+Route::get('spk/print/template', [ProductionController::class, 'printTemplate'])
+    ->name('spk.print.template');
+Route::get('spk/form/{rowId}', [ProductionController::class, 'form'])
+    ->whereNumber('rowId')
+    ->name('spk.form');
+Route::get('spk/form/{rowId}/print', [ProductionController::class, 'print'])
+    ->whereNumber('rowId')
+    ->name('spk.print.show');
+Route::post('spk/form/{rowId}', [ProductionController::class, 'update'])
+    ->whereNumber('rowId')
+    ->name('spk.update');
+Route::post('spk/form/{rowId}/submit', [ProductionController::class, 'submit'])
+    ->whereNumber('rowId')
+    ->name('spk.submit');
+Route::post('spk/form/{rowId}/approve', [ProductionController::class, 'approve'])
+    ->whereNumber('rowId')
+    ->name('spk.approve');
+Route::post('spk/form/{rowId}/reject', [ProductionController::class, 'reject'])
+    ->whereNumber('rowId')
+    ->name('spk.reject');
+Route::delete('spk/form/{rowId}', [ProductionController::class, 'destroy'])
+    ->whereNumber('rowId')
+    ->name('spk.destroy');
+Route::get('spk/select/request-orders', [ProductionController::class, 'searchRequestOrders'])
+    ->name('spk.select.request-orders');
+Route::get('spk/select/reference-spks', [ProductionController::class, 'searchReferenceSpks'])
+    ->name('spk.select.reference-spks');
+Route::get('spk/select/frames', [ProductionController::class, 'searchFrames'])
+    ->name('spk.select.frames');
+Route::get('spk/{production}', [ProductionController::class, 'show'])
+    ->where('production', '.*')
+    ->name('spk.show');
+
+Route::prefix('master-data')->name('master-data.')->group(function () {
+    Route::resource('tipe-item', MsItemController::class)
+        ->except(['show'])
+        ->parameters(['tipe-item' => 'msItem']);
+
+    Route::resource('varian-item', MsItemVarianceController::class)
+        ->except(['show'])
+        ->parameters(['varian-item' => 'msItemVariance']);
+
+    Route::get('varian-item/{msItemVariance}/batu', [MsItemVarianceController::class, 'batu'])
+        ->name('varian-item.batu');
+
+    Route::resource('varian-item.stones', MsItemVarianceStoneController::class)
+        ->except(['show', 'create', 'edit'])
+        ->parameters([
+            'varian-item' => 'msItemVariance',
+            'stones' => 'msItemVarianceStone',
+        ]);
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
