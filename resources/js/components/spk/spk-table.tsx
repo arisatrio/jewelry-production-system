@@ -5,8 +5,6 @@ import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Input } from '@ui5/webcomponents-react/Input';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
-import { Tab } from '@ui5/webcomponents-react/Tab';
-import { TabContainer } from '@ui5/webcomponents-react/TabContainer';
 import type { SpkRow } from '@/components/spk/types';
 import { SPK_TABLE_COLUMNS } from '@/components/spk/types';
 
@@ -30,6 +28,10 @@ export type SpkTableProps = {
     footerNote?: ReactNode;
     emptyText?: string;
     types?: string[];
+    typeCounts?: {
+        all: number;
+        byType: Record<string, number>;
+    };
     selectedType?: string;
     onTypeChange?: (type: string) => void;
     statuses?: string[];
@@ -137,6 +139,10 @@ export default function SpkTable({
     footerNote = '',
     emptyText = 'Tidak ada data SPK.',
     types = [],
+    typeCounts = {
+        all: 0,
+        byType: {},
+    },
     selectedType = '',
     onTypeChange,
     statuses = [],
@@ -256,27 +262,36 @@ export default function SpkTable({
 
             <div className="spkTableCard">
                 {types.length > 0 ? (
-                    <TabContainer
-                        className="spkTypeTabs"
-                        collapsed
-                        contentBackgroundDesign="Transparent"
-                        headerBackgroundDesign="Transparent"
-                        onTabSelect={(event) => {
-                            const text = event.detail.tab.text ?? 'Semua';
-
-                            onTypeChange?.(text === 'Semua' ? '' : text);
-                        }}
-                    >
-                        <Tab text="Semua" selected={selectedType === ''} />
+                    <div className="spkTypeTabs" role="tablist" aria-label="Filter tipe SPK">
+                        <button
+                            type="button"
+                            className={`spkTypeTab ${selectedType === '' ? 'is-active' : ''}`}
+                            onClick={() => onTypeChange?.('')}
+                        >
+                            <span>Semua</span>
+                            <span className="spkTypeTabBadge">{typeCounts.all}</span>
+                        </button>
                         {types.map((type) => (
-                            <Tab
+                            <button
                                 key={type}
-                                text={type}
-                                selected={selectedType === type}
-                            />
+                                type="button"
+                                className={`spkTypeTab ${selectedType === type ? 'is-active' : ''}`}
+                                onClick={() => onTypeChange?.(type)}
+                            >
+                                <span>{type}</span>
+                                <span className="spkTypeTabBadge">
+                                    {typeCounts.byType[type] ?? 0}
+                                </span>
+                            </button>
                         ))}
-                    </TabContainer>
+                    </div>
                 ) : null}
+
+                <div className="spkTableAlert" role="status" aria-live="polite">
+                    <strong>{typeCounts.all}</strong> SPK masih belum selesai,
+                    silahkan update status completed/serahkan ke JB di approval
+                    poles rangka/chrome.
+                </div>
 
                 <div className="spkTableToolbar">
                     <div className="spkTableToolbarLeft">

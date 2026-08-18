@@ -208,7 +208,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         },
         {
             key: 'confirmed',
-            label: 'Approved',
+            label: 'Approved by Manager Produksi',
             hint: 'belum diproses',
             count: summary.confirmedSpk,
             className: 'is-confirmed',

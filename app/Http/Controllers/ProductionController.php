@@ -52,6 +52,7 @@ class ProductionController extends Controller
         $status = in_array($status, $statusLabels, true) ? $status : '';
         $perPage = $request->integer('per_page', 10);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
+        $typeCounts = $this->activeTypeCounts();
 
         $productions = Production::query()
             ->notDeleted()
@@ -124,6 +125,7 @@ class ProductionController extends Controller
         return Inertia::render('spk/index', [
             'productions' => $productions,
             'types' => SpkService::TYPES,
+            'typeCounts' => $typeCounts,
             'statuses' => $statusLabels,
             'filters' => [
                 'search' => $search,
@@ -132,6 +134,44 @@ class ProductionController extends Controller
                 'per_page' => $perPage,
             ],
         ]);
+    }
+
+    /**
+     * @return array{all: int, byType: array<string, int>}
+     */
+    private function activeTypeCounts(): array
+    {
+        $allIds = Production::query()
+            ->notDeleted()
+            ->pluck('row_id')
+            ->all();
+
+        $doneIds = SpkDashboardAnalytics::completedProductionSpkIds($allIds);
+
+        $query = Production::query()->notDeleted();
+
+        if ($doneIds !== []) {
+            $query->whereNotIn('row_id', $doneIds);
+        }
+
+        /** @var array<string, int> $countsByType */
+        $countsByType = $query
+            ->selectRaw('spk_type, COUNT(*) as aggregate')
+            ->groupBy('spk_type')
+            ->pluck('aggregate', 'spk_type')
+            ->map(fn (mixed $count): int => (int) $count)
+            ->all();
+
+        $byType = [];
+
+        foreach (SpkService::TYPES as $type) {
+            $byType[$type] = $countsByType[$type] ?? 0;
+        }
+
+        return [
+            'all' => array_sum($byType),
+            'byType' => $byType,
+        ];
     }
 
     /**
@@ -799,6 +839,7 @@ class ProductionController extends Controller
      */
     private function toDetail(Production $production, SpkStatusMapper $statusMapper): array
     {
+        $hasCompletedProduction = SpkDashboardAnalytics::hasCompletedProduction((int) $production->row_id);
         $refSpkNo = '-';
 
         if ($production->ref_spk_id !== null) {
@@ -813,7 +854,7 @@ class ProductionController extends Controller
         }
 
         return [
-            ...$this->toListItem($production),
+            ...$this->toListItem($production, $hasCompletedProduction),
             'customer' => $this->customerName($production),
             'status' => $production->status ?: '-',
             'requestOrderNo' => $production->request_order_no ?? '-',
@@ -833,7 +874,7 @@ class ProductionController extends Controller
             'createdBy' => $production->created_by ?? '-',
             'modifiedDate' => $production->modified_date?->format('d-M-Y H:i') ?? '-',
             'modifiedBy' => $production->modified_by ?? '-',
-            'workflowStatus' => $statusMapper->map($production),
+            'workflowStatus' => $statusMapper->map($production, $hasCompletedProduction),
         ];
     }
 

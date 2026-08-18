@@ -22,15 +22,26 @@ class SpkStatusMapper
      * @var list<array{key: string, label: string}>
      */
     public const STAGES = [
-        ['key' => self::KEY_DRAFT, 'label' => 'Draft'],
-        ['key' => self::KEY_CONFIRMED, 'label' => 'Confirmed'],
-        ['key' => self::KEY_IN_PROGRESS, 'label' => 'In Progress'],
-        ['key' => self::KEY_DONE, 'label' => 'Done'],
+        [
+            'key' => self::KEY_DRAFT,
+            'label' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[self::KEY_DRAFT],
+        ],
+        [
+            'key' => self::KEY_CONFIRMED,
+            'label' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[self::KEY_CONFIRMED],
+        ],
+        [
+            'key' => self::KEY_IN_PROGRESS,
+            'label' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[self::KEY_IN_PROGRESS],
+        ],
+        [
+            'key' => self::KEY_DONE,
+            'label' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[self::KEY_DONE],
+        ],
     ];
 
     /**
-     * Map SPK ke status workflow tampilan (Draft → Confirmed → In Progress → Done).
-     * Draft sampai Manager approve; SPKDONE = Confirmed.
+     * Map SPK ke status workflow tampilan agar sinkron dengan list SPK.
      *
      * @return array{
      *     key: string,
@@ -40,15 +51,15 @@ class SpkStatusMapper
      *     stages: list<array{key: string, label: string}>
      * }
      */
-    public function map(Production $production): array
+    public function map(Production $production, ?bool $hasCompletedProduction = null): array
     {
-        $key = $this->resolveKey($production);
+        $key = $this->resolveKey($production, $hasCompletedProduction);
 
         return [
             'key' => $key,
             'label' => $this->labelFor($key),
             'stageIndex' => $this->stageIndexFor($key),
-            'isOverdue' => $this->isOverdue($production),
+            'isOverdue' => $this->isOverdue($production, $hasCompletedProduction),
             'stages' => self::STAGES,
         ];
     }
@@ -56,76 +67,58 @@ class SpkStatusMapper
     /**
      * Resolve exclusive workflow key: draft | confirmed | inProgress | done.
      */
-    public function resolveKey(Production $production): string
+    public function resolveKey(Production $production, ?bool $hasCompletedProduction = null): string
     {
-        // Belum approve Manager → selalu Draft (termasuk SPK010 / status kosong).
-        if (! $this->isManagerApproved($production)) {
-            return self::KEY_DRAFT;
-        }
-
-        if ($this->isInProgress($production)) {
-            return self::KEY_IN_PROGRESS;
-        }
-
-        // SPKDONE tanpa jejak proses = Confirmed (bukan Done).
-        return self::KEY_CONFIRMED;
+        return SpkDashboardAnalytics::backlogStatusKey($production, $hasCompletedProduction);
     }
 
     /**
-     * Manager sudah approve dokumen (SPKDONE).
+     * Manager sudah approve untuk backlog list/detail (RO/PO, belum proses).
      */
-    public function isManagerApproved(Production $production): bool
+    public function isManagerApproved(Production $production, ?bool $hasCompletedProduction = null): bool
     {
-        return strtoupper(trim((string) $production->status)) === SpkApprovalService::STATUS_DONE;
+        return $this->resolveKey($production, $hasCompletedProduction) === self::KEY_CONFIRMED;
     }
 
     /**
      * Done produksi terpisah dari approve dokumen.
      * SPKDONE = Confirmed; stage Done menunggu sinyal selesai produksi.
      */
-    public function isDone(Production $production): bool
+    public function isDone(Production $production, ?bool $hasCompletedProduction = null): bool
     {
-        return $this->resolveKey($production) === self::KEY_DONE;
+        return $this->resolveKey($production, $hasCompletedProduction) === self::KEY_DONE;
     }
 
     /**
      * Confirmed: sudah di-approve Manager (SPKDONE), belum masuk pengerjaan.
      */
-    public function isConfirmed(Production $production): bool
+    public function isConfirmed(Production $production, ?bool $hasCompletedProduction = null): bool
     {
-        return $this->resolveKey($production) === self::KEY_CONFIRMED;
+        return $this->resolveKey($production, $hasCompletedProduction) === self::KEY_CONFIRMED;
     }
 
     /**
-     * Menunggu Manager: SPK010 (Pengajuan Approval) — masih Draft di UI.
+     * Menunggu approval manager produksi.
      */
-    public function isPendingManager(Production $production): bool
+    public function isPendingManager(Production $production, ?bool $hasCompletedProduction = null): bool
     {
-        return strtoupper(trim((string) $production->status)) === SpkApprovalService::STATUS_PENDING;
+        return $this->resolveKey($production, $hasCompletedProduction) === self::KEY_DRAFT;
     }
 
     /**
-     * In Progress: sudah approve Manager dan ada jejak proses / flag in-process.
+     * In Progress: ada jejak proses / flag in-process, namun belum selesai produksi.
      */
-    public function isInProgress(Production $production): bool
+    public function isInProgress(Production $production, ?bool $hasCompletedProduction = null): bool
     {
-        if (! $this->isManagerApproved($production)) {
-            return false;
-        }
-
-        if (filled($production->last_process)) {
-            return true;
-        }
-
-        return (int) ($production->is_inprocess ?? 0) !== 0;
+        return $this->resolveKey($production, $hasCompletedProduction) === self::KEY_IN_PROGRESS;
     }
 
     /**
-     * Overdue: belum SPKDONE dan estimasi delivery sudah lewat hari ini.
+     * Overdue: status masih backlog dan estimasi delivery sudah lewat hari ini.
      */
-    public function isOverdue(Production $production): bool
+    public function isOverdue(Production $production, ?bool $hasCompletedProduction = null): bool
     {
-        if ($this->isManagerApproved($production)) {
+        if ($this->resolveKey($production, $hasCompletedProduction) === self::KEY_DONE) {
             return false;
         }
 
@@ -148,7 +141,7 @@ class SpkStatusMapper
             }
         }
 
-        return 'Draft';
+        return SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[self::KEY_DRAFT];
     }
 
     public function stageIndexFor(string $key): int

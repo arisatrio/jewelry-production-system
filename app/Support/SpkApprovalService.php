@@ -298,8 +298,8 @@ class SpkApprovalService
     {
         if (! Schema::connection('third')->hasTable('sysstatus')) {
             return [
-                self::STATUS_PENDING => 'Menunggu Manager',
-                self::STATUS_DONE => 'Approved',
+                self::STATUS_PENDING => 'Menunggu Approval Manager Produksi',
+                self::STATUS_DONE => 'Approved by Manager Produksi',
             ];
         }
 
@@ -316,7 +316,7 @@ class SpkApprovalService
 
         return $query
             ->pluck('current_status', 'code')
-            ->map(fn (mixed $label): string => (string) $label)
+            ->map(fn (mixed $label): string => $this->normalizeStatusLabel((string) $label))
             ->all();
     }
 
@@ -332,13 +332,24 @@ class SpkApprovalService
     private function statusLabel(Production $production): string
     {
         if ($this->isDraft($production)) {
-            return 'Draft';
+            return 'Menunggu Approval Manager Produksi';
         }
 
         $status = $this->normalizedStatus($production);
         $labels = $this->statusLabels();
 
-        return $labels[$status] ?? $status;
+        return $labels[$status] ?? $this->normalizeStatusLabel($status);
+    }
+
+    private function normalizeStatusLabel(string $label): string
+    {
+        $normalized = trim($label);
+
+        return match (strtoupper($normalized)) {
+            'APPROVED' => 'Approved by Manager Produksi',
+            'MENUNGGU MANAGER', 'DRAFT' => 'Menunggu Approval Manager Produksi',
+            default => $normalized,
+        };
     }
 
     private function formatFooterDate(string $value): string

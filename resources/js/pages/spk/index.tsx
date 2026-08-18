@@ -18,6 +18,10 @@ type ProductionsPaginator = {
 type SpkIndexProps = {
     productions: ProductionsPaginator;
     types: string[];
+    typeCounts: {
+        all: number;
+        byType: Record<string, number>;
+    };
     statuses: string[];
     filters: {
         search: string;
@@ -30,6 +34,7 @@ type SpkIndexProps = {
 export default function SpkIndex({
     productions,
     types,
+    typeCounts,
     statuses,
     filters,
 }: SpkIndexProps) {
@@ -120,6 +125,7 @@ export default function SpkIndex({
                 }
                 onCreate={() => router.visit(spkCreate.url())}
                 types={types}
+                typeCounts={typeCounts}
                 selectedType={filters.type}
                 onTypeChange={(type) =>
                     visit({
