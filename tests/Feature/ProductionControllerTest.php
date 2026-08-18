@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\Production;
+use App\Models\SkuMaster;
+use App\Models\SkuPrefixCategory;
 use App\Support\SpkService;
+use Illuminate\Support\Facades\DB;
 
 test('spk index page is accessible and returns production list props', function () {
     $this->get(route('spk.index'))
@@ -12,6 +15,41 @@ test('spk index page is accessible and returns production list props', function 
             ->has('productions.total')
             ->has('filters.search')
             ->has('filters.per_page')
+            ->has('filters.type')
+            ->has('types')
+        );
+});
+
+test('spk index page can filter productions by type', function () {
+    $production = Production::query()
+        ->notDeleted()
+        ->where('spk_type', 'Stock')
+        ->whereNotNull('spk_no')
+        ->first();
+
+    if ($production === null) {
+        $production = app(SpkService::class)->createStock('system');
+    }
+
+    $types = SpkService::TYPES;
+
+    $this->get(route('spk.index', ['type' => 'Stock', 'search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('filters.type', 'Stock')
+            ->where('types', $types)
+            ->where('productions.data.0.tipeProduksi', 'Stock')
+            ->where('productions.data.0.produksiNo', $production->spk_no)
+        );
+});
+
+test('spk index page ignores unknown production type', function () {
+    $this->get(route('spk.index', ['type' => 'Unknown']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('filters.type', '')
         );
 });
 
@@ -28,7 +66,78 @@ test('spk index page can filter productions by search query', function () {
             ->has('productions.data.0')
             ->where('productions.data.0.produksiNo', $production->spk_no)
             ->has('productions.data.0.description')
+            ->has('productions.data.0.estimatedDelivery')
+            ->missing('productions.data.0.workEstimated')
         );
+});
+
+test('spk index description shows type sku description for new system', function () {
+    $category = SkuPrefixCategory::query()->firstOrCreate([
+        'category' => 'Ladies Ring',
+        'prefix' => 'LDR',
+    ], [
+        'description' => null,
+        'usage_count' => 0,
+        'is_active' => 1,
+    ]);
+
+    $sku = SkuMaster::factory()->create([
+        'sku_code' => '2T-LDR-ATF-REG',
+        'item_original' => 'Ladies Ring',
+        'category_prefix_id' => $category->id,
+    ]);
+
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/NEW-SYS',
+        'spk_type' => 'Stock',
+        'item_name' => 'Earring',
+        'description' => 'LADIES RING',
+        'category_prefix_id' => $category->id,
+        'sku_id' => $sku->id,
+        'is_from_new_system' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.description', 'LDR | 2T-LDR-ATF-REG | LADIES RING')
+        );
+
+    $production->delete();
+    $sku->delete();
+});
+
+test('spk index description shows type and description only for old system', function () {
+    $category = SkuPrefixCategory::query()->firstOrCreate([
+        'category' => 'Ladies Ring',
+        'prefix' => 'LDR',
+    ], [
+        'description' => null,
+        'usage_count' => 0,
+        'is_active' => 1,
+    ]);
+
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/OLD-SYS',
+        'spk_type' => 'Stock',
+        'item_name' => 'Earring',
+        'description' => 'LADIES RING',
+        'category_prefix_id' => $category->id,
+        'sku_id' => null,
+        'is_from_new_system' => 0,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.description', 'LDR | LADIES RING')
+        );
+
+    $production->delete();
 });
 
 test('spk index page respects per page option', function () {
@@ -39,6 +148,229 @@ test('spk index page respects per page option', function () {
             ->where('filters.per_page', 25)
             ->where('productions.per_page', 25)
         );
+});
+
+test('spk index page shows request order number with customer name for pesanan type', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Pesanan',
+        'request_order_no' => 'DP-0009303',
+        'customer_name' => 'Vera',
+        'status' => '',
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', ['type' => 'Pesanan', 'search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.tipeProduksi', 'Pesanan')
+            ->where('productions.data.0.customer', "DP-0009303\n(Vera)")
+        );
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('production.customer', 'Vera')
+            ->where('production.requestOrderNo', 'DP-0009303')
+        );
+
+    $production->delete();
+});
+
+test('spk index page keeps customer name only for non pesanan type', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'request_order_no' => null,
+        'customer_name' => 'James Wijaya',
+        'status' => '',
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', ['type' => 'Stock', 'search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.tipeProduksi', 'Stock')
+            ->where('productions.data.0.customer', 'James Wijaya')
+        );
+
+    $production->delete();
+});
+
+test('spk index maps status to dashboard backlog labels', function (array $attributes, string $label) {
+    $production = Production::factory()->create([
+        ...$attributes,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', $label)
+            ->where('productions.data.0.prosesTerakhir', $attributes['last_process'] ?? '')
+            ->where('productions.data.0.prosesTerakhirDate', '')
+        );
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('production.status', $production->status ?: '-')
+        );
+
+    $production->delete();
+})->with([
+    'manager done without poles chrome is draft' => [
+        [
+            'status' => 'SPKDONE',
+            'status_order' => 'NO',
+            'last_process' => null,
+            'is_inprocess' => 0,
+        ],
+        'Menunggu Approval Manager Produksi',
+    ],
+    'poles chrome in progress is not done' => [
+        [
+            'status' => 'SPKDONE',
+            'status_order' => 'NO',
+            'last_process' => 'Poles Chrome',
+            'is_inprocess' => 0,
+        ],
+        'In Progress',
+    ],
+    'confirmed' => [
+        [
+            'status' => '',
+            'status_order' => 'RO',
+            'last_process' => null,
+            'is_inprocess' => 0,
+        ],
+        'Approved by Manager Produksi',
+    ],
+    'in progress' => [
+        [
+            'status' => 'SPK010',
+            'status_order' => 'NO',
+            'last_process' => 'Coran',
+            'is_inprocess' => 0,
+        ],
+        'In Progress',
+    ],
+    'draft' => [
+        [
+            'status' => 'SPK010',
+            'status_order' => 'NO',
+            'last_process' => null,
+            'is_inprocess' => 0,
+        ],
+        'Menunggu Approval Manager Produksi',
+    ],
+]);
+
+test('spk index marks status done when poles chrome is completed or handed to jb', function (string $processStatus) {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Chrome',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-PFG-'.$production->row_id,
+        'process_name' => 'Poles Chrome',
+        'spk_id' => $production->row_id,
+        'status' => $processStatus,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'Done')
+            ->where('productions.data.0.prosesTerakhir', 'Poles Chrome')
+            ->where('productions.data.0.prosesTerakhirDate', now()->format('d-M-Y'))
+        );
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+    $production->delete();
+})->with([
+    'poles bj completed' => ['PFGDONE'],
+    'serahkan jb' => ['PFG040'],
+]);
+
+test('spk index marks status done when poles rangka is completed or handed to jb', function (string $processStatus) {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishframe')->insertGetId([
+        'doc_no' => 'TEST-PRK-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => $processStatus,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'Done')
+            ->where('productions.data.0.prosesTerakhir', 'Poles Rangka')
+        );
+
+    DB::connection('third')->table('polishframe')->where('row_id', $processId)->delete();
+    $production->delete();
+})->with([
+    'poles rangka completed' => ['PRKDONE'],
+    'serahkan jb poles rangka' => ['PRK040'],
+]);
+
+test('spk index includes last process date from the process table', function () {
+    $processAt = now()->subDays(3)->startOfDay()->setTime(9, 30);
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Chrome',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-PFG-DATE-'.$production->row_id,
+        'process_name' => 'Poles Chrome',
+        'spk_id' => $production->row_id,
+        'status' => 'PFG010',
+        'is_deleted' => 0,
+        'created_date' => $processAt,
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'In Progress')
+            ->where('productions.data.0.prosesTerakhir', 'Poles Chrome')
+            ->where('productions.data.0.prosesTerakhirDate', $processAt->format('d-M-Y'))
+        );
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+    $production->delete();
 });
 
 test('spk show page displays production detail', function () {

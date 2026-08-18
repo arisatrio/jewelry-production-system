@@ -1,4 +1,10 @@
-export type SpkStatus = 'Approved' | 'Pengajuan Approval' | (string & {});
+export type SpkStatus =
+    | 'Approved by Manager Produksi'
+    | 'Menunggu Approval Manager Produksi'
+    | 'In Progress'
+    | 'Done'
+    | 'Pengajuan Approval'
+    | (string & {});
 
 export type SpkRow = {
     id: string;
@@ -9,17 +15,16 @@ export type SpkRow = {
     description: string;
     itemId: string | null;
     orderDate: string;
-    workEstimated: number | string;
+    createdDate: string;
+    workEstimated?: number | string;
     estimatedDelivery: string;
     status: SpkStatus;
     prosesTerakhir: string;
+    prosesTerakhirDate: string;
 };
 
 export type SpkWorkflowStatusKey =
-    | 'draft'
-    | 'confirmed'
-    | 'inProgress'
-    | 'done';
+    'draft' | 'confirmed' | 'inProgress' | 'done';
 
 export type SpkWorkflowStatus = {
     key: SpkWorkflowStatusKey;
@@ -222,15 +227,11 @@ export type SpkCraftsmanReportCard = {
 };
 
 export const SPK_TABLE_COLUMNS = [
-    { key: 'action', label: '' },
     { key: 'produksiNo', label: 'Produksi No' },
     { key: 'tipeProduksi', label: 'Tipe Produksi' },
-    { key: 'customer', label: 'Customer' },
-    { key: 'item', label: 'Item' },
-    { key: 'description', label: 'Description' },
-    { key: 'orderDate', label: 'Order date' },
-    { key: 'workEstimated', label: 'Work estimated' },
-    { key: 'estimatedDelivery', label: 'Estimated delivery' },
-    { key: 'status', label: 'Status' },
+    { key: 'description', label: 'Tipe | SKU | Item' },
+    { key: 'orderDate', label: 'Tanggal Permintaan' },
+    { key: 'estimatedDelivery', label: 'Tanggal Estimasi Selesai' },
     { key: 'prosesTerakhir', label: 'Proses terakhir' },
+    { key: 'status', label: 'Status' },
 ] as const;

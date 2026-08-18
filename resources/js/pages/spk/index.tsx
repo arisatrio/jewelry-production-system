@@ -17,13 +17,22 @@ type ProductionsPaginator = {
 
 type SpkIndexProps = {
     productions: ProductionsPaginator;
+    types: string[];
+    statuses: string[];
     filters: {
         search: string;
+        type: string;
+        status: string;
         per_page: number;
     };
 };
 
-export default function SpkIndex({ productions, filters }: SpkIndexProps) {
+export default function SpkIndex({
+    productions,
+    types,
+    statuses,
+    filters,
+}: SpkIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
 
     useEffect(() => {
@@ -40,6 +49,8 @@ export default function SpkIndex({ productions, filters }: SpkIndexProps) {
                 spkIndex.url({
                     query: {
                         search: searchQuery || undefined,
+                        type: filters.type || undefined,
+                        status: filters.status || undefined,
                         per_page: filters.per_page,
                         page: 1,
                     },
@@ -53,17 +64,24 @@ export default function SpkIndex({ productions, filters }: SpkIndexProps) {
         }, 300);
 
         return () => window.clearTimeout(timeout);
-    }, [searchQuery, filters.search, filters.per_page]);
+    }, [searchQuery, filters.search, filters.type, filters.per_page]);
 
     const visit = (params: {
         page?: number;
         per_page?: number;
         search?: string;
+        type?: string;
+        status?: string;
     }) => {
+        const type = params.type ?? filters.type;
+        const status = params.status ?? filters.status;
+
         router.get(
             spkIndex.url({
                 query: {
                     search: params.search || undefined,
+                    type: type || undefined,
+                    status: status || undefined,
                     per_page: params.per_page ?? filters.per_page,
                     page: params.page ?? 1,
                 },
@@ -101,6 +119,26 @@ export default function SpkIndex({ productions, filters }: SpkIndexProps) {
                     })
                 }
                 onCreate={() => router.visit(spkCreate.url())}
+                types={types}
+                selectedType={filters.type}
+                onTypeChange={(type) =>
+                    visit({
+                        page: 1,
+                        per_page: productions.per_page,
+                        search: searchQuery,
+                        type,
+                    })
+                }
+                statuses={statuses}
+                selectedStatus={filters.status}
+                onStatusChange={(status) =>
+                    visit({
+                        page: 1,
+                        per_page: productions.per_page,
+                        search: searchQuery,
+                        status,
+                    })
+                }
                 onOpenRow={(row) => router.visit(spkShow.url(row.produksiNo))}
                 onProduksiNoClick={(row) =>
                     router.visit(spkShow.url(row.produksiNo))

@@ -1,14 +1,14 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
-import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Input } from '@ui5/webcomponents-react/Input';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
-import type { SpkRow, SpkStatus } from '@/components/spk/types';
+import { Tab } from '@ui5/webcomponents-react/Tab';
+import { TabContainer } from '@ui5/webcomponents-react/TabContainer';
+import type { SpkRow } from '@/components/spk/types';
 import { SPK_TABLE_COLUMNS } from '@/components/spk/types';
-import { SpkTypeBadge } from '@/components/spk/spk-type-badge';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 
@@ -29,27 +29,81 @@ export type SpkTableProps = {
     onProduksiNoClick?: (row: SpkRow) => void;
     footerNote?: ReactNode;
     emptyText?: string;
+    types?: string[];
+    selectedType?: string;
+    onTypeChange?: (type: string) => void;
+    statuses?: string[];
+    selectedStatus?: string;
+    onStatusChange?: (status: string) => void;
 };
 
-function statusClassName(status: SpkStatus): string {
-    if (status === 'Approved') {
-        return 'spkStatusBadge spkStatusBadge--approved';
+function prosesTerakhirSearchText(row: SpkRow): string {
+    const lastProcess = row.prosesTerakhir.trim();
+    const lastProcessDate = (row.prosesTerakhirDate ?? '').trim();
+
+    if (lastProcess !== '') {
+        return lastProcessDate !== ''
+            ? `${lastProcess} pada ${lastProcessDate}`
+            : lastProcess;
     }
 
-    if (status === 'Pengajuan Approval') {
-        return 'spkStatusBadge spkStatusBadge--pending';
+    if (row.status === 'Approved by Manager Produksi') {
+        return 'Belum Diproses';
     }
 
-    return 'spkStatusBadge spkStatusBadge--default';
+    return '-';
 }
 
-function buildPageItems(currentPage: number, totalPages: number): Array<number | 'ellipsis'> {
+function SpkTableLastProcessCell({ row }: { row: SpkRow }) {
+    const lastProcess = row.prosesTerakhir.trim();
+    const lastProcessDate = (row.prosesTerakhirDate ?? '').trim();
+
+    if (lastProcess !== '') {
+        return (
+            <div className="spkTableLastProcess">
+                <span>{lastProcess}</span>
+                {lastProcessDate !== '' ? (
+                    <span className="spkTableLastProcessDate">
+                        pada {lastProcessDate}
+                    </span>
+                ) : null}
+            </div>
+        );
+    }
+
+    if (row.status === 'Approved by Manager Produksi') {
+        return <span>Belum Diproses</span>;
+    }
+
+    return <span>-</span>;
+}
+
+function SpkTableStatusCell({ row }: { row: SpkRow }) {
+    return (
+        <div className="spkTableStatus">
+            <span>{row.status}</span>
+        </div>
+    );
+}
+
+function buildPageItems(
+    currentPage: number,
+    totalPages: number,
+): Array<number | 'ellipsis'> {
     if (totalPages <= 7) {
         return Array.from({ length: totalPages }, (_, index) => index + 1);
     }
 
-    const pages = new Set<number>([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
-    const sorted = [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+    const pages = new Set<number>([
+        1,
+        totalPages,
+        currentPage - 1,
+        currentPage,
+        currentPage + 1,
+    ]);
+    const sorted = [...pages]
+        .filter((page) => page >= 1 && page <= totalPages)
+        .sort((a, b) => a - b);
     const items: Array<number | 'ellipsis'> = [];
 
     for (const page of sorted) {
@@ -82,14 +136,26 @@ export default function SpkTable({
     onProduksiNoClick,
     footerNote = '',
     emptyText = 'Tidak ada data SPK.',
+    types = [],
+    selectedType = '',
+    onTypeChange,
+    statuses = [],
+    selectedStatus = '',
+    onStatusChange,
 }: SpkTableProps) {
     const isPageSizeControlled = controlledPageSize !== undefined;
-    const [uncontrolledPageSize, setUncontrolledPageSize] = useState(defaultPageSize);
-    const pageSize = isPageSizeControlled ? controlledPageSize : uncontrolledPageSize;
+    const [uncontrolledPageSize, setUncontrolledPageSize] =
+        useState(defaultPageSize);
+    const pageSize = isPageSizeControlled
+        ? controlledPageSize
+        : uncontrolledPageSize;
 
     const isSearchControlled = controlledSearchQuery !== undefined;
-    const [uncontrolledSearchQuery, setUncontrolledSearchQuery] = useState(defaultSearchQuery);
-    const searchQuery = isSearchControlled ? controlledSearchQuery : uncontrolledSearchQuery;
+    const [uncontrolledSearchQuery, setUncontrolledSearchQuery] =
+        useState(defaultSearchQuery);
+    const searchQuery = isSearchControlled
+        ? controlledSearchQuery
+        : uncontrolledSearchQuery;
 
     const isPageControlled = controlledPage !== undefined;
     const [uncontrolledPage, setUncontrolledPage] = useState(defaultPage);
@@ -111,13 +177,12 @@ export default function SpkTable({
                 row.produksiNo,
                 row.tipeProduksi,
                 row.customer,
-                row.item,
                 row.description,
+
                 row.orderDate,
-                String(row.workEstimated),
                 row.estimatedDelivery,
                 row.status,
-                row.prosesTerakhir,
+                prosesTerakhirSearchText(row),
             ]
                 .join(' ')
                 .toLowerCase()
@@ -190,6 +255,29 @@ export default function SpkTable({
             </div>
 
             <div className="spkTableCard">
+                {types.length > 0 ? (
+                    <TabContainer
+                        className="spkTypeTabs"
+                        collapsed
+                        contentBackgroundDesign="Transparent"
+                        headerBackgroundDesign="Transparent"
+                        onTabSelect={(event) => {
+                            const text = event.detail.tab.text ?? 'Semua';
+
+                            onTypeChange?.(text === 'Semua' ? '' : text);
+                        }}
+                    >
+                        <Tab text="Semua" selected={selectedType === ''} />
+                        {types.map((type) => (
+                            <Tab
+                                key={type}
+                                text={type}
+                                selected={selectedType === type}
+                            />
+                        ))}
+                    </TabContainer>
+                ) : null}
+
                 <div className="spkTableToolbar">
                     <div className="spkTableToolbarLeft">
                         <span className="spkTablePageSizeLabel">Show</span>
@@ -214,6 +302,29 @@ export default function SpkTable({
                         <span className="spkTablePageSizeLabel">entries</span>
                     </div>
                     <div className="spkTableToolbarRight">
+                        {statuses.length > 0 ? (
+                            <Select
+                                accessibleName="Filter status"
+                                onChange={(event) => {
+                                    const value =
+                                        event.detail.selectedOption.value ?? '';
+                                    onStatusChange?.(value);
+                                }}
+                            >
+                                <Option value="" selected={selectedStatus === ''}>
+                                    Semua Status
+                                </Option>
+                                {statuses.map((status) => (
+                                    <Option
+                                        key={status}
+                                        value={status}
+                                        selected={selectedStatus === status}
+                                    >
+                                        {status}
+                                    </Option>
+                                ))}
+                            </Select>
+                        ) : null}
                         <Input
                             accessibleName="Quick search"
                             placeholder="Quick search"
@@ -226,18 +337,13 @@ export default function SpkTable({
                     </div>
                 </div>
 
-                <div className="spkTableScroll">
+                <div className="spkTableScroll spkTableFixed">
                     <table className="spkTable">
                         <thead>
                             <tr>
                                 {SPK_TABLE_COLUMNS.map((column) => (
                                     <th
                                         key={column.key}
-                                        className={
-                                            column.key === 'action'
-                                                ? 'spkTableActionCol'
-                                                : undefined
-                                        }
                                         scope="col"
                                     >
                                         {column.label}
@@ -255,19 +361,6 @@ export default function SpkTable({
                             ) : (
                                 visibleRows.map((row) => (
                                     <tr key={row.id}>
-                                        <td className="spkTableActionCol">
-                                            <button
-                                                type="button"
-                                                className="spkActionBtn"
-                                                aria-label={`Buka ${row.produksiNo}`}
-                                                title="Buka detail"
-                                                onClick={() => onOpenRow?.(row)}
-                                            >
-                                                <Icon
-                                                    name={navigationRightIcon}
-                                                />
-                                            </button>
-                                        </td>
                                         <td>
                                             <button
                                                 type="button"
@@ -284,27 +377,21 @@ export default function SpkTable({
                                                 {row.produksiNo}
                                             </button>
                                         </td>
-                                        <td>
-                                            <SpkTypeBadge
-                                                type={row.tipeProduksi}
-                                            />
+                                        <td className="spkTableCustomer">
+                                            <span>{row.tipeProduksi}</span>
+                                            <span>{row.customer}</span>
                                         </td>
-                                        <td>{row.customer}</td>
-                                        <td>{row.item}</td>
                                         <td>{row.description}</td>
                                         <td>{row.orderDate}</td>
-                                        <td>{row.workEstimated}</td>
                                         <td>{row.estimatedDelivery}</td>
                                         <td>
-                                            <span
-                                                className={statusClassName(
-                                                    row.status,
-                                                )}
-                                            >
-                                                {row.status}
-                                            </span>
+                                            <SpkTableLastProcessCell
+                                                row={row}
+                                            />
                                         </td>
-                                        <td>{row.prosesTerakhir || '—'}</td>
+                                        <td>
+                                            <SpkTableStatusCell row={row} />
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -338,7 +425,7 @@ export default function SpkTable({
                                 <button
                                     key={item}
                                     type="button"
-                                    className={`spkPageBtn${item === safePage ? ' is-active' : ''}`}
+                                    className={`spkPageBtn${item === safePage ? 'is-active' : ''}`}
                                     aria-current={
                                         item === safePage ? 'page' : undefined
                                     }

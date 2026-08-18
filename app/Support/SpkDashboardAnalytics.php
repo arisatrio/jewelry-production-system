@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Production;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Query\Builder;
@@ -11,6 +12,32 @@ use Illuminate\Support\Facades\Schema;
 
 class SpkDashboardAnalytics
 {
+    /**
+     * @var array<string, string>
+     */
+    public const BACKLOG_STATUS_LABELS = [
+        'draft' => 'Menunggu Approval Manager Produksi',
+        'confirmed' => 'Approved by Manager Produksi',
+        'inProgress' => 'In Progress',
+        'done' => 'Done',
+    ];
+
+    /**
+     * Poles Chrome (polishfinishedgood) statuses that mean production is done:
+     * PFGDONE = Poles BJ completed, PFG040 = Serahkan ke JB.
+     *
+     * @var list<string>
+     */
+    public const POLES_CHROME_DONE_STATUSES = ['PFGDONE', 'PFG040'];
+
+    /**
+     * Poles Rangka (polishframe) statuses that mean production is done:
+     * PRKDONE = Completed, PRK040 = Serahkan ke JB.
+     *
+     * @var list<string>
+     */
+    public const POLES_RANGKA_DONE_STATUSES = ['PRKDONE', 'PRK040'];
+
     private CarbonInterface $periodStart;
 
     private CarbonInterface $periodEnd;
@@ -20,6 +47,124 @@ class SpkDashboardAnalytics
         $anchor = Carbon::parse(($month ?? now())->toDateTimeString())->startOfMonth();
         $this->periodStart = $anchor->copy()->startOfDay();
         $this->periodEnd = $anchor->copy()->endOfMonth()->endOfDay();
+    }
+
+    /**
+     * Exclusive backlog group used by dashboard cards.
+     *
+     * @return 'draft'|'confirmed'|'inProgress'|'done'
+     */
+    public static function backlogStatusKey(Production $production, ?bool $hasCompletedPolesChrome = null): string
+    {
+        $isDone = $hasCompletedPolesChrome ?? self::hasCompletedProduction((int) $production->row_id);
+
+        if ($isDone) {
+            return 'done';
+        }
+
+        $statusOrder = strtoupper(trim((string) ($production->status_order ?? '')));
+        $isInProcess = (int) ($production->is_inprocess ?? 0) !== 0;
+        $hasLastProcess = $production->last_process !== null;
+        $isConfirmed = in_array($statusOrder, ['RO', 'PO'], true)
+            && ! $isInProcess
+            && ! $hasLastProcess;
+
+        if ($isConfirmed) {
+            return 'confirmed';
+        }
+
+        if ($hasLastProcess || $isInProcess) {
+            return 'inProgress';
+        }
+
+        return 'draft';
+    }
+
+    public static function backlogStatusLabel(Production $production, ?bool $hasCompletedPolesChrome = null): string
+    {
+        return self::BACKLOG_STATUS_LABELS[self::backlogStatusKey($production, $hasCompletedPolesChrome)];
+    }
+
+    public static function hasCompletedPolesChrome(int $spkId): bool
+    {
+        return self::completedPolesChromeSpkIds([$spkId]) !== [];
+    }
+
+    public static function hasCompletedProduction(int $spkId): bool
+    {
+        return self::completedProductionSpkIds([$spkId]) !== [];
+    }
+
+    /**
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    public static function completedPolesChromeSpkIds(array $spkIds): array
+    {
+        return self::completedSpkIdsFromTable('polishfinishedgood', self::POLES_CHROME_DONE_STATUSES, $spkIds);
+    }
+
+    /**
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    public static function completedProductionSpkIds(array $spkIds): array
+    {
+        return collect([
+            ...self::completedSpkIdsFromTable('polishfinishedgood', self::POLES_CHROME_DONE_STATUSES, $spkIds),
+            ...self::completedSpkIdsFromTable('polishframe', self::POLES_RANGKA_DONE_STATUSES, $spkIds),
+        ])->unique()->values()->all();
+    }
+
+    /**
+     * @param  list<string>  $statuses
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    private static function completedSpkIdsFromTable(string $table, array $statuses, array $spkIds): array
+    {
+        $spkIds = collect($spkIds)
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($spkIds === [] || ! Schema::connection('third')->hasTable($table)) {
+            return [];
+        }
+
+        $query = DB::connection('third')
+            ->table($table)
+            ->whereIn('spk_id', $spkIds)
+            ->whereIn('status', $statuses);
+
+        if (Schema::connection('third')->hasColumn($table, 'is_deleted')) {
+            $query->where(function ($builder): void {
+                $builder->whereNull('is_deleted')
+                    ->orWhere('is_deleted', 0);
+            });
+        }
+
+        return $query
+            ->distinct()
+            ->pluck('spk_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @param  iterable<int, Production|object>  $productions
+     * @return array<int, string>
+     */
+    public static function lastProcessDatesFor(iterable $productions, string $format = 'd-M-Y'): array
+    {
+        $rows = collect($productions)->map(fn (object $production): object => (object) [
+            'row_id' => $production->row_id,
+            'last_process' => $production->last_process ?? null,
+        ]);
+
+        return (new self)->resolveLastProcessDates($rows, $format);
     }
 
     /**
@@ -594,7 +739,7 @@ class SpkDashboardAnalytics
      * @param  Collection<int, object>  $rows
      * @return array<int, string>
      */
-    private function resolveLastProcessDates(Collection $rows): array
+    private function resolveLastProcessDates(Collection $rows, string $format = 'd-M-Y H:i'): array
     {
         if ($rows->isEmpty()) {
             return [];
@@ -634,7 +779,7 @@ class SpkDashboardAnalytics
         }
 
         return collect($datesBySpkId)
-            ->map(fn (string $date): string => Carbon::parse($date)->format('d-M-Y H:i'))
+            ->map(fn (string $date): string => Carbon::parse($date)->format($format))
             ->all();
     }
 
@@ -705,11 +850,53 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Done / Approved: status SPKDONE = final approve Manager.
+     * Done: Poles Chrome (PFGDONE/PFG040) or Poles Rangka (PRKDONE/PRK040).
      */
     private function doneExpression(): string
     {
-        return "status = 'SPKDONE'";
+        $expressions = [];
+
+        if (Schema::connection('third')->hasTable('polishfinishedgood')) {
+            $statuses = collect(self::POLES_CHROME_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $deleted = Schema::connection('third')->hasColumn('polishfinishedgood', 'is_deleted')
+                ? 'AND COALESCE(pfg.is_deleted, 0) = 0'
+                : '';
+
+            $expressions[] = "EXISTS (
+                SELECT 1
+                FROM polishfinishedgood pfg
+                WHERE pfg.spk_id = spk.row_id
+                  AND pfg.status IN ({$statuses})
+                  {$deleted}
+            )";
+        }
+
+        if (Schema::connection('third')->hasTable('polishframe')) {
+            $statuses = collect(self::POLES_RANGKA_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $deleted = Schema::connection('third')->hasColumn('polishframe', 'is_deleted')
+                ? 'AND COALESCE(pf.is_deleted, 0) = 0'
+                : '';
+
+            $expressions[] = "EXISTS (
+                SELECT 1
+                FROM polishframe pf
+                WHERE pf.spk_id = spk.row_id
+                  AND pf.status IN ({$statuses})
+                  {$deleted}
+            )";
+        }
+
+        if ($expressions === []) {
+            return '0';
+        }
+
+        return '('.implode(' OR ', $expressions).')';
     }
 
     /**

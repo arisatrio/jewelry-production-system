@@ -59,6 +59,7 @@ class ProductionFactory extends Factory
             'is_polishfinishedgood' => 0,
             'is_grafir' => 0,
             'is_inprocess' => 0,
+            'is_from_new_system' => 0,
             'is_deleted' => 0,
             'created_date' => now(),
             'created_by' => 'system',

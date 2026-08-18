@@ -17,6 +17,7 @@ use App\Support\RequestOrderRepository;
 use App\Support\SpkApprovalRoles;
 use App\Support\SpkApprovalService;
 use App\Support\SpkCraftsmanReport;
+use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkGoldReport;
 use App\Support\SpkProcessMapper;
 use App\Support\SpkProductionControlReport;
@@ -44,15 +45,57 @@ class ProductionController extends Controller
     public function index(Request $request): Response
     {
         $search = $request->string('search')->trim()->toString();
+        $type = $request->string('type')->trim()->toString();
+        $type = in_array($type, SpkService::TYPES, true) ? $type : '';
+        $status = $request->string('status')->trim()->toString();
+        $statusLabels = array_values(SpkDashboardAnalytics::BACKLOG_STATUS_LABELS);
+        $status = in_array($status, $statusLabels, true) ? $status : '';
         $perPage = $request->integer('per_page', 10);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
 
         $productions = Production::query()
             ->notDeleted()
+            ->when($type !== '', function ($query) use ($type): void {
+                $query->where('spk_type', $type);
+            })
+            ->when($status !== '', function ($query) use ($status): void {
+                $statusKey = array_search($status, SpkDashboardAnalytics::BACKLOG_STATUS_LABELS, true);
+
+                if ($statusKey === 'inProgress') {
+                    $query->where(function ($q): void {
+                        $q->whereNotNull('last_process')
+                            ->orWhere('is_inprocess', '!=', 0);
+                    });
+                } elseif ($statusKey === 'confirmed') {
+                    $query->where(function ($q): void {
+                        $q->whereRaw("UPPER(status_order) IN ('RO','PO')");
+                    })
+                        ->where(function ($q): void {
+                            $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
+                        })
+                        ->whereNull('last_process');
+                } elseif ($statusKey === 'draft') {
+                    $query->where(function ($q): void {
+                        $q->whereNull('status_order')
+                            ->orWhere('status_order', '')
+                            ->orWhereRaw("UPPER(status_order) NOT IN ('RO','PO')");
+                    })
+                        ->where(function ($q): void {
+                            $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
+                        })
+                        ->whereNull('last_process');
+                } elseif ($statusKey === 'done') {
+                    $allIds = Production::query()->notDeleted()->pluck('row_id')->all();
+                    $doneIds = SpkDashboardAnalytics::completedProductionSpkIds($allIds);
+
+                    $query->whereIn('row_id', $doneIds);
+                }
+            })
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('spk_no', 'like', "%{$search}%")
                         ->orWhere('spk_type', 'like', "%{$search}%")
+                        ->orWhere('request_order_no', 'like', "%{$search}%")
                         ->orWhere('customer_name', 'like', "%{$search}%")
                         ->orWhere('item_name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%")
@@ -62,13 +105,30 @@ class ProductionController extends Controller
             })
             ->orderByDesc('row_id')
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (Production $production): array => $this->toListItem($production));
+            ->withQueryString();
+
+        $pageProductions = $productions->getCollection();
+        $doneIds = array_flip(SpkDashboardAnalytics::completedProductionSpkIds(
+            $pageProductions->pluck('row_id')->all(),
+        ));
+        $lastProcessDates = SpkDashboardAnalytics::lastProcessDatesFor($pageProductions);
+
+        $productions = $productions->through(
+            fn (Production $production): array => $this->toListItem(
+                $production,
+                isset($doneIds[(int) $production->row_id]),
+                $lastProcessDates[(int) $production->row_id] ?? null,
+            ),
+        );
 
         return Inertia::render('spk/index', [
             'productions' => $productions,
+            'types' => SpkService::TYPES,
+            'statuses' => $statusLabels,
             'filters' => [
                 'search' => $search,
+                'type' => $type,
+                'status' => $status,
                 'per_page' => $perPage,
             ],
         ]);
@@ -596,6 +656,30 @@ class ProductionController extends Controller
         return $parts === [] ? '-' : implode(' | ', $parts);
     }
 
+    private function listItemDescription(Production $production): string
+    {
+        $production->loadMissing(['categoryPrefix', 'sku']);
+
+        $typeCode = trim((string) ($production->categoryPrefix?->prefix ?? ''));
+        $description = filled($production->description) ? trim((string) $production->description) : '';
+
+        if ((int) $production->is_from_new_system === 1) {
+            $skuCode = trim((string) ($production->sku?->sku_code ?? ''));
+
+            $parts = array_values(array_filter(
+                [$typeCode, $skuCode, $description],
+                fn (string $part): bool => $part !== '',
+            ));
+        } else {
+            $parts = array_values(array_filter(
+                [$typeCode, $description],
+                fn (string $part): bool => $part !== '',
+            ));
+        }
+
+        return $parts !== [] ? implode(' | ', $parts) : '-';
+    }
+
     /**
      * @return array{diameter: string, dimensi: string, ringSize: string}
      */
@@ -661,26 +745,52 @@ class ProductionController extends Controller
         ];
     }
 
+    private function customerName(Production $production): string
+    {
+        return filled($production->customer_name) ? $production->customer_name : '-';
+    }
+
+    private function customerListLabel(Production $production): string
+    {
+        $customerName = filled($production->customer_name) ? (string) $production->customer_name : '';
+
+        if ($production->spk_type !== 'Pesanan') {
+            return $customerName;
+        }
+
+        if ($customerName === '') {
+            $customerName = '-';
+        }
+
+        $orderNo = filled($production->request_order_no) ? $production->request_order_no : '-';
+
+        return "{$orderNo}\n({$customerName})";
+    }
+
     /**
      * @return array<string, mixed>
      */
-    private function toListItem(Production $production): array
-    {
+    private function toListItem(
+        Production $production,
+        ?bool $hasCompletedPolesChrome = null,
+        ?string $lastProcessDate = null,
+    ): array {
         return [
             'id' => (string) $production->row_id,
             'produksiNo' => $production->spk_no ?? '-',
             'tipeProduksi' => $production->spk_type ?? '-',
-            'customer' => filled($production->customer_name) ? $production->customer_name : '-',
+            'customer' => $this->customerListLabel($production),
             'item' => $production->relationLoaded('item') && $production->item !== null
                 ? ($production->item->name ?? '-')
                 : ($production->item_name ?? '-'),
-            'description' => filled($production->description) ? $production->description : '-',
+            'description' => $this->listItemDescription($production),
             'itemId' => $production->item_id !== null ? (string) $production->item_id : null,
             'orderDate' => $production->order_date?->format('d-M-Y') ?? '-',
-            'workEstimated' => $production->work_estimated ?? '-',
+            'createdDate' => $production->created_date?->format('d-M-Y') ?? '-',
             'estimatedDelivery' => $production->estimated_delivery_time?->format('d-M-Y') ?? '-',
-            'status' => $production->status ?: '-',
+            'status' => SpkDashboardAnalytics::backlogStatusLabel($production, $hasCompletedPolesChrome),
             'prosesTerakhir' => $production->last_process ?? '',
+            'prosesTerakhirDate' => $lastProcessDate ?? '',
         ];
     }
 
@@ -704,6 +814,8 @@ class ProductionController extends Controller
 
         return [
             ...$this->toListItem($production),
+            'customer' => $this->customerName($production),
+            'status' => $production->status ?: '-',
             'requestOrderNo' => $production->request_order_no ?? '-',
             'refSpkNo' => $refSpkNo,
             'description' => $production->description ?? '-',

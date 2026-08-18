@@ -201,7 +201,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
     }> = [
         {
             key: 'draft',
-            label: 'Menunggu Approval',
+            label: 'Menunggu Approval Manager Produksi',
             hint: 'Belum Approved',
             count: summary.draftSpk,
             className: 'is-draft',
@@ -215,7 +215,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         },
         {
             key: 'inProgress',
-            label: 'SPK In Progress',
+            label: 'In Progress',
             hint: 'Sedang dikerjakan',
             count: summary.inProgressSpk,
             className: 'is-progress',
@@ -229,8 +229,8 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         },
         {
             key: 'done',
-            label: 'SPK Done',
-            hint: 'Poles BJ completed / Serahkan JB',
+            label: 'Done',
+            hint: 'Poles BJ completed / Serahkan ke JB',
             count: summary.doneSpk,
             className: 'is-done',
         },

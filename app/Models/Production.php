@@ -51,6 +51,7 @@ use Illuminate\Support\Carbon;
  * @property int $is_polishfinishedgood
  * @property int $is_grafir
  * @property int $is_inprocess
+ * @property int $is_from_new_system
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -98,6 +99,7 @@ use Illuminate\Support\Carbon;
     'is_polishfinishedgood',
     'is_grafir',
     'is_inprocess',
+    'is_from_new_system',
     'is_deleted',
     'created_date',
     'created_by',
@@ -161,6 +163,7 @@ class Production extends Model
         'is_polishfinishedgood' => 0,
         'is_grafir' => 0,
         'is_inprocess' => 0,
+        'is_from_new_system' => 0,
         'is_deleted' => 0,
     ];
 
@@ -241,6 +244,7 @@ class Production extends Model
             'is_polishfinishedgood' => 'integer',
             'is_grafir' => 'integer',
             'is_inprocess' => 'integer',
+            'is_from_new_system' => 'integer',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',
             'modified_date' => 'datetime',

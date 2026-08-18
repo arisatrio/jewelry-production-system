@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Production;
 use App\Support\SpkDashboardAnalytics;
 use Carbon\Carbon;
 use Tests\TestCase;
@@ -177,3 +178,79 @@ test('spk dashboard analytics for current month returns structured payload', fun
             'doneSpk',
         ]);
 });
+
+test('dashboard backlog status grouping matches dashboard card labels', function (array $attributes, string $key, string $label, bool $hasCompletedPolesChrome) {
+    $production = new Production($attributes);
+    $production->row_id = 1;
+
+    expect(SpkDashboardAnalytics::backlogStatusKey($production, $hasCompletedPolesChrome))->toBe($key)
+        ->and(SpkDashboardAnalytics::backlogStatusLabel($production, $hasCompletedPolesChrome))->toBe($label)
+        ->and(SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$key])->toBe($label);
+})->with([
+    'done poles chrome completed' => [
+        [
+            'status' => 'SPK010',
+            'status_order' => 'NO',
+            'last_process' => 'Poles Chrome',
+            'is_inprocess' => 1,
+        ],
+        'done',
+        'Done',
+        true,
+    ],
+    'done poles rangka completed' => [
+        [
+            'status' => 'SPK010',
+            'status_order' => 'NO',
+            'last_process' => 'Poles Rangka',
+            'is_inprocess' => 1,
+        ],
+        'done',
+        'Done',
+        true,
+    ],
+    'spkdone is not done without poles chrome' => [
+        [
+            'status' => 'SPKDONE',
+            'status_order' => 'NO',
+            'last_process' => null,
+            'is_inprocess' => 0,
+        ],
+        'draft',
+        'Menunggu Approval Manager Produksi',
+        false,
+    ],
+    'confirmed ro' => [
+        [
+            'status' => '',
+            'status_order' => 'RO',
+            'last_process' => null,
+            'is_inprocess' => 0,
+        ],
+        'confirmed',
+        'Approved by Manager Produksi',
+        false,
+    ],
+    'in progress last process' => [
+        [
+            'status' => 'SPK010',
+            'status_order' => 'NO',
+            'last_process' => 'Coran',
+            'is_inprocess' => 0,
+        ],
+        'inProgress',
+        'In Progress',
+        false,
+    ],
+    'draft pending approval' => [
+        [
+            'status' => 'SPK010',
+            'status_order' => 'NO',
+            'last_process' => null,
+            'is_inprocess' => 0,
+        ],
+        'draft',
+        'Menunggu Approval Manager Produksi',
+        false,
+    ],
+]);
