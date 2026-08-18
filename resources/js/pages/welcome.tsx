@@ -53,6 +53,7 @@ export type DashboardTodayKey =
     | 'todayCreated'
     | 'todayInProcess'
     | 'todayTarget'
+    | 'monthTarget'
     | 'monthOverdue';
 
 export type DashboardListKey = DashboardStatusKey | DashboardTodayKey;
@@ -311,7 +312,8 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
     const openListPeriodLabel =
         openList !== null &&
         openList in todayLists &&
-        openList !== 'monthOverdue'
+        openList !== 'monthOverdue' &&
+        openList !== 'monthTarget'
             ? today.label
             : period.label;
 
@@ -500,6 +502,17 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
                                                     'id-ID',
                                                 )}
                                             </span>
+                                            <button
+                                                type="button"
+                                                className="dashKpiFileBtn"
+                                                aria-label="Lihat daftar Target SPK Selesai Bulan Ini"
+                                                title="Lihat daftar Target SPK Selesai Bulan Ini"
+                                                onClick={() =>
+                                                    setOpenList('monthTarget')
+                                                }
+                                            >
+                                                <Eye aria-hidden="true" />
+                                            </button>
                                         </article>
                                     ) : null}
                                 </div>

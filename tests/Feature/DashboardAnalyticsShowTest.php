@@ -25,6 +25,7 @@ test('home dashboard includes analytics payload', function () {
             ->has('analytics.today.inProcessSpk')
             ->has('analytics.today.overdueSpk')
             ->has('analytics.todayLists.todayTarget')
+            ->has('analytics.todayLists.monthTarget')
             ->has('analytics.todayLists.todayInProcess')
             ->has('analytics.todayLists.todayCreated')
             ->has('analytics.todayLists.monthOverdue')

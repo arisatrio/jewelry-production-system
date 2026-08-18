@@ -604,6 +604,7 @@ class SpkDashboardAnalytics
      *     todayCreated: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>,
      *     todayInProcess: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>,
      *     todayTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     monthTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>,
      *     monthOverdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>
      * }
      */
@@ -613,6 +614,7 @@ class SpkDashboardAnalytics
             'todayCreated' => [],
             'todayInProcess' => [],
             'todayTarget' => [],
+            'monthTarget' => [],
             'monthOverdue' => [],
         ];
 
@@ -624,6 +626,7 @@ class SpkDashboardAnalytics
             'todayCreated' => $this->todayListFor('todayCreated'),
             'todayInProcess' => $this->todayListFor('todayInProcess'),
             'todayTarget' => $this->todayListFor('todayTarget'),
+            'monthTarget' => $this->todayListFor('monthTarget'),
             'monthOverdue' => $this->todayListFor('monthOverdue'),
         ];
     }
@@ -638,6 +641,12 @@ class SpkDashboardAnalytics
         $query = $this->monthScopedSpkBase();
 
         $query = match ($key) {
+            'monthTarget' => $this->spkBase()
+                ->whereNotNull('estimated_delivery_time')
+                ->whereBetween('estimated_delivery_time', [
+                    $this->periodStart->toDateTimeString(),
+                    $this->periodEnd->toDateTimeString(),
+                ]),
             'todayTarget' => $query
                 ->whereNotNull('estimated_delivery_time')
                 ->whereBetween('estimated_delivery_time', [
