@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -18,11 +20,13 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 /**
  * @property int $id
  * @property string $name
+ * @property string $user_id
  * @property string $email
  * @property int|null $role_id
  * @property string|null $spk_role
  * @property Carbon|null $email_verified_at
  * @property string $password
+ * @property string|null $legacy_password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -31,8 +35,8 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $updated_at
  * @property-read Role|null $role
  */
-#[Fillable(['name', 'email', 'password', 'role_id', 'spk_role'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Fillable(['name', 'user_id', 'email', 'password', 'role_id', 'spk_role'])]
+#[Hidden(['password', 'legacy_password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
@@ -73,6 +77,37 @@ class User extends Authenticatable implements PasskeyUser
         }
 
         return $role->hasPermission($permission);
+    }
+
+    public function matchesPassword(string $plainPassword): bool
+    {
+        $storedPassword = $this->attributes['password'] ?? null;
+
+        if (is_string($storedPassword) && $storedPassword !== '' && Hash::check($plainPassword, $storedPassword)) {
+            return true;
+        }
+
+        $legacyPassword = $this->attributes['legacy_password'] ?? null;
+
+        if (! is_string($legacyPassword) || $legacyPassword === '') {
+            return false;
+        }
+
+        $legacyMatches = password_verify($plainPassword, $legacyPassword)
+            || hash_equals($legacyPassword, md5($plainPassword));
+
+        if (! $legacyMatches) {
+            return false;
+        }
+
+        if ($this->exists && Schema::hasColumn($this->getTable(), 'legacy_password')) {
+            $this->forceFill([
+                'password' => $plainPassword,
+                'legacy_password' => null,
+            ])->save();
+        }
+
+        return true;
     }
 
     /**

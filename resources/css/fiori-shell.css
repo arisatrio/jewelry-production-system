@@ -143,8 +143,13 @@ ui5-shellbar[breakpoint-size='XXL'] {
     padding: 0;
 }
 
-.shellSettingsBtn:hover {
+.shellSettingsBtn:hover:not(:disabled) {
     background: #f0f0f0;
+}
+
+.shellSettingsBtn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
 }
 
 .shellSettingsBtn ui5-icon {
@@ -217,12 +222,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
 }
 
 .appNavItem.is-active {
-    color: var(--sap-fiori-brand, #0070f2);
     box-shadow: inset 0 -2px 0 var(--sap-fiori-brand, #0070f2);
-}
-
-.appNavItem.is-active .appNavChevron {
-    color: var(--sap-fiori-brand, #0070f2);
 }
 
 .appNavItemLaporan,

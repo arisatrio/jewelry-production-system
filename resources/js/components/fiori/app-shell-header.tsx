@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import employeeIcon from '@ui5/webcomponents-icons/dist/employee.js';
 import exitFullScreenIcon from '@ui5/webcomponents-icons/dist/exit-full-screen.js';
 import fullScreenIcon from '@ui5/webcomponents-icons/dist/full-screen.js';
+import logIcon from '@ui5/webcomponents-icons/dist/log.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import settingsIcon from '@ui5/webcomponents-icons/dist/action-settings.js';
 import { Avatar } from '@ui5/webcomponents-react/Avatar';
@@ -10,10 +11,13 @@ import { Icon } from '@ui5/webcomponents-react/Icon';
 import { ListItemStandard } from '@ui5/webcomponents-react/ListItemStandard';
 import { Menu } from '@ui5/webcomponents-react/Menu';
 import { MenuItem } from '@ui5/webcomponents-react/MenuItem';
+import { MenuSeparator } from '@ui5/webcomponents-react/MenuSeparator';
 import { ShellBar } from '@ui5/webcomponents-react/ShellBar';
 import { ShellBarItem } from '@ui5/webcomponents-react/ShellBarItem';
 import { ShellBarSpacer } from '@ui5/webcomponents-react/ShellBarSpacer';
+import { logout } from '@/routes';
 import { edit as editProfile } from '@/routes/profile';
+import { cn } from '@/lib/utils';
 import {
     defaultMidDropdowns,
     defaultModuleNavItems,
@@ -23,6 +27,8 @@ import {
     type ShellNavDropdown,
     type ShellNavItem,
 } from '@/components/fiori/nav-config';
+
+const PROFILE_SETTINGS_LINKS_ENABLED = false;
 
 export type AppShellHeaderProps = {
     activeMenu?: string;
@@ -75,10 +81,7 @@ function formatHeaderDate(date: Date): string {
     });
 }
 
-function findNavHref(
-    text: string,
-    items: ShellNavItem[],
-): string | undefined {
+function findNavHref(text: string, items: ShellNavItem[]): string | undefined {
     return items.find((item) => item.text === text)?.href;
 }
 
@@ -135,7 +138,13 @@ export default function AppShellHeader({
     );
 
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const [profileMenuOpener, setProfileMenuOpener] = useState<
+        HTMLElement | undefined
+    >();
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const pendingProfileActionRef = useRef<string | null>(null);
+    const ignoreProfileClickRef = useRef(false);
 
     const spkNavItem = moduleNavItems.find((item) => item.text === 'SPK');
     const trailingModuleNavItems = moduleNavItems.filter(
@@ -208,6 +217,26 @@ export default function AppShellHeader({
         onSearchSubmit?.(searchQuery);
     };
 
+    const runProfileMenuAction = (text: string) => {
+        if (text === 'Profile') {
+            if (!PROFILE_SETTINGS_LINKS_ENABLED) {
+                return;
+            }
+
+            router.visit(editProfile.url());
+
+            return;
+        }
+
+        if (text === 'Logout') {
+            router.flushAll();
+            router.visit(logout.url(), {
+                method: 'post',
+                preserveState: false,
+            });
+        }
+    };
+
     const isDropdownActive = (dropdown: ShellNavDropdown): boolean =>
         dropdown.items.some((item) => item.text === activeMenu);
 
@@ -227,7 +256,11 @@ export default function AppShellHeader({
             key={dropdown.id}
             id={dropdownButtonId(dropdown.id)}
             type="button"
-            className={`appNavItem appNavItemDropdown${isDropdownActive(dropdown) ? ' is-active' : ''}`}
+            className={cn(
+                'appNavItem',
+                'appNavItemDropdown',
+                isDropdownActive(dropdown) && 'is-active',
+            )}
             onClick={() => setOpenDropdownId(dropdown.id)}
         >
             {dropdown.text}
@@ -241,7 +274,10 @@ export default function AppShellHeader({
         <button
             key={item.text}
             type="button"
-            className={`appNavItem${activeMenu === item.text ? ' is-active' : ''}`}
+            className={cn(
+                'appNavItem',
+                activeMenu === item.text && 'is-active',
+            )}
             onClick={() => selectMenu(item.text)}
         >
             {item.text}
@@ -252,6 +288,13 @@ export default function AppShellHeader({
         <>
             <div className="shellHeaderWrap">
                 <ShellBar
+                    accessibilityAttributes={{
+                        profile: {
+                            hasPopup: 'menu',
+                            expanded: isProfileMenuOpen ? 'true' : 'false',
+                            name: 'Profile',
+                        },
+                    }}
                     showNotifications={showNotifications}
                     notificationsCount={
                         showNotifications ? notificationsCount : undefined
@@ -334,10 +377,7 @@ export default function AppShellHeader({
                         />
                     }
                     menuItems={allMenuItems.map((item) => (
-                        <ListItemStandard
-                            key={item.text}
-                            data-menu={item.text}
-                        >
+                        <ListItemStandard key={item.text} data-menu={item.text}>
                             {item.text}
                         </ListItemStandard>
                     ))}
@@ -352,17 +392,21 @@ export default function AppShellHeader({
                         event.preventDefault();
                         onNotificationsClick?.();
                     }}
+                    onProfileClick={(event) => {
+                        if (ignoreProfileClickRef.current) {
+                            return;
+                        }
+
+                        setProfileMenuOpener(event.detail.targetRef);
+                        setIsProfileMenuOpen(true);
+                    }}
                 >
                     <ShellBarItem
                         icon={
-                            isFullscreen
-                                ? exitFullScreenIcon
-                                : fullScreenIcon
+                            isFullscreen ? exitFullScreenIcon : fullScreenIcon
                         }
                         text={
-                            isFullscreen
-                                ? 'Keluar layar penuh'
-                                : 'Layar penuh'
+                            isFullscreen ? 'Keluar layar penuh' : 'Layar penuh'
                         }
                         onClick={(event) => {
                             event.preventDefault();
@@ -370,14 +414,26 @@ export default function AppShellHeader({
                         }}
                     />
                 </ShellBar>
-                <Link
-                    href={resolvedSettingsHref}
-                    className="shellSettingsBtn"
-                    aria-label="Pengaturan"
-                    title="Pengaturan"
-                >
-                    <Icon name={settingsIcon} />
-                </Link>
+                {PROFILE_SETTINGS_LINKS_ENABLED ? (
+                    <Link
+                        href={resolvedSettingsHref}
+                        className="shellSettingsBtn"
+                        aria-label="Pengaturan"
+                        title="Pengaturan"
+                    >
+                        <Icon name={settingsIcon} />
+                    </Link>
+                ) : (
+                    <button
+                        type="button"
+                        className="shellSettingsBtn"
+                        disabled
+                        aria-label="Pengaturan"
+                        title="Pengaturan"
+                    >
+                        <Icon name={settingsIcon} />
+                    </button>
+                )}
             </div>
             <nav className="appNav" aria-label="Menu modul">
                 {primaryNavItems.map(renderNavLink)}
@@ -407,6 +463,38 @@ export default function AppShellHeader({
                     ))}
                 </Menu>
             ))}
+            <Menu
+                open={isProfileMenuOpen}
+                opener={profileMenuOpener}
+                onClose={() => {
+                    setIsProfileMenuOpen(false);
+
+                    const action = pendingProfileActionRef.current;
+                    pendingProfileActionRef.current = null;
+
+                    if (!action) {
+                        return;
+                    }
+
+                    window.setTimeout(() => {
+                        runProfileMenuAction(action);
+                        ignoreProfileClickRef.current = false;
+                    }, 0);
+                }}
+                onItemClick={(event) => {
+                    pendingProfileActionRef.current = event.detail.text;
+                    ignoreProfileClickRef.current = true;
+                    setIsProfileMenuOpen(false);
+                }}
+            >
+                <MenuItem
+                    text="Profile"
+                    icon={employeeIcon}
+                    disabled={!PROFILE_SETTINGS_LINKS_ENABLED}
+                />
+                <MenuSeparator />
+                <MenuItem text="Logout" icon={logIcon} />
+            </Menu>
         </>
     );
 }

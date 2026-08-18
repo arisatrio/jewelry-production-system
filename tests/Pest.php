@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,6 +18,20 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+$authenticatedFeatureTests = array_map(
+    fn (string $path): string => str_replace(__DIR__.DIRECTORY_SEPARATOR, '', $path),
+    [
+        ...glob(__DIR__.'/Feature/*.php') ?: [],
+        ...glob(__DIR__.'/Feature/Settings/*.php') ?: [],
+    ],
+);
+
+pest()->beforeEach(function (): void {
+    $this->actingAs(User::factory()->adminSpk()->create([
+        'name' => 'system',
+    ]));
+})->in(...$authenticatedFeatureTests);
 
 /*
 |--------------------------------------------------------------------------

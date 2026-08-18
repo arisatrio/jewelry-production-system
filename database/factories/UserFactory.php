@@ -30,6 +30,7 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
+            'user_id' => fake()->unique()->numerify('user####'),
             'email' => fake()->unique()->safeEmail(),
             'role_id' => null,
             'spk_role' => null,
