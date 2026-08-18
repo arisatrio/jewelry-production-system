@@ -191,6 +191,34 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         inProgressByProcess,
     } = analytics;
     const [openList, setOpenList] = useState<DashboardListKey | null>(null);
+    const monthTargetSpk =
+        summary.planningDoneSpk + summary.planningPendingSpk;
+    const todayTargetCompletionPercent =
+        today.targetSpk > 0
+            ? ((today.targetDoneSpk / today.targetSpk) * 100).toFixed(1)
+            : '0.0';
+    const monthTargetCompletionPercent =
+        monthTargetSpk > 0
+            ? ((summary.planningDoneSpk / monthTargetSpk) * 100).toFixed(1)
+            : '0.0';
+
+    const targetToneClass = (percentText: string, totalTarget: number): string => {
+        if (totalTarget <= 0) {
+            return '';
+        }
+
+        const percent = Number(percentText);
+
+        if (percent >= 100) {
+            return 'is-target-good';
+        }
+
+        if (percent >= 80) {
+            return 'is-target-warning';
+        }
+
+        return 'is-target-critical';
+    };
 
     const statusCards: Array<{
         key: DashboardStatusKey;
@@ -252,13 +280,13 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         {
             key: 'todayInProcess',
             label: 'SPK Diproses Hari Ini',
-            hint: `In progress · di-update ${today.label}`,
+            hint: 'In progress',
             count: today.inProcessSpk,
         },
         {
             key: 'todayTarget',
             label: 'Target SPK Hari Ini',
-            hint: `${today.label} · selesai ${today.targetDoneSpk.toLocaleString('id-ID')} · belum ${today.targetPendingSpk.toLocaleString('id-ID')}${today.targetQty > 0 ? ` · qty ${today.targetQty.toLocaleString('id-ID')}` : ''}`,
+            hint: `${today.label} · ${today.targetDoneSpk.toLocaleString('id-ID')} selesai dari ${today.targetSpk.toLocaleString('id-ID')}${today.targetQty > 0 ? ` · qty ${today.targetQty.toLocaleString('id-ID')}` : ''}`,
             count: today.targetSpk,
         },
         {
@@ -397,29 +425,84 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
                             aria-label="Ringkasan hari ini"
                         >
                             {todayCards.map((card) => (
-                                <article
-                                    key={card.key}
-                                    className={`dashKpiCard is-today${card.className ? ` ${card.className}` : ''}`}
-                                >
-                                    <span className="dashKpiLabel">
-                                        {card.label}
-                                    </span>
-                                    <strong className="dashKpiValue">
-                                        {card.count.toLocaleString('id-ID')}
-                                    </strong>
-                                    <span className="dashKpiHint">
-                                        {card.hint}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        className="dashKpiFileBtn"
-                                        aria-label={`Lihat daftar ${card.label}`}
-                                        title={`Lihat daftar ${card.label}`}
-                                        onClick={() => setOpenList(card.key)}
+                                <div key={card.key} className="dashKpiCardGroup">
+                                    <article
+                                        className={`dashKpiCard is-today${card.className ? ` ${card.className}` : ''}${card.key === 'todayTarget' ? ` ${targetToneClass(todayTargetCompletionPercent, card.count)}` : ''}`}
                                     >
-                                        <Eye aria-hidden="true" />
-                                    </button>
-                                </article>
+                                        <span className="dashKpiLabel">
+                                            {card.label}
+                                        </span>
+                                        {card.key === 'todayTarget' ? (
+                                            <div className="dashKpiValueRow">
+                                                <strong className="dashKpiValue">
+                                                    {card.count.toLocaleString(
+                                                        'id-ID',
+                                                    )}
+                                                </strong>
+                                                {card.count > 0 ? (
+                                                    <span className="dashKpiSubvalue">
+                                                        {
+                                                            todayTargetCompletionPercent
+                                                        }
+                                                        %
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        ) : (
+                                            <strong className="dashKpiValue">
+                                                {card.count.toLocaleString(
+                                                    'id-ID',
+                                                )}
+                                            </strong>
+                                        )}
+                                        <span className="dashKpiHint">
+                                            {card.hint}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className="dashKpiFileBtn"
+                                            aria-label={`Lihat daftar ${card.label}`}
+                                            title={`Lihat daftar ${card.label}`}
+                                            onClick={() => setOpenList(card.key)}
+                                        >
+                                            <Eye aria-hidden="true" />
+                                        </button>
+                                    </article>
+                                    {card.key === 'todayTarget' ? (
+                                        <article
+                                            className={`dashKpiCard is-today ${targetToneClass(monthTargetCompletionPercent, monthTargetSpk)}`}
+                                        >
+                                            <span className="dashKpiLabel">
+                                                Target SPK Selesai Bulan Ini
+                                            </span>
+                                            <div className="dashKpiValueRow">
+                                                <strong className="dashKpiValue">
+                                                    {monthTargetSpk.toLocaleString(
+                                                        'id-ID',
+                                                    )}
+                                                </strong>
+                                                {monthTargetSpk > 0 ? (
+                                                    <span className="dashKpiSubvalue">
+                                                        {
+                                                            monthTargetCompletionPercent
+                                                        }
+                                                        %
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <span className="dashKpiHint">
+                                                {period.label} ·{' '}
+                                                {summary.planningDoneSpk.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                selesai dari{' '}
+                                                {monthTargetSpk.toLocaleString(
+                                                    'id-ID',
+                                                )}
+                                            </span>
+                                        </article>
+                                    ) : null}
+                                </div>
                             ))}
                         </section>
 

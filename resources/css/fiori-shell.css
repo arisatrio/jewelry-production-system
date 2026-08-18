@@ -560,9 +560,13 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
 
 .dashTodayKpis {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.65rem;
     flex-shrink: 0;
+}
+
+.dashKpiCardGroup {
+    display: contents;
 }
 
 .dashPieRow {
@@ -794,9 +798,53 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     font-size: 1.55rem;
 }
 
+.dashKpiCard.is-today .dashKpiValueRow {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
 .dashKpiCard.is-today .dashKpiHint {
     font-size: 0.7rem;
     line-height: 1.25;
+}
+
+.dashKpiCard.is-today .dashKpiSubvalue {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    line-height: 1.2;
+}
+
+.dashKpiCard.is-today.is-target-critical {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.dashKpiCard.is-today.is-target-warning {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #b45309;
+}
+
+.dashKpiCard.is-today.is-target-good {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.dashKpiCard.is-today.is-target-critical .dashKpiSubvalue {
+    color: #b91c1c;
+}
+
+.dashKpiCard.is-today.is-target-warning .dashKpiSubvalue {
+    color: #b45309;
+}
+
+.dashKpiCard.is-today.is-target-good .dashKpiSubvalue {
+    color: #166534;
 }
 
 .dashKpiCard.is-today .dashKpiFileBtn {

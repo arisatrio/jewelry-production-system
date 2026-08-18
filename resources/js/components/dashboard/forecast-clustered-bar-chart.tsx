@@ -17,6 +17,7 @@ type ForecastClusteredBarChartProps = {
 /** Biru Fiori Horizon brand — planning estimasi (line) */
 const ESTIMASI_COLOR = 0x0070f2;
 const REALISASI_MET_COLOR = 0x16a34a;
+const REALISASI_WARNING_COLOR = 0xf59e0b;
 const REALISASI_SHORT_COLOR = 0xdc2626;
 
 const LEGEND_ITEMS = [
@@ -28,6 +29,11 @@ const LEGEND_ITEMS = [
     {
         label: 'Realisasi capai target',
         color: `#${REALISASI_MET_COLOR.toString(16).padStart(6, '0')}`,
+        variant: 'bar' as const,
+    },
+    {
+        label: 'Realisasi hampir capai target',
+        color: `#${REALISASI_WARNING_COLOR.toString(16).padStart(6, '0')}`,
         variant: 'bar' as const,
     },
     {
@@ -151,7 +157,7 @@ export function ForecastClusteredBarChart({
             }),
         );
 
-        // Realisasi — bar hijau/merah menurut capaian
+        // Realisasi — bar merah/kuning/hijau menurut capaian
         const realisasiSeries = chart.series.push(
             am5xy.ColumnSeries.new(root, {
                 name: 'Realisasi',
@@ -198,9 +204,15 @@ export function ForecastClusteredBarChart({
                 | undefined;
             const estimasi = Number(context?.Estimasi ?? 0);
             const realisasi = Number(context?.Realisasi ?? 0);
-            const met = estimasi > 0 && realisasi >= estimasi;
+            const percent = estimasi > 0 ? (realisasi / estimasi) * 100 : 0;
 
-            return am5.color(met ? REALISASI_MET_COLOR : REALISASI_SHORT_COLOR);
+            return am5.color(
+                percent >= 100
+                    ? REALISASI_MET_COLOR
+                    : percent >= 80
+                      ? REALISASI_WARNING_COLOR
+                      : REALISASI_SHORT_COLOR,
+            );
         };
 
         realisasiSeries.columns.template.adapters.add('fill', realisasiFill);
@@ -216,8 +228,14 @@ export function ForecastClusteredBarChart({
                 const estimasi = Number(context?.Estimasi ?? 0);
                 const realisasi = Number(context?.Realisasi ?? 0);
                 const percent = Number(context?.percent ?? 0);
-                const met = estimasi > 0 && realisasi >= estimasi;
-                const status = met ? 'capai target' : 'belum capai target';
+                const completionPercent =
+                    estimasi > 0 ? (realisasi / estimasi) * 100 : 0;
+                const status =
+                    completionPercent >= 100
+                        ? 'capai target'
+                        : completionPercent >= 80
+                          ? 'hampir capai target'
+                          : 'belum capai target';
 
                 return `${category}\nTotal SPK: ${estimasi}\nRealisasi: ${realisasi} (${percent}% · ${status})`;
             },
@@ -228,9 +246,15 @@ export function ForecastClusteredBarChart({
             const context = dataItem.dataContext as (typeof data)[number];
             const realisasi = Number(context?.Realisasi ?? 0);
             const inside = maxValue > 0 && realisasi / maxValue >= 0.14;
-            const met =
-                Number(context?.Estimasi ?? 0) > 0 &&
-                realisasi >= Number(context?.Estimasi ?? 0);
+            const estimasi = Number(context?.Estimasi ?? 0);
+            const completionPercent =
+                estimasi > 0 ? (realisasi / estimasi) * 100 : 0;
+            const outsideColor =
+                completionPercent >= 100
+                    ? REALISASI_MET_COLOR
+                    : completionPercent >= 80
+                      ? REALISASI_WARNING_COLOR
+                      : REALISASI_SHORT_COLOR;
 
             const label = am5.Label.new(bulletRoot, {
                 text: realisasi > 0 ? `${context.percent}%` : '',
@@ -240,11 +264,7 @@ export function ForecastClusteredBarChart({
                 fontSize: 9,
                 fontWeight: '700',
                 fill: am5.color(
-                    inside
-                        ? 0xffffff
-                        : met
-                          ? REALISASI_MET_COLOR
-                          : REALISASI_SHORT_COLOR,
+                    inside ? 0xffffff : outsideColor,
                 ),
             });
 
