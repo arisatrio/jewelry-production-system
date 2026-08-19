@@ -80,10 +80,35 @@ function SpkTableLastProcessCell({ row }: { row: SpkRow }) {
     return <span>-</span>;
 }
 
+function tipeProduksiBadgeClass(tipe: string): string {
+    const lower = tipe.toLowerCase();
+
+    if (lower.includes('pesanan')) return 'spkTableBadge--pesanan';
+    if (lower.includes('stock') || lower.includes('stok')) return 'spkTableBadge--stock';
+    if (lower.includes('refund') || lower.includes('exchange')) return 'spkTableBadge--refundExchange';
+    if (lower.includes('reparasi')) return 'spkTableBadge--reparasi';
+
+    return 'spkTableBadge--default';
+}
+
+function statusBadgeClass(status: string): string {
+    const lower = status.toLowerCase();
+
+    if (lower.includes('done') || lower.includes('selesai')) return 'spkTableBadge--done';
+    if (lower.includes('in progress')) return 'spkTableBadge--inProgress';
+    if (lower.includes('approved')) return 'spkTableBadge--approved';
+    if (lower.includes('draft')) return 'spkTableBadge--draft';
+    if (lower.includes('pengajuan')) return 'spkTableBadge--pengajuan';
+
+    return 'spkTableBadge--default';
+}
+
 function SpkTableStatusCell({ row }: { row: SpkRow }) {
     return (
         <div className="spkTableStatus">
-            <span>{row.status}</span>
+            <span className={`spkTableBadge ${statusBadgeClass(row.status)}`}>
+                {row.status}
+            </span>
         </div>
     );
 }
@@ -394,7 +419,9 @@ export default function SpkTable({
                                             </button>
                                         </td>
                                         <td className="spkTableCustomer">
-                                            <span>{row.tipeProduksi}</span>
+                                            <span className={`spkTableBadge ${tipeProduksiBadgeClass(row.tipeProduksi)}`}>
+                                                {row.tipeProduksi}
+                                            </span>
                                             <span>{row.customer}</span>
                                         </td>
                                         <td>{row.description}</td>
