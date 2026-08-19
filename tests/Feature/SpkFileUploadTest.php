@@ -2,13 +2,26 @@
 
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
+use App\Support\GoogleCloudStorageService;
 use App\Support\SpkService;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-test('spk update can store uploaded image path longer than 50 characters', function () {
-    Storage::fake('public');
+use function Pest\Laravel\mock;
+
+test('spk update uploads image to gcs produksi folder', function () {
+    mock(GoogleCloudStorageService::class, function ($mock): void {
+        $mock->shouldReceive('uploadFile')
+            ->once()
+            ->withArgs(function ($file, string $folder, string $filename): bool {
+                return $file instanceof UploadedFile
+                    && $folder === 'produksi'
+                    && preg_match('/^\d+\.png$/', $filename) === 1;
+            })
+            ->andReturnUsing(function ($file, string $folder, string $filename): string {
+                return "https://storage.googleapis.com/system-mahakarya/{$folder}/{$filename}";
+            });
+    });
 
     $production = app(SpkService::class)->createStock('system');
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
@@ -26,7 +39,7 @@ test('spk update can store uploaded image path longer than 50 characters', funct
 
     $this->post(route('spk.update', $production->row_id), [
         'order_date' => '2026-08-03',
-        'work_estimated' => 5,
+        'estimated_delivery_time' => '2026-08-10',
         'priority' => 'YES',
         'description' => 'Upload file name length',
         'category_prefix_id' => $category->id,
@@ -46,13 +59,20 @@ test('spk update can store uploaded image path longer than 50 characters', funct
     $production->refresh();
 
     expect($production->file_name)->not->toBeNull()
-        ->and(strlen((string) $production->file_name))->toBeGreaterThan(50)
-        ->and($production->file_name)->toStartWith('spk/'.$production->row_id.'/')
+        ->and($production->file_name)->toMatch('/^\d+\.png$/')
         ->and($production->diameter_length_ringsize)->toBe(' / Panjang 150 / ')
         ->and($production->sku_id)->toBe($sku->id)
         ->and($production->category_prefix_id)->toBe($category->id);
 
-    Storage::disk('public')->assertExists($production->file_name);
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where(
+                'item.imageUrl',
+                rtrim((string) config('spk.production_image_base_url'), '/').'/'.$production->file_name,
+            )
+        );
 
     $production->delete();
     $sku->delete();

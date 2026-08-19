@@ -103,22 +103,12 @@
                 </td>
             </tr>
             <tr>
-                <th>Estimasi Pengerjaan</th>
-                <td>
-                    @if ($blankTemplate)
-                        <span class="spkPrintHint">Jumlah hari kerja estimasi, contoh: 5 hari kerja</span>
-                    @else
-                        {{ $info['workEstimated'] ?? $empty }}
-                    @endif
-                </td>
-            </tr>
-            <tr>
-                <th>Estimasi Selesai</th>
+                <th>Tanggal Estimasi Selesai</th>
                 <td>
                     @if ($blankTemplate)
                         <span class="spkPrintHint">Tanggal estimasi selesai (dd/mm/yyyy)</span>
                     @else
-                        {{ $info['estimatedDelivery'] ?? $empty }}
+                        {{ $info['estimatedDelivery'] ?? $info['workEstimated'] ?? $empty }}
                     @endif
                 </td>
             </tr>
@@ -136,7 +126,7 @@
                 @else
                     <div class="spkPrintImagePlaceholder">
                         @if ($blankTemplate)
-                            <span class="spkPrintHint">Gambar desain item 1:1 dari Product Item atau unggahan SPK</span>
+                            <span class="spkPrintHint">Gambar desain item 1:1 dari SKU atau unggahan SPK</span>
                         @else
                             Gambar item
                         @endif
@@ -152,7 +142,7 @@
                     <tr>
                         <td>
                             <div class="spkPrintFieldStack">
-                                <span class="spkPrintFieldLabel">Tipe Item | Product Item</span>
+                                <span class="spkPrintFieldLabel">Tipe Item | SKU</span>
                                 @php
                                     $typeCode = trim((string) ($item['typeCode'] ?? ''));
                                     $productItemName = trim((string) ($item['productItemName'] ?? ''));
@@ -176,6 +166,23 @@
                                         <span class="spkPrintFieldValue">{{ $item['typeVariant'] ?? '-' }}</span>
                                     @endif
                                 @endif
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="spkPrintFieldStack">
+                                <span class="spkPrintFieldLabel">Deskripsi Item</span>
+                                <span class="spkPrintFieldValue">
+                                    @if ($blankTemplate)
+                                        <span class="spkPrintHint">Deskripsi item dari komponen SKU, contoh: Rose Gold Bangle Netizen Asimetris Heart Diamond Dossier 0.3</span>
+                                    @else
+                                        @php
+                                            $itemDescription = trim((string) ($item['description'] ?? ''));
+                                        @endphp
+                                        {{ $itemDescription !== '' && $itemDescription !== '-' ? $itemDescription : '-' }}
+                                    @endif
+                                </span>
                             </div>
                         </td>
                     </tr>
@@ -212,31 +219,31 @@
                             <div class="spkPrintFieldStack">
                                 <span class="spkPrintFieldLabel">Ukuran</span>
                                 <div class="spkPrintUkuran">
-                                    <div>
-                                        <span>Diameter (mm)</span>
-                                        <strong>
+                                    <div class="spkPrintUkuranItem">
+                                        <span class="spkPrintUkuranLabel">Diameter (mm)</span>
+                                        <strong class="spkPrintUkuranValue">
                                             @if ($blankTemplate)
-                                                <span class="spkPrintHint">Diameter dalam mm, jika relevan</span>
+                                                <span class="spkPrintHint">Diameter mm</span>
                                             @else
                                                 {{ $item['diameter'] ?? '-' }}
                                             @endif
                                         </strong>
                                     </div>
-                                    <div>
-                                        <span>Dimensi PxL (mm)</span>
-                                        <strong>
+                                    <div class="spkPrintUkuranItem">
+                                        <span class="spkPrintUkuranLabel">Dimensi (mm)</span>
+                                        <strong class="spkPrintUkuranValue">
                                             @if ($blankTemplate)
-                                                <span class="spkPrintHint">Panjang x lebar dalam mm, jika relevan</span>
+                                                <span class="spkPrintHint">PxL mm</span>
                                             @else
                                                 {{ $item['dimensi'] ?? '-' }}
                                             @endif
                                         </strong>
                                     </div>
-                                    <div>
-                                        <span>Ring Size</span>
-                                        <strong>
+                                    <div class="spkPrintUkuranItem">
+                                        <span class="spkPrintUkuranLabel">Ring Size</span>
+                                        <strong class="spkPrintUkuranValue">
                                             @if ($blankTemplate)
-                                                <span class="spkPrintHint">Ukuran cincin, contoh: Size 12 HK</span>
+                                                <span class="spkPrintHint">Size 12 HK</span>
                                             @else
                                                 {{ $item['ringSize'] ?? '-' }}
                                             @endif
@@ -248,29 +255,27 @@
                     </tr>
                     <tr>
                         <td>
-                            <div class="spkPrintFieldStack">
-                                <span class="spkPrintFieldLabel">Berat Emas (g)</span>
-                                <span class="spkPrintFieldValue">
-                                    @if ($blankTemplate)
-                                        <span class="spkPrintHint">Berat emas dalam gram</span>
-                                    @else
-                                        {{ $item['goldWeight'] ?? '-' }}
-                                    @endif
-                                </span>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <div class="spkPrintFieldStack">
-                                <span class="spkPrintFieldLabel">Warna Emas</span>
-                                <span class="spkPrintFieldValue">
-                                    @if ($blankTemplate)
-                                        <span class="spkPrintHint">White Gold, Yellow Gold, Rose Gold, atau Two Tones</span>
-                                    @else
-                                        {{ $item['goldColor'] ?? '-' }}
-                                    @endif
-                                </span>
+                            <div class="spkPrintUkuran">
+                                <div class="spkPrintUkuranItem">
+                                    <span class="spkPrintUkuranLabel">Berat Emas (g)</span>
+                                    <strong class="spkPrintUkuranValue">
+                                        @if ($blankTemplate)
+                                            <span class="spkPrintHint">Berat dalam gram</span>
+                                        @else
+                                            {{ $item['goldWeight'] ?? '-' }}
+                                        @endif
+                                    </strong>
+                                </div>
+                                <div class="spkPrintUkuranItem">
+                                    <span class="spkPrintUkuranLabel">Warna Emas</span>
+                                    <strong class="spkPrintUkuranValue">
+                                        @if ($blankTemplate)
+                                            <span class="spkPrintHint">White / Yellow / Rose / Two Tones</span>
+                                        @else
+                                            {{ $item['goldColor'] ?? '-' }}
+                                        @endif
+                                    </strong>
+                                </div>
                             </div>
                         </td>
                     </tr>

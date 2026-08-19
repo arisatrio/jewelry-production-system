@@ -53,6 +53,8 @@ test('spk create page shows form without generating number', function () {
             ->where('production.id', null)
             ->where('production.spkNo', null)
             ->where('production.spkType', 'Stock')
+            ->where('production.priority', 'NO')
+            ->where('production.qty', '1')
             ->where('formDocumentNo', 'WHOJ-PRD-FR-001')
             ->has('options.spkTypes')
             ->has('options.categories')
@@ -131,9 +133,43 @@ test('spk stock can be created with form details and generated number', function
         ->and($production->supplier_id)->toBe(1)
         ->and($production->created_by)->toBe('system');
 
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->delete();
+});
+
+test('spk create copies sku master image filename to file name', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'image_filename' => '1782887215_testskuimage.jpg',
+    ]);
+
+    $payload = validSpkStorePayload([
+        'category_prefix_id' => $category->id,
+        'sku_id' => $sku->id,
+        'description' => 'Copy SKU image on create',
+    ]);
+
+    $this->post(route('spk.store'), $payload)->assertRedirect();
+
+    $production = Production::query()
+        ->notDeleted()
+        ->where('description', 'Copy SKU image on create')
+        ->orderByDesc('row_id')
+        ->first();
+
+    expect($production)->not->toBeNull()
+        ->and($production->file_name)->toBe($sku->image_filename);
+
+    $production->delete();
+    $sku->delete();
 });
 
 test('spk pesanan can be created from request order', function () {
@@ -163,7 +199,7 @@ test('spk pesanan can be created from request order', function () {
         ->and($production->customer_name)->not->toBeNull()
         ->and($production->description)->toBe('Pesanan create full');
 
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->delete();
 });
@@ -204,7 +240,7 @@ test('spk exchange can be created from approved reference', function () {
         ->and($production->gold_color)->toBe('White Gold')
         ->and($production->priority)->toBe('YES');
 
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->delete();
 });
@@ -216,7 +252,7 @@ test('spk create validates required type and form fields', function () {
         ->assertSessionHasErrors([
             'spk_type',
             'order_date',
-            'work_estimated',
+            'estimated_delivery_time',
             'priority',
             'description',
             'category_prefix_id',
@@ -259,7 +295,7 @@ test('spk create stores selected sku_id as product item reference', function () 
         ->and($production->sku_id)->toBe($sku->id)
         ->and($production->category_prefix_id)->toBe($category->id);
 
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->delete();
     $sku->delete();

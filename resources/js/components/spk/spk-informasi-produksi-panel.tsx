@@ -77,10 +77,6 @@ export function SpkInformasiProduksiPanel({
             ? '-'
             : `${requestOrderNo} (${customerName})`;
 
-    const workEstimated = displayValue(production.workEstimated);
-    const workEstimatedLabel =
-        workEstimated === '-' ? '-' : `${workEstimated} hari kerja`;
-
     const refSpkNo = displayValue(production.refSpkNo);
     const notes = displayValue(production.notes);
     const footerColumns =
@@ -107,10 +103,7 @@ export function SpkInformasiProduksiPanel({
                         <MetaRow label="Tanggal Permintaan">
                             {displayValue(production.orderDate)}
                         </MetaRow>
-                        <MetaRow label="Estimasi Pengerjaan">
-                            {workEstimatedLabel}
-                        </MetaRow>
-                        <MetaRow label="Estimasi Selesai">
+                        <MetaRow label="Tanggal Estimasi Selesai">
                             {displayValue(production.estimatedDelivery)}
                         </MetaRow>
                     </tbody>

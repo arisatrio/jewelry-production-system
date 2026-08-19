@@ -10,6 +10,7 @@ use App\Support\GoldColorOptions;
 use App\Support\SpkService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class UpdateProductionRequest extends FormRequest
@@ -69,7 +70,7 @@ class UpdateProductionRequest extends FormRequest
             $stones = [];
         }
 
-        $this->merge([
+        $merge = [
             'sku_id' => filled($skuId) ? $skuId : null,
             'category_prefix_id' => filled($categoryPrefixId) ? $categoryPrefixId : null,
             'diameter' => $this->filled('diameter')
@@ -82,7 +83,22 @@ class UpdateProductionRequest extends FormRequest
                 ? $this->string('ring_size')->trim()->toString()
                 : null,
             'stones' => $stones,
-        ]);
+        ];
+
+        if (
+            ! $this->filled('estimated_delivery_time')
+            && $this->filled('work_estimated')
+            && $this->filled('order_date')
+        ) {
+            $merge['estimated_delivery_time'] = app(SpkService::class)
+                ->calculateEstimatedDelivery(
+                    Carbon::parse((string) $this->input('order_date')),
+                    (int) $this->input('work_estimated'),
+                )
+                ->toDateString();
+        }
+
+        $this->merge($merge);
     }
 
     /**
@@ -92,7 +108,8 @@ class UpdateProductionRequest extends FormRequest
     {
         return [
             'order_date' => ['required', 'date'],
-            'work_estimated' => ['required', 'integer', 'min:0', 'max:365'],
+            'estimated_delivery_time' => ['required', 'date', 'after_or_equal:order_date'],
+            'work_estimated' => ['sometimes', 'integer', 'min:0', 'max:365'],
             'priority' => ['required', 'string', Rule::in(['YES', 'NO'])],
             'description' => ['required', 'string', 'max:4000'],
             'category_prefix_id' => [
@@ -166,16 +183,18 @@ class UpdateProductionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'order_date.required' => 'Order date wajib diisi.',
-            'work_estimated.required' => 'Work estimated wajib diisi.',
-            'work_estimated.integer' => 'Work estimated harus berupa angka hari kerja.',
-            'work_estimated.min' => 'Work estimated minimal 0 hari kerja.',
+            'order_date.required' => 'Tanggal permintaan wajib diisi.',
+            'estimated_delivery_time.required' => 'Tanggal estimasi selesai wajib diisi.',
+            'estimated_delivery_time.date' => 'Tanggal estimasi selesai tidak valid.',
+            'estimated_delivery_time.after_or_equal' => 'Tanggal estimasi selesai tidak boleh sebelum tanggal permintaan.',
+            'work_estimated.integer' => 'Estimasi hari kerja harus berupa angka.',
+            'work_estimated.min' => 'Estimasi hari kerja minimal 0.',
             'priority.required' => 'Prioritas wajib dipilih.',
             'description.required' => 'Description wajib diisi.',
             'category_prefix_id.required' => 'Tipe Item wajib dipilih.',
             'category_prefix_id.exists' => 'Tipe Item tidak valid.',
-            'sku_id.required' => 'Product Item wajib dipilih.',
-            'sku_id.exists' => 'Product Item tidak valid.',
+            'sku_id.required' => 'SKU wajib dipilih.',
+            'sku_id.exists' => 'SKU tidak valid.',
             'qty.required' => 'Qty wajib diisi.',
             'satuan.required' => 'Satuan wajib dipilih.',
             'satuan.in' => 'Satuan harus Pcs atau Pasang.',

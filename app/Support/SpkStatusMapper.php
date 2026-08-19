@@ -73,7 +73,7 @@ class SpkStatusMapper
     }
 
     /**
-     * Manager sudah approve untuk backlog list/detail (RO/PO, belum proses).
+     * Manager sudah approve untuk backlog list/detail (SPKDONE, belum proses).
      */
     public function isManagerApproved(Production $production, ?bool $hasCompletedProduction = null): bool
     {

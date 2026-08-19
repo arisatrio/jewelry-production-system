@@ -90,7 +90,7 @@ test('spk can be created with stone list', function () {
         ->first();
 
     expect($production)->not->toBeNull();
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $stones = SpkStone::query()
         ->notDeleted()

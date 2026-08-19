@@ -64,7 +64,12 @@
             width: 100%;
             border-collapse: collapse;
             border-spacing: 0;
+            flex: 0 0 auto;
+        }
+
+        .spkPrintFlexSpacer {
             flex: 1 1 auto;
+            min-height: 0;
         }
 
         .spkPrintSheet > thead {
@@ -475,19 +480,24 @@
             gap: 10px;
             align-items: stretch;
             width: 100%;
+            height: 100mm;
         }
 
         .spkPrintImageCol {
             display: flex;
             flex-direction: column;
             min-width: 0;
-            min-height: 52mm;
+            height: 100mm;
+            max-height: 100mm;
         }
 
         .spkPrintFieldsCol {
             display: flex;
             flex-direction: column;
             min-width: 0;
+            height: 100mm;
+            max-height: 100mm;
+            overflow: hidden;
         }
 
         .spkPrintImageFrame {
@@ -496,8 +506,8 @@
             flex: 1 1 auto;
             align-items: stretch;
             width: 100%;
-            height: 100%;
-            min-height: 52mm;
+            height: 100mm;
+            max-height: 100mm;
             margin: 0;
             padding: 0;
             overflow: hidden;
@@ -526,7 +536,6 @@
             justify-content: center;
             width: 100%;
             height: 100%;
-            min-height: 52mm;
             margin: 0;
             padding: 0;
             color: #666;
@@ -550,22 +559,29 @@
         .spkPrintNotesSection {
             width: 100%;
             margin-bottom: 6px;
+            text-align: left;
         }
 
         .spkPrintNotes {
             width: 100%;
-            min-height: 16px;
+            min-height: 40px;
             padding: 2px 6px;
             border: 1px solid #ccc;
-            white-space: pre-wrap;
+            white-space: pre-line;
             word-break: break-word;
             font-size: 8pt;
             line-height: 1.2;
+            text-align: left;
+            text-indent: 0;
+        }
+
+        .spkPrintNotes .spkPrintHint {
+            display: inline;
+            text-align: left;
         }
 
         .spkPrintBottom {
             width: 100%;
-            margin-top: auto;
             flex: 0 0 auto;
             padding-top: 4px;
             padding-bottom: 0;
@@ -605,86 +621,69 @@
             table-layout: fixed;
         }
 
-        .spkPrintMetaTable--item tbody {
-            height: 100%;
-        }
-
-        .spkPrintMetaTable--item tr {
-            height: calc(100% / 7);
-        }
-
-        .spkPrintMetaTable--item th {
-            width: 32%;
-        }
-
         .spkPrintMetaTable--item td {
             width: 100%;
-            height: calc(100% / 7);
+            padding: 6px 6px;
             background: #fff;
-            vertical-align: middle;
+            vertical-align: top;
             box-sizing: border-box;
         }
 
         .spkPrintFieldStack {
             display: flex;
             flex-direction: column;
-            gap: 1px;
+            gap: 0;
             min-width: 0;
         }
 
-        .spkPrintFieldLabel {
-            color: #333;
+        .spkPrintFieldLabel,
+        .spkPrintUkuranLabel {
+            color: #555;
             font-size: 7pt;
-            font-weight: 700;
-            line-height: 1.2;
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 6px;
+            word-break: break-word;
         }
 
-        .spkPrintFieldValue {
+        .spkPrintFieldValue,
+        .spkPrintFieldSku,
+        .spkPrintUkuranValue {
             color: #111;
             font-size: 8.5pt;
             font-weight: 400;
-            line-height: 1.3;
+            line-height: 1.15;
             word-break: break-word;
         }
 
         .spkPrintFieldValue:empty {
             display: block;
-            min-height: 11pt;
-        }
-
-        .spkPrintFieldSku {
-            color: #333;
-            font-size: 7pt;
-            font-weight: 400;
-            line-height: 1.25;
-            word-break: break-word;
+            min-height: 0;
         }
 
         .spkPrintUkuran {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
-            margin-top: 2px;
+            flex-direction: row;
+            align-items: stretch;
+            gap: 0;
+            margin-top: 0;
         }
 
-        .spkPrintUkuran > div {
+        .spkPrintUkuranItem {
             display: flex;
+            flex: 1 1 0;
             flex-direction: column;
-            gap: 1px;
+            gap: 0;
             min-width: 0;
         }
 
-        .spkPrintUkuran span {
-            color: #555;
-            font-size: 7pt;
-            line-height: 1.2;
+        .spkPrintUkuranSep {
+            display: none;
         }
 
-        .spkPrintUkuran strong {
-            font-size: 8.5pt;
-            font-weight: 400;
-            line-height: 1.25;
-            word-break: break-word;
+        .spkPrintUkuranItem .spkPrintHint {
+            display: inline;
+            white-space: normal;
         }
 
         .spkPrintStoneTable {
@@ -770,12 +769,19 @@
             }
 
             .spkPrintPage {
+                display: flex;
+                flex-direction: column;
                 width: auto;
-                min-height: 0;
+                min-height: 281mm;
                 height: auto;
                 margin: 0;
                 padding: 0;
                 box-shadow: none;
+            }
+
+            .spkPrintFlexSpacer {
+                flex: 1 1 auto;
+                min-height: 0;
             }
 
             .spkPrintPage--priority {
@@ -784,10 +790,16 @@
             }
 
             .spkPrintBottom {
-                margin-top: 4px;
+                flex: 0 0 auto;
                 padding: 4px 8px 0;
                 break-inside: avoid;
                 page-break-inside: avoid;
+                text-align: left;
+            }
+
+            .spkPrintNotes,
+            .spkPrintNotesSection {
+                text-align: left;
             }
 
             .spkPrintPage--priority .spkPrintBottom {
@@ -968,6 +980,8 @@
                 </tr>
             </tfoot>
         </table>
+
+        <div class="spkPrintFlexSpacer" aria-hidden="true"></div>
 
         @include('spk.partials.print-bottom', ['document' => $document])
     </main>

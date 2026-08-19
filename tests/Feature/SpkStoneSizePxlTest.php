@@ -69,7 +69,7 @@ test('spk can save stone size as pxl string', function () {
         ->first();
 
     expect($production)->not->toBeNull();
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $stone = SpkStone::query()
         ->notDeleted()

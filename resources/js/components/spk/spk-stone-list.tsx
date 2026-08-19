@@ -75,7 +75,7 @@ export function SpkItemDetailCard({ item }: { item: SpkItemDetail }) {
                 <table className="spkItemMetaTable spkItemMetaTable--sm">
                     <tbody>
                         <tr>
-                            <th scope="row">Tipe Item | Product Item</th>
+                            <th scope="row">Tipe Item | SKU</th>
                             <td>
                                 <SpkTypeProductItemValue item={item} />
                             </td>
@@ -880,7 +880,7 @@ export function SpkItemStoneCard({
                     <table className="spkItemMetaTable spkItemMetaTable--sm">
                         <tbody>
                             <tr>
-                                <th scope="row">Tipe Item | Product Item</th>
+                                <th scope="row">Tipe Item | SKU</th>
                                 <td>
                                     <SpkTypeProductItemValue item={item} />
                                 </td>

@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Production;
 use App\Models\User;
 use App\Support\SpkApprovalService;
 use App\Support\SpkService;
@@ -75,12 +74,60 @@ test('manager can approve pending spk to spkdone', function () {
         ->get(route('spk.show', $production))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
+            ->where('approvalFooter.1.title', 'Disetujui Oleh')
+            ->where('approvalFooter.1.name', $manager->name)
             ->where('approvalFooter.2.title', 'Manager Produksi')
-            ->where('approvalFooter.2.name', $manager->name)
+            ->where('approvalFooter.2.name', '-')
         );
 
     $production->delete();
     $manager->delete();
+});
+
+test('any authenticated user can approve pending spk without manager permission', function () {
+    $spv = User::factory()->spvPrd()->create();
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'status' => SpkApprovalService::STATUS_PENDING,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(80000, 89999)),
+    ]);
+
+    $this->actingAs($spv)
+        ->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('approval.canApprove', true)
+            ->where('approval.canReject', false)
+        );
+
+    $this->actingAs($spv)
+        ->post(route('spk.approve', $production->row_id), ['notes' => null])
+        ->assertRedirect(route('spk.show', $production->spk_no));
+
+    expect($production->fresh()->status)->toBe(SpkApprovalService::STATUS_DONE);
+
+    $production->delete();
+    $spv->delete();
+});
+
+test('non manager cannot reject pending spk', function () {
+    $spv = User::factory()->spvPrd()->create();
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'status' => SpkApprovalService::STATUS_PENDING,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(80000, 89999)),
+    ]);
+
+    $this->actingAs($spv)
+        ->post(route('spk.reject', $production->row_id), [
+            'notes' => 'Tidak boleh reject',
+        ])
+        ->assertForbidden();
+
+    expect($production->fresh()->status)->toBe(SpkApprovalService::STATUS_PENDING);
+
+    $production->delete();
+    $spv->delete();
 });
 
 test('manager reject returns spk to draft with notes', function () {
@@ -123,11 +170,11 @@ test('manager reject requires notes', function () {
 
 test('spk show includes approval abilities for current role', function () {
     $spv = User::factory()->spvPrd()->create();
-    $production = Production::query()->notDeleted()->whereNotNull('spk_no')->first();
-
-    expect($production)->not->toBeNull();
-
-    $production->update(['status' => '']);
+    $production = app(SpkService::class)->createStock($spv->name);
+    $production->update([
+        'status' => '',
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(80000, 89999)),
+    ]);
 
     $this->actingAs($spv)
         ->get(route('spk.show', $production))
@@ -136,11 +183,38 @@ test('spk show includes approval abilities for current role', function () {
             ->component('spk/show')
             ->where('approval.role', 'SPV PRODUCTION')
             ->where('approval.canSubmit', true)
-            ->where('approval.canApprove', false)
+            ->where('approval.canApprove', true)
             ->has('approvalFooter', 3)
             ->where('approvalFooter.1.title', 'Disetujui Oleh')
             ->where('approvalFooter.2.title', 'Manager Produksi')
         );
 
+    $production->delete();
     $spv->delete();
+});
+
+test('authenticated user can approve draft spk without submitting first', function () {
+    $user = User::factory()->create();
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'status' => '',
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(80000, 89999)),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('approval.canApprove', true)
+            ->where('approval.canSubmit', false)
+        );
+
+    $this->actingAs($user)
+        ->post(route('spk.approve', $production->row_id), ['notes' => null])
+        ->assertRedirect(route('spk.show', $production->spk_no));
+
+    expect($production->fresh()->status)->toBe(SpkApprovalService::STATUS_DONE);
+
+    $production->delete();
+    $user->delete();
 });

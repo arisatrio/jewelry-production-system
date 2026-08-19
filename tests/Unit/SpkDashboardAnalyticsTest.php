@@ -209,20 +209,20 @@ test('dashboard backlog status grouping matches dashboard card labels', function
         'Done',
         true,
     ],
-    'spkdone is not done without poles chrome' => [
+    'spkdone without process is confirmed' => [
         [
             'status' => 'SPKDONE',
             'status_order' => 'NO',
             'last_process' => null,
             'is_inprocess' => 0,
         ],
-        'draft',
-        'Menunggu Approval Manager Produksi',
+        'confirmed',
+        'Approved by Manager Produksi',
         false,
     ],
-    'confirmed ro' => [
+    'confirmed manager approved' => [
         [
-            'status' => '',
+            'status' => 'SPKDONE',
             'status_order' => 'RO',
             'last_process' => null,
             'is_inprocess' => 0,
@@ -250,7 +250,69 @@ test('dashboard backlog status grouping matches dashboard card labels', function
             'is_inprocess' => 0,
         ],
         'draft',
-        'Menunggu Approval Manager Produksi',
+        'Draft',
+        false,
+    ],
+    'empty status is draft' => [
+        [
+            'status' => '',
+            'status_order' => 'NO',
+            'last_process' => null,
+            'is_inprocess' => 0,
+        ],
+        'draft',
+        'Draft',
+        false,
+    ],
+    'repeat order still waiting manager is draft' => [
+        [
+            'status' => 'SPK010',
+            'status_order' => 'RO',
+            'last_process' => null,
+            'is_inprocess' => 0,
+        ],
+        'draft',
+        'Draft',
         false,
     ],
 ]);
+
+test('dashboard waiting approval backlog is sent to production not draft', function () {
+    $draft = Production::factory()->create([
+        'status' => '',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(89000, 89999)),
+        'estimated_delivery_time' => now()->subDays(5)->toDateString(),
+    ]);
+    $pending = Production::factory()->create([
+        'status' => 'SPK010',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(88000, 88999)),
+    ]);
+    $sent = Production::factory()->create([
+        'status' => 'SPKDONE',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(87000, 87999)),
+    ]);
+
+    $report = (new SpkDashboardAnalytics)->summarize();
+    $waitingNos = collect($report['statusLists']['draft'])->pluck('spkNo');
+    $approvedNos = collect($report['statusLists']['confirmed'])->pluck('spkNo');
+    $overdueNos = collect($report['statusLists']['overdue'])->pluck('spkNo');
+
+    expect($waitingNos)->not->toContain($draft->spk_no)
+        ->and($waitingNos)->not->toContain($pending->spk_no)
+        ->and($waitingNos)->toContain($sent->spk_no)
+        ->and($approvedNos)->not->toContain($sent->spk_no)
+        ->and($overdueNos)->not->toContain($draft->spk_no);
+
+    $draft->delete();
+    $pending->delete();
+    $sent->delete();
+});

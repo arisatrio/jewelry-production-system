@@ -222,14 +222,14 @@ test('spk index maps status to dashboard backlog labels', function (array $attri
 
     $production->delete();
 })->with([
-    'manager done without poles chrome is draft' => [
+    'manager approved without poles chrome is confirmed' => [
         [
             'status' => 'SPKDONE',
             'status_order' => 'NO',
             'last_process' => null,
             'is_inprocess' => 0,
         ],
-        'Menunggu Approval Manager Produksi',
+        'Approved by Manager Produksi',
     ],
     'poles chrome in progress is not done' => [
         [
@@ -240,14 +240,14 @@ test('spk index maps status to dashboard backlog labels', function (array $attri
         ],
         'In Progress',
     ],
-    'confirmed' => [
+    'repeat order still waiting manager is draft' => [
         [
-            'status' => '',
+            'status' => 'SPK010',
             'status_order' => 'RO',
             'last_process' => null,
             'is_inprocess' => 0,
         ],
-        'Approved by Manager Produksi',
+        'Draft',
     ],
     'in progress' => [
         [
@@ -265,9 +265,50 @@ test('spk index maps status to dashboard backlog labels', function (array $attri
             'last_process' => null,
             'is_inprocess' => 0,
         ],
-        'Menunggu Approval Manager Produksi',
+        'Draft',
     ],
 ]);
+
+test('spk index confirmed filter uses manager approval not repeat order', function () {
+    $pendingRepeat = Production::factory()->create([
+        'status' => 'SPK010',
+        'status_order' => 'RO',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+    ]);
+    $approved = Production::factory()->create([
+        'status' => 'SPKDONE',
+        'status_order' => 'NO',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', [
+        'status' => 'Approved by Manager Produksi',
+        'search' => $pendingRepeat->spk_no,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.total', 0)
+        );
+
+    $this->get(route('spk.index', [
+        'status' => 'Approved by Manager Produksi',
+        'search' => $approved->spk_no,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.produksiNo', $approved->spk_no)
+            ->where('productions.data.0.status', 'Approved by Manager Produksi')
+        );
+
+    $pendingRepeat->delete();
+    $approved->delete();
+});
 
 test('spk index marks status done when poles chrome is completed or handed to jb', function (string $processStatus) {
     $production = Production::factory()->create([
@@ -474,6 +515,36 @@ test('spk show returns null image url when file name is empty for photo button',
         );
 
     $production->delete();
+});
+
+test('spk show page falls back to sku image when production file name is empty', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'image_url' => 'https://storage.googleapis.com/system-mahakarya/sku/test-item.jpg',
+    ]);
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'file_name' => null,
+        'sku_id' => $sku->id,
+        'category_prefix_id' => $category->id,
+    ]);
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('item.imageUrl', $sku->image_url)
+        );
+
+    $production->delete();
+    $sku->delete();
 });
 
 test('spk show page maps status order labels', function (string $code, string $label) {

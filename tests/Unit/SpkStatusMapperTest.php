@@ -19,7 +19,7 @@ test('spk status mapper classifies draft when status empty', function () {
     $mapped = (new SpkStatusMapper)->map($production, false);
 
     expect($mapped['key'])->toBe(SpkStatusMapper::KEY_DRAFT)
-        ->and($mapped['label'])->toBe('Menunggu Approval Manager Produksi')
+        ->and($mapped['label'])->toBe('Draft')
         ->and($mapped['stageIndex'])->toBe(0)
         ->and($mapped['isOverdue'])->toBeFalse()
         ->and($mapped['stages'])->toHaveCount(4)
@@ -39,13 +39,13 @@ test('spk status mapper classifies draft for pending manager SPK010', function (
 
     expect((new SpkStatusMapper)->resolveKey($production, false))->toBe(SpkStatusMapper::KEY_DRAFT)
         ->and((new SpkStatusMapper)->isPendingManager($production, false))->toBeTrue()
-        ->and((new SpkStatusMapper)->labelFor(SpkStatusMapper::KEY_DRAFT))->toBe('Menunggu Approval Manager Produksi');
+        ->and((new SpkStatusMapper)->labelFor(SpkStatusMapper::KEY_DRAFT))->toBe('Draft');
 });
 
-test('spk status mapper classifies confirmed for RO or PO without process', function () {
+test('spk status mapper classifies confirmed for SPKDONE without process', function () {
     $production = new Production([
-        'status' => '',
-        'status_order' => 'RO',
+        'status' => SpkApprovalService::STATUS_DONE,
+        'status_order' => 'NO',
         'last_process' => null,
         'is_inprocess' => 0,
     ]);
@@ -56,10 +56,10 @@ test('spk status mapper classifies confirmed for RO or PO without process', func
         ->and((new SpkStatusMapper)->isManagerApproved($production, false))->toBeTrue();
 });
 
-test('spk status mapper does not treat SPKDONE alone as confirmed', function () {
+test('spk status mapper does not treat repeat order as confirmed without SPKDONE', function () {
     $production = new Production([
-        'status' => SpkApprovalService::STATUS_DONE,
-        'status_order' => 'NO',
+        'status' => SpkApprovalService::STATUS_PENDING,
+        'status_order' => 'RO',
         'last_process' => null,
         'is_inprocess' => 0,
     ]);
@@ -68,7 +68,7 @@ test('spk status mapper does not treat SPKDONE alone as confirmed', function () 
     $mapped = (new SpkStatusMapper)->map($production, false);
 
     expect($mapped['key'])->toBe(SpkStatusMapper::KEY_DRAFT)
-        ->and($mapped['label'])->toBe('Menunggu Approval Manager Produksi')
+        ->and($mapped['label'])->toBe('Draft')
         ->and($mapped['stageIndex'])->toBe(0)
         ->and((new SpkStatusMapper)->isManagerApproved($production, false))->toBeFalse()
         ->and((new SpkStatusMapper)->isConfirmed($production, false))->toBeFalse();

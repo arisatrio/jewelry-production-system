@@ -31,6 +31,7 @@ class SkuMasterFactory extends Factory
             'stone_type_prefix_id' => null,
             'diamond_type_prefix_id' => null,
             'crt' => '0',
+            'gold_weight' => null,
             'sell_price' => null,
             'is_complete' => 1,
             'wildcard_count' => 0,

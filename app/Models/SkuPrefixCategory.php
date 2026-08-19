@@ -59,10 +59,18 @@ class SkuPrefixCategory extends Model
         $prefix = trim((string) $this->prefix);
 
         if ($category !== '' && $prefix !== '') {
-            return "{$category} ({$prefix})";
+            return strtoupper("{$category} ({$prefix})");
         }
 
-        return $category !== '' ? $category : ($prefix !== '' ? $prefix : '-');
+        if ($category !== '') {
+            return strtoupper($category);
+        }
+
+        if ($prefix !== '') {
+            return strtoupper($prefix);
+        }
+
+        return '-';
     }
 
     /**

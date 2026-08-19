@@ -231,7 +231,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         {
             key: 'draft',
             label: 'Menunggu Approval Manager Produksi',
-            hint: 'Belum Approved',
+            hint: 'Sudah diajukan dan dikirim ke produksi',
             count: summary.draftSpk,
             className: 'is-draft',
         },

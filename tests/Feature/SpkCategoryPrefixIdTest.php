@@ -51,7 +51,7 @@ test('spk store saves category_prefix_id for selected tipe item', function () {
         ->and($production->item_name)->toBe($category->category)
         ->and($production->sku_id)->toBe($sku->id);
 
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $this->get(route('spk.form', $production->row_id))
         ->assertOk()

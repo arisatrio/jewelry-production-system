@@ -1,6 +1,6 @@
 export type SpkStatus =
     | 'Approved by Manager Produksi'
-    | 'Menunggu Approval Manager Produksi'
+    | 'Draft'
     | 'In Progress'
     | 'Done'
     | 'Pengajuan Approval'

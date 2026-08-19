@@ -5,9 +5,11 @@ namespace App\Models;
 use Database\Factories\SkuMasterFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -22,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $stone_type_prefix_id
  * @property int|null $diamond_type_prefix_id
  * @property string|null $crt
+ * @property string|null $gold_weight
  * @property string|null $sell_price
  * @property int $is_complete
  * @property int $wildcard_count
@@ -39,6 +42,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $label
  * @property string|null $created_by
  * @property string|null $modified_by
+ * @property-read Collection<int, SkuMasterDiamond> $diamonds
  */
 #[Fillable([
     'sku_code',
@@ -51,6 +55,7 @@ use Illuminate\Support\Carbon;
     'stone_type_prefix_id',
     'diamond_type_prefix_id',
     'crt',
+    'gold_weight',
     'sell_price',
     'is_complete',
     'wildcard_count',
@@ -199,6 +204,54 @@ class SkuMaster extends Model
     }
 
     /**
+     * @return BelongsTo<SkuPrefixName, $this>
+     */
+    public function namePrefix(): BelongsTo
+    {
+        return $this->belongsTo(SkuPrefixName::class, 'name_prefix_id', 'id');
+    }
+
+    /**
+     * @return BelongsTo<SkuPrefixSize, $this>
+     */
+    public function sizePrefix(): BelongsTo
+    {
+        return $this->belongsTo(SkuPrefixSize::class, 'size_prefix_id', 'id');
+    }
+
+    /**
+     * @return BelongsTo<SkuPrefixStoneShape, $this>
+     */
+    public function stoneShapePrefix(): BelongsTo
+    {
+        return $this->belongsTo(SkuPrefixStoneShape::class, 'stone_shape_prefix_id', 'id');
+    }
+
+    /**
+     * @return BelongsTo<SkuPrefixStoneType, $this>
+     */
+    public function stoneTypePrefix(): BelongsTo
+    {
+        return $this->belongsTo(SkuPrefixStoneType::class, 'stone_type_prefix_id', 'id');
+    }
+
+    /**
+     * @return BelongsTo<SkuPrefixDiamondType, $this>
+     */
+    public function diamondTypePrefix(): BelongsTo
+    {
+        return $this->belongsTo(SkuPrefixDiamondType::class, 'diamond_type_prefix_id', 'id');
+    }
+
+    /**
+     * @return HasMany<SkuMasterDiamond, $this>
+     */
+    public function diamonds(): HasMany
+    {
+        return $this->hasMany(SkuMasterDiamond::class, 'row_id', 'id');
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -211,6 +264,7 @@ class SkuMaster extends Model
             'stone_shape_prefix_id' => 'integer',
             'stone_type_prefix_id' => 'integer',
             'diamond_type_prefix_id' => 'integer',
+            'gold_weight' => 'decimal:3',
             'sell_price' => 'decimal:2',
             'is_complete' => 'integer',
             'wildcard_count' => 'integer',

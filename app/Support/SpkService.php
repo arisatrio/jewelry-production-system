@@ -28,6 +28,7 @@ class SpkService
     public function __construct(
         private RequestOrderRepository $requestOrders,
         private SpkStatusOrder $statusOrder,
+        private GoogleCloudStorageService $gcs,
     ) {}
 
     /**
@@ -72,8 +73,7 @@ class SpkService
 
             $now = now();
             $orderDate = Carbon::parse((string) $data['order_date'])->startOfDay();
-            $workEstimated = (int) $data['work_estimated'];
-            $estimatedDelivery = $this->calculateEstimatedDelivery($orderDate, $workEstimated);
+            ['estimatedDelivery' => $estimatedDelivery, 'workEstimated' => $workEstimated] = $this->resolveEstimatedSchedule($orderDate, $data);
             $category = $this->resolveCategory($data);
             $sku = $this->resolveSku($data);
             $ukuranLabel = $this->resolveUkuranLabel($data);
@@ -128,12 +128,17 @@ class SpkService
                 }
             }
 
-            $production = Production::query()->create($attributes);
-
             if ($file !== null) {
-                $storedPath = $file->store('spk/'.$production->row_id, 'public');
-                $production->update(['file_name' => $storedPath]);
+                $attributes['file_name'] = $this->storeProductionImage($file);
+            } elseif ($sku !== null) {
+                $skuImageFileName = $this->resolveSkuImageFileName($sku);
+
+                if ($skuImageFileName !== null) {
+                    $attributes['file_name'] = $skuImageFileName;
+                }
             }
+
+            $production = Production::query()->create($attributes);
 
             $this->syncStones($production, $data['stones'] ?? [], $actor);
 
@@ -299,8 +304,7 @@ class SpkService
     {
         return DB::connection('third')->transaction(function () use ($production, $data, $actor, $file): Production {
             $orderDate = Carbon::parse((string) $data['order_date'])->startOfDay();
-            $workEstimated = (int) $data['work_estimated'];
-            $estimatedDelivery = $this->calculateEstimatedDelivery($orderDate, $workEstimated);
+            ['estimatedDelivery' => $estimatedDelivery, 'workEstimated' => $workEstimated] = $this->resolveEstimatedSchedule($orderDate, $data);
             $category = $this->resolveCategory($data);
             $sku = $this->resolveSku($data);
             $ukuranLabel = $this->resolveUkuranLabel($data);
@@ -342,8 +346,7 @@ class SpkService
             }
 
             if ($file !== null) {
-                $storedPath = $file->store('spk/'.$production->row_id, 'public');
-                $attributes['file_name'] = $storedPath;
+                $attributes['file_name'] = $this->storeProductionImage($file);
             }
 
             $production->update($attributes);
@@ -351,6 +354,70 @@ class SpkService
 
             return $production->refresh();
         });
+    }
+
+    /**
+     * Upload gambar SPK ke GCS bucket system-mahakarya/produksi.
+     * Nilai file_name disimpan sebagai nama file (kompatibel dengan URL legacy).
+     */
+    private function storeProductionImage(UploadedFile $file): string
+    {
+        $extension = strtolower((string) ($file->getClientOriginalExtension() ?: $file->guessExtension()));
+        $filename = (string) time().($extension !== '' ? '.'.$extension : '');
+        $folder = (string) config('gcs.folder', 'produksi');
+
+        $this->gcs->uploadFile($file, $folder, $filename);
+
+        return $filename;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{estimatedDelivery: Carbon, workEstimated: int}
+     */
+    public function resolveEstimatedSchedule(CarbonInterface $orderDate, array $data): array
+    {
+        if (filled($data['estimated_delivery_time'] ?? null)) {
+            $estimatedDelivery = Carbon::parse((string) $data['estimated_delivery_time'])->startOfDay();
+
+            return [
+                'estimatedDelivery' => $estimatedDelivery,
+                'workEstimated' => $this->countWorkingDaysBetween($orderDate, $estimatedDelivery),
+            ];
+        }
+
+        $workEstimated = (int) ($data['work_estimated'] ?? 0);
+
+        return [
+            'estimatedDelivery' => $this->calculateEstimatedDelivery($orderDate, $workEstimated),
+            'workEstimated' => $workEstimated,
+        ];
+    }
+
+    /**
+     * Hitung jumlah hari kerja (Senin–Jumat) dari tanggal permintaan ke tanggal estimasi selesai.
+     */
+    public function countWorkingDaysBetween(CarbonInterface $orderDate, CarbonInterface $deliveryDate): int
+    {
+        $start = Carbon::parse($orderDate)->startOfDay();
+        $end = Carbon::parse($deliveryDate)->startOfDay();
+
+        if ($end->lte($start)) {
+            return 0;
+        }
+
+        $count = 0;
+        $date = $start->copy();
+
+        while ($date->lt($end)) {
+            $date->addDay();
+
+            if (! $date->isWeekend()) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**
@@ -457,7 +524,7 @@ class SpkService
     }
 
     /**
-     * Resolve Product Item dari sku_master.
+     * Resolve SKU dari sku_master.
      *
      * @param  array<string, mixed>  $data
      */
@@ -476,6 +543,17 @@ class SpkService
         }
 
         return $query->firstOrFail();
+    }
+
+    private function resolveSkuImageFileName(?SkuMaster $sku): ?string
+    {
+        if ($sku === null) {
+            return null;
+        }
+
+        $fileName = trim(str_replace('\\', '/', (string) ($sku->image_filename ?? '')));
+
+        return $fileName !== '' ? $fileName : null;
     }
 
     /**

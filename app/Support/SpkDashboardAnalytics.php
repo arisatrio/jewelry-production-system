@@ -16,7 +16,7 @@ class SpkDashboardAnalytics
      * @var array<string, string>
      */
     public const BACKLOG_STATUS_LABELS = [
-        'draft' => 'Menunggu Approval Manager Produksi',
+        'draft' => 'Draft',
         'confirmed' => 'Approved by Manager Produksi',
         'inProgress' => 'In Progress',
         'done' => 'Done',
@@ -62,10 +62,10 @@ class SpkDashboardAnalytics
             return 'done';
         }
 
-        $statusOrder = strtoupper(trim((string) ($production->status_order ?? '')));
+        $status = strtoupper(trim((string) ($production->status ?? '')));
         $isInProcess = (int) ($production->is_inprocess ?? 0) !== 0;
         $hasLastProcess = $production->last_process !== null;
-        $isConfirmed = in_array($statusOrder, ['RO', 'PO'], true)
+        $isConfirmed = $status === SpkApprovalService::STATUS_DONE
             && ! $isInProcess
             && ! $hasLastProcess;
 
@@ -468,7 +468,10 @@ class SpkDashboardAnalytics
             return 0;
         }
 
+        ['unsentDraft' => $unsentDraftExpr] = $this->statusExpressions();
+
         return (clone $query)
+            ->whereRaw("NOT ({$unsentDraftExpr})")
             ->where(function (Builder $builder): void {
                 $builder->whereNull('status')
                     ->orWhere('status', '!=', 'SPKDONE');
@@ -479,13 +482,18 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Classify SPK into Draft / Confirmed / In Progress / Done.
+     * Classify SPK into waiting-approval (sudah dikirim ke produksi) / Confirmed / In Progress / Done.
+     * Draft yang belum dikirim ke produksi tidak dihitung di waiting-approval.
      *
      * @return array{draft: int, confirmed: int, inProgress: int, done: int}
      */
     private function resolveStatusCounts(Builder $query): array
     {
-        ['inProgress' => $inProgressExpr, 'confirmed' => $confirmedExpr] = $this->statusExpressions();
+        [
+            'inProgress' => $inProgressExpr,
+            'confirmed' => $confirmedExpr,
+            'managerApproved' => $managerApprovedExpr,
+        ] = $this->statusExpressions();
         $doneExpr = $this->doneExpression();
 
         $counts = $query
@@ -493,7 +501,7 @@ class SpkDashboardAnalytics
                 SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
                 SUM(CASE
                     WHEN ({$doneExpr}) THEN 0
-                    WHEN ({$confirmedExpr}) THEN 1
+                    WHEN ({$confirmedExpr}) AND ({$managerApprovedExpr}) THEN 1
                     ELSE 0
                 END) as confirmed_count,
                 SUM(CASE
@@ -504,9 +512,8 @@ class SpkDashboardAnalytics
                 END) as in_progress_count,
                 SUM(CASE
                     WHEN ({$doneExpr}) THEN 0
-                    WHEN ({$confirmedExpr}) THEN 0
-                    WHEN ({$inProgressExpr}) THEN 0
-                    ELSE 1
+                    WHEN ({$confirmedExpr}) AND NOT ({$managerApprovedExpr}) THEN 1
+                    ELSE 0
                 END) as draft_count
             ")
             ->first();
@@ -556,13 +563,19 @@ class SpkDashboardAnalytics
      */
     private function statusListFor(string $status): array
     {
-        ['inProgress' => $inProgressExpr, 'confirmed' => $confirmedExpr] = $this->statusExpressions();
+        [
+            'inProgress' => $inProgressExpr,
+            'confirmed' => $confirmedExpr,
+            'unsentDraft' => $unsentDraftExpr,
+            'managerApproved' => $managerApprovedExpr,
+        ] = $this->statusExpressions();
 
         $query = $this->spkBase();
 
         $query = match ($status) {
             'done' => $query->whereRaw($this->doneExpression()),
             'overdue' => $query
+                ->whereRaw("NOT ({$unsentDraftExpr})")
                 ->where(function (Builder $builder): void {
                     $builder->whereNull('status')
                         ->orWhere('status', '!=', 'SPKDONE');
@@ -571,15 +584,16 @@ class SpkDashboardAnalytics
                 ->where('estimated_delivery_time', '<', now()->startOfDay()->toDateTimeString()),
             'confirmed' => $query
                 ->whereRaw('NOT ('.$this->doneExpression().')')
-                ->whereRaw("({$confirmedExpr})"),
+                ->whereRaw("({$confirmedExpr})")
+                ->whereRaw("({$managerApprovedExpr})"),
             'inProgress' => $query
                 ->whereRaw('NOT ('.$this->doneExpression().')')
                 ->whereRaw("NOT ({$confirmedExpr})")
                 ->whereRaw("({$inProgressExpr})"),
             default => $query
                 ->whereRaw('NOT ('.$this->doneExpression().')')
-                ->whereRaw("NOT ({$confirmedExpr})")
-                ->whereRaw("NOT ({$inProgressExpr})"),
+                ->whereRaw("({$confirmedExpr})")
+                ->whereRaw("NOT ({$managerApprovedExpr})"),
         };
 
         $rows = $query
@@ -639,6 +653,7 @@ class SpkDashboardAnalytics
         $dayStart = now()->startOfDay();
         $dayEnd = now()->endOfDay();
         $query = $this->monthScopedSpkBase();
+        ['unsentDraft' => $unsentDraftExpr] = $this->statusExpressions();
 
         $query = match ($key) {
             'monthTarget' => $this->spkBase()
@@ -662,6 +677,7 @@ class SpkDashboardAnalytics
                     ])
                 : $query->whereRaw('0'),
             'monthOverdue' => $query
+                ->whereRaw("NOT ({$unsentDraftExpr})")
                 ->where(function (Builder $builder): void {
                     $builder->whereNull('status')
                         ->orWhere('status', '!=', 'SPKDONE');
@@ -909,19 +925,19 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * @return array{inProgress: string, confirmed: string}
+     * @return array{inProgress: string, confirmed: string, unsentDraft: string, managerApproved: string}
      */
     private function statusExpressions(): array
     {
         $hasLastProcess = Schema::connection('third')->hasColumn('spk', 'last_process');
         $hasInProcess = Schema::connection('third')->hasColumn('spk', 'is_inprocess');
-        $hasStatusOrder = Schema::connection('third')->hasColumn('spk', 'status_order');
+        $hasStatus = Schema::connection('third')->hasColumn('spk', 'status');
 
-        // Confirmed / Approved: sudah RO/PO, belum in process, dan last_process masih kosong.
         $confirmedParts = [];
 
-        if ($hasStatusOrder) {
-            $confirmedParts[] = "status_order IN ('RO', 'PO')";
+        if ($hasStatus) {
+            $approved = SpkApprovalService::STATUS_DONE;
+            $confirmedParts[] = "UPPER(TRIM(COALESCE(status, ''))) = '{$approved}'";
         }
 
         if ($hasInProcess) {
@@ -932,7 +948,7 @@ class SpkDashboardAnalytics
             $confirmedParts[] = 'last_process IS NULL';
         }
 
-        $confirmed = $confirmedParts !== []
+        $confirmed = ($hasStatus && $confirmedParts !== [])
             ? implode(' AND ', $confirmedParts)
             : '0';
 
@@ -951,10 +967,49 @@ class SpkDashboardAnalytics
             ? implode(' OR ', $inProgressParts)
             : '0';
 
+        $unsentDraft = $hasStatus
+            ? "UPPER(TRIM(COALESCE(status, ''))) IN ('', '0', 'DRAFT')"
+            : '0';
+
         return [
             'inProgress' => $inProgress,
             'confirmed' => $confirmed,
+            'unsentDraft' => $unsentDraft,
+            'managerApproved' => $this->managerApprovedExpression(),
         ];
+    }
+
+    private function managerApprovedExpression(): string
+    {
+        if (
+            ! Schema::connection('third')->hasTable('sysapproval')
+            || ! Schema::connection('third')->hasColumn('sysapproval', 'doc_id')
+            || ! Schema::connection('third')->hasColumn('sysapproval', 'doc_name')
+            || ! Schema::connection('third')->hasColumn('sysapproval', 'approve')
+            || ! Schema::connection('third')->hasColumn('sysapproval', 'status')
+        ) {
+            return '0';
+        }
+
+        $ok = SpkApprovalService::APPROVE_OK;
+        $done = SpkApprovalService::STATUS_DONE;
+        $docName = SpkApprovalService::DOC_NAME;
+
+        $deleted = '';
+
+        if (Schema::connection('third')->hasColumn('sysapproval', 'is_deleted')) {
+            $deleted = 'AND (a.is_deleted IS NULL OR a.is_deleted = 0)';
+        }
+
+        return "EXISTS (
+            SELECT 1
+            FROM sysapproval a
+            WHERE a.doc_name = '{$docName}'
+                AND a.doc_id = spk.row_id
+                AND UPPER(TRIM(COALESCE(a.approve, ''))) = '{$ok}'
+                AND UPPER(TRIM(COALESCE(a.status, ''))) = '{$done}'
+                {$deleted}
+        )";
     }
 
     /**

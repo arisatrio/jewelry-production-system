@@ -60,7 +60,7 @@ test('spk store sets is_from_new_system to one', function () {
     expect($production)->not->toBeNull()
         ->and($production->is_from_new_system)->toBe(1);
 
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->delete();
     $sku->delete();

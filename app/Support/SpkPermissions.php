@@ -59,7 +59,7 @@ class SpkPermissions
             ],
             self::APPROVE => [
                 'display_name' => 'Approve SPK',
-                'description' => 'Can approve pending SPK (SPKDONE)',
+                'description' => 'Legacy Manager permission. Approve SPK (Disetujui) is granted to all authenticated users.',
                 'category' => 'approve',
             ],
             self::REJECT => [

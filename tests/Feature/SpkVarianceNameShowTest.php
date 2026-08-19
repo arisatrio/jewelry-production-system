@@ -83,7 +83,7 @@ test('spk print page includes variance name in type variant', function () {
         ->assertSee($expectedLine, false)
         ->assertSee($skuCode, false)
         ->assertSee('spkPrintFieldSku', false)
-        ->assertSee('Tipe Item | Product Item', false);
+        ->assertSee('Tipe Item | SKU', false);
 
     $production->delete();
     $sku->delete();

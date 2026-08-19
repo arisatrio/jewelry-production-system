@@ -56,7 +56,7 @@ test('spk can be created with pasang unit', function () {
         ->and($production->sku_id)->toBe($sku->id)
         ->and($production->category_prefix_id)->toBe($category->id);
 
-    $response->assertRedirect(route('spk.form', $production->row_id));
+    $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->delete();
     $sku->delete();

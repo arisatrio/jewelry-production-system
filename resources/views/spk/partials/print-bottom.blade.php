@@ -1,21 +1,14 @@
 @php
     /** @var array $document */
     $blankTemplate = (bool) ($blankTemplate ?? false);
-    // Sementara: isi catatan di cetak dikosongkan (data notes di SPK tetap tersimpan).
-    $notes = $blankTemplate ? '' : '';
+    $notes = $blankTemplate ? '' : trim((string) ($document['notes'] ?? ''));
     $approval = $document['approval'] ?? [];
 @endphp
 
 <div class="spkPrintBottom">
     <section class="spkPrintSection spkPrintNotesSection">
         <h2 class="spkPrintSectionTitle">Catatan</h2>
-        <div class="spkPrintNotes">
-            @if ($blankTemplate)
-                <span class="spkPrintHint">Catatan produksi tambahan (opsional)</span>
-            @else
-                {{ $notes !== '' && $notes !== '-' ? $notes : '-' }}
-            @endif
-        </div>
+        <div class="spkPrintNotes">@if ($blankTemplate)<span class="spkPrintHint">Catatan produksi tambahan (opsional)</span>@else{{ $notes !== '' && $notes !== '-' ? $notes : '-' }}@endif</div>
     </section>
 
     <footer class="spkPrintApproval" aria-label="Persetujuan">

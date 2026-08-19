@@ -30,7 +30,7 @@ class ProductionPolicy
 
     public function update(?User $user, Production $production): bool
     {
-        return $this->approval->isDraft($production)
+        return ! $this->approval->isApproved($production)
             && SpkApprovalRoles::canEditDraft($user);
     }
 
@@ -47,7 +47,7 @@ class ProductionPolicy
 
     public function approve(?User $user, Production $production): bool
     {
-        return $this->approval->isPendingManager($production)
+        return ! $this->approval->isApproved($production)
             && SpkApprovalRoles::canApprove($user);
     }
 

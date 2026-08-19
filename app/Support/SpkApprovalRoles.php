@@ -5,8 +5,9 @@ namespace App\Support;
 use App\Models\User;
 
 /**
- * Gate SPK approval berdasarkan permission di tabel mahakarya
+ * Gate SPK berdasarkan permission di tabel mahakarya
  * (role → role_permissions → permissions), bukan kolom spk_role.
+ * Approve (Disetujui) dan edit draft terbuka untuk semua user yang login.
  */
 class SpkApprovalRoles
 {
@@ -32,9 +33,12 @@ class SpkApprovalRoles
         return self::can($user, SpkPermissions::CREATE);
     }
 
+    /**
+     * Edit draft SPK untuk semua user yang login.
+     */
     public static function canEditDraft(?User $user): bool
     {
-        return self::can($user, SpkPermissions::EDIT_DRAFT);
+        return $user !== null || self::can($user, SpkPermissions::EDIT_DRAFT);
     }
 
     public static function canSubmit(?User $user): bool
@@ -42,9 +46,13 @@ class SpkApprovalRoles
         return self::can($user, SpkPermissions::SUBMIT);
     }
 
+    /**
+     * Approve SPK (Disetujui) untuk semua user yang login.
+     * Bukan permission Manager (spk.approve).
+     */
     public static function canApprove(?User $user): bool
     {
-        return self::can($user, SpkPermissions::APPROVE);
+        return $user !== null;
     }
 
     public static function canReject(?User $user): bool

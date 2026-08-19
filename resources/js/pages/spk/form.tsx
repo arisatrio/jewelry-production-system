@@ -114,6 +114,16 @@ type ProductionForm = {
     hasRequestOrder: boolean;
 };
 
+type SkuStoneOption = {
+    shapeId: string;
+    shapeName: string;
+    positionId: string;
+    positionNama: string;
+    pcs: string;
+    caratPerPcs: string;
+    size: string;
+};
+
 type SkuOption = {
     value: string;
     label: string;
@@ -122,7 +132,9 @@ type SkuOption = {
     categoryPrefixId: string;
     description: string;
     goldColor: string;
+    goldWeight: string;
     imageUrl: string | null;
+    stones: SkuStoneOption[];
 };
 
 type ApprovalFooterColumn = {
@@ -187,42 +199,6 @@ function combineUkuranLabel(
     return parts.join(' / ');
 }
 
-function addWorkingDays(start: string, workingDays: number): string {
-    if (!start || Number.isNaN(workingDays) || workingDays < 0) {
-        return '';
-    }
-
-    const date = new Date(`${start}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    if (workingDays === 0) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-
-        return `${year}-${month}-${day}`;
-    }
-
-    let added = 0;
-
-    while (added < workingDays) {
-        date.setDate(date.getDate() + 1);
-        const weekday = date.getDay();
-
-        if (weekday !== 0 && weekday !== 6) {
-            added++;
-        }
-    }
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-}
 
 function formatDisplayDate(isoDate: string): string {
     if (!isoDate) {
@@ -236,6 +212,38 @@ function formatDisplayDate(isoDate: string): string {
     }
 
     return `${day}/${month}/${year}`;
+}
+
+function countWorkingDaysBetween(startDate: string, endDate: string): number | null {
+    if (!startDate || !endDate) {
+        return null;
+    }
+
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return null;
+    }
+
+    if (end <= start) {
+        return 0;
+    }
+
+    let count = 0;
+    const current = new Date(start);
+
+    while (current < end) {
+        current.setDate(current.getDate() + 1);
+
+        const day = current.getDay();
+
+        if (day !== 0 && day !== 6) {
+            count++;
+        }
+    }
+
+    return count;
 }
 
 function formatDecimal3(value: string | number | null | undefined): string {
@@ -256,6 +264,26 @@ function formatDecimal3(value: string | number | null | undefined): string {
     }
 
     return numeric.toFixed(3);
+}
+
+function formatSize(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+        return '';
+    }
+
+    const text = String(value).trim();
+
+    if (text === '' || text === '-') {
+        return text;
+    }
+
+    const numeric = Number(text.replace(',', '.'));
+
+    if (!Number.isFinite(numeric)) {
+        return text;
+    }
+
+    return numeric.toFixed(3).replace(/\.?0+$/, '') || '0';
 }
 
 function fieldState(message?: string): 'None' | 'Negative' {
@@ -376,6 +404,20 @@ function mapProductionStonesToForm(stones: StoneRow[]): SpkFormStoneRow[] {
     }));
 }
 
+function mapSkuStonesToForm(stones: SkuStoneOption[]): SpkFormStoneRow[] {
+    return stones.map((stone, index) => ({
+        id: `sku-stone-${index}`,
+        positionId: stone.positionId ?? '',
+        positionName: stone.positionNama ?? '',
+        positionNama: stone.positionNama ?? '',
+        shapeId: stone.shapeId ?? '',
+        shapeName: stone.shapeName ?? '',
+        size: stone.size ?? '',
+        pcs: stone.pcs ?? '',
+        caratPerPcs: stone.caratPerPcs ?? '',
+    }));
+}
+
 export default function SpkFormPage({
     production,
     stones: productionStones,
@@ -419,15 +461,12 @@ export default function SpkFormPage({
         ref_spk_id:
             production.refSpkId !== null ? String(production.refSpkId) : '',
         order_date: production.orderDate,
-        work_estimated:
-            production.workEstimated !== null
-                ? String(production.workEstimated)
-                : '',
-        priority: production.priority,
+        estimated_delivery_time: production.estimatedDeliveryTime,
+        priority: production.priority || 'NO',
         description: production.description,
         category_prefix_id: initialCategoryId,
         sku_id: initialSkuId,
-        qty: production.qty,
+        qty: production.qty !== '' ? production.qty : '1',
         satuan: production.satuan || 'Pcs',
         diameter_length_ringsize: production.diameterLengthRingsize,
         diameter: initialUkuran.diameter,
@@ -655,15 +694,22 @@ export default function SpkFormPage({
         };
     }, [isNew, referenceOpen, referenceSearch]);
 
-    const estimatedDelivery = useMemo(() => {
-        const days = Number(data.work_estimated);
-
-        if (data.work_estimated === '' || Number.isNaN(days) || days < 0) {
-            return '';
-        }
-
-        return addWorkingDays(data.order_date, days);
-    }, [data.order_date, data.work_estimated]);
+    const estimatedDeliveryLabel = data.estimated_delivery_time
+        ? formatDisplayDate(data.estimated_delivery_time)
+        : '';
+    const calculatedWorkEstimated = countWorkingDaysBetween(
+        data.order_date,
+        data.estimated_delivery_time,
+    );
+    const resolvedWorkEstimated =
+        calculatedWorkEstimated ??
+        (production.workEstimated !== null && production.workEstimated > 0
+            ? production.workEstimated
+            : null);
+    const workEstimatedText =
+        resolvedWorkEstimated !== null
+            ? `${resolvedWorkEstimated} hari kerja`
+            : '';
 
     const handleSpkTypeChange = (nextType: string) => {
         setData({
@@ -689,12 +735,16 @@ export default function SpkFormPage({
         if (!skuStillValid) {
             setSelectedSkuId('');
             setProductItemText('');
+            setFormStones([]);
         }
 
         setData({
             ...data,
             category_prefix_id: nextCategoryId,
             sku_id: skuStillValid ? selectedSkuId : '',
+            gold_weight: skuStillValid ? data.gold_weight : '0',
+            gold_color: skuStillValid ? data.gold_color : '',
+            description: skuStillValid ? data.description : '',
         });
 
         if (nextLabel !== undefined) {
@@ -755,10 +805,13 @@ export default function SpkFormPage({
 
         if (!sku) {
             setProductItemText(nextLabel ?? '');
+            setFormStones([]);
             setData({
                 ...data,
                 sku_id: '',
                 description: '',
+                gold_weight: '0',
+                gold_color: '',
             });
 
             return;
@@ -773,6 +826,7 @@ export default function SpkFormPage({
         }
 
         setProductItemText(sku.label);
+        setFormStones(mapSkuStonesToForm(sku.stones ?? []));
         setData({
             ...data,
             category_prefix_id: sku.categoryPrefixId || data.category_prefix_id,
@@ -782,6 +836,7 @@ export default function SpkFormPage({
                     ? sku.description
                     : sku.label,
             gold_color: sku.goldColor || data.gold_color,
+            gold_weight: sku.goldWeight || '0',
         });
     };
 
@@ -874,12 +929,8 @@ export default function SpkFormPage({
                     production.customerName ||
                     '',
                 orderDate: formatDisplayDate(data.order_date),
-                workEstimated: data.work_estimated
-                    ? `${data.work_estimated} hari kerja`
-                    : '',
-                estimatedDelivery: estimatedDelivery
-                    ? formatDisplayDate(estimatedDelivery)
-                    : '',
+                workEstimated: estimatedDeliveryLabel,
+                estimatedDelivery: estimatedDeliveryLabel,
                 priority: data.priority || '',
                 itemType: itemTypeText || production.itemName || '',
                 itemVariance: selectedSku?.label || productItemText || '',
@@ -893,8 +944,8 @@ export default function SpkFormPage({
                 skuId: data.sku_id || '',
                 productionId: production.id ? String(production.id) : '',
                 qty: qtyLabel,
-                diameter: formatDecimal3(ukuran.diameter),
-                dimensi: formatDecimal3(ukuran.dimensi),
+                diameter: formatSize(ukuran.diameter),
+                dimensi: formatSize(ukuran.dimensi),
                 ringSize: ukuran.ringSize,
                 goldWeight: data.gold_weight,
                 goldColor: data.gold_color,
@@ -921,7 +972,7 @@ export default function SpkFormPage({
                         shapeOption?.name ||
                         stone.shapeName ||
                         '',
-                    size: formatDecimal3(stone.size),
+                    size: formatSize(stone.size),
                     caratPerPcs: formatDecimal3(stone.caratPerPcs),
                     pcs: stone.pcs,
                     totalCarat: (() => {
@@ -1377,36 +1428,37 @@ export default function SpkFormPage({
                                     <FormItem
                                         labelContent={
                                             <Label showColon required>
-                                                Estimasi Pengerjaan (Hari Kerja)
+                                                Tanggal Estimasi Selesai
                                             </Label>
                                         }
                                     >
-                                        <div className="spkFioriTwinFields">
-                                            <Input
-                                                type="Number"
-                                                value={data.work_estimated}
+                                        <div className="spkFioriDateWithHint">
+                                            <DatePicker
+                                                value={data.estimated_delivery_time}
+                                                valueFormat="yyyy-MM-dd"
+                                                displayFormat="dd/MM/yyyy"
                                                 required
-                                                placeholder="Hari kerja"
                                                 valueState={fieldState(
-                                                    errors.work_estimated,
+                                                    errors.estimated_delivery_time,
                                                 )}
-                                                onInput={(event) =>
+                                                onChange={(event) =>
                                                     setData(
-                                                        'work_estimated',
-                                                        event.target.value ??
-                                                            '',
+                                                        'estimated_delivery_time',
+                                                        event.target.value ?? '',
                                                     )
                                                 }
                                             />
-                                            <Text className="spkFioriDeliveryHint">
-                                                {estimatedDelivery
-                                                    ? `Tanggal Estimasi Selesai: ${formatDisplayDate(estimatedDelivery)}`
-                                                    : 'Tanggal Estimasi Selesai: —'}
-                                            </Text>
+                                            {workEstimatedText ? (
+                                                <Text className="spkFioriInlineHint">
+                                                    {workEstimatedText}
+                                                </Text>
+                                            ) : null}
                                         </div>
-                                        {errors.work_estimated ? (
+                                        {errors.estimated_delivery_time ? (
                                             <Text className="spkFioriError">
-                                                {errors.work_estimated}
+                                                {
+                                                    errors.estimated_delivery_time
+                                                }
                                             </Text>
                                         ) : null}
                                     </FormItem>
@@ -1561,13 +1613,13 @@ export default function SpkFormPage({
                                         columnSpan={2}
                                         labelContent={
                                             <Label showColon required>
-                                                Product Item
+                                                SKU
                                             </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
                                             <ComboBox
-                                                accessibleName="Product Item"
+                                                accessibleName="SKU"
                                                 className="spkFioriComboBox"
                                                 disabled={
                                                     data.category_prefix_id ===
@@ -1577,7 +1629,7 @@ export default function SpkFormPage({
                                                     data.category_prefix_id ===
                                                     ''
                                                         ? 'Pilih tipe item dahulu'
-                                                        : 'Cari Product Item (SKU)'
+                                                        : 'Cari SKU (SKU)'
                                                 }
                                                 filter="Contains"
                                                 showClearIcon
@@ -1790,7 +1842,7 @@ export default function SpkFormPage({
                                             !uploadPreviewUrl ? (
                                                 <Text className="spkFioriHint">
                                                     Menampilkan gambar dari
-                                                    Product Item.
+                                                    SKU.
                                                 </Text>
                                             ) : null}
                                             {errors.file ? (
@@ -1922,10 +1974,68 @@ export default function SpkFormPage({
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <th scope="row">Qty</th>
+                                                    <th scope="row">
+                                                        Deskripsi Item
+                                                    </th>
                                                     <td>
-                                                        {data.qty || '—'}
-                                                        {` ${data.satuan || 'Pcs'}`}
+                                                        {data.description.trim() !==
+                                                        ''
+                                                            ? data.description
+                                                            : '—'}
+                                                        {errors.description ? (
+                                                            <Text className="spkFioriError">
+                                                                {
+                                                                    errors.description
+                                                                }
+                                                            </Text>
+                                                        ) : null}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Berat Emas (g)
+                                                    </th>
+                                                    <td>
+                                                        {data.gold_weight.trim() !==
+                                                        ''
+                                                            ? data.gold_weight
+                                                            : '—'}
+                                                        {errors.gold_weight ? (
+                                                            <Text className="spkFioriError">
+                                                                {
+                                                                    errors.gold_weight
+                                                                }
+                                                            </Text>
+                                                        ) : null}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Warna Emas
+                                                    </th>
+                                                    <td>
+                                                        {data.gold_color.trim() !==
+                                                        ''
+                                                            ? data.gold_color
+                                                            : '—'}
+                                                        {errors.gold_color ? (
+                                                            <Text className="spkFioriError">
+                                                                {
+                                                                    errors.gold_color
+                                                                }
+                                                            </Text>
+                                                        ) : null}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        File JewelCAD 3D
+                                                    </th>
+                                                    <td>
+                                                        {data.jwcad_3d.trim() !==
+                                                        ''
+                                                            ? data.jwcad_3d
+                                                            : '—'}
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2005,144 +2115,6 @@ export default function SpkFormPage({
                                                             <Text className="spkFioriError">
                                                                 {
                                                                     errors.diameter_length_ringsize
-                                                                }
-                                                            </Text>
-                                                        ) : null}
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <th scope="row">
-                                                        Berat Emas (g)
-                                                    </th>
-                                                    <td>
-                                                        <Input
-                                                            type="Number"
-                                                            value={
-                                                                data.gold_weight
-                                                            }
-                                                            required
-                                                            valueState={fieldState(
-                                                                errors.gold_weight,
-                                                            )}
-                                                            onInput={(event) =>
-                                                                setData(
-                                                                    'gold_weight',
-                                                                    event.target
-                                                                        .value ??
-                                                                        '',
-                                                                )
-                                                            }
-                                                        />
-                                                        {errors.gold_weight ? (
-                                                            <Text className="spkFioriError">
-                                                                {
-                                                                    errors.gold_weight
-                                                                }
-                                                            </Text>
-                                                        ) : null}
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <th scope="row">
-                                                        Warna Emas
-                                                    </th>
-                                                    <td>
-                                                        <Select
-                                                            accessibleName="Warna Emas"
-                                                            valueState={fieldState(
-                                                                errors.gold_color,
-                                                            )}
-                                                            onChange={(event) =>
-                                                                setData(
-                                                                    'gold_color',
-                                                                    event.detail
-                                                                        .selectedOption
-                                                                        ?.value ??
-                                                                        '',
-                                                                )
-                                                            }
-                                                        >
-                                                            <Option value="">
-                                                                Pilih warna emas
-                                                            </Option>
-                                                            {options.goldColors.map(
-                                                                (color) => (
-                                                                    <Option
-                                                                        key={
-                                                                            color
-                                                                        }
-                                                                        value={
-                                                                            color
-                                                                        }
-                                                                        selected={
-                                                                            data.gold_color ===
-                                                                            color
-                                                                        }
-                                                                    >
-                                                                        {color}
-                                                                    </Option>
-                                                                ),
-                                                            )}
-                                                        </Select>
-                                                        {errors.gold_color ? (
-                                                            <Text className="spkFioriError">
-                                                                {
-                                                                    errors.gold_color
-                                                                }
-                                                            </Text>
-                                                        ) : null}
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <th scope="row">
-                                                        File JewelCAD 3D
-                                                    </th>
-                                                    <td>
-                                                        <Input
-                                                            value={
-                                                                data.jwcad_3d
-                                                            }
-                                                            placeholder="Masukkan nama file JewelCAD 3D"
-                                                            onInput={(event) =>
-                                                                setData(
-                                                                    'jwcad_3d',
-                                                                    event.target
-                                                                        .value ??
-                                                                        '',
-                                                                )
-                                                            }
-                                                        />
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <th scope="row">
-                                                        Deskripsi Item
-                                                    </th>
-                                                    <td>
-                                                        <TextArea
-                                                            className="spkItemDescriptionInput"
-                                                            value={
-                                                                data.description
-                                                            }
-                                                            rows={3}
-                                                            required
-                                                            placeholder="Masukkan deskripsi item"
-                                                            valueState={fieldState(
-                                                                errors.description,
-                                                            )}
-                                                            onInput={(event) =>
-                                                                setData(
-                                                                    'description',
-                                                                    event.target
-                                                                        .value ??
-                                                                        '',
-                                                                )
-                                                            }
-                                                        />
-                                                        {errors.description ? (
-                                                            <Text className="spkFioriError">
-                                                                {
-                                                                    errors.description
                                                                 }
                                                             </Text>
                                                         ) : null}

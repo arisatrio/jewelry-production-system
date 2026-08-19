@@ -2519,7 +2519,6 @@
     margin-right: 0.25rem;
 }
 
-/* Approve: hijau solid (bukan pastel Positive default) */
 .spkApprovalApproveBtn::part(button) {
     background: var(--sap-fiori-accept, #30914c);
     border-color: var(--sap-fiori-accept, #30914c);
@@ -3480,6 +3479,25 @@
 .spkFioriFieldStack > ui5-input,
 .spkFioriFieldStack > ui5-select {
     width: 100%;
+}
+
+.spkFioriDateWithHint {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+.spkFioriDateWithHint > ui5-date-picker {
+    width: 100%;
+}
+
+.spkFioriInlineHint {
+    color: #6b7280 !important;
+    font-size: 0.7rem !important;
+    white-space: nowrap;
+    font-style: italic;
 }
 
 .spkFioriDetailBlock {

@@ -97,7 +97,7 @@ test('spk form save validates required fields', function () {
         ->assertRedirect(route('spk.form', $production->row_id))
         ->assertSessionHasErrors([
             'order_date',
-            'work_estimated',
+            'estimated_delivery_time',
             'priority',
             'description',
             'category_prefix_id',

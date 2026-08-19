@@ -4,9 +4,13 @@ use App\Models\MsShape;
 use App\Models\Production;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
+use App\Support\GoogleCloudStorageService;
 use App\Support\SpkService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
+
+use function Pest\Laravel\mock;
 
 uses(TestCase::class);
 
@@ -122,6 +126,55 @@ test('spk service creates stock with details and generates number on save', func
     $sku->delete();
 });
 
+test('spk service uploads production image to gcs produksi folder', function () {
+    mock(GoogleCloudStorageService::class, function ($mock): void {
+        $mock->shouldReceive('uploadFile')
+            ->once()
+            ->withArgs(function ($file, string $folder, string $filename): bool {
+                return $file instanceof UploadedFile
+                    && $folder === 'produksi'
+                    && preg_match('/^\d+\.png$/', $filename) === 1;
+            })
+            ->andReturnUsing(function ($file, string $folder, string $filename): string {
+                return "https://storage.googleapis.com/system-mahakarya/{$folder}/{$filename}";
+            });
+    });
+
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+    ]);
+
+    $file = UploadedFile::fake()->image('spk-gambar.png', 80, 80);
+
+    $production = app(SpkService::class)->createWithDetails([
+        'spk_type' => 'Stock',
+        'order_date' => '2026-08-03',
+        'work_estimated' => 5,
+        'priority' => 'NO',
+        'description' => 'GCS upload',
+        'category_prefix_id' => $category->id,
+        'sku_id' => $sku->id,
+        'qty' => 1,
+        'satuan' => 'Pcs',
+        'status_order' => 'NO',
+        'diameter_length_ringsize' => '16',
+        'gold_weight' => 2.5,
+        'gold_color' => 'Yellow Gold',
+    ], 'tester', $file);
+
+    expect($production->file_name)->toMatch('/^\d+\.png$/');
+
+    $production->delete();
+    $sku->delete();
+});
+
 test('spk service links selected sku master as product item', function () {
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
         ?? SkuPrefixCategory::query()->create([
@@ -174,6 +227,55 @@ test('spk service links selected sku master as product item', function () {
 
     $production->delete();
     $sku->delete();
+});
+
+test('spk service copies sku master image filename on create without upload', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'image_filename' => '1782887215_711d3a161cc575784aff.jpg',
+        'image_url' => 'https://storage.googleapis.com/system-mahakarya/produksi/1782887215_711d3a161cc575784aff.jpg',
+    ]);
+
+    $production = app(SpkService::class)->createWithDetails([
+        'spk_type' => 'Stock',
+        'order_date' => '2026-08-03',
+        'work_estimated' => 3,
+        'priority' => 'NO',
+        'description' => 'Copy SKU image filename',
+        'category_prefix_id' => $category->id,
+        'sku_id' => $sku->id,
+        'qty' => 1,
+        'satuan' => 'Pcs',
+        'status_order' => 'NO',
+        'diameter_length_ringsize' => '16',
+        'gold_weight' => 1.5,
+        'gold_color' => 'Yellow Gold',
+    ], 'tester');
+
+    expect($production->file_name)->toBe($sku->image_filename);
+
+    $production->delete();
+    $sku->delete();
+});
+
+test('spk service resolves estimated schedule from completion date', function () {
+    $service = app(SpkService::class);
+    $orderDate = Carbon::parse('2026-08-03');
+
+    $schedule = $service->resolveEstimatedSchedule($orderDate, [
+        'estimated_delivery_time' => '2026-08-10',
+    ]);
+
+    expect($schedule['estimatedDelivery']->toDateString())->toBe('2026-08-10')
+        ->and($schedule['workEstimated'])->toBe(5)
+        ->and($service->countWorkingDaysBetween($orderDate, $schedule['estimatedDelivery']))->toBe(5);
 });
 
 test('spk service calculates estimated delivery from working days', function () {

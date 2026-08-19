@@ -92,7 +92,7 @@ export function SpkDetailLayout({
     const workflowStatus = production.workflowStatus;
     const activeStageIndex = workflowStatus?.stageIndex ?? 0;
     const statusStages = workflowStatus?.stages ?? [
-        { key: 'draft', label: 'Menunggu Approval Manager Produksi' },
+        { key: 'draft', label: 'Draft' },
         { key: 'confirmed', label: 'Approved by Manager Produksi' },
         { key: 'inProgress', label: 'In Progress' },
         { key: 'done', label: 'Done' },

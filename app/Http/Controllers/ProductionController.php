@@ -14,6 +14,8 @@ use App\Models\SpkStone;
 use App\Policies\ProductionPolicy;
 use App\Support\GoldColorOptions;
 use App\Support\RequestOrderRepository;
+use App\Support\SkuMasterDescriptionExtractor;
+use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkApprovalRoles;
 use App\Support\SpkApprovalService;
 use App\Support\SpkCraftsmanReport;
@@ -37,7 +39,11 @@ use InvalidArgumentException;
 
 class ProductionController extends Controller
 {
-    public function __construct(private SpkStatusOrder $statusOrder) {}
+    public function __construct(
+        private SpkStatusOrder $statusOrder,
+        private SkuMasterDiamondMapper $diamondMapper,
+        private SkuMasterDescriptionExtractor $descriptionExtractor,
+    ) {}
 
     /**
      * Display a listing of SPK productions.
@@ -68,18 +74,15 @@ class ProductionController extends Controller
                             ->orWhere('is_inprocess', '!=', 0);
                     });
                 } elseif ($statusKey === 'confirmed') {
-                    $query->where(function ($q): void {
-                        $q->whereRaw("UPPER(status_order) IN ('RO','PO')");
-                    })
+                    $query->where('status', SpkApprovalService::STATUS_DONE)
                         ->where(function ($q): void {
                             $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
                         })
                         ->whereNull('last_process');
                 } elseif ($statusKey === 'draft') {
                     $query->where(function ($q): void {
-                        $q->whereNull('status_order')
-                            ->orWhere('status_order', '')
-                            ->orWhereRaw("UPPER(status_order) NOT IN ('RO','PO')");
+                        $q->whereNull('status')
+                            ->orWhere('status', '!=', SpkApprovalService::STATUS_DONE);
                     })
                         ->where(function ($q): void {
                             $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
@@ -298,7 +301,7 @@ class ProductionController extends Controller
             'message' => "SPK {$production->spk_no} berhasil dibuat.",
         ]);
 
-        return to_route('spk.form', $production->row_id);
+        return to_route('spk.show', $production->spk_no);
     }
 
     /**
@@ -380,7 +383,7 @@ class ProductionController extends Controller
         $production = $this->findActiveProduction($rowId);
 
         if (! $policy->update($request->user(), $production)) {
-            abort(403, 'SPK hanya dapat diedit saat berstatus Draft oleh Admin/SPV.');
+            abort(403, 'SPK hanya dapat diedit sebelum dikirim ke produksi.');
         }
 
         $spkService->saveHeader(
@@ -428,7 +431,7 @@ class ProductionController extends Controller
     }
 
     /**
-     * Manager menyetujui SPK (SPKDONE).
+     * User mengirim SPK ke produksi (mengisi Disetujui Oleh, bukan Manager Produksi).
      */
     public function approve(
         SpkApprovalDecisionRequest $request,
@@ -439,7 +442,7 @@ class ProductionController extends Controller
         $production = $this->findActiveProduction($rowId);
 
         if (! $policy->approve($request->user(), $production)) {
-            abort(403, 'Hanya Manager Produksi yang dapat approve SPK.');
+            abort(403, 'SPK ini tidak dapat di-approve.');
         }
 
         try {
@@ -454,7 +457,7 @@ class ProductionController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => "SPK {$production->spk_no} disetujui (SPKDONE).",
+            'message' => "SPK {$production->spk_no} dikirim ke produksi.",
         ]);
 
         return to_route('spk.show', $production->spk_no);
@@ -659,7 +662,7 @@ class ProductionController extends Controller
             'goldColor' => $production->gold_color ?: '-',
             'jwcad3d' => $jwcad3d,
             'description' => filled($production->description) ? (string) $production->description : '-',
-            'imageUrl' => $this->productionImageUrl($production->file_name),
+            'imageUrl' => $this->itemImageUrl($production),
             'finishingType' => $jwcad3d,
         ];
     }
@@ -979,36 +982,64 @@ class ProductionController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'skus' => SkuMaster::query()
-                ->active()
-                ->with('goldColorPrefix')
-                ->orderBy('sku_code')
-                ->get([
-                    'id',
-                    'sku_code',
-                    'item_original',
-                    'category_prefix_id',
-                    'gold_prefix_id',
-                    'image_url',
-                    'catalog_image',
-                ])
-                ->map(fn (SkuMaster $sku): array => [
-                    'value' => (string) $sku->id,
-                    'label' => $sku->displayName(),
-                    'skuCode' => (string) $sku->sku_code,
-                    'itemOriginal' => (string) ($sku->item_original ?? ''),
-                    'categoryPrefixId' => $sku->category_prefix_id !== null
-                        ? (string) $sku->category_prefix_id
-                        : '',
-                    'description' => (string) ($sku->item_original ?? ''),
-                    'goldColor' => (string) ($sku->resolvedGoldColor() ?? ''),
-                    'imageUrl' => filled($sku->image_url)
-                        ? (string) $sku->image_url
-                        : (filled($sku->catalog_image) ? (string) $sku->catalog_image : null),
-                ])
-                ->values()
-                ->all(),
+            'skus' => $this->skuFormOptions(),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function skuFormOptions(): array
+    {
+        return SkuMaster::query()
+            ->active()
+            ->with([
+                'categoryPrefix',
+                'namePrefix',
+                'sizePrefix',
+                'stoneShapePrefix',
+                'stoneTypePrefix',
+                'diamondTypePrefix',
+                'goldColorPrefix',
+                'diamonds' => fn ($query) => $query->notDeleted()->orderBy('line_id'),
+            ])
+            ->orderBy('sku_code')
+            ->get([
+                'id',
+                'sku_code',
+                'item_original',
+                'name_prefix_id',
+                'category_prefix_id',
+                'gold_prefix_id',
+                'size_prefix_id',
+                'stone_shape_prefix_id',
+                'stone_type_prefix_id',
+                'diamond_type_prefix_id',
+                'crt',
+                'gold_weight',
+                'image_url',
+                'catalog_image',
+            ])
+            ->map(fn (SkuMaster $sku): array => [
+                'value' => (string) $sku->id,
+                'label' => $sku->displayName(),
+                'skuCode' => (string) $sku->sku_code,
+                'itemOriginal' => (string) ($sku->item_original ?? ''),
+                'categoryPrefixId' => $sku->category_prefix_id !== null
+                    ? (string) $sku->category_prefix_id
+                    : '',
+                'description' => $this->descriptionExtractor->extract($sku),
+                'goldColor' => (string) ($sku->resolvedGoldColor() ?? ''),
+                'goldWeight' => $sku->gold_weight !== null
+                    ? number_format((float) $sku->gold_weight, 2, '.', '')
+                    : '0',
+                'imageUrl' => filled($sku->image_url)
+                    ? (string) $sku->image_url
+                    : (filled($sku->catalog_image) ? (string) $sku->catalog_image : null),
+                'stones' => $this->diamondMapper->toFormStones($sku->diamonds),
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -1027,7 +1058,7 @@ class ProductionController extends Controller
             'refSpkId' => null,
             'refSpkNo' => null,
             'orderDate' => now()->toDateString(),
-            'priority' => '',
+            'priority' => 'NO',
             'description' => '',
             'workEstimated' => null,
             'estimatedDeliveryTime' => '',
@@ -1036,7 +1067,7 @@ class ProductionController extends Controller
             'skuId' => '',
             'frameId' => '',
             'frameNo' => '',
-            'qty' => '',
+            'qty' => '1',
             'satuan' => SpkService::DEFAULT_UNIT,
             'statusOrder' => '',
             'diameterLengthRingsize' => '',
@@ -1269,7 +1300,7 @@ class ProductionController extends Controller
             $normalizedStones[] = [
                 'positionName' => $this->printText($stone['positionName'] ?? null),
                 'shapeName' => $this->printText($stone['shapeName'] ?? null),
-                'size' => $this->printDecimal3($stone['size'] ?? null),
+                'size' => $this->printSize($stone['size'] ?? null),
                 'caratPerPcs' => $this->printDecimal3($stone['caratPerPcs'] ?? null),
                 'pcs' => $this->printText($stone['pcs'] ?? null),
                 'totalCarat' => $this->printDecimal3($stone['totalCarat'] ?? null),
@@ -1320,8 +1351,8 @@ class ProductionController extends Controller
                 'skuCode' => $this->printText($item['skuCode'] ?? null, ''),
                 'statusOrderLabel' => $this->resolvePrintStatusOrderLabel($item),
                 'qty' => $this->printText($item['qty'] ?? null),
-                'diameter' => $this->printDecimal3($item['diameter'] ?? null),
-                'dimensi' => $this->printDecimal3($item['dimensi'] ?? null),
+                'diameter' => $this->printSize($item['diameter'] ?? null),
+                'dimensi' => $this->printSize($item['dimensi'] ?? null),
                 'ringSize' => $this->printText($item['ringSize'] ?? null),
                 'goldWeight' => $this->printText($item['goldWeight'] ?? null),
                 'goldColor' => $this->printText($item['goldColor'] ?? null),
@@ -1376,7 +1407,7 @@ class ProductionController extends Controller
                 return [
                     'positionName' => $this->printText($stone->position?->nama ?? null),
                     'shapeName' => $this->shapeDisplayName($stone->shape),
-                    'size' => $this->printDecimal3($stone->size ?? null),
+                    'size' => $this->printSize($stone->size ?? null),
                     'caratPerPcs' => $this->printDecimal3($caratPerPcs),
                     'pcs' => $this->printText($pcs),
                     'totalCarat' => $this->printDecimal3(
@@ -1395,9 +1426,7 @@ class ProductionController extends Controller
                 'refSpkNo' => null,
                 'customerName' => $production->customer_name,
                 'orderDate' => $production->order_date?->format('d/m/Y'),
-                'workEstimated' => $production->work_estimated !== null
-                    ? (string) $production->work_estimated.' hari kerja'
-                    : null,
+                'workEstimated' => $production->estimated_delivery_time?->format('d/m/Y'),
                 'estimatedDelivery' => $production->estimated_delivery_time?->format('d/m/Y'),
                 'priority' => $production->priority,
                 'statusOrder' => $this->formatStatusOrder($production->status_order),
@@ -1423,8 +1452,8 @@ class ProductionController extends Controller
                     : null,
                 'goldColor' => $production->gold_color,
                 'jwcad3d' => $production->jwcad_3d,
-                'description' => $production->description,
-                'imageUrl' => $this->productionImageUrl($production->file_name) ?? '',
+                'description' => $this->itemDescriptionForPrint($production),
+                'imageUrl' => $this->itemImageUrl($production) ?? '',
             ],
             'stones' => $stones,
             'notes' => $production->notes,
@@ -1453,11 +1482,62 @@ class ProductionController extends Controller
         return filled($dynamicUrl) ? (string) $dynamicUrl : '';
     }
 
+    private function itemImageUrl(Production $production): ?string
+    {
+        $production->loadMissing('sku');
+
+        return $this->productionImageUrl($production->file_name)
+            ?? $this->skuImageUrl($production->sku);
+    }
+
+    private function itemDescriptionForPrint(Production $production): ?string
+    {
+        if (filled($production->description)) {
+            return trim((string) $production->description);
+        }
+
+        $production->loadMissing([
+            'sku.categoryPrefix',
+            'sku.namePrefix',
+            'sku.sizePrefix',
+            'sku.stoneShapePrefix',
+            'sku.stoneTypePrefix',
+            'sku.diamondTypePrefix',
+            'sku.goldColorPrefix',
+        ]);
+
+        if ($production->sku === null) {
+            return null;
+        }
+
+        $extracted = trim($this->descriptionExtractor->extract($production->sku));
+
+        return $extracted !== '' ? $extracted : null;
+    }
+
+    private function skuImageUrl(?SkuMaster $sku): ?string
+    {
+        if ($sku === null) {
+            return null;
+        }
+
+        if (filled($sku->image_url)) {
+            return (string) $sku->image_url;
+        }
+
+        if (filled($sku->catalog_image)) {
+            return (string) $sku->catalog_image;
+        }
+
+        return null;
+    }
+
     /**
      * Resolve SPK item image URL from file_name.
      *
      * Legacy rows store a bare filename on GCS (production_image_base_url).
-     * New uploads are stored on the public disk under a path like spk/{id}/file.jpg.
+     * New uploads are stored as a filename in bucket system-mahakarya/produksi.
+     * Older local paths (spk/{id}/file.jpg) remain readable from /storage.
      */
     private function productionImageUrl(?string $fileName): ?string
     {
@@ -1561,6 +1641,25 @@ class ProductionController extends Controller
         }
 
         return number_format((float) $normalized, 3, '.', '');
+    }
+
+    private function printSize(mixed $value, string $empty = '-'): string
+    {
+        $text = $this->printText($value, $empty);
+
+        if ($text === $empty) {
+            return $empty;
+        }
+
+        $normalized = str_replace(',', '.', $text);
+
+        if (! is_numeric($normalized)) {
+            return $text;
+        }
+
+        $formatted = rtrim(rtrim(number_format((float) $normalized, 3, '.', ''), '0'), '.');
+
+        return $formatted !== '' ? $formatted : '0';
     }
 
     private function actorName(Request $request): string

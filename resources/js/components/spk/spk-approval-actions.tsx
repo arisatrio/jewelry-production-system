@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import paperPlaneIcon from '@ui5/webcomponents-icons/dist/paper-plane.js';
 import { Button } from '@ui5/webcomponents-react/Button';
@@ -121,11 +120,11 @@ export function SpkApprovalActions({
                     <Button
                         design="Positive"
                         className="spkApprovalApproveBtn"
-                        icon={acceptIcon}
+                        icon={paperPlaneIcon}
                         disabled={processing}
                         onClick={handleApprove}
                     >
-                        Approve
+                        Kirim ke Produksi
                     </Button>
                 ) : null}
                 {approval.canReject ? (

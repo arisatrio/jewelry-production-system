@@ -61,11 +61,12 @@ class SpkApprovalService
     {
         $isDraft = $this->isDraft($production);
         $isPending = $this->isPendingManager($production);
+        $isApproved = $this->isApproved($production);
 
         return [
-            'canEdit' => $isDraft && SpkApprovalRoles::canEditDraft($user),
+            'canEdit' => ! $isApproved && SpkApprovalRoles::canEditDraft($user),
             'canSubmit' => $isDraft && SpkApprovalRoles::canSubmit($user),
-            'canApprove' => $isPending && SpkApprovalRoles::canApprove($user),
+            'canApprove' => ! $isApproved && SpkApprovalRoles::canApprove($user),
             'canReject' => $isPending && SpkApprovalRoles::canReject($user),
             'status' => $this->normalizedStatus($production),
             'statusLabel' => $this->statusLabel($production),
@@ -102,16 +103,16 @@ class SpkApprovalService
 
     public function approve(Production $production, string $actor, ?string $notes = null): Production
     {
-        if (! $this->isPendingManager($production)) {
-            throw new InvalidArgumentException('Hanya SPK yang menunggu Manager yang dapat di-approve.');
+        if ($this->isApproved($production)) {
+            throw new InvalidArgumentException('SPK ini sudah dikirim ke produksi.');
         }
 
         return DB::connection('third')->transaction(function () use ($production, $actor, $notes): Production {
             $this->writeApprovalLog(
                 $production,
                 self::STATUS_DONE,
-                self::APPROVE_OK,
-                $notes,
+                self::APPROVE_SUBMIT,
+                $notes ?? 'Dikirim ke Produksi.',
                 $actor,
             );
 
@@ -171,7 +172,7 @@ class SpkApprovalService
             fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_SUBMIT,
         );
 
-        $approve = collect($history)->last(
+        $managerApprove = collect($history)->last(
             fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_OK
                 && strtoupper($row['status']) === self::STATUS_DONE,
         );
@@ -184,21 +185,13 @@ class SpkApprovalService
             ],
             [
                 'title' => 'Disetujui Oleh',
-                'name' => is_array($submit) && filled($submit['createdBy'] ?? null)
-                    ? (string) $submit['createdBy']
-                    : '-',
-                'date' => is_array($submit) && filled($submit['createdAt'] ?? null)
-                    ? $this->formatFooterDate((string) $submit['createdAt'])
-                    : '-',
+                'name' => $this->historyActorName($submit),
+                'date' => $this->historyActorDate($submit),
             ],
             [
                 'title' => 'Manager Produksi',
-                'name' => is_array($approve) && filled($approve['createdBy'] ?? null)
-                    ? (string) $approve['createdBy']
-                    : '-',
-                'date' => is_array($approve) && filled($approve['createdAt'] ?? null)
-                    ? $this->formatFooterDate((string) $approve['createdAt'])
-                    : '-',
+                'name' => $this->historyActorName($managerApprove),
+                'date' => $this->historyActorDate($managerApprove),
             ],
         ];
     }
@@ -298,7 +291,7 @@ class SpkApprovalService
     {
         if (! Schema::connection('third')->hasTable('sysstatus')) {
             return [
-                self::STATUS_PENDING => 'Menunggu Approval Manager Produksi',
+                self::STATUS_PENDING => 'Draft',
                 self::STATUS_DONE => 'Approved by Manager Produksi',
             ];
         }
@@ -332,7 +325,7 @@ class SpkApprovalService
     private function statusLabel(Production $production): string
     {
         if ($this->isDraft($production)) {
-            return 'Menunggu Approval Manager Produksi';
+            return 'Draft';
         }
 
         $status = $this->normalizedStatus($production);
@@ -347,9 +340,33 @@ class SpkApprovalService
 
         return match (strtoupper($normalized)) {
             'APPROVED' => 'Approved by Manager Produksi',
-            'MENUNGGU MANAGER', 'DRAFT' => 'Menunggu Approval Manager Produksi',
+            'MENUNGGU MANAGER', 'DRAFT' => 'Draft',
             default => $normalized,
         };
+    }
+
+    /**
+     * @param  array{createdBy?: string|null, createdAt?: string|null}|false|null  $row
+     */
+    private function historyActorName(array|false|null $row): string
+    {
+        if (! is_array($row) || blank($row['createdBy'] ?? null)) {
+            return '-';
+        }
+
+        return (string) $row['createdBy'];
+    }
+
+    /**
+     * @param  array{createdBy?: string|null, createdAt?: string|null}|false|null  $row
+     */
+    private function historyActorDate(array|false|null $row): string
+    {
+        if (! is_array($row) || blank($row['createdAt'] ?? null)) {
+            return '-';
+        }
+
+        return $this->formatFooterDate((string) $row['createdAt']);
     }
 
     private function formatFooterDate(string $value): string

@@ -144,3 +144,32 @@
         @apply bg-background text-foreground;
     }
 }
+
+[data-sonner-toaster] [data-sonner-toast].app-toast,
+[data-sonner-toaster] [data-sonner-toast].app-toast[data-type='success'],
+[data-sonner-toaster] [data-sonner-toast].app-toast[data-type='info'],
+[data-sonner-toaster] [data-sonner-toast].app-toast[data-type='warning'],
+[data-sonner-toaster] [data-sonner-toast].app-toast[data-type='error'] {
+    min-width: 22rem;
+    padding: 1rem 1.25rem;
+    background: var(--primary) !important;
+    border: 1px solid color-mix(in oklab, var(--primary) 80%, black) !important;
+    color: var(--primary-foreground) !important;
+    box-shadow: 0 12px 28px rgb(0 112 242 / 28%);
+}
+
+[data-sonner-toaster] [data-sonner-toast].app-toast [data-title] {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+[data-sonner-toaster] [data-sonner-toast].app-toast [data-description] {
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: color-mix(in oklab, var(--primary-foreground) 92%, transparent);
+}
+
+[data-sonner-toaster] [data-sonner-toast].app-toast [data-icon] {
+    color: var(--primary-foreground) !important;
+}
