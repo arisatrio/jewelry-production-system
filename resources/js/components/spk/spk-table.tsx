@@ -185,6 +185,7 @@ export default function SpkTable({
                 row.customer,
                 row.description,
 
+                row.createdDate,
                 row.orderDate,
                 row.estimatedDelivery,
                 row.status,
@@ -397,6 +398,7 @@ export default function SpkTable({
                                             <span>{row.customer}</span>
                                         </td>
                                         <td>{row.description}</td>
+                                        <td>{row.createdDate}</td>
                                         <td>{row.orderDate}</td>
                                         <td>{row.estimatedDelivery}</td>
                                         <td>

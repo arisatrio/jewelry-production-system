@@ -230,6 +230,7 @@ export const SPK_TABLE_COLUMNS = [
     { key: 'produksiNo', label: 'Produksi No' },
     { key: 'tipeProduksi', label: 'Tipe Produksi' },
     { key: 'description', label: 'Tipe | SKU | Item' },
+    { key: 'createdDate', label: 'Tanggal SPK Dibuat' },
     { key: 'orderDate', label: 'Tanggal Permintaan' },
     { key: 'estimatedDelivery', label: 'Tanggal Estimasi Selesai' },
     { key: 'prosesTerakhir', label: 'Proses terakhir' },
