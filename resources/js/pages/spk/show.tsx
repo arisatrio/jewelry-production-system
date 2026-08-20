@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 import type { SpkApprovalAbilities } from '@/components/spk/spk-approval-actions';
+import type { SpkApprovalTimelineEvent } from '@/components/spk/spk-approval-timeline-panel';
 import { SpkDetailLayout } from '@/components/spk/spk-detail-header';
 import type { SpkApprovalFooterColumn } from '@/components/spk/spk-informasi-produksi-panel';
 import { SpkProcessPanel } from '@/components/spk/spk-process-panel';
@@ -32,6 +33,7 @@ type SpkShowProps = {
     navigation: SpkNavigation;
     detailUrl: string;
     approval: SpkApprovalAbilities;
+    approvalTimeline: SpkApprovalTimelineEvent[];
     approvalFooter: SpkApprovalFooterColumn[];
 };
 
@@ -49,6 +51,7 @@ export default function SpkShow({
     navigation,
     detailUrl,
     approval,
+    approvalTimeline,
     approvalFooter,
 }: SpkShowProps) {
     const productionProcesses = processes.filter(
@@ -86,6 +89,7 @@ export default function SpkShow({
                     onTabChange={setActiveTab}
                     initialMainSection={defaultProcessSelection.mainSection}
                     approval={approval}
+                    approvalTimeline={approvalTimeline}
                     approvalFooter={approvalFooter}
                 >
                     {activeProcess ? (

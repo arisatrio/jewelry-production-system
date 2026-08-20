@@ -13,7 +13,10 @@ export type SpkRow = {
     tipeProduksi: string;
     customer: string;
     item: string;
+    typeSkuLabel?: string | null;
+    itemDescription?: string | null;
     description: string;
+    skuAssigned?: boolean;
     itemId: string | null;
     orderDate: string;
     createdDate: string;
@@ -240,7 +243,7 @@ export type SpkCraftsmanReportCard = {
 export const SPK_TABLE_COLUMNS = [
     { key: 'produksiNo', label: 'Produksi No' },
     { key: 'tipeProduksi', label: 'Tipe Produksi' },
-    { key: 'description', label: 'Tipe | SKU | Item' },
+    { key: 'description', label: 'Tipe | SKU' },
     { key: 'createdDate', label: 'Tanggal SPK Dibuat' },
     { key: 'orderDate', label: 'Tanggal Permintaan' },
     { key: 'estimatedDelivery', label: 'Tanggal Estimasi Selesai' },

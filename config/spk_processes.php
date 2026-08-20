@@ -70,18 +70,18 @@ return [
             'label' => 'Poles Chrome',
             'tables' => ['polishfinishedgood'],
         ],
-        [
-            'key' => 'Pengerjaan Lanjutan',
-            'label' => 'Pengerjaan Lanjutan',
-            'tables' => ['grafir'],
-            'placement' => 'main',
-        ],
-        [
-            'key' => 'Modifikasi Barang Jadi',
-            'label' => 'Modifikasi Barang Jadi',
-            'tables' => [],
-            'placement' => 'main',
-        ],
+        // [
+        //     'key' => 'Pengerjaan Lanjutan',
+        //     'label' => 'Pengerjaan Lanjutan',
+        //     'tables' => ['grafir'],
+        //     'placement' => 'main',
+        // ],
+        // [
+        //     'key' => 'Modifikasi Barang Jadi',
+        //     'label' => 'Modifikasi Barang Jadi',
+        //     'tables' => [],
+        //     'placement' => 'main',
+        // ],
     ],
 
     /*

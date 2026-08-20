@@ -102,7 +102,9 @@ test('spk index description shows type sku description for new system', function
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('productions.data.0.description', 'LDR | 2T-LDR-ATF-REG | LADIES RING')
+            ->where('productions.data.0.typeSkuLabel', 'LDR | 2T-LDR-ATF-REG')
+            ->where('productions.data.0.itemDescription', 'LADIES RING')
+            ->where('productions.data.0.skuAssigned', true)
         );
 
     $production->delete();
@@ -134,7 +136,42 @@ test('spk index description shows type and description only for old system', fun
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('productions.data.0.description', 'LDR | LADIES RING')
+            ->where('productions.data.0.typeSkuLabel', null)
+            ->where('productions.data.0.itemDescription', 'LADIES RING')
+            ->where('productions.data.0.skuAssigned', false)
+        );
+
+    $production->delete();
+});
+
+test('spk index marks new system rows without sku as unassigned', function () {
+    $category = SkuPrefixCategory::query()->firstOrCreate([
+        'category' => 'Ladies Ring',
+        'prefix' => 'LDR',
+    ], [
+        'description' => null,
+        'usage_count' => 0,
+        'is_active' => 1,
+    ]);
+
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/NO-SKU',
+        'spk_type' => 'Stock',
+        'item_name' => 'Earring',
+        'description' => 'LADIES RING',
+        'category_prefix_id' => $category->id,
+        'sku_id' => null,
+        'is_from_new_system' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.typeSkuLabel', null)
+            ->where('productions.data.0.itemDescription', 'LADIES RING')
+            ->where('productions.data.0.skuAssigned', false)
         );
 
     $production->delete();

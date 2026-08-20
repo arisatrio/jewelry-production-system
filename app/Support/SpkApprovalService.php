@@ -237,6 +237,63 @@ class SpkApprovalService
     }
 
     /**
+     * Gabungan log sysapproval dokumen SPK dan approval tiap proses produksi, urut waktu.
+     *
+     * @param  list<array{label?: string, sources?: list<array{records?: list<array<string, mixed>>}>}>  $processes
+     * @return list<array{source: string, status: string, statusLabel: string, approve: string, notes: string|null, createdBy: string|null, createdAt: string|null}>
+     */
+    public function timeline(Production $production, array $processes): array
+    {
+        return $this->mergeTimeline($this->history($production), $processes);
+    }
+
+    /**
+     * @param  list<array{status: string, statusLabel: string, approve: string, notes: string|null, createdBy: string|null, createdAt: string|null}>  $spkHistory
+     * @param  list<array{label?: string, sources?: list<array{records?: list<array<string, mixed>>}>}>  $processes
+     * @return list<array{source: string, status: string, statusLabel: string, approve: string, notes: string|null, createdBy: string|null, createdAt: string|null}>
+     */
+    public function mergeTimeline(array $spkHistory, array $processes): array
+    {
+        $events = [];
+
+        foreach ($spkHistory as $row) {
+            $events[] = [
+                ...$row,
+                'source' => 'SPK',
+            ];
+        }
+
+        foreach ($processes as $tab) {
+            $sourceLabel = filled($tab['label'] ?? null) ? (string) $tab['label'] : 'Proses';
+
+            foreach ($tab['sources'] ?? [] as $source) {
+                foreach ($source['records'] ?? [] as $record) {
+                    foreach ($record['approvals'] ?? [] as $approval) {
+                        if (! is_array($approval)) {
+                            continue;
+                        }
+
+                        $events[] = [
+                            'source' => $sourceLabel,
+                            'status' => (string) ($approval['status'] ?? ''),
+                            'statusLabel' => (string) ($approval['statusLabel'] ?? $approval['status'] ?? ''),
+                            'approve' => (string) ($approval['approve'] ?? '—'),
+                            'notes' => filled($approval['notes'] ?? null) ? (string) $approval['notes'] : null,
+                            'createdBy' => filled($approval['createdBy'] ?? null) ? (string) $approval['createdBy'] : null,
+                            'createdAt' => filled($approval['createdAt'] ?? null) ? (string) $approval['createdAt'] : null,
+                        ];
+                    }
+                }
+            }
+        }
+
+        return collect($events)
+            ->sortBy(fn (array $row): string => $this->timelineSortKey($row['createdAt'] ?? null))
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return list<array{status: string, statusLabel: string, approve: string, notes: string|null, createdBy: string|null, createdAt: string|null}>
      */
     public function history(Production $production): array
@@ -420,6 +477,19 @@ class SpkApprovalService
         }
 
         return $this->formatFooterDate((string) $row['createdAt']);
+    }
+
+    private function timelineSortKey(?string $createdAt): string
+    {
+        if (! filled($createdAt)) {
+            return '9999-12-31 23:59:59';
+        }
+
+        try {
+            return Carbon::parse($createdAt)->format('Y-m-d H:i:s.u');
+        } catch (\Throwable) {
+            return $createdAt;
+        }
     }
 
     private function formatFooterDate(string $value): string

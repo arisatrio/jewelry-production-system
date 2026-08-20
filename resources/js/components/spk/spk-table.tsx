@@ -76,6 +76,35 @@ function prosesTerakhirSearchText(row: SpkRow): string {
     return '-';
 }
 
+function SpkTableDescriptionCell({ row }: { row: SpkRow }) {
+    const typeSkuLabel = row.typeSkuLabel?.trim() ?? '';
+    const itemDescription = row.itemDescription?.trim() ?? '';
+    const showMissingSku = row.skuAssigned === false;
+    const showTypeSku = !showMissingSku && typeSkuLabel !== '';
+    const showItemDescription = itemDescription !== '';
+
+    if (!showMissingSku && !showTypeSku && !showItemDescription) {
+        return <span>-</span>;
+    }
+
+    return (
+        <div className="spkTableDescription">
+            {showMissingSku ? (
+                <span className="spkTableBadge spkTableBadge--missingSku">
+                    Belum assign SKU
+                </span>
+            ) : showTypeSku ? (
+                <span className="spkTableDescriptionTypeSku">
+                    {typeSkuLabel}
+                </span>
+            ) : null}
+            <span className="spkTableDescriptionItem">
+                {showItemDescription ? itemDescription : '-'}
+            </span>
+        </div>
+    );
+}
+
 function SpkTableLastProcessCell({ row }: { row: SpkRow }) {
     const lastProcess = row.prosesTerakhir.trim();
     const lastProcessDate = (row.prosesTerakhirDate ?? '').trim();
@@ -296,8 +325,10 @@ export default function SpkTable({
                 row.produksiNo,
                 row.tipeProduksi,
                 row.customer,
+                row.typeSkuLabel ?? '',
+                row.itemDescription ?? '',
                 row.description,
-
+                row.skuAssigned === false ? 'belum assign SKU' : '',
                 row.createdDate,
                 row.orderDate,
                 row.estimatedDelivery,
@@ -325,6 +356,15 @@ export default function SpkTable({
     }, [filteredRows, pageSize, safePage, total]);
 
     const pageItems = buildPageItems(safePage, totalPages);
+
+    const openDetail = (row: SpkRow) => {
+        if (onOpenRow) {
+            onOpenRow(row);
+            return;
+        }
+
+        onProduksiNoClick?.(row);
+    };
 
     const updatePageSize = (size: number) => {
         if (!isPageSizeControlled) {
@@ -555,18 +595,30 @@ export default function SpkTable({
                                 </tr>
                             ) : (
                                 visibleRows.map((row) => (
-                                    <tr key={row.id}>
+                                    <tr
+                                        key={row.id}
+                                        className="spkTableRowLink"
+                                        tabIndex={0}
+                                        role="link"
+                                        aria-label={`Buka detail SPK ${row.produksiNo}`}
+                                        onClick={() => openDetail(row)}
+                                        onKeyDown={(event) => {
+                                            if (
+                                                event.key === 'Enter' ||
+                                                event.key === ' '
+                                            ) {
+                                                event.preventDefault();
+                                                openDetail(row);
+                                            }
+                                        }}
+                                    >
                                         <td>
                                             <button
                                                 type="button"
                                                 className="spkProduksiLink"
-                                                onClick={() => {
-                                                    if (onProduksiNoClick) {
-                                                        onProduksiNoClick(row);
-                                                        return;
-                                                    }
-
-                                                    onOpenRow?.(row);
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    openDetail(row);
                                                 }}
                                             >
                                                 {row.produksiNo}
@@ -578,7 +630,11 @@ export default function SpkTable({
                                             </span>
                                             <span>{row.customer}</span>
                                         </td>
-                                        <td>{row.description}</td>
+                                        <td>
+                                            <SpkTableDescriptionCell
+                                                row={row}
+                                            />
+                                        </td>
                                         <td>{row.createdDate}</td>
                                         <td>{row.orderDate}</td>
                                         <td>{row.estimatedDelivery}</td>

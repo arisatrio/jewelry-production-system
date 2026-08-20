@@ -27,6 +27,7 @@ test('spk show page includes mapped workflow status', function () {
             ->has('production.refSpkNo')
             ->has('detailUrl')
             ->has('approval')
+            ->has('approvalTimeline')
             ->has('approvalFooter', 3)
         );
 });

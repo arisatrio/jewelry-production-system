@@ -21,6 +21,10 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { SpkApprovalActions, type SpkApprovalAbilities } from '@/components/spk/spk-approval-actions';
+import {
+    SpkApprovalTimelinePanel,
+    type SpkApprovalTimelineEvent,
+} from '@/components/spk/spk-approval-timeline-panel';
 import { SpkBarcodeDialog } from '@/components/spk/spk-barcode-dialog';
 import { SpkCraftsmanReportSection } from '@/components/spk/spk-craftsman-report-section';
 import { SpkGoldReportTable } from '@/components/spk/spk-gold-report-table';
@@ -48,6 +52,23 @@ export type { SpkNavigation };
 
 type MainSectionTab = string;
 
+const REPORT_SECTION_IDS = new Set([
+    'laporan',
+    'laporan-susut',
+    'laporan-emas',
+    'laporan-batu',
+    'laporan-kontrol',
+    'laporan-pengrajin',
+]);
+
+function normalizeMainSection(section: string): MainSectionTab {
+    if (REPORT_SECTION_IDS.has(section)) {
+        return 'laporan';
+    }
+
+    return section;
+}
+
 type SpkDetailLayoutProps = {
     production: SpkDetail;
     item: SpkItemDetail;
@@ -64,6 +85,7 @@ type SpkDetailLayoutProps = {
     onTabChange: (tab: string) => void;
     initialMainSection?: string;
     approval?: SpkApprovalAbilities;
+    approvalTimeline?: SpkApprovalTimelineEvent[];
     approvalFooter?: SpkApprovalFooterColumn[];
     children?: ReactNode;
 };
@@ -88,11 +110,13 @@ export function SpkDetailLayout({
     onTabChange,
     initialMainSection = 'informasi-produksi',
     approval,
+    approvalTimeline = [],
     approvalFooter,
     children,
 }: SpkDetailLayoutProps) {
-    const [mainSection, setMainSection] =
-        useState<MainSectionTab>(initialMainSection);
+    const [mainSection, setMainSection] = useState<MainSectionTab>(() =>
+        normalizeMainSection(initialMainSection),
+    );
     const [barcodeOpen, setBarcodeOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -117,11 +141,8 @@ export function SpkDetailLayout({
             id: process.key,
             label: process.label,
         })),
-        { id: 'laporan-susut', label: 'Laporan Susut' },
-        { id: 'laporan-emas', label: 'Laporan Emas' },
-        { id: 'laporan-batu', label: 'Laporan Batu' },
-        { id: 'laporan-kontrol', label: 'Laporan Kontrol Produksi' },
-        { id: 'laporan-pengrajin', label: 'Laporan Pengrajin' },
+        { id: 'laporan', label: 'Laporan' },
+        { id: 'timeline', label: 'Timeline' },
     ];
     const activeMainProcess =
         mainProcesses.find((process) => process.key === mainSection) ?? null;
@@ -486,58 +507,26 @@ export function SpkDetailLayout({
                         </div>
                     ) : null}
 
-                    {mainSection === 'laporan-susut' ? (
+                    {mainSection === 'laporan' ? (
                         <div
                             role="tabpanel"
-                            aria-label="Laporan Susut"
+                            aria-label="Laporan"
                             className="spkMainTabPanel spkLaporanPanel"
                         >
                             <SpkShrinkReportTable report={shrinkReport} />
-                        </div>
-                    ) : null}
-
-                    {mainSection === 'laporan-emas' ? (
-                        <div
-                            role="tabpanel"
-                            aria-label="Laporan Emas"
-                            className="spkMainTabPanel spkLaporanPanel"
-                        >
                             <SpkGoldReportTable report={goldReport} />
-                        </div>
-                    ) : null}
-
-                    {mainSection === 'laporan-batu' ? (
-                        <div
-                            role="tabpanel"
-                            aria-label="Laporan Batu"
-                            className="spkMainTabPanel spkLaporanPanel"
-                        >
                             <SpkStoneReportTable report={stoneReport} />
-                        </div>
-                    ) : null}
-
-                    {mainSection === 'laporan-kontrol' ? (
-                        <div
-                            role="tabpanel"
-                            aria-label="Laporan Kontrol Produksi"
-                            className="spkMainTabPanel spkLaporanPanel"
-                        >
                             <SpkProductionControlReportSection
                                 report={productionControlReport}
                             />
-                        </div>
-                    ) : null}
-
-                    {mainSection === 'laporan-pengrajin' ? (
-                        <div
-                            role="tabpanel"
-                            aria-label="Laporan Pengrajin"
-                            className="spkMainTabPanel spkLaporanPanel"
-                        >
                             <SpkCraftsmanReportSection
                                 cards={craftsmanReport}
                             />
                         </div>
+                    ) : null}
+
+                    {mainSection === 'timeline' ? (
+                        <SpkApprovalTimelinePanel events={approvalTimeline} />
                     ) : null}
                 </section>
             </div>

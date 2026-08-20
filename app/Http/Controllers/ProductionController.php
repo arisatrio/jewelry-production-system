@@ -63,6 +63,7 @@ class ProductionController extends Controller
         $statusCounts = $this->activeStatusCounts();
 
         $productions = Production::query()
+            ->with(['sku', 'categoryPrefix'])
             ->notDeleted()
             ->when($type !== '', function ($query) use ($type): void {
                 $query->where('spk_type', $type);
@@ -630,11 +631,15 @@ class ProductionController extends Controller
             ]),
         );
 
+        $processes = $processMapper->forProduction((int) $production->row_id);
+        $approvalService = app(SpkApprovalService::class);
+        $approval = $this->approvalAbilities($request, $production);
+
         return Inertia::render('spk/show', [
             'production' => $this->toDetail($production, $statusMapper),
             'item' => $this->toItemDetail($production),
             'stones' => $this->toShowStones($production),
-            'processes' => $processMapper->forProduction((int) $production->row_id),
+            'processes' => $processes,
             'defaultProcessSelection' => $processMapper->resolveDefaultSelection($production->last_process),
             'shrinkReport' => $shrinkSummary->forProduction($production),
             'craftsmanReport' => $craftsmanReport->forProduction($production),
@@ -643,8 +648,9 @@ class ProductionController extends Controller
             'productionControlReport' => $productionControlReport->forProduction($production, $goldReport),
             'navigation' => $navigation,
             'detailUrl' => route('spk.show', $production, absolute: true),
-            'approval' => $this->approvalAbilities($request, $production),
-            'approvalFooter' => app(SpkApprovalService::class)->footerColumns(
+            'approval' => $approval,
+            'approvalTimeline' => $approvalService->mergeTimeline($approval['history'], $processes),
+            'approvalFooter' => $approvalService->footerColumns(
                 $production,
                 $this->actorName($request),
             ),
@@ -852,28 +858,56 @@ class ProductionController extends Controller
         return $parts === [] ? '-' : implode(' | ', $parts);
     }
 
-    private function listItemDescription(Production $production): string
+    private function listTypeSkuLabel(Production $production): ?string
     {
+        if (! $this->listHasAssignedSku($production)) {
+            return null;
+        }
+
         $production->loadMissing(['categoryPrefix', 'sku']);
 
         $typeCode = trim((string) ($production->categoryPrefix?->prefix ?? ''));
-        $description = filled($production->description) ? trim((string) $production->description) : '';
+        $skuCode = trim((string) ($production->sku?->sku_code ?? ''));
 
-        if ((int) $production->is_from_new_system === 1) {
-            $skuCode = trim((string) ($production->sku?->sku_code ?? ''));
+        $parts = array_values(array_filter(
+            [$typeCode, $skuCode],
+            fn (string $part): bool => $part !== '',
+        ));
 
-            $parts = array_values(array_filter(
-                [$typeCode, $skuCode, $description],
-                fn (string $part): bool => $part !== '',
-            ));
-        } else {
-            $parts = array_values(array_filter(
-                [$typeCode, $description],
-                fn (string $part): bool => $part !== '',
-            ));
+        return $parts !== [] ? implode(' | ', $parts) : null;
+    }
+
+    private function listItemDescriptionText(Production $production): ?string
+    {
+        if (! filled($production->description)) {
+            return null;
         }
 
-        return $parts !== [] ? implode(' | ', $parts) : '-';
+        $description = trim((string) $production->description);
+
+        return $description !== '' ? $description : null;
+    }
+
+    private function listSearchDescription(Production $production): string
+    {
+        $parts = array_values(array_filter([
+            $this->listTypeSkuLabel($production),
+            $this->listItemDescriptionText($production),
+            $this->listHasAssignedSku($production) ? null : 'belum assign SKU',
+        ], fn (?string $part): bool => filled($part)));
+
+        return $parts !== [] ? implode(' ', $parts) : '-';
+    }
+
+    private function listHasAssignedSku(Production $production): bool
+    {
+        if (! filled($production->sku_id) || (int) $production->sku_id === 0) {
+            return false;
+        }
+
+        $production->loadMissing('sku');
+
+        return $production->sku !== null;
     }
 
     /**
@@ -1018,7 +1052,10 @@ class ProductionController extends Controller
             'item' => $production->relationLoaded('item') && $production->item !== null
                 ? ($production->item->name ?? '-')
                 : ($production->item_name ?? '-'),
-            'description' => $this->listItemDescription($production),
+            'typeSkuLabel' => $this->listTypeSkuLabel($production),
+            'itemDescription' => $this->listItemDescriptionText($production),
+            'description' => $this->listSearchDescription($production),
+            'skuAssigned' => $this->listHasAssignedSku($production),
             'itemId' => $production->item_id !== null ? (string) $production->item_id : null,
             'orderDate' => $production->order_date?->format('d-M-Y') ?? '-',
             'createdDate' => $production->created_date?->format('d-M-Y') ?? '-',

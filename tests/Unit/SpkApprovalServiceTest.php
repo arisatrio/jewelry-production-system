@@ -160,3 +160,55 @@ test('approval service rejects pending back to draft', function () {
 
     $production->delete();
 });
+
+test('merge timeline combines spk history and process sysapproval by time', function () {
+    $timeline = app(SpkApprovalService::class)->mergeTimeline(
+        [
+            [
+                'status' => SpkApprovalService::STATUS_PENDING,
+                'statusLabel' => 'Menunggu Approval',
+                'approve' => 'OK',
+                'notes' => 'Kirim ke produksi',
+                'createdBy' => 'spv',
+                'createdAt' => '2026-08-20 09:00:00',
+            ],
+        ],
+        [
+            [
+                'label' => 'Poles Chrome',
+                'sources' => [
+                    [
+                        'records' => [
+                            [
+                                'approvals' => [
+                                    [
+                                        'status' => 'PFC010',
+                                        'statusLabel' => 'Approved',
+                                        'approve' => 'OK',
+                                        'notes' => null,
+                                        'createdBy' => 'qc',
+                                        'createdAt' => '2026-08-20 11:00:00',
+                                    ],
+                                    [
+                                        'status' => 'PFC000',
+                                        'statusLabel' => 'Draft',
+                                        'approve' => 'SEND',
+                                        'notes' => null,
+                                        'createdBy' => 'opr',
+                                        'createdAt' => '2026-08-20 10:00:00',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    );
+
+    expect($timeline)->toHaveCount(3)
+        ->and($timeline[0]['source'])->toBe('SPK')
+        ->and($timeline[1]['source'])->toBe('Poles Chrome')
+        ->and($timeline[1]['approve'])->toBe('SEND')
+        ->and($timeline[2]['statusLabel'])->toBe('Approved');
+});
