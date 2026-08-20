@@ -140,6 +140,7 @@ class ProductionController extends Controller
             'types' => SpkService::TYPES,
             'typeCounts' => $typeCounts,
             'statusCounts' => $statusCounts,
+            'statusLabels' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS,
             'statuses' => $statusLabels,
             'filters' => [
                 'search' => $search,

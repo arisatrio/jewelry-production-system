@@ -46,6 +46,13 @@ export type SpkTableProps = {
         confirmed: number;
         inProgress: number;
     };
+    statusLabels?: {
+        draft: string;
+        pendingManager: string;
+        confirmed: string;
+        inProgress: string;
+        done: string;
+    };
     statuses?: string[];
     selectedStatus?: string;
     onStatusChange?: (status: string) => void;
@@ -62,7 +69,7 @@ function prosesTerakhirSearchText(row: SpkRow): string {
             : lastProcess;
     }
 
-    if (row.status === 'Approved by Manager Produksi') {
+    if (row.status === 'Approved') {
         return 'Belum Diproses';
     }
 
@@ -86,7 +93,7 @@ function SpkTableLastProcessCell({ row }: { row: SpkRow }) {
         );
     }
 
-    if (row.status === 'Approved by Manager Produksi') {
+    if (row.status === 'Approved') {
         return <span>Belum Diproses</span>;
     }
 
@@ -185,6 +192,7 @@ export default function SpkTable({
     selectedType = '',
     onTypeChange,
     statusCounts,
+    statusLabels,
     statuses = [],
     selectedStatus = '',
     onStatusChange,
@@ -195,50 +203,46 @@ export default function SpkTable({
     const alertItems = useMemo(() => {
         if (!statusCounts) return [];
 
-        const items: Array<{ key: string; label: string; count: number; message: string; badgeClass: string }> = [];
+        const items: Array<{ key: string; label: string; count: number; message: string }> = [];
 
         if (statusCounts.draft > 0) {
             items.push({
                 key: 'draft',
-                label: 'Draft',
+                label: statusLabels?.draft ?? 'Draft',
                 count: statusCounts.draft,
                 message: 'SPK menunggu dikirim ke Produksi',
-                badgeClass: 'spkTableBadge--draft',
             });
         }
 
         if (statusCounts.pendingManager > 0) {
             items.push({
                 key: 'pendingManager',
-                label: 'Menunggu Approval Manager Produksi',
+                label: statusLabels?.pendingManager ?? 'Menunggu Approval',
                 count: statusCounts.pendingManager,
-                message: 'SPK menunggu approval Manager Produksi',
-                badgeClass: 'spkTableBadge--pengajuan',
+                message: 'SPK menunggu approval',
             });
         }
 
         if (statusCounts.confirmed > 0) {
             items.push({
                 key: 'confirmed',
-                label: 'Approved by Manager Produksi',
+                label: statusLabels?.confirmed ?? 'Approved',
                 count: statusCounts.confirmed,
                 message: 'SPK belum dilanjut proses',
-                badgeClass: 'spkTableBadge--approved',
             });
         }
 
         if (statusCounts.inProgress > 0) {
             items.push({
                 key: 'inProgress',
-                label: 'In Progress',
+                label: statusLabels?.inProgress ?? 'In Progress',
                 count: statusCounts.inProgress,
                 message: 'SPK belum diselesaikan',
-                badgeClass: 'spkTableBadge--inProgress',
             });
         }
 
         return items;
-    }, [statusCounts]);
+    }, [statusCounts, statusLabels]);
 
     const handleAlertClick = useCallback(
         (statusLabel: string) => {
@@ -398,20 +402,20 @@ export default function SpkTable({
                 ) : null}
 
                 {alertItems.length > 0 ? (
-                    <div className="spkAlertBreakdown" role="status" aria-live="polite">
+                    <div className="spkStatusCards" role="status" aria-live="polite">
                         {alertItems.map((item) => (
                             <button
                                 key={item.key}
                                 type="button"
-                                className="spkAlertBreakdownItem"
+                                className={`spkStatusCard spkStatusCard--${item.key}`}
                                 onClick={() => handleAlertClick(item.label)}
+                                aria-label={`${item.count.toLocaleString('id-ID')} ${item.message}. Klik untuk filter.`}
                             >
-                                <span className={`spkTableBadge ${item.badgeClass}`}>
-                                    {item.label}
-                                </span>
-                                <span className="spkAlertBreakdownText">
-                                    <strong>{item.count}</strong> {item.message}
-                                </span>
+                                <span className="spkStatusCardLabel">{item.label}</span>
+                                <strong className="spkStatusCardCount">
+                                    {item.count.toLocaleString('id-ID')}
+                                </strong>
+                                <span className="spkStatusCardHint">{item.message}</span>
                             </button>
                         ))}
                     </div>

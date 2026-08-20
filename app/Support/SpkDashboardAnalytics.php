@@ -17,8 +17,8 @@ class SpkDashboardAnalytics
      */
     public const BACKLOG_STATUS_LABELS = [
         'draft' => 'Draft',
-        'pendingManager' => 'Menunggu Approval Manager Produksi',
-        'confirmed' => 'Approved by Manager Produksi',
+        'pendingManager' => 'Menunggu Approval',
+        'confirmed' => 'Approved',
         'inProgress' => 'In Progress',
         'done' => 'Done',
     ];

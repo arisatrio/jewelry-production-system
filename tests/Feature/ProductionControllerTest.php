@@ -229,7 +229,7 @@ test('spk index maps status to dashboard backlog labels', function (array $attri
             'last_process' => null,
             'is_inprocess' => 0,
         ],
-        'Approved by Manager Produksi',
+        'Approved',
     ],
     'poles chrome in progress is not done' => [
         [
@@ -286,7 +286,7 @@ test('spk index confirmed filter uses manager approval not repeat order', functi
     ]);
 
     $this->get(route('spk.index', [
-        'status' => 'Approved by Manager Produksi',
+        'status' => 'Approved',
         'search' => $pendingRepeat->spk_no,
     ]))
         ->assertOk()
@@ -296,14 +296,14 @@ test('spk index confirmed filter uses manager approval not repeat order', functi
         );
 
     $this->get(route('spk.index', [
-        'status' => 'Approved by Manager Produksi',
+        'status' => 'Approved',
         'search' => $approved->spk_no,
     ]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
             ->where('productions.data.0.produksiNo', $approved->spk_no)
-            ->where('productions.data.0.status', 'Approved by Manager Produksi')
+            ->where('productions.data.0.status', 'Approved')
         );
 
     $pendingRepeat->delete();

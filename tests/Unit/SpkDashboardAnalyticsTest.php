@@ -217,7 +217,7 @@ test('dashboard backlog status grouping matches dashboard card labels', function
             'is_inprocess' => 0,
         ],
         'confirmed',
-        'Approved by Manager Produksi',
+        'Approved',
         false,
     ],
     'confirmed manager approved' => [
@@ -228,7 +228,7 @@ test('dashboard backlog status grouping matches dashboard card labels', function
             'is_inprocess' => 0,
         ],
         'confirmed',
-        'Approved by Manager Produksi',
+        'Approved',
         false,
     ],
     'in progress last process' => [
@@ -249,8 +249,8 @@ test('dashboard backlog status grouping matches dashboard card labels', function
             'last_process' => null,
             'is_inprocess' => 0,
         ],
-        'draft',
-        'Draft',
+        'pendingManager',
+        'Menunggu Approval',
         false,
     ],
     'empty status is draft' => [
@@ -264,15 +264,15 @@ test('dashboard backlog status grouping matches dashboard card labels', function
         'Draft',
         false,
     ],
-    'repeat order still waiting manager is draft' => [
+    'repeat order still waiting manager is pending approval' => [
         [
             'status' => 'SPK010',
             'status_order' => 'RO',
             'last_process' => null,
             'is_inprocess' => 0,
         ],
-        'draft',
-        'Draft',
+        'pendingManager',
+        'Menunggu Approval',
         false,
     ],
 ]);

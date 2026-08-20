@@ -341,8 +341,8 @@ class SpkApprovalService
     {
         if (! Schema::connection('third')->hasTable('sysstatus')) {
             return [
-                self::STATUS_PENDING => 'Menunggu Approval Manager Produksi',
-                self::STATUS_DONE => 'Approved by Manager Produksi',
+                self::STATUS_PENDING => 'Menunggu Approval',
+                self::STATUS_DONE => 'Approved',
             ];
         }
 
@@ -389,8 +389,8 @@ class SpkApprovalService
         $normalized = trim($label);
 
         return match (strtoupper($normalized)) {
-            'APPROVED' => 'Approved by Manager Produksi',
-            'MENUNGGU MANAGER' => 'Menunggu Approval Manager Produksi',
+            'APPROVED' => 'Approved',
+            'MENUNGGU MANAGER' => 'Menunggu Approval',
             'DRAFT' => 'Draft',
             default => $normalized,
         };

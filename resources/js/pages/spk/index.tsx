@@ -24,8 +24,16 @@ type SpkIndexProps = {
     };
     statusCounts: {
         draft: number;
+        pendingManager: number;
         confirmed: number;
         inProgress: number;
+    };
+    statusLabels: {
+        draft: string;
+        pendingManager: string;
+        confirmed: string;
+        inProgress: string;
+        done: string;
     };
     statuses: string[];
     filters: {
@@ -41,6 +49,7 @@ export default function SpkIndex({
     types,
     typeCounts,
     statusCounts,
+    statusLabels,
     statuses,
     filters,
 }: SpkIndexProps) {
@@ -133,6 +142,7 @@ export default function SpkIndex({
                 types={types}
                 typeCounts={typeCounts}
                 statusCounts={statusCounts}
+                statusLabels={statusLabels}
                 onStatusAlertClick={(status) =>
                     visit({
                         page: 1,
