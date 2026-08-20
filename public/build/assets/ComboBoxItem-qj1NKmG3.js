@@ -1,1 +1,0 @@
-import{st as e}from"./app-Wju-vsEo.js";import"./Text-DCnE6Ivn.js";var t=e(`ui5-cb-item`,[`additionalText`,`text`,`value`],[],[],[`click`]);t.displayName=`ComboBoxItem`;export{t};
