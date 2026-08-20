@@ -577,7 +577,7 @@ test('spk show provides absolute detail url for qr code modal', function () {
         );
 });
 
-test('spk show page uses sku master design_image for item image', function () {
+test('spk show page uses spk file_name for item image', function () {
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
         ?? SkuPrefixCategory::query()->create([
             'category' => 'TEST '.fake()->unique()->lexify('????'),
@@ -597,7 +597,7 @@ test('spk show page uses sku master design_image for item image', function () {
         'category_prefix_id' => $category->id,
     ]);
 
-    $expectedUrl = rtrim((string) config('spk.production_image_base_url'), '/').'/1782887215_design_show.jpg';
+    $expectedUrl = rtrim((string) config('spk.production_image_base_url'), '/').'/uploaded-spk.png';
 
     $this->get(route('spk.show', $production))
         ->assertOk()
@@ -610,7 +610,7 @@ test('spk show page uses sku master design_image for item image', function () {
     $sku->delete();
 });
 
-test('spk show returns null image url when sku design_image is empty', function () {
+test('spk show returns null image url when spk file name is empty', function () {
     $production = app(SpkService::class)->createStock('system');
     $production->update(['file_name' => 'uploaded-spk.png', 'sku_id' => null]);
 

@@ -1778,9 +1778,7 @@ class ProductionController extends Controller
 
     private function itemImageUrl(Production $production): ?string
     {
-        $production->loadMissing('sku');
-
-        return $this->skuImageUrl($production->sku);
+        return $this->productionImageUrl($production->file_name);
     }
 
     private function itemDescriptionForPrint(Production $production): ?string
@@ -1806,11 +1804,6 @@ class ProductionController extends Controller
         $extracted = trim($this->descriptionExtractor->extract($production->sku));
 
         return $extracted !== '' ? $extracted : null;
-    }
-
-    private function skuImageUrl(?SkuMaster $sku): ?string
-    {
-        return $sku?->resolvedImageUrl();
     }
 
     /**

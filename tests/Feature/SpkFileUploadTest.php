@@ -64,11 +64,13 @@ test('spk update uploads image to gcs produksi folder', function () {
         ->and($production->sku_id)->toBe($sku->id)
         ->and($production->category_prefix_id)->toBe($category->id);
 
+    $expectedUrl = rtrim((string) config('spk.production_image_base_url'), '/').'/'.$production->file_name;
+
     $this->get(route('spk.show', $production))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
-            ->where('item.imageUrl', null)
+            ->where('item.imageUrl', $expectedUrl)
         );
 
     $production->delete();

@@ -179,11 +179,11 @@ test('spk print page for existing production renders document body', function ()
         ->assertSee('Detail Item', false)
         ->assertSee('Form SPK '.$production->spk_no.' — Print', false)
         ->assertSee(
-            'src="https://storage.googleapis.com/system-mahakarya/produksi/1782887215_design_print.jpg"',
+            'src="https://storage.googleapis.com/system-mahakarya/produksi/uploaded-spk.png"',
             false,
         )
         ->assertDontSee(
-            'src="https://storage.googleapis.com/system-mahakarya/produksi/uploaded-spk.png"',
+            'src="https://storage.googleapis.com/system-mahakarya/produksi/1782887215_design_print.jpg"',
             false,
         )
         ->assertSee('id="spkPrintQr"', false)
