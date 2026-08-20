@@ -68,10 +68,7 @@ test('spk update uploads image to gcs produksi folder', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
-            ->where(
-                'item.imageUrl',
-                rtrim((string) config('spk.production_image_base_url'), '/').'/'.$production->file_name,
-            )
+            ->where('item.imageUrl', null)
         );
 
     $production->delete();

@@ -186,19 +186,13 @@ class SkuMaster extends Model
     }
 
     /**
-     * Raw image reference with design_image as the primary source.
+     * Raw image reference from sku_master.design_image.
      */
     public function resolvedImageReference(): ?string
     {
-        foreach (['design_image', 'image_url', 'catalog_image'] as $column) {
-            $value = trim((string) ($this->{$column} ?? ''));
+        $value = trim((string) ($this->design_image ?? ''));
 
-            if ($value !== '' && $value !== '-') {
-                return $value;
-            }
-        }
-
-        return null;
+        return $value !== '' && $value !== '-' ? $value : null;
     }
 
     /**

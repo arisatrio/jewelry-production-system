@@ -23,6 +23,9 @@ import { TextArea } from '@ui5/webcomponents-react/TextArea';
 import ProductionController from '@/actions/App/Http/Controllers/ProductionController';
 import { SpkCreateSelectorDialog } from '@/components/spk/spk-create-selector-dialog';
 import {
+    GoldWeightRowLabel,
+    isGoldWeightChangedFromMaster,
+    isStoneListChangedFromMaster,
     SpkFormStoneListCard,
     type SpkFormStoneRow,
 } from '@/components/spk/spk-stone-list';
@@ -132,7 +135,7 @@ type SkuOption = {
     categoryPrefixId: string;
     description: string;
     goldColor: string;
-    goldWeight: string;
+    goldWeight: string | null;
     jwcad3d: string;
     imageUrl: string | null;
     stones: SkuStoneOption[];
@@ -330,35 +333,6 @@ function resolvePrintImageUrl(url: string | null | undefined): string {
     return `${window.location.origin}/${imageUrl.replace(/^\/+/, '')}`;
 }
 
-function productionPrintImageUrl(
-    fileName: string | null | undefined,
-    baseUrl: string,
-): string {
-    if (!fileName || fileName.trim() === '' || fileName.trim() === '-') {
-        return '';
-    }
-
-    const trimmed = fileName.trim().replace(/\\/g, '/');
-
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        return trimmed;
-    }
-
-    const path = trimmed.replace(/^\/+/, '').replace(/^storage\//, '');
-
-    if (!path || path === '.' || path === '-') {
-        return '';
-    }
-
-    if (path.includes('/')) {
-        return `/storage/${path}`;
-    }
-
-    const base = baseUrl.replace(/\/?$/, '/');
-
-    return `${base}${path}`;
-}
-
 function splitUkuranLabel(value: string): {
     diameter: string;
     dimensi: string;
@@ -388,8 +362,23 @@ function splitUkuranLabel(value: string): {
     };
 }
 
-function mapProductionStonesToForm(stones: StoneRow[]): SpkFormStoneRow[] {
-    return stones.map((stone) => ({
+function stoneMasterFromSku(stone: SkuStoneOption): SpkFormStoneRow['master'] {
+    return {
+        positionNama: stone.positionNama ?? '',
+        positionName: stone.positionNama ?? '',
+        shapeId: stone.shapeId ?? '',
+        shapeName: stone.shapeName ?? '',
+        size: stone.size ?? '',
+        pcs: stone.pcs ?? '',
+        caratPerPcs: stone.caratPerPcs ?? '',
+    };
+}
+
+function mapProductionStonesToForm(
+    stones: StoneRow[],
+    skuStones: SkuStoneOption[] = [],
+): SpkFormStoneRow[] {
+    return stones.map((stone, index) => ({
         id: stone.id,
         positionId: stone.positionId ?? '',
         positionName: stone.positionName ?? '',
@@ -402,6 +391,7 @@ function mapProductionStonesToForm(stones: StoneRow[]): SpkFormStoneRow[] {
                 : String(stone.size),
         pcs: stone.pcs ? String(stone.pcs) : '',
         caratPerPcs: stone.carat ? String(stone.carat) : '',
+        master: skuStones[index] ? stoneMasterFromSku(skuStones[index]) : null,
     }));
 }
 
@@ -416,6 +406,7 @@ function mapSkuStonesToForm(stones: SkuStoneOption[]): SpkFormStoneRow[] {
         size: stone.size ?? '',
         pcs: stone.pcs ?? '',
         caratPerPcs: stone.caratPerPcs ?? '',
+        master: stoneMasterFromSku(stone),
     }));
 }
 
@@ -424,7 +415,6 @@ export default function SpkFormPage({
     stones: productionStones,
     options,
     formDocumentNo,
-    productionImageBaseUrl,
     approvalFooter,
     approval,
 }: SpkFormProps) {
@@ -432,8 +422,7 @@ export default function SpkFormPage({
     const canEdit = approval?.canEdit !== false;
     const canSubmit = approval?.canSubmit === true;
     const titleSpkNo = production.spkNo ?? 'SPK Baru';
-    const displaySpkNo =
-        production.spkNo || `${new Date().getFullYear()}/PRD/00000`;
+    const displaySpkNo = production.spkNo || (isNew ? 'auto-generated' : '-');
     const skuOptions = options.skus ?? [];
     const categoryOptions = options.categories ?? options.itemTypes ?? [];
     const initialCategoryId =
@@ -524,7 +513,7 @@ export default function SpkFormPage({
         () => initialSku?.label ?? '',
     );
     const [formStones, setFormStones] = useState<SpkFormStoneRow[]>(() =>
-        mapProductionStonesToForm(productionStones),
+        mapProductionStonesToForm(productionStones, initialSku?.stones ?? []),
     );
     const [ukuran, setUkuran] = useState(() => initialUkuran);
     const shapeOptions = options.shapeOptions ?? [];
@@ -562,30 +551,16 @@ export default function SpkFormPage({
         return skuOptions.find((sku) => sku.value === selectedSkuId) ?? null;
     }, [skuOptions, selectedSkuId]);
 
-    const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(
-        null,
-    );
-
-    useEffect(() => {
-        const file = data.file;
-
-        if (!(file instanceof File) || !file.type.startsWith('image/')) {
-            setUploadPreviewUrl(null);
-
-            return;
-        }
-
-        const objectUrl = URL.createObjectURL(file);
-        setUploadPreviewUrl(objectUrl);
-
-        return () => URL.revokeObjectURL(objectUrl);
-    }, [data.file]);
-
-    const itemImageUrl =
-        uploadPreviewUrl ??
-        selectedSku?.imageUrl ??
-        (productionPrintImageUrl(production.fileName, productionImageBaseUrl) ||
-            null);
+    const itemImageUrl = selectedSku?.imageUrl ?? null;
+    const showMasterSkuSyncAlert =
+        isGoldWeightChangedFromMaster(
+            data.gold_weight,
+            selectedSku?.goldWeight,
+        ) ||
+        isStoneListChangedFromMaster(
+            formStones,
+            selectedSku?.stones?.length ?? 0,
+        );
 
     useEffect(() => {
         if (!isNew || !requestOrderOpen) {
@@ -954,14 +929,7 @@ export default function SpkFormPage({
                 goldColor: data.gold_color,
                 jwcad3d: data.jwcad_3d,
                 description: data.description,
-                imageUrl: resolvePrintImageUrl(
-                    uploadPreviewUrl ??
-                        selectedSku?.imageUrl ??
-                        productionPrintImageUrl(
-                            production.fileName,
-                            productionImageBaseUrl,
-                        ),
-                ),
+                imageUrl: resolvePrintImageUrl(selectedSku?.imageUrl ?? ''),
             },
             stones: formStones.map((stone) => {
                 const shapeOption = shapeOptions.find(
@@ -1841,11 +1809,10 @@ export default function SpkFormPage({
                                                     {production.fileName}
                                                 </Text>
                                             ) : null}
-                                            {selectedSku?.imageUrl &&
-                                            !uploadPreviewUrl ? (
+                                            {selectedSku?.imageUrl ? (
                                                 <Text className="spkFioriHint">
                                                     Menampilkan gambar dari
-                                                    SKU.
+                                                    design_image SKU.
                                                 </Text>
                                             ) : null}
                                             {errors.file ? (
@@ -1854,25 +1821,6 @@ export default function SpkFormPage({
                                                 </Text>
                                             ) : null}
                                         </div>
-
-                                        <div className="spkItemNotesBlock">
-                                            <div className="spkFioriDetailBlockTitle">
-                                                Catatan
-                                            </div>
-                                            <TextArea
-                                                className="spkFioriNotesTextArea"
-                                                value={data.notes}
-                                                rows={6}
-                                                placeholder="Masukkan catatan"
-                                                onInput={(event) =>
-                                                    setData(
-                                                        'notes',
-                                                        event.target.value ??
-                                                            '',
-                                                    )
-                                                }
-                                            />
-                                        </div>
                                     </div>
 
                                     <div className="spkItemFieldsCol">
@@ -1880,8 +1828,7 @@ export default function SpkFormPage({
                                             <tbody>
                                                 <tr>
                                                     <th scope="row">
-                                                        Tipe Item | Product
-                                                        Item
+                                                        Tipe Item | SKU
                                                     </th>
                                                     <td>
                                                         {(() => {
@@ -1996,13 +1943,38 @@ export default function SpkFormPage({
                                                 </tr>
                                                 <tr>
                                                     <th scope="row">
-                                                        Berat Emas (g)
+                                                        <GoldWeightRowLabel
+                                                            currentWeight={
+                                                                data.gold_weight
+                                                            }
+                                                            masterWeight={
+                                                                selectedSku?.goldWeight
+                                                            }
+                                                        />
                                                     </th>
                                                     <td>
-                                                        {data.gold_weight.trim() !==
-                                                        ''
-                                                            ? data.gold_weight
-                                                            : '—'}
+                                                        <Input
+                                                            accessibleName="Berat Emas"
+                                                            className="spkItemMetaInput"
+                                                            type="Number"
+                                                            value={
+                                                                data.gold_weight
+                                                            }
+                                                            placeholder="Masukkan berat emas"
+                                                            required
+                                                            valueState={fieldState(
+                                                                errors.gold_weight,
+                                                            )}
+                                                            onInput={(event) =>
+                                                                setData(
+                                                                    'gold_weight',
+                                                                    event
+                                                                        .target
+                                                                        .value ??
+                                                                        '',
+                                                                )
+                                                            }
+                                                        />
                                                         {errors.gold_weight ? (
                                                             <Text className="spkFioriError">
                                                                 {
@@ -2047,14 +2019,14 @@ export default function SpkFormPage({
                                                         <div className="spkItemUkuranFields">
                                                             <div className="spkItemUkuranField">
                                                                 <Label>
-                                                                    Diameter
+                                                                    Panjang
                                                                     (mm)
                                                                 </Label>
                                                                 <Input
                                                                     value={
                                                                         ukuran.diameter
                                                                     }
-                                                                    placeholder="Masukkan diameter"
+                                                                    placeholder="Masukkan panjang"
                                                                     onInput={(
                                                                         event,
                                                                     ) =>
@@ -2123,10 +2095,40 @@ export default function SpkFormPage({
                                                         ) : null}
                                                     </td>
                                                 </tr>
+                                                <tr>
+                                                    <th scope="row">Catatan</th>
+                                                    <td>
+                                                        <TextArea
+                                                            className="spkFioriNotesTextArea"
+                                                            value={data.notes}
+                                                            rows={4}
+                                                            placeholder="Masukkan catatan"
+                                                            onInput={(event) =>
+                                                                setData(
+                                                                    'notes',
+                                                                    event
+                                                                        .target
+                                                                        .value ??
+                                                                        '',
+                                                                )
+                                                            }
+                                                        />
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
+
+                                {showMasterSkuSyncAlert ? (
+                                    <Text
+                                        className="spkMasterSyncAlert"
+                                        role="alert"
+                                    >
+                                        Perubahan pada detail item akan
+                                        disimpan ke Master SKU
+                                    </Text>
+                                ) : null}
 
                                 <SpkFormStoneListCard
                                     stones={formStones}

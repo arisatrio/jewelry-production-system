@@ -220,10 +220,10 @@
                                 <span class="spkPrintFieldLabel">Ukuran</span>
                                 <div class="spkPrintUkuran">
                                     <div class="spkPrintUkuranItem">
-                                        <span class="spkPrintUkuranLabel">Diameter (mm)</span>
+                                        <span class="spkPrintUkuranLabel">Panjang (mm)</span>
                                         <strong class="spkPrintUkuranValue">
                                             @if ($blankTemplate)
-                                                <span class="spkPrintHint">Diameter mm</span>
+                                                <span class="spkPrintHint">Panjang mm</span>
                                             @else
                                                 {{ $item['diameter'] ?? '-' }}
                                             @endif

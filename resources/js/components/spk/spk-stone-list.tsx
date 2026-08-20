@@ -22,6 +22,153 @@ function emptyDash(value: string | number | null | undefined): string {
     return text !== '' ? text : '-';
 }
 
+export function parseGoldWeightGrams(
+    value: string | number | null | undefined,
+): number | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    const text = String(value).trim().replace(',', '.');
+
+    if (text === '' || text === '-') {
+        return null;
+    }
+
+    const parsed = Number(text);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function formatGoldWeightGramsLabel(
+    value: string | number,
+): string {
+    const parsed = parseGoldWeightGrams(value);
+
+    if (parsed === null) {
+        return String(value);
+    }
+
+    return parsed.toLocaleString('id-ID', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+
+export function isGoldWeightChangedFromMaster(
+    current: string | number | null | undefined,
+    master: string | number | null | undefined,
+): boolean {
+    const currentWeight = parseGoldWeightGrams(current);
+    const masterWeight = parseGoldWeightGrams(master);
+
+    if (currentWeight === null || masterWeight === null || masterWeight <= 0) {
+        return false;
+    }
+
+    return Math.abs(currentWeight - masterWeight) > 0.0005;
+}
+
+export function GoldWeightRowLabel({
+    currentWeight,
+    masterWeight,
+}: {
+    currentWeight?: string | number | null;
+    masterWeight?: string | number | null;
+}) {
+    const changed = isGoldWeightChangedFromMaster(currentWeight, masterWeight);
+
+    return (
+        <>
+            Berat Emas (g)
+            {changed && masterWeight !== null && masterWeight !== undefined ? (
+                <span className="spkMasterDiffHint">
+                    {`*Berat emas diubah dari Master SKU (${formatGoldWeightGramsLabel(masterWeight)} g)`}
+                </span>
+            ) : null}
+        </>
+    );
+}
+
+function normalizeMasterText(
+    value: string | number | null | undefined,
+): string | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    const text = String(value).trim();
+
+    return text !== '' && text !== '-' ? text : null;
+}
+
+export function isMasterFieldChanged(
+    current: string | number | null | undefined,
+    master: string | number | null | undefined,
+): boolean {
+    const masterText = normalizeMasterText(master);
+
+    if (masterText === null) {
+        return false;
+    }
+
+    const masterNumber = parseGoldWeightGrams(masterText);
+    const currentNumber = parseGoldWeightGrams(current);
+
+    if (masterNumber !== null) {
+        if (masterNumber <= 0) {
+            return false;
+        }
+
+        if (currentNumber !== null) {
+            return Math.abs(currentNumber - masterNumber) > 0.0005;
+        }
+    }
+
+    const currentText = normalizeMasterText(current) ?? '';
+
+    return currentText.toLowerCase() !== masterText.toLowerCase();
+}
+
+function formatMasterDiffValue(master: string | number): string {
+    const parsed = parseGoldWeightGrams(master);
+
+    if (parsed === null) {
+        return String(master).trim();
+    }
+
+    if (Number.isInteger(parsed)) {
+        return parsed.toLocaleString('id-ID');
+    }
+
+    return parsed.toLocaleString('id-ID', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 3,
+    });
+}
+
+export function MasterDiffHint({
+    current,
+    master,
+    displayMaster,
+}: {
+    current?: string | number | null;
+    master?: string | number | null;
+    displayMaster?: string | number | null;
+}) {
+    if (!isMasterFieldChanged(current, master) || master === null || master === undefined) {
+        return null;
+    }
+
+    const shown = displayMaster ?? master;
+
+    return (
+        <span className="spkMasterDiffHint">
+            {`*Diubah dari Master SKU (${formatMasterDiffValue(shown)})`}
+        </span>
+    );
+}
+
 function SpkTypeProductItemValue({ item }: { item: SpkItemDetail }) {
     const typeCode = emptyDash(item.typeCode);
     const productItemName = emptyDash(item.productItemName);
@@ -48,7 +195,13 @@ function SpkTypeProductItemValue({ item }: { item: SpkItemDetail }) {
     );
 }
 
-export function SpkItemDetailCard({ item }: { item: SpkItemDetail }) {
+export function SpkItemDetailCard({
+    item,
+    notes,
+}: {
+    item: SpkItemDetail;
+    notes?: string;
+}) {
     return (
         <div className="spkItemDetailGrid">
             <div className="spkItemImageCol" aria-label="Gambar item">
@@ -94,7 +247,7 @@ export function SpkItemDetailCard({ item }: { item: SpkItemDetail }) {
                                 <div className="spkItemUkuranFields">
                                     <div className="spkItemUkuranField">
                                         <span className="spkItemUkuranLabel">
-                                            Diameter (mm)
+                                            Panjang (mm)
                                         </span>
                                         <strong>
                                             {emptyDash(item.diameter)}
@@ -120,7 +273,12 @@ export function SpkItemDetailCard({ item }: { item: SpkItemDetail }) {
                             </td>
                         </tr>
                         <tr>
-                            <th scope="row">Berat Emas (g)</th>
+                            <th scope="row">
+                                <GoldWeightRowLabel
+                                    currentWeight={item.goldWeight}
+                                    masterWeight={item.masterGoldWeight}
+                                />
+                            </th>
                             <td>{emptyDash(item.goldWeight)}</td>
                         </tr>
                         <tr>
@@ -130,6 +288,12 @@ export function SpkItemDetailCard({ item }: { item: SpkItemDetail }) {
                         <tr>
                             <th scope="row">File JewelCAD 3D</th>
                             <td>{emptyDash(item.jwcad3d)}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Catatan</th>
+                            <td className="spkItemNotesCell">
+                                {emptyDash(notes)}
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -180,19 +344,47 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                 <tr key={stone.id}>
                                     <td>
                                         {emptyDash(stone.positionName)}
+                                        <MasterDiffHint
+                                            current={stone.positionName}
+                                            master={stone.master?.positionName}
+                                        />
                                     </td>
                                     <td>
                                         {emptyDash(
                                             stone.shapeName || stone.shape,
                                         )}
+                                        <MasterDiffHint
+                                            current={
+                                                stone.shapeName || stone.shape
+                                            }
+                                            master={stone.master?.shapeName}
+                                        />
                                     </td>
-                                    <td>{emptyDash(stone.size)}</td>
+                                    <td>
+                                        {emptyDash(stone.size)}
+                                        <MasterDiffHint
+                                            current={stone.size}
+                                            master={stone.master?.size}
+                                        />
+                                    </td>
                                     <td>
                                         {emptyDash(
                                             stone.caratPerPcs ?? stone.carat,
                                         )}
+                                        <MasterDiffHint
+                                            current={
+                                                stone.caratPerPcs ?? stone.carat
+                                            }
+                                            master={stone.master?.caratPerPcs}
+                                        />
                                     </td>
-                                    <td>{emptyDash(stone.pcs)}</td>
+                                    <td>
+                                        {emptyDash(stone.pcs)}
+                                        <MasterDiffHint
+                                            current={stone.pcs}
+                                            master={stone.master?.pcs}
+                                        />
+                                    </td>
                                     <td>{emptyDash(stone.totalCarat)}</td>
                                 </tr>
                             ))}
@@ -218,6 +410,16 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
     );
 }
 
+export type SpkFormStoneMaster = {
+    positionNama: string;
+    positionName: string;
+    shapeId: string;
+    shapeName: string;
+    size: string;
+    pcs: string;
+    caratPerPcs: string;
+};
+
 export type SpkFormStoneRow = {
     id: string;
     positionId: string;
@@ -228,7 +430,36 @@ export type SpkFormStoneRow = {
     size: string;
     pcs: string;
     caratPerPcs: string;
+    master?: SpkFormStoneMaster | null;
 };
+
+export function isStoneListChangedFromMaster(
+    stones: SpkFormStoneRow[],
+    masterCount: number,
+): boolean {
+    if (stones.length !== masterCount) {
+        return stones.length > 0 || masterCount > 0;
+    }
+
+    return stones.some((stone) => {
+        const master = stone.master;
+
+        if (!master) {
+            return true;
+        }
+
+        return (
+            isMasterFieldChanged(
+                stone.positionNama || stone.positionName,
+                master.positionNama || master.positionName,
+            ) ||
+            isMasterFieldChanged(stone.shapeId, master.shapeId) ||
+            isMasterFieldChanged(stone.size, master.size) ||
+            isMasterFieldChanged(stone.caratPerPcs, master.caratPerPcs) ||
+            isMasterFieldChanged(stone.pcs, master.pcs)
+        );
+    });
+}
 
 type ShapeOption = {
     value: string;
@@ -665,6 +896,16 @@ export function SpkFormStoneListCard({
                                                 )
                                             }
                                         />
+                                        <MasterDiffHint
+                                            current={
+                                                stone.positionNama ||
+                                                stone.positionName
+                                            }
+                                            master={
+                                                stone.master?.positionNama ||
+                                                stone.master?.positionName
+                                            }
+                                        />
                                         {errors[
                                             `stones.${index}.position_id`
                                         ] ||
@@ -706,6 +947,14 @@ export function SpkFormStoneListCard({
                                                 </option>
                                             ))}
                                         </select>
+                                        <MasterDiffHint
+                                            current={stone.shapeId}
+                                            master={stone.master?.shapeId}
+                                            displayMaster={
+                                                stone.master?.shapeName ||
+                                                stone.master?.shapeId
+                                            }
+                                        />
                                         {errors[`stones.${index}.shape_id`] ? (
                                             <Text className="spkFioriError">
                                                 {
@@ -732,6 +981,10 @@ export function SpkFormStoneListCard({
                                                 )
                                             }
                                         />
+                                        <MasterDiffHint
+                                            current={stone.size}
+                                            master={stone.master?.size}
+                                        />
                                         {errors[`stones.${index}.size`] ? (
                                             <Text className="spkFioriError">
                                                 {
@@ -757,6 +1010,10 @@ export function SpkFormStoneListCard({
                                                     event.target.value,
                                                 )
                                             }
+                                        />
+                                        <MasterDiffHint
+                                            current={stone.caratPerPcs}
+                                            master={stone.master?.caratPerPcs}
                                         />
                                         {errors[
                                             `stones.${index}.carat_per_pcs`
@@ -785,6 +1042,10 @@ export function SpkFormStoneListCard({
                                                     event.target.value,
                                                 )
                                             }
+                                        />
+                                        <MasterDiffHint
+                                            current={stone.pcs}
+                                            master={stone.master?.pcs}
                                         />
                                         {errors[`stones.${index}.pcs`] ? (
                                             <Text className="spkFioriError">
@@ -869,11 +1130,6 @@ export function SpkItemStoneCard({
                             <span>Gambar item</span>
                         </div>
                     )}
-
-                    <div className="spkItemNotesBlock">
-                        <div className="spkFioriDetailBlockTitle">Catatan</div>
-                        <Text className="spkItemNotesText">{notesText}</Text>
-                    </div>
                 </div>
 
                 <div className="spkItemFieldsCol">
@@ -899,7 +1155,7 @@ export function SpkItemStoneCard({
                                     <div className="spkItemUkuranFields">
                                         <div className="spkItemUkuranField">
                                             <span className="spkItemUkuranLabel">
-                                                Diameter (mm)
+                                                Panjang (mm)
                                             </span>
                                             <strong>
                                                 {emptyDash(item.diameter)}
@@ -925,7 +1181,12 @@ export function SpkItemStoneCard({
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Berat Emas (g)</th>
+                                <th scope="row">
+                                    <GoldWeightRowLabel
+                                        currentWeight={item.goldWeight}
+                                        masterWeight={item.masterGoldWeight}
+                                    />
+                                </th>
                                 <td>{emptyDash(item.goldWeight)}</td>
                             </tr>
                             <tr>
@@ -935,6 +1196,10 @@ export function SpkItemStoneCard({
                             <tr>
                                 <th scope="row">File JewelCAD 3D</th>
                                 <td>{emptyDash(item.jwcad3d)}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Catatan</th>
+                                <td className="spkItemNotesCell">{notesText}</td>
                             </tr>
                         </tbody>
                     </table>

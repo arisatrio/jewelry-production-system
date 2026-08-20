@@ -87,7 +87,7 @@ test('spk create form options include sku master product items', function () {
     $sku = SkuMaster::factory()->create([
         'sku_code' => 'TST-'.Str::upper(Str::random(8)),
         'item_original' => 'SPK SKU '.Str::upper(Str::random(6)),
-        'image_url' => 'https://example.com/sku.png',
+        'design_image' => 'https://example.com/sku.png',
     ]);
 
     $this->get(route('spk.create'))

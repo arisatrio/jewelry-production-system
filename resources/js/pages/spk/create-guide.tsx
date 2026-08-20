@@ -19,6 +19,7 @@ import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { TextArea } from '@ui5/webcomponents-react/TextArea';
+import { GoldWeightRowLabel } from '@/components/spk/spk-stone-list';
 import { index as spkIndex } from '@/routes/spk';
 
 type SpkCreateGuideProps = {
@@ -110,7 +111,10 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                         }
                                     >
                                         <GuideField hint="Nomor otomatis saat draft disimpan, format tahun/PRD/urut (contoh: 2026/PRD/01601). Tidak diisi manual.">
-                                            <Input value="" readonly />
+                                            <Input
+                                                value="auto-generated"
+                                                readonly
+                                            />
                                         </GuideField>
                                     </FormItem>
 
@@ -338,7 +342,7 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                         className="spkItemImageCol"
                                         aria-label="Gambar item"
                                     >
-                                        <GuideField hint="Menampilkan preview gambar dari design_image master SKU setelah SKU dipilih. Prioritas: design_image → image_url → catalog_image.">
+                                        <GuideField hint="Menampilkan preview gambar dari kolom design_image master SKU setelah SKU dipilih.">
                                             <div className="spkItemImagePlaceholder">
                                                 <Icon
                                                     name={pictureIcon}
@@ -348,25 +352,11 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                             </div>
                                         </GuideField>
                                         <div className="spkFioriDetailFile">
-                                            <GuideField hint="Opsional. Unggah gambar untuk mengganti preview SKU. Jika tidak diunggah, sistem memakai design_image master SKU dan menyimpan referensi filenya saat draft disimpan.">
+                                            <GuideField hint="Opsional. Unggah file ke SPK tidak mengganti gambar tampilan. Gambar item tetap memakai design_image master SKU.">
                                                 <FileUploader
                                                     accept=".jpg,.jpeg,.png,.pdf,.webp"
                                                     placeholder="Upload gambar"
                                                     disabled
-                                                />
-                                            </GuideField>
-                                        </div>
-                                        <div className="spkItemNotesBlock">
-                                            <div className="spkFioriDetailBlockTitle">
-                                                Catatan
-                                            </div>
-                                            <GuideField hint="Catatan produksi tambahan (opsional).">
-                                                <TextArea
-                                                    className="spkFioriNotesTextArea"
-                                                    value=""
-                                                    rows={6}
-                                                    placeholder="Masukkan catatan"
-                                                    readonly
                                                 />
                                             </GuideField>
                                         </div>
@@ -377,8 +367,7 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                             <tbody>
                                                 <tr>
                                                     <th scope="row">
-                                                        Tipe Item | Product
-                                                        Item
+                                                        Tipe Item | SKU
                                                     </th>
                                                     <td>
                                                         <GuideField hint="Terisi otomatis: baris 1 kode tipe | nama item, baris 2 kode SKU.">
@@ -398,11 +387,20 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                                 </tr>
                                                 <tr>
                                                     <th scope="row">
-                                                        Berat Emas (g)
+                                                        <GoldWeightRowLabel
+                                                            currentWeight="6.90"
+                                                            masterWeight="5.75"
+                                                        />
                                                     </th>
                                                     <td>
-                                                        <GuideField hint="Terisi otomatis dari SKU, dalam gram. Contoh: 6.90">
-                                                            <span>—</span>
+                                                        <GuideField hint="Wajib. Terisi otomatis dari SKU (gram), lalu dapat diubah manual. Teks *Berat emas diubah dari Master SKU hanya muncul jika nilai form berbeda dari gold_weight di sku_master.">
+                                                            <Input
+                                                                accessibleName="Berat Emas"
+                                                                className="spkItemMetaInput"
+                                                                type="Number"
+                                                                placeholder="Masukkan berat emas"
+                                                                readonly
+                                                            />
                                                         </GuideField>
                                                     </td>
                                                 </tr>
@@ -432,12 +430,12 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                                         <div className="spkItemUkuranFields">
                                                             <div className="spkItemUkuranField">
                                                                 <Label>
-                                                                    Diameter
+                                                                    Panjang
                                                                     (mm)
                                                                 </Label>
-                                                                <GuideField hint="Diameter item dalam mm. Contoh: 10">
+                                                                <GuideField hint="Panjang item dalam mm. Contoh: 10">
                                                                     <Input
-                                                                        placeholder="Masukkan diameter"
+                                                                        placeholder="Masukkan panjang"
                                                                         readonly
                                                                     />
                                                                 </GuideField>
@@ -468,10 +466,32 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                                         </div>
                                                     </td>
                                                 </tr>
+                                                <tr>
+                                                    <th scope="row">Catatan</th>
+                                                    <td>
+                                                        <GuideField hint="Catatan produksi tambahan (opsional).">
+                                                            <TextArea
+                                                                className="spkFioriNotesTextArea"
+                                                                value=""
+                                                                rows={4}
+                                                                placeholder="Masukkan catatan"
+                                                                readonly
+                                                            />
+                                                        </GuideField>
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
+
+                                <Text
+                                    className="spkMasterSyncAlert"
+                                    role="alert"
+                                >
+                                    Perubahan pada detail item akan disimpan ke
+                                    Master SKU
+                                </Text>
 
                                 <div className="spkEditStoneCard">
                                     <div className="spkEditStoneHeader">
@@ -506,10 +526,13 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                         </tbody>
                                     </table>
                                     <Text className="spkCreateGuideHint">
-                                        Terisi otomatis dari SKU dan dapat
-                                        diedit sebelum simpan. Baris kosong
-                                        untuk menambah batu. Total Carat =
-                                        carat per butir × jumlah butir.
+                                        Terisi otomatis dari sku_master_diamond
+                                        dan dapat diedit sebelum simpan. Jika
+                                        nilai berbeda dari master, teks merah
+                                        *Diubah dari Master SKU (xx) muncul di
+                                        bawah field. Baris kosong untuk
+                                        menambah batu. Total Carat = carat per
+                                        butir × jumlah butir.
                                     </Text>
                                 </div>
                             </div>

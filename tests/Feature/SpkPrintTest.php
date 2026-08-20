@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\MsShape;
+use App\Models\SkuMaster;
+use App\Models\SkuPrefixCategory;
 use App\Models\SpkStone;
 use App\Support\SpkService;
 
@@ -16,6 +18,8 @@ test('spk print preview page renders document header', function () {
         ->assertSee('No. SPK', false)
         ->assertSee(now()->format('Y').'/PRD/00000', false)
         ->assertSee('Detail Item', false)
+        ->assertSee('Panjang (mm)', false)
+        ->assertDontSee('Diameter (mm)', false)
         ->assertSee('spkPrintDetailGrid', false)
         ->assertSee('grid-template-columns: minmax(0, 8fr) minmax(0, 4fr)', false)
         ->assertSee('.spkPrintImageFrame {', false)
@@ -97,6 +101,7 @@ test('spk print preview accepts form document payload', function () {
         ->assertSee('Status Order', false)
         ->assertSee('Repeat Order 003', false)
         ->assertSee('White Gold', false)
+        ->assertSee('Panjang (mm)', false)
         ->assertDontSee('10.000', false)
         ->assertDontSee('150.000', false)
         ->assertSee('0.050', false)
@@ -148,8 +153,23 @@ test('spk print preview shows priority banner when priority is yes', function ()
 });
 
 test('spk print page for existing production renders document body', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'design_image' => '1782887215_design_print.jpg',
+    ]);
     $production = app(SpkService::class)->createStock('system');
-    $production->update(['file_name' => '1782887215_711d3a161cc575784aff.jpg']);
+    $production->update([
+        'file_name' => 'uploaded-spk.png',
+        'sku_id' => $sku->id,
+        'category_prefix_id' => $category->id,
+    ]);
 
     $this->get(route('spk.print.show', $production->row_id))
         ->assertOk()
@@ -159,13 +179,18 @@ test('spk print page for existing production renders document body', function ()
         ->assertSee('Detail Item', false)
         ->assertSee('Form SPK '.$production->spk_no.' — Print', false)
         ->assertSee(
-            'src="https://storage.googleapis.com/system-mahakarya/produksi/1782887215_711d3a161cc575784aff.jpg"',
+            'src="https://storage.googleapis.com/system-mahakarya/produksi/1782887215_design_print.jpg"',
+            false,
+        )
+        ->assertDontSee(
+            'src="https://storage.googleapis.com/system-mahakarya/produksi/uploaded-spk.png"',
             false,
         )
         ->assertSee('id="spkPrintQr"', false)
         ->assertSee('data-value="'.config('spk.print_qr_url').'"', false);
 
     $production->delete();
+    $sku->delete();
 });
 
 test('spk print qr falls back to dynamic detail url when override is empty', function () {
@@ -273,6 +298,7 @@ test('spk print template page renders blank form format', function () {
         ->assertSee('Tipe Produksi', false)
         ->assertSee('SPK Referensi', false)
         ->assertSee('Detail Item', false)
+        ->assertSee('Panjang (mm)', false)
         ->assertSee('Tipe Item | SKU', false)
         ->assertSee('Deskripsi Item', false)
         ->assertSee('Status Order', false)

@@ -112,7 +112,7 @@ export function SpkInformasiProduksiPanel({
 
             <section className="spkShowSection">
                 <h3 className="spkShowSectionTitle">Detail Item</h3>
-                <SpkItemDetailCard item={item} />
+                <SpkItemDetailCard item={item} notes={notes} />
             </section>
 
             <section className="spkShowSection">
@@ -120,11 +120,6 @@ export function SpkInformasiProduksiPanel({
             </section>
 
             <div className="spkShowBottom">
-                <section className="spkShowSection spkShowNotesSection">
-                    <h3 className="spkShowSectionTitle">Catatan</h3>
-                    <div className="spkShowNotes">{notes}</div>
-                </section>
-
                 <footer
                     className="spkApprovalFooter"
                     aria-label="Persetujuan"

@@ -435,6 +435,7 @@ test('spk show page displays production detail', function () {
             ->has('item.ringSize')
             ->has('item.diameterLengthRingSize')
             ->has('item.goldWeight')
+            ->has('item.masterGoldWeight')
             ->has('item.goldColor')
             ->has('item.jwcad3d')
             ->has('item.description')
@@ -539,57 +540,7 @@ test('spk show provides absolute detail url for qr code modal', function () {
         );
 });
 
-test('spk show page resolves legacy gcs image url from file name', function () {
-    $production = Production::query()
-        ->notDeleted()
-        ->whereNotNull('spk_no')
-        ->whereNotNull('file_name')
-        ->where('file_name', '!=', '')
-        ->where('file_name', 'not like', '%/%')
-        ->first();
-
-    expect($production)->not->toBeNull();
-
-    $expectedUrl = rtrim((string) config('spk.production_image_base_url'), '/').'/'.$production->file_name;
-
-    $this->get(route('spk.show', $production))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('spk/show')
-            ->where('item.imageUrl', $expectedUrl)
-        );
-});
-
-test('spk show page resolves local storage image url for uploaded paths', function () {
-    $production = app(SpkService::class)->createStock('system');
-    $localPath = 'spk/'.$production->row_id.'/item-preview.jpg';
-    $production->update(['file_name' => $localPath]);
-
-    $this->get(route('spk.show', $production))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('spk/show')
-            ->where('item.imageUrl', '/storage/'.$localPath)
-        );
-
-    $production->delete();
-});
-
-test('spk show returns null image url when file name is empty for photo button', function () {
-    $production = app(SpkService::class)->createStock('system');
-    $production->update(['file_name' => null]);
-
-    $this->get(route('spk.show', $production))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('spk/show')
-            ->where('item.imageUrl', null)
-        );
-
-    $production->delete();
-});
-
-test('spk show page falls back to sku image when production file name is empty', function () {
+test('spk show page uses sku master design_image for item image', function () {
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
         ?? SkuPrefixCategory::query()->create([
             'category' => 'TEST '.fake()->unique()->lexify('????'),
@@ -599,24 +550,41 @@ test('spk show page falls back to sku image when production file name is empty',
         ]);
     $sku = SkuMaster::factory()->create([
         'category_prefix_id' => $category->id,
-        'image_url' => 'https://storage.googleapis.com/system-mahakarya/sku/test-item.jpg',
+        'design_image' => '1782887215_design_show.jpg',
+        'image_url' => 'https://example.com/old-image.jpg',
     ]);
     $production = app(SpkService::class)->createStock('system');
     $production->update([
-        'file_name' => null,
+        'file_name' => 'uploaded-spk.png',
         'sku_id' => $sku->id,
         'category_prefix_id' => $category->id,
     ]);
+
+    $expectedUrl = rtrim((string) config('spk.production_image_base_url'), '/').'/1782887215_design_show.jpg';
 
     $this->get(route('spk.show', $production))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
-            ->where('item.imageUrl', $sku->image_url)
+            ->where('item.imageUrl', $expectedUrl)
         );
 
     $production->delete();
     $sku->delete();
+});
+
+test('spk show returns null image url when sku design_image is empty', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $production->update(['file_name' => 'uploaded-spk.png', 'sku_id' => null]);
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('item.imageUrl', null)
+        );
+
+    $production->delete();
 });
 
 test('spk show page maps status order labels', function (string $code, string $label) {

@@ -33,12 +33,13 @@ test('pending abilities allow edit but not approve (waiting manager)', function 
         ->and($abilities['canManagerApprove'])->toBeFalse();
 });
 
-test('approved abilities disallow edit after sent to production', function () {
+test('approved abilities still allow edit after sent to production', function () {
     $production = new Production(['status' => SpkApprovalService::STATUS_DONE]);
     $user = new User(['name' => 'IT WHOJ']);
     $abilities = app(SpkApprovalService::class)->abilitiesFor($production, $user);
 
-    expect($abilities['canEdit'])->toBeFalse()
+    expect($abilities['canEdit'])->toBeTrue()
+        ->and($abilities['canDelete'])->toBeFalse()
         ->and($abilities['canApprove'])->toBeFalse();
 });
 
@@ -48,7 +49,8 @@ test('policy allows update before sending to production', function () {
 
     expect($policy->update($user, new Production(['status' => ''])))->toBeTrue()
         ->and($policy->update($user, new Production(['status' => SpkApprovalService::STATUS_PENDING])))->toBeTrue()
-        ->and($policy->update($user, new Production(['status' => SpkApprovalService::STATUS_DONE])))->toBeFalse();
+        ->and($policy->update($user, new Production(['status' => SpkApprovalService::STATUS_DONE])))->toBeTrue()
+        ->and($policy->delete($user, new Production(['status' => SpkApprovalService::STATUS_DONE])))->toBeFalse();
 });
 
 test('approval service submits draft to pending manager', function () {

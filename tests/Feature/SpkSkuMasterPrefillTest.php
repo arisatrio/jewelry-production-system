@@ -60,6 +60,35 @@ test('spk create options include gold weight and sku diamonds', function () {
     $sku->delete();
 });
 
+test('spk sku options omit gold weight when sku master gold_weight is empty', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'sku_code' => 'TST-'.Str::upper(Str::random(8)),
+        'gold_weight' => null,
+    ]);
+
+    $this->get(route('spk.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/form')
+            ->where('options.skus', function ($skus) use ($sku) {
+                $match = collect($skus)->firstWhere('value', (string) $sku->id);
+
+                return is_array($match) && $match['goldWeight'] === null;
+            })
+        );
+
+    $sku->delete();
+});
+
 test('spk create options include jwcad and design image from sku master', function () {
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
         ?? SkuPrefixCategory::query()->create([
@@ -151,6 +180,17 @@ test('spk edit form keeps saved stones instead of sku diamonds', function () {
             ->has('stones', 1)
             ->where('stones.0.pcs', 3)
             ->where('stones.0.shapeId', (string) $shape->row_id)
+        );
+
+    $this->get(route('spk.show', $production->spk_no))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('stones.0.pcs', 3)
+            ->where('stones.0.caratPerPcs', '0.500')
+            ->where('stones.0.size', '2.00')
+            ->where('stones.0.master.pcs', '8')
+            ->where('stones.0.master.caratPerPcs', '0.200')
         );
 
     SpkStone::query()->where('row_id', $production->row_id)->delete();

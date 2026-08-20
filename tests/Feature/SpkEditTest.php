@@ -84,6 +84,7 @@ test('spk update redirects to detail page', function () {
     expect($production->description)->toBe('Updated via edit')
         ->and($production->priority)->toBe('YES')
         ->and($production->qty)->toBe(2)
+        ->and((float) $production->gold_weight)->toBe(3.5)
         ->and($production->notes)->toBe('Catatan edit')
         ->and($production->sku_id)->toBe($sku->id)
         ->and($production->category_prefix_id)->toBe($category->id);
@@ -95,6 +96,7 @@ test('spk update redirects to detail page', function () {
             ->where('production.id', (string) $production->row_id)
             ->where('production.produksiNo', $production->spk_no)
             ->where('production.description', 'Updated via edit')
+            ->where('production.notes', 'Catatan edit')
         );
 
     $production->delete();

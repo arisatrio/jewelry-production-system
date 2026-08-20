@@ -14,6 +14,17 @@ test('sku master prefers design_image for display url', function () {
         ->toBe('https://cdn.example.com/assets/designs/item-001.jpg');
 });
 
+test('sku master ignores image_url and catalog_image when design_image is empty', function () {
+    $sku = SkuMaster::factory()->make([
+        'design_image' => null,
+        'image_url' => 'https://example.com/fallback.jpg',
+        'catalog_image' => 'catalog/item-001.jpg',
+    ]);
+
+    expect($sku->resolvedImageReference())->toBeNull()
+        ->and($sku->resolvedImageUrl())->toBeNull();
+});
+
 test('sku master resolves jwcad file from file_jwlcad', function () {
     $sku = SkuMaster::factory()->make([
         'file_jwlcad' => 'JWC-ATF-001',

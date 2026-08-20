@@ -66,7 +66,7 @@ class SpkApprovalService
         $isApproved = $this->isApproved($production);
 
         return [
-            'canEdit' => ! $isApproved && SpkApprovalRoles::canEditDraft($user),
+            'canEdit' => SpkApprovalRoles::canEditDraft($user),
             'canSubmit' => $isDraft && SpkApprovalRoles::canSubmit($user),
             'canApprove' => $isDraft && SpkApprovalRoles::canApprove($user),
             'canManagerApprove' => $isPending && SpkApprovalRoles::canManagerApprove($user),

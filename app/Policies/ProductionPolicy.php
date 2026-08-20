@@ -30,13 +30,13 @@ class ProductionPolicy
 
     public function update(?User $user, Production $production): bool
     {
-        return ! $this->approval->isApproved($production)
-            && SpkApprovalRoles::canEditDraft($user);
+        return SpkApprovalRoles::canEditDraft($user);
     }
 
     public function delete(?User $user, Production $production): bool
     {
-        return $this->update($user, $production);
+        return ! $this->approval->isApproved($production)
+            && SpkApprovalRoles::canEditDraft($user);
     }
 
     public function submit(?User $user, Production $production): bool

@@ -120,7 +120,7 @@ class ProductionController extends Controller
         ]);
     }
 
-    public function showByStatus(Request $request, string $statusKey): RedirectResponse
+    public function showByStatus(string $statusKey): RedirectResponse
     {
         $statusKey = $this->normalizedBacklogStatusKey($statusKey);
 
@@ -390,7 +390,7 @@ class ProductionController extends Controller
         $production = $this->findActiveProduction($rowId);
 
         if (! $policy->update($request->user(), $production)) {
-            abort(403, 'SPK hanya dapat diedit sebelum dikirim ke produksi.');
+            abort(403, 'Anda tidak memiliki izin untuk mengedit SPK ini.');
         }
 
         $spkService->saveHeader(
@@ -621,33 +621,19 @@ class ProductionController extends Controller
             $request->string('status')->trim()->toString(),
         );
 
-        $baseQuery = Production::query()->notDeleted()->whereNotNull('spk_no');
-
-        if ($statusKey !== null) {
-            $this->applyBacklogStatusFilter($baseQuery, $statusKey);
-        }
-
-        $total = (clone $baseQuery)->count();
-        $position = (clone $baseQuery)->where('row_id', '>', $production->row_id)->count() + 1;
-        $previousSpkNo = (clone $baseQuery)
-            ->where('row_id', '>', $production->row_id)
-            ->orderBy('row_id')
-            ->value('spk_no');
-        $nextSpkNo = (clone $baseQuery)
-            ->where('row_id', '<', $production->row_id)
-            ->orderByDesc('row_id')
-            ->value('spk_no');
+        $navigation = $this->buildStatusScopedNavigation(
+            $production,
+            $statusKey,
+            fn (int $targetRowId): string => route('spk.show', [
+                'production' => Production::query()->where('row_id', $targetRowId)->value('spk_no'),
+                'status' => $statusKey,
+            ]),
+        );
 
         return Inertia::render('spk/show', [
             'production' => $this->toDetail($production, $statusMapper),
             'item' => $this->toItemDetail($production),
-            'stones' => $production->stones()
-                ->notDeleted()
-                ->with(['shape', 'position'])
-                ->orderBy('line_id')
-                ->get()
-                ->map(fn (SpkStone $stone): array => $this->toStoneItem($stone))
-                ->values(),
+            'stones' => $this->toShowStones($production),
             'processes' => $processMapper->forProduction((int) $production->row_id),
             'defaultProcessSelection' => $processMapper->resolveDefaultSelection($production->last_process),
             'shrinkReport' => $shrinkSummary->forProduction($production),
@@ -655,19 +641,7 @@ class ProductionController extends Controller
             'goldReport' => $goldReport->forProduction($production),
             'stoneReport' => $stoneReport->forProduction($production),
             'productionControlReport' => $productionControlReport->forProduction($production, $goldReport),
-            'navigation' => [
-                'position' => $position,
-                'total' => $total,
-                'previousUrl' => $previousSpkNo !== null
-                    ? route('spk.show', ['production' => $previousSpkNo, 'status' => $statusKey])
-                    : null,
-                'nextUrl' => $nextSpkNo !== null
-                    ? route('spk.show', ['production' => $nextSpkNo, 'status' => $statusKey])
-                    : null,
-                'backUrl' => $statusKey !== null
-                    ? route('spk.index', ['status' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$statusKey]])
-                    : route('spk.index'),
-            ],
+            'navigation' => $navigation,
             'detailUrl' => route('spk.show', $production, absolute: true),
             'approval' => $this->approvalAbilities($request, $production),
             'approvalFooter' => app(SpkApprovalService::class)->footerColumns(
@@ -722,11 +696,55 @@ class ProductionController extends Controller
             'goldWeight' => filled($production->gold_weight)
                 ? number_format((float) $production->gold_weight, 2, '.', '')
                 : '-',
+            'masterGoldWeight' => $this->skuMasterGoldWeight($production->sku),
             'goldColor' => $production->gold_color ?: '-',
             'jwcad3d' => $jwcad3d,
             'description' => filled($production->description) ? (string) $production->description : '-',
             'imageUrl' => $this->itemImageUrl($production),
             'finishingType' => $jwcad3d,
+        ];
+    }
+
+    /**
+     * @param  \Closure(int): string  $urlForRowId
+     * @return array{
+     *     position: int,
+     *     total: int,
+     *     previousUrl: string|null,
+     *     nextUrl: string|null,
+     *     backUrl: string
+     * }
+     */
+    private function buildStatusScopedNavigation(
+        Production $production,
+        ?string $statusKey,
+        \Closure $urlForRowId,
+    ): array {
+        $baseQuery = Production::query()->notDeleted()->whereNotNull('spk_no');
+
+        if ($statusKey !== null) {
+            $this->applyBacklogStatusFilter($baseQuery, $statusKey);
+        }
+
+        $total = (clone $baseQuery)->count();
+        $position = (clone $baseQuery)->where('row_id', '>', $production->row_id)->count() + 1;
+        $previousRowId = (clone $baseQuery)
+            ->where('row_id', '>', $production->row_id)
+            ->orderBy('row_id')
+            ->value('row_id');
+        $nextRowId = (clone $baseQuery)
+            ->where('row_id', '<', $production->row_id)
+            ->orderByDesc('row_id')
+            ->value('row_id');
+
+        return [
+            'position' => $position,
+            'total' => $total,
+            'previousUrl' => $previousRowId !== null ? $urlForRowId((int) $previousRowId) : null,
+            'nextUrl' => $nextRowId !== null ? $urlForRowId((int) $nextRowId) : null,
+            'backUrl' => $statusKey !== null
+                ? route('spk.index', ['status' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$statusKey]])
+                : route('spk.index'),
         ];
     }
 
@@ -894,6 +912,45 @@ class ProductionController extends Controller
     private function ukuranFromProduction(Production $production): array
     {
         return $this->splitUkuranLabel($production->diameter_length_ringsize);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function toShowStones(Production $production): array
+    {
+        $production->loadMissing([
+            'sku.diamonds' => fn ($query) => $query->notDeleted()->orderBy('line_id'),
+        ]);
+
+        $masterStones = $production->sku !== null
+            ? $this->diamondMapper->toFormStones($production->sku->diamonds)
+            : [];
+
+        return $production->stones()
+            ->notDeleted()
+            ->with(['shape', 'position'])
+            ->orderBy('line_id')
+            ->get()
+            ->values()
+            ->map(function (SpkStone $stone, int $index) use ($masterStones): array {
+                $item = $this->toStoneItem($stone);
+                $master = $masterStones[$index] ?? null;
+
+                $item['master'] = $master === null
+                    ? null
+                    : [
+                        'positionName' => filled($master['positionNama']) ? $master['positionNama'] : null,
+                        'shapeName' => filled($master['shapeName']) ? $master['shapeName'] : null,
+                        'shapeId' => filled($master['shapeId']) ? $master['shapeId'] : null,
+                        'size' => filled($master['size']) ? $master['size'] : null,
+                        'caratPerPcs' => filled($master['caratPerPcs']) ? $master['caratPerPcs'] : null,
+                        'pcs' => filled($master['pcs']) ? $master['pcs'] : null,
+                    ];
+
+                return $item;
+            })
+            ->all();
     }
 
     /**
@@ -1168,15 +1225,28 @@ class ProductionController extends Controller
                     : '',
                 'description' => $this->descriptionExtractor->extract($sku),
                 'goldColor' => (string) ($sku->resolvedGoldColor() ?? ''),
-                'goldWeight' => $sku->gold_weight !== null
-                    ? number_format((float) $sku->gold_weight, 2, '.', '')
-                    : '0',
+                'goldWeight' => $this->skuMasterGoldWeight($sku),
                 'jwcad3d' => (string) ($sku->resolvedJwcadFile() ?? ''),
                 'imageUrl' => $sku->resolvedImageUrl(),
                 'stones' => $this->diamondMapper->toFormStones($sku->diamonds),
             ])
             ->values()
             ->all();
+    }
+
+    private function skuMasterGoldWeight(?SkuMaster $sku): ?string
+    {
+        if ($sku === null || $sku->gold_weight === null) {
+            return null;
+        }
+
+        $weight = (float) $sku->gold_weight;
+
+        if ($weight <= 0) {
+            return null;
+        }
+
+        return number_format($weight, 2, '.', '');
     }
 
     /**
@@ -1673,8 +1743,7 @@ class ProductionController extends Controller
     {
         $production->loadMissing('sku');
 
-        return $this->productionImageUrl($production->file_name)
-            ?? $this->skuImageUrl($production->sku);
+        return $this->skuImageUrl($production->sku);
     }
 
     private function itemDescriptionForPrint(Production $production): ?string

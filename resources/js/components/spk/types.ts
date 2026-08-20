@@ -74,6 +74,7 @@ export type SpkItemDetail = {
     ringSize: string;
     diameterLengthRingSize: string;
     goldWeight: string;
+    masterGoldWeight?: string | null;
     goldColor: string;
     jwcad3d: string;
     description: string;
@@ -101,6 +102,14 @@ export type SpkStoneItem = {
     caratPerPcs: string;
     totalCarat: string;
     size: string | number;
+    master?: {
+        positionName?: string | null;
+        shapeName?: string | null;
+        shapeId?: string | null;
+        size?: string | null;
+        caratPerPcs?: string | null;
+        pcs?: string | number | null;
+    } | null;
 };
 
 export type SpkProcessSource = {

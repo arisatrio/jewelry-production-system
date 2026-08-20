@@ -84,7 +84,70 @@ test('spk form can be saved', function () {
         ->and($production->supplier_id)->toBe(1)
         ->and($production->qty)->toBe(2)
         ->and($production->satuan)->toBe('Pcs')
+        ->and((float) $production->gold_weight)->toBe(3.5)
         ->and($production->gold_color)->toBe('Yellow Gold');
+
+    $production->delete();
+    $sku->delete();
+});
+
+test('spk form saves gold weight independently from sku master', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'gold_weight' => 5.75,
+    ]);
+
+    $this->post(route('spk.update', $production->row_id), [
+        'order_date' => '2026-08-03',
+        'work_estimated' => 5,
+        'priority' => 'YES',
+        'description' => 'Gold weight input test',
+        'category_prefix_id' => $category->id,
+        'sku_id' => $sku->id,
+        'qty' => 1,
+        'satuan' => 'Pcs',
+        'diameter_length_ringsize' => '16',
+        'gold_weight' => 6.9,
+        'gold_color' => 'Yellow Gold',
+        'gold_content' => 'Polish',
+        'status_order' => 'NO',
+        'notes' => 'Catatan berat emas',
+    ])->assertRedirect(route('spk.show', $production->spk_no));
+
+    $production->refresh();
+
+    expect((float) $production->gold_weight)->toBe(6.9)
+        ->and((float) $sku->gold_weight)->toBe(5.75);
+
+    $this->get(route('spk.show', $production->spk_no))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('item.goldWeight', '6.90')
+            ->where('item.masterGoldWeight', '5.75')
+        );
+
+    $this->get(route('spk.form', $production->row_id))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/form')
+            ->where('production.goldWeight', function ($weight) {
+                return (float) $weight === 6.9;
+            })
+            ->where('options.skus', function ($skus) use ($sku) {
+                $match = collect($skus)->firstWhere('value', (string) $sku->id);
+
+                return is_array($match) && $match['goldWeight'] === '5.75';
+            })
+        );
 
     $production->delete();
     $sku->delete();
@@ -144,6 +207,64 @@ test('approved spk cannot be deleted', function () {
     expect($production->is_deleted)->toBe(0);
 
     $production->delete();
+});
+
+test('approved spk can still be edited', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+    ]);
+    $production->update([
+        'status' => SpkApprovalService::STATUS_DONE,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(85100, 85199)),
+    ]);
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('approval.canEdit', true)
+            ->where('approval.canDelete', false)
+        );
+
+    $this->get(route('spk.form', $production->row_id))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/form')
+            ->where('approval.canEdit', true)
+        );
+
+    $this->post(route('spk.update', $production->row_id), [
+        'order_date' => '2026-08-03',
+        'work_estimated' => 5,
+        'priority' => 'YES',
+        'description' => 'Edited after approved',
+        'category_prefix_id' => $category->id,
+        'sku_id' => $sku->id,
+        'qty' => 2,
+        'satuan' => 'Pcs',
+        'diameter_length_ringsize' => '16',
+        'gold_weight' => 3.5,
+        'gold_color' => 'Yellow Gold',
+        'gold_content' => 'Polish',
+        'status_order' => 'NO',
+        'notes' => 'Catatan setelah approve',
+    ])->assertRedirect(route('spk.show', $production->spk_no));
+
+    $production->refresh();
+
+    expect($production->description)->toBe('Edited after approved')
+        ->and($production->status)->toBe(SpkApprovalService::STATUS_DONE)
+        ->and($production->notes)->toBe('Catatan setelah approve');
+
+    $production->delete();
+    $sku->delete();
 });
 
 test('spk can be soft deleted from form', function () {

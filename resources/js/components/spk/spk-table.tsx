@@ -219,7 +219,7 @@ export default function SpkTable({
                 key: 'pendingManager',
                 label: statusLabels?.pendingManager ?? 'Menunggu Approval',
                 count: statusCounts.pendingManager,
-                message: 'SPK menunggu approval',
+                message: 'SPK menunggu approval Manager Produksi',
             });
         }
 
