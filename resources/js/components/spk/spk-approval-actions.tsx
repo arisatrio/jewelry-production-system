@@ -14,14 +14,15 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import {
     approve as spkApprove,
+    managerApprove as spkManagerApprove,
     reject as spkReject,
-    submit as spkSubmit,
 } from '@/routes/spk';
 
 export type SpkApprovalAbilities = {
     canEdit: boolean;
     canSubmit: boolean;
     canApprove: boolean;
+    canManagerApprove: boolean;
     canReject: boolean;
     status: string;
     statusLabel: string;
@@ -51,17 +52,17 @@ export function SpkApprovalActions({
 
     if (
         !approval.canApprove &&
-        !approval.canReject &&
-        !approval.canSubmit
+        !approval.canManagerApprove &&
+        !approval.canReject
     ) {
         return null;
     }
 
-    const handleSubmit = (): void => {
+    const handleApprove = (): void => {
         setProcessing(true);
         router.post(
-            spkSubmit.url(productionId),
-            {},
+            spkApprove.url(productionId),
+            { notes: null },
             {
                 preserveScroll: true,
                 onFinish: () => setProcessing(false),
@@ -69,10 +70,10 @@ export function SpkApprovalActions({
         );
     };
 
-    const handleApprove = (): void => {
+    const handleManagerApprove = (): void => {
         setProcessing(true);
         router.post(
-            spkApprove.url(productionId),
+            spkManagerApprove.url(productionId),
             { notes: null },
             {
                 preserveScroll: true,
@@ -106,16 +107,6 @@ export function SpkApprovalActions({
     return (
         <>
             <div className="spkApprovalActions">
-                {approval.canSubmit ? (
-                    <Button
-                        design="Emphasized"
-                        icon={paperPlaneIcon}
-                        disabled={processing}
-                        onClick={handleSubmit}
-                    >
-                        Kirim ke Manager
-                    </Button>
-                ) : null}
                 {approval.canApprove ? (
                     <Button
                         design="Positive"
@@ -125,6 +116,17 @@ export function SpkApprovalActions({
                         onClick={handleApprove}
                     >
                         Kirim ke Produksi
+                    </Button>
+                ) : null}
+                {approval.canManagerApprove ? (
+                    <Button
+                        design="Positive"
+                        className="spkApprovalApproveBtn"
+                        icon={paperPlaneIcon}
+                        disabled={processing}
+                        onClick={handleManagerApprove}
+                    >
+                        Approve
                     </Button>
                 ) : null}
                 {approval.canReject ? (

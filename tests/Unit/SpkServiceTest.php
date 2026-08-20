@@ -265,6 +265,77 @@ test('spk service copies sku master image filename on create without upload', fu
     $sku->delete();
 });
 
+test('spk service copies sku master design image filename on create without upload', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'design_image' => '1782887215_design_copy.jpg',
+    ]);
+
+    $production = app(SpkService::class)->createWithDetails([
+        'spk_type' => 'Stock',
+        'order_date' => '2026-08-03',
+        'work_estimated' => 3,
+        'priority' => 'NO',
+        'description' => 'Copy SKU design image filename',
+        'category_prefix_id' => $category->id,
+        'sku_id' => $sku->id,
+        'qty' => 1,
+        'satuan' => 'Pcs',
+        'status_order' => 'NO',
+        'diameter_length_ringsize' => '16',
+        'gold_weight' => 1.5,
+        'gold_color' => 'Yellow Gold',
+    ], 'tester');
+
+    expect($production->file_name)->toBe('1782887215_design_copy.jpg')
+        ->and($production->jwcad_3d)->toBeNull();
+
+    $production->delete();
+    $sku->delete();
+});
+
+test('spk service copies jwcad file from sku master when form omits it', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'file_jwlcad' => 'JWC-SERVICE-001',
+    ]);
+
+    $production = app(SpkService::class)->createWithDetails([
+        'spk_type' => 'Stock',
+        'order_date' => '2026-08-03',
+        'work_estimated' => 3,
+        'priority' => 'NO',
+        'description' => 'Copy SKU jwcad file',
+        'category_prefix_id' => $category->id,
+        'sku_id' => $sku->id,
+        'qty' => 1,
+        'satuan' => 'Pcs',
+        'status_order' => 'NO',
+        'diameter_length_ringsize' => '16',
+        'gold_weight' => 1.5,
+        'gold_color' => 'Yellow Gold',
+    ], 'tester');
+
+    expect($production->jwcad_3d)->toBe('JWC-SERVICE-001');
+
+    $production->delete();
+    $sku->delete();
+});
+
 test('spk service resolves estimated schedule from completion date', function () {
     $service = app(SpkService::class);
     $orderDate = Carbon::parse('2026-08-03');

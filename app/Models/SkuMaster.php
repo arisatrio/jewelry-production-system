@@ -30,6 +30,8 @@ use Illuminate\Support\Carbon;
  * @property int $wildcard_count
  * @property int $completeness_score
  * @property string|null $catalog_image
+ * @property string|null $design_image
+ * @property string|null $file_jwlcad
  * @property string|null $image_url
  * @property string|null $image_filename
  * @property Carbon|null $image_uploaded_at
@@ -61,6 +63,8 @@ use Illuminate\Support\Carbon;
     'wildcard_count',
     'completeness_score',
     'catalog_image',
+    'design_image',
+    'file_jwlcad',
     'image_url',
     'image_filename',
     'image_uploaded_at',
@@ -169,6 +173,88 @@ class SkuMaster extends Model
         }
 
         return $itemOriginal !== '' ? $itemOriginal : '-';
+    }
+
+    /**
+     * JewelCAD filename/code from sku_master.file_jwlcad.
+     */
+    public function resolvedJwcadFile(): ?string
+    {
+        $value = trim((string) ($this->file_jwlcad ?? ''));
+
+        return $value !== '' && $value !== '-' ? $value : null;
+    }
+
+    /**
+     * Raw image reference with design_image as the primary source.
+     */
+    public function resolvedImageReference(): ?string
+    {
+        foreach (['design_image', 'image_url', 'catalog_image'] as $column) {
+            $value = trim((string) ($this->{$column} ?? ''));
+
+            if ($value !== '' && $value !== '-') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Display URL for SKU design image (design_image preferred).
+     */
+    public function resolvedImageUrl(?string $baseUrl = null): ?string
+    {
+        $reference = $this->resolvedImageReference();
+
+        if ($reference === null) {
+            return null;
+        }
+
+        if (
+            str_starts_with($reference, 'http://')
+            || str_starts_with($reference, 'https://')
+            || str_starts_with($reference, '//')
+        ) {
+            return $reference;
+        }
+
+        if (str_starts_with($reference, '/')) {
+            return $reference;
+        }
+
+        $base = rtrim($baseUrl ?? (string) config('spk.production_image_base_url'), '/').'/';
+        $path = ltrim(str_replace('\\', '/', $reference), '/');
+
+        return $path !== '' ? $base.$path : null;
+    }
+
+    /**
+     * Filename copied to SPK file_name when no upload is provided.
+     */
+    public function resolvedImageFileName(): ?string
+    {
+        $fileName = trim(str_replace('\\', '/', (string) ($this->image_filename ?? '')));
+
+        if ($fileName !== '') {
+            return $fileName;
+        }
+
+        $reference = trim(str_replace('\\', '/', (string) ($this->design_image ?? '')));
+
+        if ($reference === '') {
+            return null;
+        }
+
+        if (str_contains($reference, '://')) {
+            $path = parse_url($reference, PHP_URL_PATH);
+            $basename = is_string($path) ? basename($path) : '';
+
+            return $basename !== '' && $basename !== '.' ? $basename : null;
+        }
+
+        return ltrim($reference, '/');
     }
 
     /**

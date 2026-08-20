@@ -16,6 +16,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('home');
     Route::redirect('dashboard', '/')->name('dashboard');
     Route::get('spk', [ProductionController::class, 'index'])->name('spk.index');
+    Route::get('spk/create-guide', [ProductionController::class, 'createGuide'])
+        ->name('spk.create.guide');
+    Route::redirect('spk/create/guide', '/spk/create-guide');
     Route::get('spk/create', [ProductionController::class, 'create'])->name('spk.create');
     Route::post('spk', [ProductionController::class, 'store'])->name('spk.store');
     Route::match(['get', 'post'], 'spk/print', [ProductionController::class, 'printPreview'])
@@ -37,6 +40,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('spk/form/{rowId}/approve', [ProductionController::class, 'approve'])
         ->whereNumber('rowId')
         ->name('spk.approve');
+    Route::post('spk/form/{rowId}/manager-approve', [ProductionController::class, 'managerApprove'])
+        ->whereNumber('rowId')
+        ->name('spk.manager-approve');
     Route::post('spk/form/{rowId}/reject', [ProductionController::class, 'reject'])
         ->whereNumber('rowId')
         ->name('spk.reject');

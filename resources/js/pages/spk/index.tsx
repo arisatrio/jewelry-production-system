@@ -22,6 +22,11 @@ type SpkIndexProps = {
         all: number;
         byType: Record<string, number>;
     };
+    statusCounts: {
+        draft: number;
+        confirmed: number;
+        inProgress: number;
+    };
     statuses: string[];
     filters: {
         search: string;
@@ -35,6 +40,7 @@ export default function SpkIndex({
     productions,
     types,
     typeCounts,
+    statusCounts,
     statuses,
     filters,
 }: SpkIndexProps) {
@@ -126,6 +132,15 @@ export default function SpkIndex({
                 onCreate={() => router.visit(spkCreate.url())}
                 types={types}
                 typeCounts={typeCounts}
+                statusCounts={statusCounts}
+                onStatusAlertClick={(status) =>
+                    visit({
+                        page: 1,
+                        per_page: productions.per_page,
+                        search: searchQuery,
+                        status,
+                    })
+                }
                 selectedType={filters.type}
                 onTypeChange={(type) =>
                     visit({

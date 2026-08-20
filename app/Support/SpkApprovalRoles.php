@@ -47,10 +47,17 @@ class SpkApprovalRoles
     }
 
     /**
-     * Approve SPK (Disetujui) untuk semua user yang login.
-     * Bukan permission Manager (spk.approve).
+     * Approve SPK (Disetujui Oleh) untuk semua user yang login.
      */
     public static function canApprove(?User $user): bool
+    {
+        return $user !== null;
+    }
+
+    /**
+     * Manager Produksi — semua user yang login dapat approve.
+     */
+    public static function canManagerApprove(?User $user): bool
     {
         return $user !== null;
     }

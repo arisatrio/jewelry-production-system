@@ -59,6 +59,7 @@ class ProductionController extends Controller
         $perPage = $request->integer('per_page', 10);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
         $typeCounts = $this->activeTypeCounts();
+        $statusCounts = $this->activeStatusCounts();
 
         $productions = Production::query()
             ->notDeleted()
@@ -79,10 +80,19 @@ class ProductionController extends Controller
                             $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
                         })
                         ->whereNull('last_process');
+                } elseif ($statusKey === 'pendingManager') {
+                    $query->where('status', SpkApprovalService::STATUS_PENDING)
+                        ->where(function ($q): void {
+                            $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
+                        })
+                        ->whereNull('last_process');
                 } elseif ($statusKey === 'draft') {
                     $query->where(function ($q): void {
                         $q->whereNull('status')
-                            ->orWhere('status', '!=', SpkApprovalService::STATUS_DONE);
+                            ->orWhereNotIn('status', [
+                                SpkApprovalService::STATUS_DONE,
+                                SpkApprovalService::STATUS_PENDING,
+                            ]);
                     })
                         ->where(function ($q): void {
                             $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
@@ -129,6 +139,7 @@ class ProductionController extends Controller
             'productions' => $productions,
             'types' => SpkService::TYPES,
             'typeCounts' => $typeCounts,
+            'statusCounts' => $statusCounts,
             'statuses' => $statusLabels,
             'filters' => [
                 'search' => $search,
@@ -178,6 +189,46 @@ class ProductionController extends Controller
     }
 
     /**
+     * @return array{draft: int, confirmed: int, inProgress: int}
+     */
+    private function activeStatusCounts(): array
+    {
+        $allProductions = Production::query()
+            ->notDeleted()
+            ->get(['row_id', 'status', 'is_inprocess', 'last_process']);
+
+        $doneIds = array_flip(SpkDashboardAnalytics::completedProductionSpkIds(
+            $allProductions->pluck('row_id')->all(),
+        ));
+
+        $counts = ['draft' => 0, 'pendingManager' => 0, 'confirmed' => 0, 'inProgress' => 0];
+
+        foreach ($allProductions as $production) {
+            if (isset($doneIds[(int) $production->row_id])) {
+                continue;
+            }
+
+            $key = SpkDashboardAnalytics::backlogStatusKey($production, false);
+
+            if (isset($counts[$key])) {
+                $counts[$key]++;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Panduan pengisian form create/edit SPK (tampilan web).
+     */
+    public function createGuide(): Response
+    {
+        return Inertia::render('spk/create-guide', [
+            'formDocumentNo' => (string) config('spk.form_document_no'),
+        ]);
+    }
+
+    /**
      * Show the form for creating a new SPK (nomor digenerate saat simpan).
      */
     public function create(Request $request): Response
@@ -217,50 +268,7 @@ class ProductionController extends Controller
      */
     public function printTemplate(): View
     {
-        $blank = '';
-
-        return view('spk.print', [
-            'title' => 'Form SPK — Template',
-            'header' => $this->documentHeader(),
-            'blankTemplate' => true,
-            'document' => [
-                'info' => [
-                    'spkNo' => $blank,
-                    'spkType' => $blank,
-                    'requestOrderNo' => $blank,
-                    'refSpkNo' => $blank,
-                    'customerName' => $blank,
-                    'orderDate' => $blank,
-                    'workEstimated' => $blank,
-                    'estimatedDelivery' => $blank,
-                    'priority' => $blank,
-                ],
-                'item' => [
-                    'typeVariant' => $blank,
-                    'typeCode' => $blank,
-                    'productItemName' => $blank,
-                    'skuCode' => $blank,
-                    'statusOrderLabel' => $blank,
-                    'qty' => $blank,
-                    'diameter' => $blank,
-                    'dimensi' => $blank,
-                    'ringSize' => $blank,
-                    'goldWeight' => $blank,
-                    'goldColor' => $blank,
-                    'jwcad3d' => $blank,
-                    'description' => $blank,
-                    'imageUrl' => $blank,
-                ],
-                'stones' => [],
-                'notes' => $blank,
-                'approval' => [
-                    ['title' => 'Dibuat Oleh', 'name' => $blank, 'date' => $blank],
-                    ['title' => 'Disetujui Oleh', 'name' => $blank, 'date' => $blank],
-                    ['title' => 'Manager Produksi', 'name' => $blank, 'date' => $blank],
-                ],
-                'detailUrl' => $blank,
-            ],
-        ]);
+        return $this->blankPrintView('Form SPK — Template');
     }
 
     /**
@@ -458,6 +466,39 @@ class ProductionController extends Controller
         Inertia::flash('toast', [
             'type' => 'success',
             'message' => "SPK {$production->spk_no} dikirim ke produksi.",
+        ]);
+
+        return to_route('spk.show', $production->spk_no);
+    }
+
+    /**
+     * Manager Produksi meng-approve SPK — status berubah ke SPKDONE.
+     */
+    public function managerApprove(
+        SpkApprovalDecisionRequest $request,
+        int $rowId,
+        SpkApprovalService $approvalService,
+        ProductionPolicy $policy,
+    ): RedirectResponse {
+        $production = $this->findActiveProduction($rowId);
+
+        if (! $policy->managerApprove($request->user(), $production)) {
+            abort(403, 'Hanya Manager Produksi yang dapat approve SPK.');
+        }
+
+        try {
+            $approvalService->managerApprove(
+                $production,
+                $this->actorName($request),
+                $request->validated('notes'),
+            );
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => "SPK {$production->spk_no} approved by Manager Produksi.",
         ]);
 
         return to_route('spk.show', $production->spk_no);
@@ -1017,8 +1058,11 @@ class ProductionController extends Controller
                 'diamond_type_prefix_id',
                 'crt',
                 'gold_weight',
+                'design_image',
+                'file_jwlcad',
                 'image_url',
                 'catalog_image',
+                'image_filename',
             ])
             ->map(fn (SkuMaster $sku): array => [
                 'value' => (string) $sku->id,
@@ -1033,9 +1077,8 @@ class ProductionController extends Controller
                 'goldWeight' => $sku->gold_weight !== null
                     ? number_format((float) $sku->gold_weight, 2, '.', '')
                     : '0',
-                'imageUrl' => filled($sku->image_url)
-                    ? (string) $sku->image_url
-                    : (filled($sku->catalog_image) ? (string) $sku->catalog_image : null),
+                'jwcad3d' => (string) ($sku->resolvedJwcadFile() ?? ''),
+                'imageUrl' => $sku->resolvedImageUrl(),
                 'stones' => $this->diamondMapper->toFormStones($sku->diamonds),
             ])
             ->values()
@@ -1173,6 +1216,54 @@ class ProductionController extends Controller
         $code = trim((string) ($shape->code ?? ''));
 
         return $code !== '' ? $code : 'Shape #'.$shape->row_id;
+    }
+
+    private function blankPrintView(string $title): View
+    {
+        $blank = '';
+
+        return view('spk.print', [
+            'title' => $title,
+            'header' => $this->documentHeader(),
+            'blankTemplate' => true,
+            'document' => [
+                'info' => [
+                    'spkNo' => $blank,
+                    'spkType' => $blank,
+                    'requestOrderNo' => $blank,
+                    'refSpkNo' => $blank,
+                    'customerName' => $blank,
+                    'orderDate' => $blank,
+                    'workEstimated' => $blank,
+                    'estimatedDelivery' => $blank,
+                    'priority' => $blank,
+                ],
+                'item' => [
+                    'typeVariant' => $blank,
+                    'typeCode' => $blank,
+                    'productItemName' => $blank,
+                    'skuCode' => $blank,
+                    'statusOrderLabel' => $blank,
+                    'qty' => $blank,
+                    'diameter' => $blank,
+                    'dimensi' => $blank,
+                    'ringSize' => $blank,
+                    'goldWeight' => $blank,
+                    'goldColor' => $blank,
+                    'jwcad3d' => $blank,
+                    'description' => $blank,
+                    'imageUrl' => $blank,
+                ],
+                'stones' => [],
+                'notes' => $blank,
+                'approval' => [
+                    ['title' => 'Dibuat Oleh', 'name' => $blank, 'date' => $blank],
+                    ['title' => 'Disetujui Oleh', 'name' => $blank, 'date' => $blank],
+                    ['title' => 'Manager Produksi', 'name' => $blank, 'date' => $blank],
+                ],
+                'detailUrl' => $blank,
+            ],
+        ]);
     }
 
     /**
@@ -1517,19 +1608,7 @@ class ProductionController extends Controller
 
     private function skuImageUrl(?SkuMaster $sku): ?string
     {
-        if ($sku === null) {
-            return null;
-        }
-
-        if (filled($sku->image_url)) {
-            return (string) $sku->image_url;
-        }
-
-        if (filled($sku->catalog_image)) {
-            return (string) $sku->catalog_image;
-        }
-
-        return null;
+        return $sku?->resolvedImageUrl();
     }
 
     /**

@@ -133,6 +133,7 @@ type SkuOption = {
     description: string;
     goldColor: string;
     goldWeight: string;
+    jwcad3d: string;
     imageUrl: string | null;
     stones: SkuStoneOption[];
 };
@@ -812,6 +813,7 @@ export default function SpkFormPage({
                 description: '',
                 gold_weight: '0',
                 gold_color: '',
+                jwcad_3d: '',
             });
 
             return;
@@ -837,6 +839,7 @@ export default function SpkFormPage({
                     : sku.label,
             gold_color: sku.goldColor || data.gold_color,
             gold_weight: sku.goldWeight || '0',
+            jwcad_3d: sku.jwcad3d || '',
         });
     };
 
@@ -2122,16 +2125,16 @@ export default function SpkFormPage({
                                                 </tr>
                                             </tbody>
                                         </table>
-
-                                        <SpkFormStoneListCard
-                                            stones={formStones}
-                                            shapeOptions={shapeOptions}
-                                            positionOptions={positionOptions}
-                                            onChange={setFormStones}
-                                            errors={errors}
-                                        />
                                     </div>
                                 </div>
+
+                                <SpkFormStoneListCard
+                                    stones={formStones}
+                                    shapeOptions={shapeOptions}
+                                    positionOptions={positionOptions}
+                                    onChange={setFormStones}
+                                    errors={errors}
+                                />
                             </div>
 
                             <footer

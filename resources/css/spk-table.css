@@ -385,6 +385,96 @@
     font-weight: 700;
 }
 
+.spkAlertBreakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.85rem 1rem 0;
+}
+
+.spkAlertBreakdownItem {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex: 1 1 0;
+    min-width: 14rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.spkAlertBreakdownItem:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.spkAlertBreakdownText {
+    font-size: 0.8125rem;
+    color: #374151;
+    line-height: 1.35;
+}
+
+.spkAlertBreakdownText strong {
+    font-weight: 700;
+    color: #111827;
+}
+
+.spkAlertModal {
+    max-width: min(52rem, calc(100vw - 2rem)) !important;
+}
+
+.spkAlertModalBody {
+    max-height: min(70vh, 36rem);
+    overflow: auto;
+}
+
+.spkAlertModalEmpty {
+    padding: 1.5rem 1rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.spkAlertModalTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.spkAlertModalTable th,
+.spkAlertModalTable td {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #eceff2;
+    white-space: nowrap;
+}
+
+.spkAlertModalTable thead th {
+    background: #f3f4f6;
+    font-weight: 700;
+    color: #111827;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.spkAlertModalRow {
+    cursor: pointer;
+}
+
+.spkAlertModalRow:hover {
+    background: #f0fdf4;
+}
+
+.spkAlertModalLink {
+    color: #2563eb;
+    font-weight: 500;
+}
+
 .spkTableCard > .spkTableActions {
     padding: 0.85rem 1rem 0;
 }
@@ -3424,6 +3514,7 @@
 }
 
 .spkFioriFormCard .spkEditStoneCard {
+    width: 100%;
     margin-block: 0.85rem 0;
 }
 
@@ -4000,4 +4091,70 @@
     padding-bottom: 1rem;
 }
 
+.spkCreateGuideField {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    gap: 0.3rem;
+}
+
+.spkCreateGuideField > ui5-input,
+.spkCreateGuideField > ui5-select,
+.spkCreateGuideField > ui5-combobox,
+.spkCreateGuideField > ui5-date-picker,
+.spkCreateGuideField > ui5-textarea,
+.spkCreateGuideField > ui5-file-uploader {
+    width: 100%;
+}
+
+.spkCreateGuideHint {
+    display: block;
+    margin: 0;
+    color: #4b5563;
+    font-size: 0.75rem;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.spkCreateGuidePage .spkApprovalFooterCol .spkCreateGuideHint {
+    margin-top: 0.35rem;
+}
+
+.spkCreateGuidePage .spkEditStoneCard > .spkCreateGuideHint {
+    padding: 0.45rem 0.7rem 0.65rem;
+}
+
+@media print {
+    body:has(.spkCreateGuidePage) {
+        background: #fff !important;
+    }
+
+    body:has(.spkCreateGuidePage) .shellHeaderWrap,
+    body:has(.spkCreateGuidePage) .appNav,
+    body:has(.spkCreateGuidePage) .spkCreateGuideNoPrint {
+        display: none !important;
+    }
+
+    body:has(.spkCreateGuidePage) .appShell,
+    body:has(.spkCreateGuidePage) .dashboardContent {
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+
+    body:has(.spkCreateGuidePage) .spkFioriFormCard {
+        box-shadow: none;
+        border: none;
+        break-inside: auto;
+    }
+
+    @page {
+        size: A4;
+        margin: 10mm;
+    }
+}
 

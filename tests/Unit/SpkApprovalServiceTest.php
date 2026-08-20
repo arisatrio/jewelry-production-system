@@ -11,25 +11,26 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
-test('draft abilities allow any authenticated user to edit and approve', function () {
+test('draft abilities allow any authenticated user to edit and approve (kirim ke produksi)', function () {
     $production = new Production(['status' => '']);
     $user = new User(['name' => 'IT WHOJ']);
     $abilities = app(SpkApprovalService::class)->abilitiesFor($production, $user);
 
     expect($abilities['canEdit'])->toBeTrue()
         ->and($abilities['canApprove'])->toBeTrue()
-        ->and($abilities['canSubmit'])->toBeFalse()
+        ->and($abilities['canManagerApprove'])->toBeFalse()
         ->and($abilities['canReject'])->toBeFalse()
         ->and($abilities['statusLabel'])->toBe('Draft');
 });
 
-test('pending abilities allow edit until sent to production', function () {
+test('pending abilities allow edit but not approve (waiting manager)', function () {
     $production = new Production(['status' => SpkApprovalService::STATUS_PENDING]);
     $user = new User(['name' => 'IT WHOJ']);
     $abilities = app(SpkApprovalService::class)->abilitiesFor($production, $user);
 
     expect($abilities['canEdit'])->toBeTrue()
-        ->and($abilities['canApprove'])->toBeTrue();
+        ->and($abilities['canApprove'])->toBeFalse()
+        ->and($abilities['canManagerApprove'])->toBeFalse();
 });
 
 test('approved abilities disallow edit after sent to production', function () {
@@ -84,7 +85,30 @@ test('approval service submits draft to pending manager', function () {
     $spv->delete();
 });
 
-test('approval service approves pending to spkdone', function () {
+test('kirim ke produksi changes draft to pending and fills disetujui oleh', function () {
+    $service = app(SpkApprovalService::class);
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'status' => '',
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(82000, 82999)),
+    ]);
+
+    $updated = $service->approve($production, 'spv-tester', 'OK');
+
+    expect($updated->status)->toBe(SpkApprovalService::STATUS_PENDING)
+        ->and($service->isPendingManager($updated))->toBeTrue();
+
+    $footer = $service->footerColumns($updated);
+    expect($footer)->toHaveCount(3)
+        ->and($footer[1]['title'])->toBe('Disetujui Oleh')
+        ->and($footer[1]['name'])->toBe('spv-tester')
+        ->and($footer[2]['title'])->toBe('Manager Produksi')
+        ->and($footer[2]['name'])->toBe('-');
+
+    $production->delete();
+});
+
+test('manager approve changes status to spkdone', function () {
     $service = app(SpkApprovalService::class);
     $production = app(SpkService::class)->createStock('system');
     $production->update([
@@ -92,39 +116,29 @@ test('approval service approves pending to spkdone', function () {
         'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(82000, 82999)),
     ]);
 
-    $updated = $service->approve($production, 'manager-tester', 'OK');
+    $updated = $service->managerApprove($production, 'manager-tester', 'OK');
 
     expect($updated->status)->toBe(SpkApprovalService::STATUS_DONE)
         ->and($service->isApproved($updated))->toBeTrue();
 
     $footer = $service->footerColumns($updated);
     expect($footer)->toHaveCount(3)
-        ->and($footer[1]['title'])->toBe('Disetujui Oleh')
-        ->and($footer[1]['name'])->toBe('manager-tester')
         ->and($footer[2]['title'])->toBe('Manager Produksi')
-        ->and($footer[2]['name'])->toBe('-');
+        ->and($footer[2]['name'])->toBe('manager-tester');
 
     $production->delete();
 });
 
-test('approval service approves draft to spkdone', function () {
+test('approve rejects non-draft status', function () {
     $service = app(SpkApprovalService::class);
     $production = app(SpkService::class)->createStock('system');
     $production->update([
-        'status' => '',
+        'status' => SpkApprovalService::STATUS_PENDING,
         'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(82100, 82199)),
     ]);
 
-    $updated = $service->approve($production, 'it-whoj', null);
-
-    expect($updated->status)->toBe(SpkApprovalService::STATUS_DONE)
-        ->and($service->isApproved($updated))->toBeTrue();
-
-    $footer = $service->footerColumns($updated);
-    expect($footer[1]['title'])->toBe('Disetujui Oleh')
-        ->and($footer[1]['name'])->toBe('it-whoj')
-        ->and($footer[2]['title'])->toBe('Manager Produksi')
-        ->and($footer[2]['name'])->toBe('-');
+    expect(fn () => $service->approve($production, 'it-whoj', null))
+        ->toThrow(InvalidArgumentException::class, 'Hanya SPK berstatus Draft yang dapat dikirim ke Produksi.');
 
     $production->delete();
 });

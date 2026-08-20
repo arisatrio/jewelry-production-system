@@ -74,6 +74,15 @@ test('spk create page shows form without generating number', function () {
         );
 });
 
+test('spk create guide page renders web form instructions', function () {
+    $this->get(route('spk.create.guide'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/create-guide')
+            ->where('formDocumentNo', 'WHOJ-PRD-FR-001')
+        );
+});
+
 test('spk create form options include sku master product items', function () {
     $sku = SkuMaster::factory()->create([
         'sku_code' => 'TST-'.Str::upper(Str::random(8)),

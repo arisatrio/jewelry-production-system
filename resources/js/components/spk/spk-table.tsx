@@ -1,10 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Input } from '@ui5/webcomponents-react/Input';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import type { SpkRow } from '@/components/spk/types';
 import { SPK_TABLE_COLUMNS } from '@/components/spk/types';
 
@@ -34,9 +40,16 @@ export type SpkTableProps = {
     };
     selectedType?: string;
     onTypeChange?: (type: string) => void;
+    statusCounts?: {
+        draft: number;
+        pendingManager: number;
+        confirmed: number;
+        inProgress: number;
+    };
     statuses?: string[];
     selectedStatus?: string;
     onStatusChange?: (status: string) => void;
+    onStatusAlertClick?: (status: string) => void;
 };
 
 function prosesTerakhirSearchText(row: SpkRow): string {
@@ -98,7 +111,8 @@ function statusBadgeClass(status: string): string {
     if (lower.includes('in progress')) return 'spkTableBadge--inProgress';
     if (lower.includes('approved')) return 'spkTableBadge--approved';
     if (lower.includes('draft')) return 'spkTableBadge--draft';
-    if (lower.includes('pengajuan')) return 'spkTableBadge--pengajuan';
+    if (lower.includes('pengajuan') || lower.includes('menunggu'))
+        return 'spkTableBadge--pengajuan';
 
     return 'spkTableBadge--default';
 }
@@ -170,10 +184,80 @@ export default function SpkTable({
     },
     selectedType = '',
     onTypeChange,
+    statusCounts,
     statuses = [],
     selectedStatus = '',
     onStatusChange,
+    onStatusAlertClick,
 }: SpkTableProps) {
+    const [alertModalStatus, setAlertModalStatus] = useState<string | null>(null);
+
+    const alertItems = useMemo(() => {
+        if (!statusCounts) return [];
+
+        const items: Array<{ key: string; label: string; count: number; message: string; badgeClass: string }> = [];
+
+        if (statusCounts.draft > 0) {
+            items.push({
+                key: 'draft',
+                label: 'Draft',
+                count: statusCounts.draft,
+                message: 'SPK menunggu dikirim ke Produksi',
+                badgeClass: 'spkTableBadge--draft',
+            });
+        }
+
+        if (statusCounts.pendingManager > 0) {
+            items.push({
+                key: 'pendingManager',
+                label: 'Menunggu Approval Manager Produksi',
+                count: statusCounts.pendingManager,
+                message: 'SPK menunggu approval Manager Produksi',
+                badgeClass: 'spkTableBadge--pengajuan',
+            });
+        }
+
+        if (statusCounts.confirmed > 0) {
+            items.push({
+                key: 'confirmed',
+                label: 'Approved by Manager Produksi',
+                count: statusCounts.confirmed,
+                message: 'SPK belum dilanjut proses',
+                badgeClass: 'spkTableBadge--approved',
+            });
+        }
+
+        if (statusCounts.inProgress > 0) {
+            items.push({
+                key: 'inProgress',
+                label: 'In Progress',
+                count: statusCounts.inProgress,
+                message: 'SPK belum diselesaikan',
+                badgeClass: 'spkTableBadge--inProgress',
+            });
+        }
+
+        return items;
+    }, [statusCounts]);
+
+    const handleAlertClick = useCallback(
+        (statusLabel: string) => {
+            if (onStatusAlertClick) {
+                onStatusAlertClick(statusLabel);
+                return;
+            }
+
+            setAlertModalStatus(statusLabel);
+        },
+        [onStatusAlertClick],
+    );
+
+    const alertModalRows = useMemo(() => {
+        if (!alertModalStatus) return [];
+
+        return rows.filter((row) => row.status === alertModalStatus);
+    }, [alertModalStatus, rows]);
+
     const isPageSizeControlled = controlledPageSize !== undefined;
     const [uncontrolledPageSize, setUncontrolledPageSize] =
         useState(defaultPageSize);
@@ -313,11 +397,77 @@ export default function SpkTable({
                     </div>
                 ) : null}
 
-                <div className="spkTableAlert" role="status" aria-live="polite">
-                    <strong>{typeCounts.all}</strong> SPK masih belum selesai,
-                    silahkan update status completed/serahkan ke JB di approval
-                    poles rangka/chrome.
-                </div>
+                {alertItems.length > 0 ? (
+                    <div className="spkAlertBreakdown" role="status" aria-live="polite">
+                        {alertItems.map((item) => (
+                            <button
+                                key={item.key}
+                                type="button"
+                                className="spkAlertBreakdownItem"
+                                onClick={() => handleAlertClick(item.label)}
+                            >
+                                <span className={`spkTableBadge ${item.badgeClass}`}>
+                                    {item.label}
+                                </span>
+                                <span className="spkAlertBreakdownText">
+                                    <strong>{item.count}</strong> {item.message}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
+
+                <Dialog
+                    open={alertModalStatus !== null}
+                    onOpenChange={(open) => {
+                        if (!open) setAlertModalStatus(null);
+                    }}
+                >
+                    <DialogContent className="spkAlertModal">
+                        <DialogHeader>
+                            <DialogTitle>
+                                {alertModalStatus ?? ''}
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="spkAlertModalBody">
+                            {alertModalRows.length === 0 ? (
+                                <p className="spkAlertModalEmpty">
+                                    Tidak ada SPK dengan status ini di halaman saat ini. Gunakan filter status untuk melihat semua.
+                                </p>
+                            ) : (
+                                <table className="spkAlertModalTable">
+                                    <thead>
+                                        <tr>
+                                            <th>No</th>
+                                            <th>Produksi No</th>
+                                            <th>Tipe</th>
+                                            <th>Customer</th>
+                                            <th>Tanggal SPK</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {alertModalRows.map((row, idx) => (
+                                            <tr
+                                                key={row.id}
+                                                className="spkAlertModalRow"
+                                                onClick={() => {
+                                                    setAlertModalStatus(null);
+                                                    onOpenRow?.(row);
+                                                }}
+                                            >
+                                                <td>{idx + 1}</td>
+                                                <td className="spkAlertModalLink">{row.produksiNo}</td>
+                                                <td>{row.tipeProduksi}</td>
+                                                <td>{row.customer}</td>
+                                                <td>{row.createdDate}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
 
                 <div className="spkTableToolbar">
                     <div className="spkTableToolbarLeft">

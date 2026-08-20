@@ -17,6 +17,7 @@ class SpkDashboardAnalytics
      */
     public const BACKLOG_STATUS_LABELS = [
         'draft' => 'Draft',
+        'pendingManager' => 'Menunggu Approval Manager Produksi',
         'confirmed' => 'Approved by Manager Produksi',
         'inProgress' => 'In Progress',
         'done' => 'Done',
@@ -75,6 +76,10 @@ class SpkDashboardAnalytics
 
         if ($hasLastProcess || $isInProcess) {
             return 'inProgress';
+        }
+
+        if ($status === SpkApprovalService::STATUS_PENDING) {
+            return 'pendingManager';
         }
 
         return 'draft';

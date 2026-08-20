@@ -47,8 +47,14 @@ class ProductionPolicy
 
     public function approve(?User $user, Production $production): bool
     {
-        return ! $this->approval->isApproved($production)
+        return $this->approval->isDraft($production)
             && SpkApprovalRoles::canApprove($user);
+    }
+
+    public function managerApprove(?User $user, Production $production): bool
+    {
+        return $this->approval->isPendingManager($production)
+            && SpkApprovalRoles::canManagerApprove($user);
     }
 
     public function reject(?User $user, Production $production): bool

@@ -60,6 +60,42 @@ test('spk create options include gold weight and sku diamonds', function () {
     $sku->delete();
 });
 
+test('spk create options include jwcad and design image from sku master', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'sku_code' => 'TST-'.Str::upper(Str::random(8)),
+        'file_jwlcad' => 'JWC-PREFILL-001',
+        'design_image' => '1782887215_design_prefill.jpg',
+        'image_url' => 'https://example.com/old-image.jpg',
+    ]);
+
+    $this->get(route('spk.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/form')
+            ->where('options.skus', function ($skus) use ($sku) {
+                $match = collect($skus)->firstWhere('value', (string) $sku->id);
+
+                if ($match === null) {
+                    return false;
+                }
+
+                return $match['jwcad3d'] === 'JWC-PREFILL-001'
+                    && $match['imageUrl'] === 'https://storage.googleapis.com/system-mahakarya/produksi/1782887215_design_prefill.jpg';
+            })
+        );
+
+    $sku->delete();
+});
+
 test('spk edit form keeps saved stones instead of sku diamonds', function () {
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
         ?? SkuPrefixCategory::query()->create([

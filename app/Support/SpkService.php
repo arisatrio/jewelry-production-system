@@ -97,7 +97,7 @@ class SpkService
                 'gold_weight' => $data['gold_weight'],
                 'gold_color' => $data['gold_color'],
                 'gold_content' => ($data['gold_content'] ?? null) ?: null,
-                'jwcad_3d' => ($data['jwcad_3d'] ?? null) ?: null,
+                'jwcad_3d' => $this->resolveJwcadFile($data, $sku),
                 'notes' => ($data['notes'] ?? null) ?: null,
                 'status' => '',
                 'is_deleted' => 0,
@@ -326,7 +326,7 @@ class SpkService
                 'gold_weight' => $data['gold_weight'],
                 'gold_color' => $data['gold_color'],
                 'gold_content' => ($data['gold_content'] ?? null) ?: null,
-                'jwcad_3d' => ($data['jwcad_3d'] ?? null) ?: null,
+                'jwcad_3d' => $this->resolveJwcadFile($data, $sku),
                 'notes' => ($data['notes'] ?? null) ?: null,
                 'modified_date' => now(),
                 'modified_by' => $actor,
@@ -545,15 +545,23 @@ class SpkService
         return $query->firstOrFail();
     }
 
-    private function resolveSkuImageFileName(?SkuMaster $sku): ?string
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveJwcadFile(array $data, ?SkuMaster $sku): ?string
     {
-        if ($sku === null) {
-            return null;
+        $value = trim((string) ($data['jwcad_3d'] ?? ''));
+
+        if ($value !== '') {
+            return $value;
         }
 
-        $fileName = trim(str_replace('\\', '/', (string) ($sku->image_filename ?? '')));
+        return $sku?->resolvedJwcadFile();
+    }
 
-        return $fileName !== '' ? $fileName : null;
+    private function resolveSkuImageFileName(?SkuMaster $sku): ?string
+    {
+        return $sku?->resolvedImageFileName();
     }
 
     /**

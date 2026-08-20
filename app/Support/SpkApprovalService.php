@@ -49,6 +49,7 @@ class SpkApprovalService
      *     canEdit: bool,
      *     canSubmit: bool,
      *     canApprove: bool,
+     *     canManagerApprove: bool,
      *     canReject: bool,
      *     status: string,
      *     statusLabel: string,
@@ -66,7 +67,8 @@ class SpkApprovalService
         return [
             'canEdit' => ! $isApproved && SpkApprovalRoles::canEditDraft($user),
             'canSubmit' => $isDraft && SpkApprovalRoles::canSubmit($user),
-            'canApprove' => ! $isApproved && SpkApprovalRoles::canApprove($user),
+            'canApprove' => $isDraft && SpkApprovalRoles::canApprove($user),
+            'canManagerApprove' => $isPending && SpkApprovalRoles::canManagerApprove($user),
             'canReject' => $isPending && SpkApprovalRoles::canReject($user),
             'status' => $this->normalizedStatus($production),
             'statusLabel' => $this->statusLabel($production),
@@ -101,18 +103,53 @@ class SpkApprovalService
         });
     }
 
+    /**
+     * "Kirim ke Produksi" — mengisi Disetujui Oleh, status Draft → SPK010.
+     */
     public function approve(Production $production, string $actor, ?string $notes = null): Production
     {
+        if (! $this->isDraft($production)) {
+            throw new InvalidArgumentException('Hanya SPK berstatus Draft yang dapat dikirim ke Produksi.');
+        }
+
+        return DB::connection('third')->transaction(function () use ($production, $actor, $notes): Production {
+            $this->writeApprovalLog(
+                $production,
+                self::STATUS_PENDING,
+                self::APPROVE_OK,
+                $notes ?? 'Dikirim ke Produksi, menunggu approval Manager Produksi.',
+                $actor,
+            );
+
+            $production->update([
+                'status' => self::STATUS_PENDING,
+                'modified_date' => now(),
+                'modified_by' => $actor,
+            ]);
+
+            return $production->refresh();
+        });
+    }
+
+    /**
+     * Manager Produksi meng-approve SPK — status berubah ke SPKDONE.
+     */
+    public function managerApprove(Production $production, string $actor, ?string $notes = null): Production
+    {
         if ($this->isApproved($production)) {
-            throw new InvalidArgumentException('SPK ini sudah dikirim ke produksi.');
+            throw new InvalidArgumentException('SPK ini sudah di-approve oleh Manager Produksi.');
+        }
+
+        if (! $this->isPendingManager($production)) {
+            throw new InvalidArgumentException('SPK harus berstatus menunggu Manager sebelum di-approve.');
         }
 
         return DB::connection('third')->transaction(function () use ($production, $actor, $notes): Production {
             $this->writeApprovalLog(
                 $production,
                 self::STATUS_DONE,
-                self::APPROVE_SUBMIT,
-                $notes ?? 'Dikirim ke Produksi.',
+                self::APPROVE_OK,
+                $notes ?? 'Approved by Manager Produksi.',
                 $actor,
             );
 
@@ -169,7 +206,8 @@ class SpkApprovalService
         $createdAt = $production->created_date?->format('d/m/Y H:i') ?? '-';
 
         $submit = collect($history)->last(
-            fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_SUBMIT,
+            fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_OK
+                && strtoupper($row['status']) === self::STATUS_PENDING,
         );
 
         $managerApprove = collect($history)->last(
@@ -245,6 +283,18 @@ class SpkApprovalService
             ->all();
     }
 
+    /**
+     * Cek apakah SPK sudah pernah disetujui (ada log APPROVE_OK) tapi belum DONE.
+     */
+    public function hasBeenApproved(Production $production): bool
+    {
+        $history = $this->history($production);
+
+        return collect($history)->contains(
+            fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_OK,
+        );
+    }
+
     private function writeApprovalLog(
         Production $production,
         string $status,
@@ -291,7 +341,7 @@ class SpkApprovalService
     {
         if (! Schema::connection('third')->hasTable('sysstatus')) {
             return [
-                self::STATUS_PENDING => 'Draft',
+                self::STATUS_PENDING => 'Menunggu Approval Manager Produksi',
                 self::STATUS_DONE => 'Approved by Manager Produksi',
             ];
         }
@@ -340,7 +390,8 @@ class SpkApprovalService
 
         return match (strtoupper($normalized)) {
             'APPROVED' => 'Approved by Manager Produksi',
-            'MENUNGGU MANAGER', 'DRAFT' => 'Draft',
+            'MENUNGGU MANAGER' => 'Menunggu Approval Manager Produksi',
+            'DRAFT' => 'Draft',
             default => $normalized,
         };
     }

@@ -37,6 +37,8 @@ class SkuMasterFactory extends Factory
             'wildcard_count' => 0,
             'completeness_score' => 100,
             'catalog_image' => null,
+            'design_image' => null,
+            'file_jwlcad' => null,
             'image_url' => null,
             'image_filename' => null,
             'image_uploaded_at' => null,
