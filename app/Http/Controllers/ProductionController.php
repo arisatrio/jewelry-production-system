@@ -28,6 +28,7 @@ use App\Support\SpkShrinkSummary;
 use App\Support\SpkStatusMapper;
 use App\Support\SpkStatusOrder;
 use App\Support\SpkStoneReport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -67,42 +68,10 @@ class ProductionController extends Controller
                 $query->where('spk_type', $type);
             })
             ->when($status !== '', function ($query) use ($status): void {
-                $statusKey = array_search($status, SpkDashboardAnalytics::BACKLOG_STATUS_LABELS, true);
+                $statusKey = $this->normalizedBacklogStatusKey($status);
 
-                if ($statusKey === 'inProgress') {
-                    $query->where(function ($q): void {
-                        $q->whereNotNull('last_process')
-                            ->orWhere('is_inprocess', '!=', 0);
-                    });
-                } elseif ($statusKey === 'confirmed') {
-                    $query->where('status', SpkApprovalService::STATUS_DONE)
-                        ->where(function ($q): void {
-                            $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
-                        })
-                        ->whereNull('last_process');
-                } elseif ($statusKey === 'pendingManager') {
-                    $query->where('status', SpkApprovalService::STATUS_PENDING)
-                        ->where(function ($q): void {
-                            $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
-                        })
-                        ->whereNull('last_process');
-                } elseif ($statusKey === 'draft') {
-                    $query->where(function ($q): void {
-                        $q->whereNull('status')
-                            ->orWhereNotIn('status', [
-                                SpkApprovalService::STATUS_DONE,
-                                SpkApprovalService::STATUS_PENDING,
-                            ]);
-                    })
-                        ->where(function ($q): void {
-                            $q->where('is_inprocess', 0)->orWhereNull('is_inprocess');
-                        })
-                        ->whereNull('last_process');
-                } elseif ($statusKey === 'done') {
-                    $allIds = Production::query()->notDeleted()->pluck('row_id')->all();
-                    $doneIds = SpkDashboardAnalytics::completedProductionSpkIds($allIds);
-
-                    $query->whereIn('row_id', $doneIds);
+                if ($statusKey !== null) {
+                    $this->applyBacklogStatusFilter($query, $statusKey);
                 }
             })
             ->when($search !== '', function ($query) use ($search): void {
@@ -148,6 +117,35 @@ class ProductionController extends Controller
                 'status' => $status,
                 'per_page' => $perPage,
             ],
+        ]);
+    }
+
+    public function showByStatus(Request $request, string $statusKey): RedirectResponse
+    {
+        $statusKey = $this->normalizedBacklogStatusKey($statusKey);
+
+        if ($statusKey === null) {
+            abort(404);
+        }
+
+        $query = Production::query()
+            ->notDeleted()
+            ->whereNotNull('spk_no')
+            ->orderByDesc('row_id');
+
+        $this->applyBacklogStatusFilter($query, $statusKey);
+
+        $spkNo = $query->value('spk_no');
+
+        if ($spkNo === null) {
+            return to_route('spk.index', [
+                'status' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$statusKey],
+            ]);
+        }
+
+        return to_route('spk.show', [
+            'production' => $spkNo,
+            'status' => $statusKey,
         ]);
     }
 
@@ -541,9 +539,18 @@ class ProductionController extends Controller
     /**
      * Soft-delete the SPK.
      */
-    public function destroy(Request $request, int $rowId, SpkService $spkService): RedirectResponse
-    {
+    public function destroy(
+        Request $request,
+        int $rowId,
+        SpkService $spkService,
+        ProductionPolicy $policy,
+    ): RedirectResponse {
         $production = $this->findActiveProduction($rowId);
+
+        if (! $policy->delete($request->user(), $production)) {
+            abort(403, 'SPK ini tidak dapat dihapus.');
+        }
+
         $spkService->softDelete($production, $this->actorName($request));
 
         Inertia::flash('toast', [
@@ -610,8 +617,15 @@ class ProductionController extends Controller
         abort_if($production->is_deleted === 1 || blank($production->spk_no), 404);
 
         $production->loadMissing(['item', 'sku', 'categoryPrefix']);
+        $statusKey = $this->normalizedBacklogStatusKey(
+            $request->string('status')->trim()->toString(),
+        );
 
         $baseQuery = Production::query()->notDeleted()->whereNotNull('spk_no');
+
+        if ($statusKey !== null) {
+            $this->applyBacklogStatusFilter($baseQuery, $statusKey);
+        }
 
         $total = (clone $baseQuery)->count();
         $position = (clone $baseQuery)->where('row_id', '>', $production->row_id)->count() + 1;
@@ -644,8 +658,15 @@ class ProductionController extends Controller
             'navigation' => [
                 'position' => $position,
                 'total' => $total,
-                'previousSpkNo' => $previousSpkNo !== null ? (string) $previousSpkNo : null,
-                'nextSpkNo' => $nextSpkNo !== null ? (string) $nextSpkNo : null,
+                'previousUrl' => $previousSpkNo !== null
+                    ? route('spk.show', ['production' => $previousSpkNo, 'status' => $statusKey])
+                    : null,
+                'nextUrl' => $nextSpkNo !== null
+                    ? route('spk.show', ['production' => $nextSpkNo, 'status' => $statusKey])
+                    : null,
+                'backUrl' => $statusKey !== null
+                    ? route('spk.index', ['status' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$statusKey]])
+                    : route('spk.index'),
             ],
             'detailUrl' => route('spk.show', $production, absolute: true),
             'approval' => $this->approvalAbilities($request, $production),
@@ -707,6 +728,78 @@ class ProductionController extends Controller
             'imageUrl' => $this->itemImageUrl($production),
             'finishingType' => $jwcad3d,
         ];
+    }
+
+    private function normalizedBacklogStatusKey(?string $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+        $labels = SpkDashboardAnalytics::BACKLOG_STATUS_LABELS;
+
+        if (array_key_exists($value, $labels)) {
+            return $value;
+        }
+
+        $key = array_search($value, $labels, true);
+
+        return is_string($key) ? $key : null;
+    }
+
+    private function applyBacklogStatusFilter(Builder $query, string $statusKey): void
+    {
+        if ($statusKey === 'inProgress') {
+            $query->where(function ($builder): void {
+                $builder->whereNotNull('last_process')
+                    ->orWhere('is_inprocess', '!=', 0);
+            });
+
+            return;
+        }
+
+        if ($statusKey === 'confirmed') {
+            $query->where('status', SpkApprovalService::STATUS_DONE)
+                ->where(function ($builder): void {
+                    $builder->where('is_inprocess', 0)->orWhereNull('is_inprocess');
+                })
+                ->whereNull('last_process');
+
+            return;
+        }
+
+        if ($statusKey === 'pendingManager') {
+            $query->where('status', SpkApprovalService::STATUS_PENDING)
+                ->where(function ($builder): void {
+                    $builder->where('is_inprocess', 0)->orWhereNull('is_inprocess');
+                })
+                ->whereNull('last_process');
+
+            return;
+        }
+
+        if ($statusKey === 'draft') {
+            $query->where(function ($builder): void {
+                $builder->whereNull('status')
+                    ->orWhereNotIn('status', [
+                        SpkApprovalService::STATUS_DONE,
+                        SpkApprovalService::STATUS_PENDING,
+                    ]);
+            })
+                ->where(function ($builder): void {
+                    $builder->where('is_inprocess', 0)->orWhereNull('is_inprocess');
+                })
+                ->whereNull('last_process');
+
+            return;
+        }
+
+        if ($statusKey === 'done') {
+            $allIds = Production::query()->notDeleted()->pluck('row_id')->all();
+            $doneIds = SpkDashboardAnalytics::completedProductionSpkIds($allIds);
+            $query->whereIn('row_id', $doneIds);
+        }
     }
 
     private function itemTypeLabel(Production $production): string
@@ -1356,7 +1449,9 @@ class ProductionController extends Controller
             'canEdit' => SpkApprovalRoles::canEditDraft($user),
             'canSubmit' => false,
             'canApprove' => false,
+            'canManagerApprove' => false,
             'canReject' => false,
+            'canDelete' => false,
             'status' => 'DRAFT',
             'statusLabel' => 'Draft',
             'history' => [],

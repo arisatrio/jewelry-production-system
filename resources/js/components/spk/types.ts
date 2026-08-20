@@ -84,8 +84,9 @@ export type SpkItemDetail = {
 export type SpkNavigation = {
     position: number;
     total: number;
-    previousSpkNo: string | null;
-    nextSpkNo: string | null;
+    previousUrl: string | null;
+    nextUrl: string | null;
+    backUrl: string;
 };
 
 export type SpkStoneItem = {

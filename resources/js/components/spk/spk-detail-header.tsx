@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
+import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import barCodeIcon from '@ui5/webcomponents-icons/dist/bar-code.js';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
@@ -10,11 +11,15 @@ import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import ProductionController from '@/actions/App/Http/Controllers/ProductionController';
+import { destroy as spkDestroy, form as spkForm } from '@/routes/spk';
 import {
-    form as spkForm,
-    index as spkIndex,
-    show as spkShow,
-} from '@/routes/spk';
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { SpkApprovalActions, type SpkApprovalAbilities } from '@/components/spk/spk-approval-actions';
 import { SpkBarcodeDialog } from '@/components/spk/spk-barcode-dialog';
 import { SpkCraftsmanReportSection } from '@/components/spk/spk-craftsman-report-section';
@@ -89,6 +94,8 @@ export function SpkDetailLayout({
     const [mainSection, setMainSection] =
         useState<MainSectionTab>(initialMainSection);
     const [barcodeOpen, setBarcodeOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const workflowStatus = production.workflowStatus;
     const activeStageIndex = workflowStatus?.stageIndex ?? 0;
     const statusStages = workflowStatus?.stages ?? [
@@ -123,12 +130,12 @@ export function SpkDetailLayout({
     const showLastProcessOnProsesTab =
         workflowStatus?.key === 'inProgress' && lastProcessLabel !== '';
 
-    const goTo = (spkNo: string | null): void => {
-        if (!spkNo) {
+    const goTo = (url: string | null): void => {
+        if (!url) {
             return;
         }
 
-        router.visit(spkShow.url(spkNo));
+        router.visit(url);
     };
 
     const openPrintPreview = (): void => {
@@ -167,7 +174,17 @@ export function SpkDetailLayout({
     };
 
     const closeDetail = (): void => {
-        router.visit(spkIndex.url());
+        router.visit(navigation.backUrl);
+    };
+
+    const handleDelete = (): void => {
+        setDeleting(true);
+        router.delete(spkDestroy.url(Number(production.id)), {
+            onFinish: () => {
+                setDeleting(false);
+                setDeleteOpen(false);
+            },
+        });
     };
 
     return (
@@ -231,17 +248,15 @@ export function SpkDetailLayout({
                                     design="Transparent"
                                     icon={navigationLeftIcon}
                                     tooltip="Previous"
-                                    disabled={!navigation.previousSpkNo}
-                                    onClick={() =>
-                                        goTo(navigation.previousSpkNo)
-                                    }
+                                    disabled={!navigation.previousUrl}
+                                    onClick={() => goTo(navigation.previousUrl)}
                                 />
                                 <Button
                                     design="Transparent"
                                     icon={navigationRightIcon}
                                     tooltip="Next"
-                                    disabled={!navigation.nextSpkNo}
-                                    onClick={() => goTo(navigation.nextSpkNo)}
+                                    disabled={!navigation.nextUrl}
+                                    onClick={() => goTo(navigation.nextUrl)}
                                 />
                             </div>
                         </div>
@@ -295,6 +310,17 @@ export function SpkDetailLayout({
                             >
                                 <Icon name={pictureIcon} mode="Decorative" />
                             </button>
+                            {approval?.canDelete ? (
+                                <button
+                                    type="button"
+                                    className="spkHeaderActionBtn spkHeaderActionBtn--danger"
+                                    aria-label="Hapus"
+                                    title="Hapus SPK"
+                                    onClick={() => setDeleteOpen(true)}
+                                >
+                                    <Icon name={deleteIcon} mode="Decorative" />
+                                </button>
+                            ) : null}
                             <button
                                 type="button"
                                 className="spkHeaderActionBtn spkHeaderActionBtn--danger"
@@ -315,6 +341,34 @@ export function SpkDetailLayout({
                 value={detailUrl}
                 label={production.produksiNo}
             />
+
+            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                <DialogContent className="spkDeleteDialog">
+                    <DialogHeader>
+                        <DialogTitle>Hapus SPK</DialogTitle>
+                        <DialogDescription>
+                            SPK {production.produksiNo} akan dihapus dan tidak
+                            lagi muncul di daftar SPK.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            design="Transparent"
+                            disabled={deleting}
+                            onClick={() => setDeleteOpen(false)}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            design="Negative"
+                            disabled={deleting}
+                            onClick={handleDelete}
+                        >
+                            Hapus SPK
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <div className="spkDetailBody">
                 <section className="spkMainPanel">

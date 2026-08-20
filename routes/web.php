@@ -55,6 +55,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('spk.select.reference-spks');
     Route::get('spk/select/frames', [ProductionController::class, 'searchFrames'])
         ->name('spk.select.frames');
+    Route::get('spk/status/{statusKey}', [ProductionController::class, 'showByStatus'])
+        ->name('spk.show-status');
     Route::get('spk/{production}', [ProductionController::class, 'show'])
         ->where('production', '.*')
         ->name('spk.show');

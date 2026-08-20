@@ -5,6 +5,7 @@ import type { SpkRow } from '@/components/spk/types';
 import {
     create as spkCreate,
     index as spkIndex,
+    showStatus as spkShowStatus,
     show as spkShow,
 } from '@/routes/spk';
 
@@ -54,6 +55,9 @@ export default function SpkIndex({
     filters,
 }: SpkIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
+    const activeStatusKey = Object.entries(statusLabels).find(
+        ([, label]) => label === filters.status,
+    )?.[0];
 
     useEffect(() => {
         setSearchQuery(filters.search);
@@ -143,14 +147,21 @@ export default function SpkIndex({
                 typeCounts={typeCounts}
                 statusCounts={statusCounts}
                 statusLabels={statusLabels}
-                onStatusAlertClick={(status) =>
-                    visit({
-                        page: 1,
-                        per_page: productions.per_page,
-                        search: searchQuery,
-                        status,
-                    })
-                }
+                onStatusAlertClick={(status) => {
+                    const statusKey = Object.entries(statusLabels).find(
+                        ([, label]) => label === status,
+                    )?.[0];
+
+                    if (!statusKey) {
+                        return;
+                    }
+
+                    router.visit(
+                        spkShowStatus.url({
+                            statusKey,
+                        }),
+                    );
+                }}
                 selectedType={filters.type}
                 onTypeChange={(type) =>
                     visit({
@@ -170,9 +181,23 @@ export default function SpkIndex({
                         status,
                     })
                 }
-                onOpenRow={(row) => router.visit(spkShow.url(row.produksiNo))}
+                onOpenRow={(row) =>
+                    router.visit(
+                        spkShow.url(row.produksiNo, {
+                            query: {
+                                status: activeStatusKey || undefined,
+                            },
+                        }),
+                    )
+                }
                 onProduksiNoClick={(row) =>
-                    router.visit(spkShow.url(row.produksiNo))
+                    router.visit(
+                        spkShow.url(row.produksiNo, {
+                            query: {
+                                status: activeStatusKey || undefined,
+                            },
+                        }),
+                    )
                 }
             />
         </>

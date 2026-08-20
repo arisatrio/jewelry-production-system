@@ -24,6 +24,7 @@ export type SpkApprovalAbilities = {
     canApprove: boolean;
     canManagerApprove: boolean;
     canReject: boolean;
+    canDelete: boolean;
     status: string;
     statusLabel: string;
     role: string;

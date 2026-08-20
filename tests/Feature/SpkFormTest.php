@@ -2,6 +2,7 @@
 
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
+use App\Support\SpkApprovalService;
 use App\Support\SpkService;
 
 test('spk form page is accessible', function () {
@@ -108,6 +109,39 @@ test('spk form save validates required fields', function () {
             'gold_weight',
             'gold_color',
         ]);
+
+    $production->delete();
+});
+
+test('spk show includes canDelete for draft spk', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'status' => '',
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(84000, 84999)),
+    ]);
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('approval.canDelete', true)
+        );
+
+    $production->delete();
+});
+
+test('approved spk cannot be deleted', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'status' => SpkApprovalService::STATUS_DONE,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(85000, 85999)),
+    ]);
+
+    $this->delete(route('spk.destroy', $production->row_id))
+        ->assertForbidden();
+
+    $production->refresh();
+
+    expect($production->is_deleted)->toBe(0);
 
     $production->delete();
 });

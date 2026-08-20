@@ -443,10 +443,82 @@ test('spk show page displays production detail', function () {
             ->has('stones')
             ->has('navigation.position')
             ->has('navigation.total')
-            ->has('navigation.previousSpkNo')
-            ->has('navigation.nextSpkNo')
+            ->has('navigation.previousUrl')
+            ->has('navigation.nextUrl')
+            ->has('navigation.backUrl')
             ->where('detailUrl', route('spk.show', $production, absolute: true))
         );
+});
+
+test('status card route opens first spk for selected status', function () {
+    $draft = Production::factory()->create([
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(86000, 86999)),
+        'status' => '',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+    ]);
+    $pending = Production::factory()->create([
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(87000, 87999)),
+        'status' => 'SPK010',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.show-status', 'pendingManager'))
+        ->assertRedirect(route('spk.show', [
+            'production' => $pending->spk_no,
+            'status' => 'pendingManager',
+        ]));
+
+    $draft->delete();
+    $pending->delete();
+});
+
+test('spk show navigation is scoped to selected status', function () {
+    $oldPending = Production::factory()->create([
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(88000, 88999)),
+        'status' => 'SPK010',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+    ]);
+    $currentPending = Production::factory()->create([
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(89000, 89999)),
+        'status' => 'SPK010',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+    ]);
+    $draft = Production::factory()->create([
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(90000, 90999)),
+        'status' => '',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.show', [
+        'production' => $currentPending->spk_no,
+        'status' => 'pendingManager',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('navigation.total', 2)
+            ->where('navigation.previousUrl', route('spk.show', [
+                'production' => $oldPending->spk_no,
+                'status' => 'pendingManager',
+            ]))
+            ->where('navigation.nextUrl', null)
+            ->where('navigation.backUrl', route('spk.index', [
+                'status' => 'Menunggu Approval',
+            ]))
+        );
+
+    $oldPending->delete();
+    $currentPending->delete();
+    $draft->delete();
 });
 
 test('spk show provides absolute detail url for qr code modal', function () {
