@@ -1,1 +1,0 @@
-import{lt as e}from"./app-msx9AqrX.js";import"./Text-Be0cBM6L.js";var t=e(`ui5-cb-item`,[`additionalText`,`text`,`value`],[],[],[`click`]);t.displayName=`ComboBoxItem`;export{t};
