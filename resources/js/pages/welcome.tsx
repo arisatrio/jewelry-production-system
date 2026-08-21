@@ -194,7 +194,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         'estimatedDelivery',
     );
     const [listSortDirection, setListSortDirection] =
-        useState<DashboardSortDirection>('desc');
+        useState<DashboardSortDirection>('asc');
     const monthTargetSpk =
         summary.planningDoneSpk + summary.planningPendingSpk;
     const todayTargetCompletionPercent =
@@ -327,7 +327,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
 
     useEffect(() => {
         setListSortKey('estimatedDelivery');
-        setListSortDirection('desc');
+        setListSortDirection('asc');
     }, [openList]);
 
     const toggleListSort = (key: DashboardSortKey): void => {
