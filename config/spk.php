@@ -11,7 +11,9 @@ return [
     |
     */
 
-    'form_document_no' => 'WHOJ-PRD-FR-001',
+    'form_document_no' => 'WHOJ-PRD-FRM-001',
+
+    'jewelcad_form_document_no' => 'WHOJ-PRD-FRM-002',
 
     'company_name' => 'Wanda House of Jewels',
 

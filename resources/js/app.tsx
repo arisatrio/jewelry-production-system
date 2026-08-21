@@ -18,6 +18,7 @@ createInertiaApp({
         switch (true) {
             case name === 'welcome':
             case name.startsWith('spk/'):
+            case name.startsWith('jewelcad/'):
             case name.startsWith('master-data/'):
                 return FioriLayout;
             case name.startsWith('auth/'):

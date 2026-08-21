@@ -357,6 +357,48 @@ class SpkService
     }
 
     /**
+     * Update gold fields and stone list on an existing SPK (master).
+     *
+     * @param  array{
+     *     gold_weight: mixed,
+     *     gold_color: string,
+     *     jwcad_3d?: string|null,
+     *     stones?: list<array<string, mixed>>
+     * }  $data
+     */
+    public function updateGoldAndStones(
+        Production $production,
+        array $data,
+        string $actor,
+        ?UploadedFile $file = null,
+    ): Production {
+        return DB::connection('third')->transaction(function () use ($production, $data, $actor, $file): Production {
+            $attributes = [
+                'gold_weight' => $data['gold_weight'],
+                'gold_color' => $data['gold_color'],
+                'modified_date' => now(),
+                'modified_by' => $actor,
+            ];
+
+            if (array_key_exists('jwcad_3d', $data)) {
+                $attributes['jwcad_3d'] = filled($data['jwcad_3d'] ?? null)
+                    ? trim((string) $data['jwcad_3d'])
+                    : null;
+            }
+
+            if ($file !== null) {
+                $attributes['file_name'] = $this->storeProductionImage($file);
+            }
+
+            $production->update($attributes);
+
+            $this->syncStones($production, $data['stones'] ?? [], $actor);
+
+            return $production->refresh();
+        });
+    }
+
+    /**
      * Upload gambar SPK ke GCS bucket system-mahakarya/produksi.
      * Nilai file_name disimpan sebagai nama file (kompatibel dengan URL legacy).
      */

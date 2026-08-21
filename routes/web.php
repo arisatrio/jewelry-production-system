@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
@@ -60,6 +61,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('spk/{production}', [ProductionController::class, 'show'])
         ->where('production', '.*')
         ->name('spk.show');
+    Route::get('jewelcad/select/spks', [JewelCadRequestController::class, 'searchSpks'])
+        ->name('jewelcad.select.spks');
+    Route::get('jewelcad/spk/{rowId}', [JewelCadRequestController::class, 'spkDetail'])
+        ->whereNumber('rowId')
+        ->name('jewelcad.spk.detail');
+    Route::put('jewelcad/spk/{rowId}', [JewelCadRequestController::class, 'syncSpk'])
+        ->whereNumber('rowId')
+        ->name('jewelcad.spk.sync');
+    Route::resource('jewelcad', JewelCadRequestController::class)
+        ->except(['show'])
+        ->parameters(['jewelcad' => 'jewelcad']);
 
     Route::prefix('master-data')->name('master-data.')->group(function () {
         Route::resource('tipe-item', MsItemController::class)

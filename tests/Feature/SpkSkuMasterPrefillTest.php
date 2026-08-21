@@ -48,7 +48,7 @@ test('spk create options include gold weight and sku diamonds', function () {
 
                 $stone = $match['stones'][0] ?? null;
 
-                return $match['goldWeight'] === '5.75'
+                return $match['goldWeight'] === '5.750'
                     && is_array($stone)
                     && $stone['shapeId'] === (string) $round->row_id
                     && $stone['pcs'] === '12'
@@ -176,7 +176,7 @@ test('spk edit form keeps saved stones instead of sku diamonds', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/form')
-            ->where('production.goldWeight', '2.25')
+            ->where('production.goldWeight', '2.250')
             ->has('stones', 1)
             ->where('stones.0.pcs', 3)
             ->where('stones.0.shapeId', (string) $shape->row_id)

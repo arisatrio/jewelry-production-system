@@ -16,7 +16,7 @@ test('spk form page is accessible', function () {
             ->where('production.isNew', false)
             ->where('production.spkNo', $production->spk_no)
             ->where('production.spkType', 'Stock')
-            ->where('formDocumentNo', 'WHOJ-PRD-FR-001')
+            ->where('formDocumentNo', 'WHOJ-PRD-FRM-001')
             ->where(
                 'productionImageBaseUrl',
                 'https://storage.googleapis.com/system-mahakarya/produksi/',
@@ -131,8 +131,8 @@ test('spk form saves gold weight independently from sku master', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
-            ->where('item.goldWeight', '6.90')
-            ->where('item.masterGoldWeight', '5.75')
+            ->where('item.goldWeight', '6.900')
+            ->where('item.masterGoldWeight', '5.750')
         );
 
     $this->get(route('spk.form', $production->row_id))
@@ -140,12 +140,12 @@ test('spk form saves gold weight independently from sku master', function () {
         ->assertInertia(fn ($page) => $page
             ->component('spk/form')
             ->where('production.goldWeight', function ($weight) {
-                return (float) $weight === 6.9;
+                return (string) $weight === '6.900';
             })
             ->where('options.skus', function ($skus) use ($sku) {
                 $match = collect($skus)->firstWhere('value', (string) $sku->id);
 
-                return is_array($match) && $match['goldWeight'] === '5.75';
+                return is_array($match) && $match['goldWeight'] === '5.750';
             })
         );
 

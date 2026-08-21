@@ -1,4 +1,5 @@
 import { home } from '@/routes';
+import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
 import { index as varianItemIndex } from '@/routes/master-data/varian-item';
 import { index as spkIndex } from '@/routes/spk';
@@ -38,7 +39,7 @@ export const defaultAnalyticsSubmenus: ShellNavItem[] = [
 ];
 
 export const defaultProduksiSubmenus: ShellNavItem[] = [
-    { text: 'JewelCAD' },
+    { text: 'JewelCAD', href: jewelCadIndex.url() },
     { text: 'Resin' },
     { text: 'Coran' },
     { text: 'Finishing' },
