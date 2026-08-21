@@ -139,7 +139,7 @@ class UpdateProductionRequest extends FormRequest
             'qty' => ['required', 'integer', 'min:1'],
             'satuan' => ['required', 'string', Rule::in(SpkService::UNITS)],
             'diameter_length_ringsize' => ['required', 'string', 'max:100'],
-            'gold_weight' => ['required', 'numeric', 'min:0'],
+            'gold_weight' => ['required', 'numeric', 'min:0', 'decimal:0,3'],
             'gold_color' => ['required', 'string', Rule::in(GoldColorOptions::all())],
             'gold_content' => ['nullable', 'string', 'max:100'],
             'jwcad_3d' => ['nullable', 'string', 'max:100'],

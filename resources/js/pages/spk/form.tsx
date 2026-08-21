@@ -23,6 +23,7 @@ import { TextArea } from '@ui5/webcomponents-react/TextArea';
 import ProductionController from '@/actions/App/Http/Controllers/ProductionController';
 import { SpkCreateSelectorDialog } from '@/components/spk/spk-create-selector-dialog';
 import {
+    GoldWeightMasterHint,
     GoldWeightRowLabel,
     isGoldWeightChangedFromMaster,
     isStoneListChangedFromMaster,
@@ -925,7 +926,7 @@ export default function SpkFormPage({
                 diameter: formatSize(ukuran.diameter),
                 dimensi: formatSize(ukuran.dimensi),
                 ringSize: ukuran.ringSize,
-                goldWeight: data.gold_weight,
+                goldWeight: formatDecimal3(data.gold_weight),
                 goldColor: data.gold_color,
                 jwcad3d: data.jwcad_3d,
                 description: data.description,
@@ -1973,6 +1974,14 @@ export default function SpkFormPage({
                                                                         .value ??
                                                                         '',
                                                                 )
+                                                            }
+                                                        />
+                                                        <GoldWeightMasterHint
+                                                            currentWeight={
+                                                                data.gold_weight
+                                                            }
+                                                            masterWeight={
+                                                                selectedSku?.goldWeight
                                                             }
                                                         />
                                                         {errors.gold_weight ? (

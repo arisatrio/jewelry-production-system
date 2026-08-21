@@ -1110,6 +1110,36 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     z-index: 1;
 }
 
+.dashStatusSortBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.dashStatusSortBtn:hover,
+.dashStatusSortBtn.is-active {
+    color: #111827;
+}
+
+.dashStatusSortIcon {
+    width: 0.85rem;
+    height: 0.85rem;
+    flex-shrink: 0;
+    opacity: 0.55;
+}
+
+.dashStatusSortBtn.is-active .dashStatusSortIcon {
+    opacity: 0.9;
+}
+
 .dashStatusTable tbody tr:hover {
     background: #f8fafc;
 }

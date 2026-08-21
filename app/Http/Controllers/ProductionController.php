@@ -700,7 +700,7 @@ class ProductionController extends Controller
                 ? $production->diameter_length_ringsize
                 : '-',
             'goldWeight' => filled($production->gold_weight)
-                ? number_format((float) $production->gold_weight, 2, '.', '')
+                ? number_format((float) $production->gold_weight, 3, '.', '')
                 : '-',
             'masterGoldWeight' => $this->skuMasterGoldWeight($production->sku),
             'goldColor' => $production->gold_color ?: '-',
@@ -1093,7 +1093,9 @@ class ProductionController extends Controller
             'refSpkNo' => $refSpkNo,
             'description' => $production->description ?? '-',
             'qty' => $production->qty ?? '-',
-            'goldWeight' => $production->gold_weight ?? '-',
+            'goldWeight' => filled($production->gold_weight)
+                ? number_format((float) $production->gold_weight, 3, '.', '')
+                : '-',
             'goldColor' => $production->gold_color ?? '-',
             'goldContent' => $production->gold_content ?? '-',
             'priority' => $production->priority ?? '-',
@@ -1283,7 +1285,7 @@ class ProductionController extends Controller
             return null;
         }
 
-        return number_format($weight, 2, '.', '');
+        return number_format($weight, 3, '.', '');
     }
 
     /**
@@ -1318,7 +1320,7 @@ class ProductionController extends Controller
             'diameter' => '',
             'dimensi' => '',
             'ringSize' => '',
-            'goldWeight' => '0',
+            'goldWeight' => '0.000',
             'goldColor' => '',
             'goldContent' => '',
             'jwcad3d' => '',
@@ -1367,7 +1369,9 @@ class ProductionController extends Controller
             'statusOrder' => $production->status_order ?? '',
             'diameterLengthRingsize' => $production->diameter_length_ringsize ?? '',
             ...$this->ukuranFieldsForForm($production->diameter_length_ringsize),
-            'goldWeight' => $production->gold_weight !== null ? (string) $production->gold_weight : '0',
+            'goldWeight' => $production->gold_weight !== null
+                ? number_format((float) $production->gold_weight, 3, '.', '')
+                : '0',
             'goldColor' => $production->gold_color ?? '',
             'goldContent' => $production->gold_content ?? '',
             'jwcad3d' => $production->jwcad_3d ?? '',
@@ -1484,7 +1488,7 @@ class ProductionController extends Controller
             'logoUrl' => asset((string) config('spk.logo', 'images/logo.jpg')),
             'companyName' => (string) config('spk.company_name', 'Wanda House of Jewels'),
             'formTitle' => (string) config('spk.form_title', 'Form SPK'),
-            'docNo' => (string) config('spk.form_document_no', 'WHOJ-PRD-FR-001'),
+            'docNo' => (string) config('spk.form_document_no', 'WHOJ-PRD-FRM-001'),
             'issueNo' => (string) config('spk.issue_no', '01'),
             'revision' => (string) config('spk.revision', '00'),
             'issueDate' => now()->format('d-m-Y'),
@@ -1648,7 +1652,7 @@ class ProductionController extends Controller
                 'diameter' => $this->printSize($item['diameter'] ?? null),
                 'dimensi' => $this->printSize($item['dimensi'] ?? null),
                 'ringSize' => $this->printText($item['ringSize'] ?? null),
-                'goldWeight' => $this->printText($item['goldWeight'] ?? null),
+                'goldWeight' => $this->printDecimal3($item['goldWeight'] ?? null),
                 'goldColor' => $this->printText($item['goldColor'] ?? null),
                 'jwcad3d' => $this->printText($item['jwcad3d'] ?? null),
                 'description' => $this->printText($item['description'] ?? null),
@@ -1742,7 +1746,7 @@ class ProductionController extends Controller
                 'dimensi' => $ukuran['dimensi'] !== '-' ? $ukuran['dimensi'] : null,
                 'ringSize' => $ukuran['ringSize'] !== '-' ? $ukuran['ringSize'] : null,
                 'goldWeight' => $production->gold_weight !== null
-                    ? (string) $production->gold_weight
+                    ? number_format((float) $production->gold_weight, 3, '.', '')
                     : null,
                 'goldColor' => $production->gold_color,
                 'jwcad3d' => $production->jwcad_3d,
