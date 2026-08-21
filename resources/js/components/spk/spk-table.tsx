@@ -402,19 +402,22 @@ export default function SpkTable({
 
     return (
         <div className="spkTableShell">
-            <div className="spkTableActions">
-                <button
-                    type="button"
-                    className="spkCreateBtn"
-                    aria-label="Tambah SPK"
-                    onClick={onCreate}
-                >
-                    <Icon name={addIcon} mode="Decorative" />
-                    <span>Tambah</span>
-                </button>
-            </div>
-
             <div className="spkTableCard">
+                <div className="spkTableActions">
+                    <div className="spkTableTitleBlock">
+                        <h1 className="spkTableTitle">Data SPK</h1>
+                    </div>
+                    <button
+                        type="button"
+                        className="spkCreateBtn"
+                        aria-label="Tambah SPK"
+                        onClick={onCreate}
+                    >
+                        <Icon name={addIcon} mode="Decorative" />
+                        <span>Tambah</span>
+                    </button>
+                </div>
+
                 {types.length > 0 ? (
                     <div className="spkTypeTabs" role="tablist" aria-label="Filter tipe SPK">
                         <button

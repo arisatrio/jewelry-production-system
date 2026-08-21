@@ -235,7 +235,7 @@ class Production extends Model
             'item_variance_id' => 'integer',
             'sku_id' => 'integer',
             'category_prefix_id' => 'integer',
-            'gold_weight' => 'decimal:2',
+            'gold_weight' => 'decimal:3',
             'last_weight' => 'float',
             'is_coran' => 'integer',
             'is_finishinghandmade' => 'integer',

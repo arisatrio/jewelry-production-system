@@ -79,14 +79,36 @@ export function GoldWeightRowLabel({
     const changed = isGoldWeightChangedFromMaster(currentWeight, masterWeight);
 
     return (
-        <>
+        <span className="spkGoldWeightLabel">
             Berat Emas (g)
             {changed && masterWeight !== null && masterWeight !== undefined ? (
                 <span className="spkMasterDiffHint">
                     {`*Berat emas diubah dari Master SKU (${formatGoldWeightGramsLabel(masterWeight)} g)`}
                 </span>
             ) : null}
-        </>
+        </span>
+    );
+}
+
+export function GoldWeightMasterHint({
+    currentWeight,
+    masterWeight,
+}: {
+    currentWeight?: string | number | null;
+    masterWeight?: string | number | null;
+}) {
+    if (
+        !isGoldWeightChangedFromMaster(currentWeight, masterWeight) ||
+        masterWeight === null ||
+        masterWeight === undefined
+    ) {
+        return null;
+    }
+
+    return (
+        <span className="spkMasterDiffHint">
+            {`*Berat emas diubah dari Master SKU (${formatGoldWeightGramsLabel(masterWeight)} g)`}
+        </span>
     );
 }
 

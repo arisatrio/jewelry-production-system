@@ -1,12 +1,19 @@
 import { Head, router } from '@inertiajs/react';
-import { useState } from 'react';
-import { Eye } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye } from 'lucide-react';
 import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-arrow.js';
 import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { DistributionPieChart } from '@/components/dashboard/distribution-pie-chart';
 import { ForecastClusteredBarChart } from '@/components/dashboard/forecast-clustered-bar-chart';
 import { InProgressProcessBarChart } from '@/components/dashboard/in-progress-process-bar-chart';
+import {
+    DASHBOARD_SORT_COLUMNS,
+    sortDashboardStatusRows,
+    type DashboardSortDirection,
+    type DashboardSortKey,
+    type DashboardStatusSpkItem,
+} from '@/components/dashboard/sort-status-rows';
 import { home } from '@/routes';
 import { show as spkShow } from '@/routes/spk';
 import {
@@ -16,6 +23,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+
+export type { DashboardStatusSpkItem };
 
 export type DashboardDistributionItem = {
     label: string;
@@ -29,17 +38,6 @@ export type DashboardForecastItem = {
     count: number;
     qty: number;
     percent: string;
-};
-
-export type DashboardStatusSpkItem = {
-    spkNo: string;
-    type: string;
-    customer: string;
-    item: string;
-    orderDate: string | null;
-    estimatedDelivery: string | null;
-    lastProcess: string | null;
-    lastProcessDate: string | null;
 };
 
 export type DashboardStatusKey =
@@ -192,6 +190,11 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         inProgressByProcess,
     } = analytics;
     const [openList, setOpenList] = useState<DashboardListKey | null>(null);
+    const [listSortKey, setListSortKey] = useState<DashboardSortKey | null>(
+        'estimatedDelivery',
+    );
+    const [listSortDirection, setListSortDirection] =
+        useState<DashboardSortDirection>('desc');
     const monthTargetSpk =
         summary.planningDoneSpk + summary.planningPendingSpk;
     const todayTargetCompletionPercent =
@@ -309,6 +312,11 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
             : openList in statusLists
               ? (statusLists[openList as DashboardStatusKey] ?? [])
               : (todayLists[openList as DashboardTodayKey] ?? []);
+    const sortedOpenListRows = sortDashboardStatusRows(
+        openListRows,
+        listSortKey,
+        listSortDirection,
+    );
     const openListPeriodLabel =
         openList !== null &&
         openList in todayLists &&
@@ -316,6 +324,24 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         openList !== 'monthTarget'
             ? today.label
             : period.label;
+
+    useEffect(() => {
+        setListSortKey('estimatedDelivery');
+        setListSortDirection('desc');
+    }, [openList]);
+
+    const toggleListSort = (key: DashboardSortKey): void => {
+        if (listSortKey === key) {
+            setListSortDirection((current) =>
+                current === 'asc' ? 'desc' : 'asc',
+            );
+
+            return;
+        }
+
+        setListSortKey(key);
+        setListSortDirection('asc');
+    };
 
     const goToMonth = (month: string | null): void => {
         if (!month) {
@@ -638,18 +664,53 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
                             <table className="dashStatusTable">
                                 <thead>
                                     <tr>
-                                        <th>SPK No</th>
-                                        <th>Tipe</th>
-                                        <th>Customer</th>
-                                        <th>Item</th>
-                                        <th>Order</th>
-                                        <th>Est. Delivery</th>
-                                        <th>Proses terakhir</th>
-                                        <th>Tanggal proses terakhir</th>
+                                        {DASHBOARD_SORT_COLUMNS.map(
+                                            (column) => {
+                                                const isActive =
+                                                    listSortKey === column.key;
+                                                const ariaSort = !isActive
+                                                    ? 'none'
+                                                    : listSortDirection ===
+                                                        'asc'
+                                                      ? 'ascending'
+                                                      : 'descending';
+                                                const SortIcon = !isActive
+                                                    ? ArrowUpDown
+                                                    : listSortDirection ===
+                                                        'asc'
+                                                      ? ArrowUp
+                                                      : ArrowDown;
+
+                                                return (
+                                                    <th
+                                                        key={column.key}
+                                                        aria-sort={ariaSort}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            className={`dashStatusSortBtn${isActive ? ' is-active' : ''}`}
+                                                            onClick={() =>
+                                                                toggleListSort(
+                                                                    column.key,
+                                                                )
+                                                            }
+                                                        >
+                                                            <span>
+                                                                {column.label}
+                                                            </span>
+                                                            <SortIcon
+                                                                aria-hidden="true"
+                                                                className="dashStatusSortIcon"
+                                                            />
+                                                        </button>
+                                                    </th>
+                                                );
+                                            },
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {openListRows.map((row) => (
+                                    {sortedOpenListRows.map((row) => (
                                         <tr key={row.spkNo}>
                                             <td>
                                                 {row.spkNo !== '-' ? (
