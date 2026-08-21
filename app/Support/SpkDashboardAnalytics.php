@@ -32,6 +32,24 @@ class SpkDashboardAnalytics
     public const POLES_CHROME_DONE_STATUSES = ['PFGDONE', 'PFG040'];
 
     /**
+     * Poles Barang Jadi (polishfinishedgood) statuses that mean production is done
+     * for SPK tipe Exchange / Refund / Reparasi:
+     * RPFDONE = Poles Barang Jadi completed.
+     *
+     * @var list<string>
+     */
+    public const POLES_BARANG_JADI_REF_DONE_STATUSES = ['RPFDONE'];
+
+    /**
+     * Finishing (finishinghandmade) statuses that mean production is done
+     * for SPK tipe Exchange / Refund / Reparasi:
+     * RFHDONE = Finishing reparasi completed.
+     *
+     * @var list<string>
+     */
+    public const FINISHING_REF_DONE_STATUSES = ['RFHDONE'];
+
+    /**
      * Poles Rangka (polishframe) statuses that mean production is done:
      * PRKDONE = Completed, PRK040 = Serahkan ke JB.
      *
@@ -118,7 +136,83 @@ class SpkDashboardAnalytics
         return collect([
             ...self::completedSpkIdsFromTable('polishfinishedgood', self::POLES_CHROME_DONE_STATUSES, $spkIds),
             ...self::completedSpkIdsFromTable('polishframe', self::POLES_RANGKA_DONE_STATUSES, $spkIds),
+            ...self::completedReferencePolesBarangJadiSpkIds($spkIds),
+            ...self::completedReferenceFinishingSpkIds($spkIds),
         ])->unique()->values()->all();
+    }
+
+    /**
+     * Done untuk Exchange / Refund / Reparasi via Poles Barang Jadi (RPFDONE).
+     *
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    public static function completedReferencePolesBarangJadiSpkIds(array $spkIds): array
+    {
+        return self::completedReferenceSpkIdsFromTable(
+            'polishfinishedgood',
+            self::POLES_BARANG_JADI_REF_DONE_STATUSES,
+            $spkIds,
+        );
+    }
+
+    /**
+     * Done untuk Exchange / Refund / Reparasi via Finishing (RFHDONE).
+     *
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    public static function completedReferenceFinishingSpkIds(array $spkIds): array
+    {
+        return self::completedReferenceSpkIdsFromTable(
+            'finishinghandmade',
+            self::FINISHING_REF_DONE_STATUSES,
+            $spkIds,
+        );
+    }
+
+    /**
+     * @param  list<string>  $statuses
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    private static function completedReferenceSpkIdsFromTable(string $table, array $statuses, array $spkIds): array
+    {
+        $spkIds = collect($spkIds)
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (
+            $spkIds === []
+            || ! Schema::connection('third')->hasTable($table)
+            || ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'spk_type')
+        ) {
+            return [];
+        }
+
+        $query = DB::connection('third')
+            ->table("{$table} as process")
+            ->join('spk', 'spk.row_id', '=', 'process.spk_id')
+            ->whereIn('process.spk_id', $spkIds)
+            ->whereIn('process.status', $statuses)
+            ->whereIn('spk.spk_type', SpkService::REFERENCE_TYPES);
+
+        if (Schema::connection('third')->hasColumn($table, 'is_deleted')) {
+            $query->where(function ($builder): void {
+                $builder->whereNull('process.is_deleted')
+                    ->orWhere('process.is_deleted', 0);
+            });
+        }
+
+        return $query
+            ->distinct()
+            ->pluck('process.spk_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
     }
 
     /**
@@ -200,6 +294,7 @@ class SpkDashboardAnalytics
                 'start' => $this->periodStart->toDateString(),
                 'end' => $this->periodEnd->toDateString(),
             ],
+            'backlogYear' => (int) now()->year,
             'summary' => [
                 'totalSpk' => $spkStats['total'],
                 'draftSpk' => $spkStats['draft'],
@@ -389,8 +484,8 @@ class SpkDashboardAnalytics
             ];
         }
 
-        // Backlog status: all-time (tanpa filter bulan).
-        $backlogBase = $this->spkBase();
+        // Backlog status: tahun berjalan (created_date).
+        $backlogBase = $this->yearScopedSpkBase();
         $statusCounts = $this->resolveStatusCounts(clone $backlogBase);
         $overdue = $this->resolveOverdueCount(clone $backlogBase);
 
@@ -465,7 +560,7 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * SPK belum selesai dengan estimasi delivery sudah lewat (sebelum hari ini).
+     * Overdue: Approved atau In Progress yang estimasi delivery-nya sudah lewat.
      */
     private function resolveOverdueCount(Builder $query): int
     {
@@ -473,17 +568,34 @@ class SpkDashboardAnalytics
             return 0;
         }
 
-        ['unsentDraft' => $unsentDraftExpr] = $this->statusExpressions();
+        return $this->applyOverdueFilter(clone $query)->count();
+    }
 
-        return (clone $query)
-            ->whereRaw("NOT ({$unsentDraftExpr})")
-            ->where(function (Builder $builder): void {
-                $builder->whereNull('status')
-                    ->orWhere('status', '!=', 'SPKDONE');
+    /**
+     * Scope SPK overdue: subset Approved + In Progress dengan estimasi lewat hari ini.
+     */
+    private function applyOverdueFilter(Builder $query): Builder
+    {
+        [
+            'inProgress' => $inProgressExpr,
+            'confirmed' => $confirmedExpr,
+            'managerApproved' => $managerApprovedExpr,
+        ] = $this->statusExpressions();
+        $doneExpr = $this->doneExpression();
+
+        return $query
+            ->whereRaw("NOT ({$doneExpr})")
+            ->where(function (Builder $builder) use ($confirmedExpr, $managerApprovedExpr, $inProgressExpr): void {
+                $builder->where(function (Builder $approved) use ($confirmedExpr, $managerApprovedExpr): void {
+                    $approved->whereRaw("({$confirmedExpr})")
+                        ->whereRaw("({$managerApprovedExpr})");
+                })->orWhere(function (Builder $inProgress) use ($confirmedExpr, $inProgressExpr): void {
+                    $inProgress->whereRaw("NOT ({$confirmedExpr})")
+                        ->whereRaw("({$inProgressExpr})");
+                });
             })
             ->whereNotNull('estimated_delivery_time')
-            ->where('estimated_delivery_time', '<', now()->startOfDay()->toDateTimeString())
-            ->count();
+            ->where('estimated_delivery_time', '<', now()->startOfDay()->toDateTimeString());
     }
 
     /**
@@ -571,22 +683,14 @@ class SpkDashboardAnalytics
         [
             'inProgress' => $inProgressExpr,
             'confirmed' => $confirmedExpr,
-            'unsentDraft' => $unsentDraftExpr,
             'managerApproved' => $managerApprovedExpr,
         ] = $this->statusExpressions();
 
-        $query = $this->spkBase();
+        $query = $this->yearScopedSpkBase();
 
         $query = match ($status) {
             'done' => $query->whereRaw($this->doneExpression()),
-            'overdue' => $query
-                ->whereRaw("NOT ({$unsentDraftExpr})")
-                ->where(function (Builder $builder): void {
-                    $builder->whereNull('status')
-                        ->orWhere('status', '!=', 'SPKDONE');
-                })
-                ->whereNotNull('estimated_delivery_time')
-                ->where('estimated_delivery_time', '<', now()->startOfDay()->toDateTimeString()),
+            'overdue' => $this->applyOverdueFilter($query),
             'confirmed' => $query
                 ->whereRaw('NOT ('.$this->doneExpression().')')
                 ->whereRaw("({$confirmedExpr})")
@@ -658,7 +762,6 @@ class SpkDashboardAnalytics
         $dayStart = now()->startOfDay();
         $dayEnd = now()->endOfDay();
         $query = $this->monthScopedSpkBase();
-        ['unsentDraft' => $unsentDraftExpr] = $this->statusExpressions();
 
         $query = match ($key) {
             'monthTarget' => $this->spkBase()
@@ -681,14 +784,7 @@ class SpkDashboardAnalytics
                         $dayEnd->toDateTimeString(),
                     ])
                 : $query->whereRaw('0'),
-            'monthOverdue' => $query
-                ->whereRaw("NOT ({$unsentDraftExpr})")
-                ->where(function (Builder $builder): void {
-                    $builder->whereNull('status')
-                        ->orWhere('status', '!=', 'SPKDONE');
-                })
-                ->whereNotNull('estimated_delivery_time')
-                ->where('estimated_delivery_time', '<', $dayStart->toDateTimeString()),
+            'monthOverdue' => $this->applyOverdueFilter($query),
             default => $this->applyTodayInProcessFilter($query, $dayStart, $dayEnd),
         };
 
@@ -880,11 +976,15 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Done: Poles Chrome (PFGDONE/PFG040) or Poles Rangka (PRKDONE/PRK040).
+     * Done: Poles Chrome (PFGDONE/PFG040), Poles Rangka (PRKDONE/PRK040),
+     * or RPFDONE / RFHDONE for Exchange/Refund/Reparasi.
      */
     private function doneExpression(): string
     {
         $expressions = [];
+        $refTypes = collect(SpkService::REFERENCE_TYPES)
+            ->map(fn (string $type): string => "'{$type}'")
+            ->implode(', ');
 
         if (Schema::connection('third')->hasTable('polishfinishedgood')) {
             $statuses = collect(self::POLES_CHROME_DONE_STATUSES)
@@ -900,6 +1000,38 @@ class SpkDashboardAnalytics
                 FROM polishfinishedgood pfg
                 WHERE pfg.spk_id = spk.row_id
                   AND pfg.status IN ({$statuses})
+                  {$deleted}
+            )";
+
+            $refStatuses = collect(self::POLES_BARANG_JADI_REF_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $expressions[] = "EXISTS (
+                SELECT 1
+                FROM polishfinishedgood pfg
+                WHERE pfg.spk_id = spk.row_id
+                  AND pfg.status IN ({$refStatuses})
+                  AND spk.spk_type IN ({$refTypes})
+                  {$deleted}
+            )";
+        }
+
+        if (Schema::connection('third')->hasTable('finishinghandmade')) {
+            $refStatuses = collect(self::FINISHING_REF_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $deleted = Schema::connection('third')->hasColumn('finishinghandmade', 'is_deleted')
+                ? 'AND COALESCE(fhm.is_deleted, 0) = 0'
+                : '';
+
+            $expressions[] = "EXISTS (
+                SELECT 1
+                FROM finishinghandmade fhm
+                WHERE fhm.spk_id = spk.row_id
+                  AND fhm.status IN ({$refStatuses})
+                  AND spk.spk_type IN ({$refTypes})
                   {$deleted}
             )";
         }
@@ -1745,6 +1877,35 @@ class SpkDashboardAnalytics
         return DB::connection('third')->table('spk')->where('is_deleted', 0);
     }
 
+    /**
+     * Scope backlog: SPK dibuat di tahun kalender berjalan.
+     */
+    private function yearScopedSpkBase(): Builder
+    {
+        $query = $this->spkBase();
+        $this->applyCurrentYearFilter($query);
+
+        return $query;
+    }
+
+    private function applyCurrentYearFilter(Builder $query): void
+    {
+        $yearStart = now()->copy()->startOfYear()->startOfDay();
+        $yearEnd = now()->copy()->endOfYear()->endOfDay();
+
+        if (Schema::connection('third')->hasColumn('spk', 'created_date')) {
+            $query->whereNotNull('created_date')
+                ->whereBetween('created_date', [
+                    $yearStart->toDateTimeString(),
+                    $yearEnd->toDateTimeString(),
+                ]);
+
+            return;
+        }
+
+        $query->where('spk_no', 'like', now()->format('Y').'/%');
+    }
+
     private function applyPeriodFilter(Builder $query, string $column): void
     {
         $query->whereNotNull($column)
@@ -1757,6 +1918,7 @@ class SpkDashboardAnalytics
     /**
      * Scope dashboard (selain backlog): SPK dibuat di bulan terpilih
      * ATAU estimasi delivery di bulan terpilih.
+     * Backlog memakai yearScopedSpkBase() (tahun berjalan).
      */
     private function applyMonthScopeFilter(Builder $query): void
     {

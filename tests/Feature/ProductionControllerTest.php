@@ -417,6 +417,140 @@ test('spk index marks status done when poles rangka is completed or handed to jb
     'serahkan jb poles rangka' => ['PRK040'],
 ]);
 
+test('spk index marks status done when reference type poles barang jadi is rpfdone', function (string $spkType) {
+    $production = Production::factory()->create([
+        'spk_type' => $spkType,
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Barang Jadi',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-RPF-'.$production->row_id,
+        'process_name' => 'Poles Barang Jadi',
+        'spk_id' => $production->row_id,
+        'status' => 'RPFDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'Done')
+            ->where('productions.data.0.prosesTerakhir', 'Poles Barang Jadi')
+        );
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+    $production->delete();
+})->with([
+    'exchange' => ['Exchange'],
+    'refund' => ['Refund'],
+    'reparasi' => ['Reparasi'],
+]);
+
+test('spk index marks status done when reference type finishing is rfhdone', function (string $spkType) {
+    $production = Production::factory()->create([
+        'spk_type' => $spkType,
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Finishing',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('finishinghandmade')->insertGetId([
+        'doc_no' => 'TEST-RFH-'.$production->row_id,
+        'process_name' => 'Finishing',
+        'spk_id' => $production->row_id,
+        'status' => 'RFHDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'Done')
+            ->where('productions.data.0.prosesTerakhir', 'Finishing')
+        );
+
+    DB::connection('third')->table('finishinghandmade')->where('row_id', $processId)->delete();
+    $production->delete();
+})->with([
+    'exchange' => ['Exchange'],
+    'refund' => ['Refund'],
+    'reparasi' => ['Reparasi'],
+]);
+
+test('spk index does not mark stock as done for rpfdone poles barang jadi', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Barang Jadi',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-RPF-STOCK-'.$production->row_id,
+        'process_name' => 'Poles Barang Jadi',
+        'spk_id' => $production->row_id,
+        'status' => 'RPFDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'In Progress')
+        );
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+    $production->delete();
+});
+
+test('spk index does not mark stock as done for rfhdone finishing', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Finishing',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('finishinghandmade')->insertGetId([
+        'doc_no' => 'TEST-RFH-STOCK-'.$production->row_id,
+        'process_name' => 'Finishing',
+        'spk_id' => $production->row_id,
+        'status' => 'RFHDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'In Progress')
+        );
+
+    DB::connection('third')->table('finishinghandmade')->where('row_id', $processId)->delete();
+    $production->delete();
+});
+
 test('spk index includes last process date from the process table', function () {
     $processAt = now()->subDays(3)->startOfDay()->setTime(9, 30);
     $production = Production::factory()->create([

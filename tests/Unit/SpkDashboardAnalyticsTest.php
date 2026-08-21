@@ -3,6 +3,7 @@
 use App\Models\Production;
 use App\Support\SpkDashboardAnalytics;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -122,6 +123,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             + $report['planningDaily']['pendingTotal'],
         )
         ->and($report['statusLists'])->toHaveKeys(['draft', 'confirmed', 'inProgress', 'overdue', 'done'])
+        ->and($report['backlogYear'])->toBe((int) now()->year)
         ->and($report['summary']['overdueSpk'])->toBeInt()
         ->and($report['summary']['doneSpk'])->toBeInt()
         ->and($report['statusLists']['overdue'])->toBeArray()
@@ -204,6 +206,18 @@ test('dashboard backlog status grouping matches dashboard card labels', function
             'status_order' => 'NO',
             'last_process' => 'Poles Rangka',
             'is_inprocess' => 1,
+        ],
+        'done',
+        'Done',
+        true,
+    ],
+    'done poles barang jadi rpfdone for reference type' => [
+        [
+            'status' => 'SPK010',
+            'status_order' => 'NO',
+            'last_process' => 'Poles Barang Jadi',
+            'is_inprocess' => 1,
+            'spk_type' => 'Reparasi',
         ],
         'done',
         'Done',
@@ -315,4 +329,210 @@ test('dashboard waiting approval backlog is sent to production not draft', funct
     $draft->delete();
     $pending->delete();
     $sent->delete();
+});
+
+test('dashboard backlog status lists only include current year spk', function () {
+    $currentYear = Production::factory()->create([
+        'status' => 'SPKDONE',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(86000, 86999)),
+        'created_date' => now(),
+    ]);
+    $previousYear = Production::factory()->create([
+        'status' => 'SPKDONE',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->subYear()->format('Y'), random_int(85000, 85999)),
+        'created_date' => now()->subYear(),
+    ]);
+
+    $report = (new SpkDashboardAnalytics)->summarize();
+    $allListedNos = collect($report['statusLists'])
+        ->flatMap(fn (array $rows) => collect($rows)->pluck('spkNo'))
+        ->values();
+
+    expect($report['backlogYear'])->toBe((int) now()->year)
+        ->and($allListedNos)->toContain($currentYear->spk_no)
+        ->and($allListedNos)->not->toContain($previousYear->spk_no);
+
+    $currentYear->delete();
+    $previousYear->delete();
+});
+
+test('dashboard overdue is subset of approved and in progress past delivery', function () {
+    $approvedOverdue = Production::factory()->create([
+        'status' => 'SPKDONE',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(84000, 84999)),
+        'created_date' => now(),
+        'estimated_delivery_time' => now()->subDays(2)->toDateString(),
+    ]);
+    $approvalId = DB::connection('third')->table('sysapproval')->insertGetId([
+        'doc_id' => $approvedOverdue->row_id,
+        'doc_no' => $approvedOverdue->spk_no,
+        'doc_name' => 'spk',
+        'status' => 'SPKDONE',
+        'approve' => 'OK',
+        'notes' => null,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+    $pendingOverdue = Production::factory()->create([
+        'status' => 'SPK010',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(83000, 83999)),
+        'created_date' => now(),
+        'estimated_delivery_time' => now()->subDays(2)->toDateString(),
+    ]);
+    $inProgressOverdue = Production::factory()->create([
+        'status' => 'SPKDONE',
+        'last_process' => 'Finishing',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(82000, 82999)),
+        'created_date' => now(),
+        'estimated_delivery_time' => now()->subDays(2)->toDateString(),
+    ]);
+
+    $report = (new SpkDashboardAnalytics)->summarize();
+    $overdueNos = collect($report['statusLists']['overdue'])->pluck('spkNo');
+
+    expect($report['summary']['overdueSpk'])
+        ->toBeLessThanOrEqual($report['summary']['confirmedSpk'] + $report['summary']['inProgressSpk'])
+        ->and($overdueNos)->toContain($approvedOverdue->spk_no)
+        ->and($overdueNos)->toContain($inProgressOverdue->spk_no)
+        ->and($overdueNos)->not->toContain($pendingOverdue->spk_no);
+
+    DB::connection('third')->table('sysapproval')->where('row_id', $approvalId)->delete();
+    $approvedOverdue->delete();
+    $pendingOverdue->delete();
+    $inProgressOverdue->delete();
+});
+
+test('completed production includes rpfdone for reference types only', function (string $spkType) {
+    $production = Production::factory()->create([
+        'spk_type' => $spkType,
+        'status' => 'SPK010',
+        'last_process' => 'Poles Barang Jadi',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-RPF-UNIT-'.$production->row_id,
+        'process_name' => 'Poles Barang Jadi',
+        'spk_id' => $production->row_id,
+        'status' => 'RPFDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    expect(SpkDashboardAnalytics::hasCompletedProduction((int) $production->row_id))->toBeTrue()
+        ->and(SpkDashboardAnalytics::completedReferencePolesBarangJadiSpkIds([(int) $production->row_id]))
+        ->toContain((int) $production->row_id)
+        ->and(SpkDashboardAnalytics::backlogStatusKey($production))->toBe('done');
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+    $production->delete();
+})->with([
+    'exchange' => ['Exchange'],
+    'refund' => ['Refund'],
+    'reparasi' => ['Reparasi'],
+]);
+
+test('completed production includes rfhdone for reference types only', function (string $spkType) {
+    $production = Production::factory()->create([
+        'spk_type' => $spkType,
+        'status' => 'SPK010',
+        'last_process' => 'Finishing',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('finishinghandmade')->insertGetId([
+        'doc_no' => 'TEST-RFH-UNIT-'.$production->row_id,
+        'process_name' => 'Finishing',
+        'spk_id' => $production->row_id,
+        'status' => 'RFHDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    expect(SpkDashboardAnalytics::hasCompletedProduction((int) $production->row_id))->toBeTrue()
+        ->and(SpkDashboardAnalytics::completedReferenceFinishingSpkIds([(int) $production->row_id]))
+        ->toContain((int) $production->row_id)
+        ->and(SpkDashboardAnalytics::backlogStatusKey($production))->toBe('done');
+
+    DB::connection('third')->table('finishinghandmade')->where('row_id', $processId)->delete();
+    $production->delete();
+})->with([
+    'exchange' => ['Exchange'],
+    'refund' => ['Refund'],
+    'reparasi' => ['Reparasi'],
+]);
+
+test('completed production ignores rpfdone for non-reference types', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'last_process' => 'Poles Barang Jadi',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-RPF-STOCK-UNIT-'.$production->row_id,
+        'process_name' => 'Poles Barang Jadi',
+        'spk_id' => $production->row_id,
+        'status' => 'RPFDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    expect(SpkDashboardAnalytics::hasCompletedProduction((int) $production->row_id))->toBeFalse()
+        ->and(SpkDashboardAnalytics::completedReferencePolesBarangJadiSpkIds([(int) $production->row_id]))
+        ->toBe([])
+        ->and(SpkDashboardAnalytics::backlogStatusKey($production))->toBe('inProgress');
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+    $production->delete();
+});
+
+test('completed production ignores rfhdone for non-reference types', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'last_process' => 'Finishing',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('finishinghandmade')->insertGetId([
+        'doc_no' => 'TEST-RFH-STOCK-UNIT-'.$production->row_id,
+        'process_name' => 'Finishing',
+        'spk_id' => $production->row_id,
+        'status' => 'RFHDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    expect(SpkDashboardAnalytics::hasCompletedProduction((int) $production->row_id))->toBeFalse()
+        ->and(SpkDashboardAnalytics::completedReferenceFinishingSpkIds([(int) $production->row_id]))
+        ->toBe([])
+        ->and(SpkDashboardAnalytics::backlogStatusKey($production))->toBe('inProgress');
+
+    DB::connection('third')->table('finishinghandmade')->where('row_id', $processId)->delete();
+    $production->delete();
 });

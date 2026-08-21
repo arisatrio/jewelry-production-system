@@ -108,25 +108,35 @@ test('spk status mapper classifies in progress when process started', function (
         ->and($mapper->stageIndexFor(SpkStatusMapper::KEY_IN_PROGRESS))->toBe(2);
 });
 
-test('spk status mapper marks overdue when estimated delivery is past and not done', function () {
-    $production = new Production([
+test('spk status mapper marks overdue only for approved or in progress past delivery', function () {
+    $pending = new Production([
         'status' => SpkApprovalService::STATUS_PENDING,
         'estimated_delivery_time' => now()->subDay()->startOfDay(),
     ]);
-    $production->row_id = 1;
+    $pending->row_id = 1;
 
     $confirmed = new Production([
         'status' => SpkApprovalService::STATUS_DONE,
         'status_order' => 'RO',
+        'last_process' => null,
+        'is_inprocess' => 0,
         'estimated_delivery_time' => now()->subDays(3)->startOfDay(),
     ]);
     $confirmed->row_id = 2;
 
+    $inProgress = new Production([
+        'status' => SpkApprovalService::STATUS_DONE,
+        'last_process' => 'Finishing',
+        'is_inprocess' => 1,
+        'estimated_delivery_time' => now()->subDay()->startOfDay(),
+    ]);
+    $inProgress->row_id = 3;
+
     $mapper = new SpkStatusMapper;
 
-    expect($mapper->isOverdue($production, false))->toBeTrue()
-        ->and($mapper->map($production, false)['isOverdue'])->toBeTrue()
+    expect($mapper->isOverdue($pending, false))->toBeFalse()
         ->and($mapper->isOverdue($confirmed, false))->toBeTrue()
+        ->and($mapper->isOverdue($inProgress, false))->toBeTrue()
         ->and($mapper->isOverdue($confirmed, true))->toBeFalse();
 });
 
