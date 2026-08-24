@@ -1935,9 +1935,7 @@ class ProductionController extends Controller
             return $text;
         }
 
-        $formatted = rtrim(rtrim(number_format((float) $normalized, 3, '.', ''), '0'), '.');
-
-        return $formatted !== '' ? $formatted : '0';
+        return number_format((float) $normalized, 2, '.', '');
     }
 
     private function actorName(Request $request): string

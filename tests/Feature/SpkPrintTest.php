@@ -208,6 +208,84 @@ test('spk print qr falls back to dynamic detail url when override is empty', fun
     $production->delete();
 });
 
+test('spk print formats stone diameter size with two decimal places', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $shape = MsShape::query()->notDeleted()->orderBy('name')->first();
+
+    expect($shape)->not->toBeNull();
+
+    SpkStone::query()->create([
+        'row_id' => $production->row_id,
+        'shape_id' => $shape->row_id,
+        'pcs' => 36,
+        'carat' => 0.16,
+        'size' => '1.00',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+        'modified_date' => now(),
+        'modified_by' => 'system',
+    ]);
+
+    SpkStone::query()->create([
+        'row_id' => $production->row_id,
+        'shape_id' => $shape->row_id,
+        'pcs' => 1,
+        'carat' => 0.3,
+        'size' => '5.2 x 3.7',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+        'modified_date' => now(),
+        'modified_by' => 'system',
+    ]);
+
+    $this->get(route('spk.print.show', $production->row_id))
+        ->assertOk()
+        ->assertViewHas('document', function (array $document): bool {
+            $sizes = collect($document['stones'] ?? [])
+                ->pluck('size')
+                ->all();
+
+            return in_array('1.00', $sizes, true)
+                && in_array('5.2 x 3.7', $sizes, true)
+                && ! in_array('1', $sizes, true);
+        })
+        ->assertSee('1.00', false)
+        ->assertSee('5.2 x 3.7', false);
+
+    $this->postJson(route('spk.print'), [
+        'document' => [
+            'info' => [
+                'spkType' => 'Stock',
+                'priority' => 'NO',
+            ],
+            'item' => [
+                'typeVariant' => 'TEST',
+            ],
+            'stones' => [
+                [
+                    'positionName' => 'Side',
+                    'shapeName' => 'Round',
+                    'size' => '1',
+                    'caratPerPcs' => '0.004',
+                    'pcs' => '36',
+                    'totalCarat' => '0.160',
+                ],
+            ],
+            'notes' => '',
+        ],
+    ])
+        ->assertOk()
+        ->assertViewHas('document', function (array $document): bool {
+            return ($document['stones'][0]['size'] ?? null) === '1.00';
+        })
+        ->assertSee('1.00', false);
+
+    $production->stones()->delete();
+    $production->delete();
+});
+
 test('spk print page excludes soft deleted stones', function () {
     $production = app(SpkService::class)->createStock('system');
     $shape = MsShape::query()->notDeleted()->orderBy('name')->first();
