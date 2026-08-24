@@ -15,7 +15,12 @@ class SkuMasterSpkSynchronizer
     ) {}
 
     /**
-     * Push SPK form gold weight / stones into SKU master when they differ from master.
+     * Sync SPK form values into SKU master.
+     *
+     * 1. gold_weight null AND no active diamonds → fill gold_weight + insert diamond rows
+     * 2. gold_weight filled AND has diamonds → update only fields that differ from the form
+     *
+     * Mixed states fill the empty side and update the existing side only when changed.
      *
      * @param  array<string, mixed>  $data
      */
@@ -28,9 +33,43 @@ class SkuMasterSpkSynchronizer
         DB::connection('second')->transaction(function () use ($sku, $data, $actor): void {
             $sku->refresh();
 
-            $this->syncGoldWeight($sku, $data['gold_weight'] ?? null, $actor);
-            $this->syncDiamonds($sku, is_array($data['stones'] ?? null) ? $data['stones'] : [], $actor);
+            $stones = is_array($data['stones'] ?? null) ? $data['stones'] : [];
+            $goldWeight = $data['gold_weight'] ?? null;
+            $goldEmpty = $this->masterGoldWeightIsEmpty($sku);
+            $diamondsEmpty = $this->masterDiamondsAreEmpty($sku);
+
+            if ($goldEmpty && $diamondsEmpty) {
+                $this->syncGoldWeight($sku, $goldWeight, $actor);
+                $this->insertDiamonds($sku, $this->normalizeSubmittedStones($stones), $actor);
+
+                return;
+            }
+
+            if (! $goldEmpty && ! $diamondsEmpty) {
+                $this->syncGoldWeight($sku, $goldWeight, $actor);
+                $this->replaceDiamondsWhenChanged($sku, $stones, $actor);
+
+                return;
+            }
+
+            $this->syncGoldWeight($sku, $goldWeight, $actor);
+
+            if ($diamondsEmpty) {
+                $this->insertDiamonds($sku, $this->normalizeSubmittedStones($stones), $actor);
+            } else {
+                $this->replaceDiamondsWhenChanged($sku, $stones, $actor);
+            }
         });
+    }
+
+    private function masterGoldWeightIsEmpty(SkuMaster $sku): bool
+    {
+        return $this->normalizeGoldWeight($sku->gold_weight) === null;
+    }
+
+    private function masterDiamondsAreEmpty(SkuMaster $sku): bool
+    {
+        return ! $sku->diamonds()->notDeleted()->exists();
     }
 
     private function syncGoldWeight(SkuMaster $sku, mixed $goldWeight, string $actor): void
@@ -51,7 +90,7 @@ class SkuMasterSpkSynchronizer
     /**
      * @param  list<array<string, mixed>>  $stones
      */
-    private function syncDiamonds(SkuMaster $sku, array $stones, string $actor): void
+    private function replaceDiamondsWhenChanged(SkuMaster $sku, array $stones, string $actor): void
     {
         $submitted = $this->normalizeSubmittedStones($stones);
         $master = $this->normalizeMasterDiamonds($sku);
@@ -70,7 +109,28 @@ class SkuMasterSpkSynchronizer
                 'modified_by' => $actor,
             ]);
 
-        foreach ($submitted as $stone) {
+        $this->insertDiamonds($sku, $submitted, $actor);
+    }
+
+    /**
+     * @param  list<array{
+     *     shape_id: string,
+     *     diamond_type: string,
+     *     position: string,
+     *     pcs: string,
+     *     carat_per_pcs: string,
+     *     size: string
+     * }>  $stones
+     */
+    private function insertDiamonds(SkuMaster $sku, array $stones, string $actor): void
+    {
+        if ($stones === []) {
+            return;
+        }
+
+        $now = now();
+
+        foreach ($stones as $stone) {
             SkuMasterDiamond::query()->create([
                 'row_id' => $sku->id,
                 'grain' => $stone['pcs'] !== '' ? (int) $stone['pcs'] : null,

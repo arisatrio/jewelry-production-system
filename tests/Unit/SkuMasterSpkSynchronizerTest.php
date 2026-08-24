@@ -53,43 +53,54 @@ function skuMasterSyncSpkPayload(array $overrides = []): array
     return [$payload, $sku];
 }
 
-test('synchronizer updates gold weight only when value differs', function () {
+test('when gold weight null and diamonds empty it fills both from form', function () {
+    $shape = MsShape::query()->notDeleted()->whereNotNull('code')->orderBy('name')->first();
+    expect($shape)->not->toBeNull();
+
     $sku = SkuMaster::factory()->create([
-        'gold_weight' => 2.500,
+        'gold_weight' => null,
         'modified_by' => 'before',
     ]);
 
-    $sync = app(SkuMasterSpkSynchronizer::class);
+    expect($sku->diamonds()->notDeleted()->exists())->toBeFalse();
 
-    $sync->sync($sku, [
-        'gold_weight' => 2.500,
-        'stones' => [],
-    ], 'actor-a');
-
-    $sku->refresh();
-
-    expect((float) $sku->gold_weight)->toBe(2.5)
-        ->and($sku->modified_by)->toBe('before');
-
-    $sync->sync($sku, [
-        'gold_weight' => 3.125,
-        'stones' => [],
-    ], 'actor-b');
+    app(SkuMasterSpkSynchronizer::class)->sync($sku, [
+        'gold_weight' => 6.900,
+        'stones' => [
+            [
+                'shape_id' => $shape->row_id,
+                'position_nama' => 'Center',
+                'pcs' => 4,
+                'carat_per_pcs' => '0.250',
+                'size' => '1.50',
+            ],
+        ],
+    ], 'seed-actor');
 
     $sku->refresh();
+    $diamonds = SkuMasterDiamond::query()
+        ->notDeleted()
+        ->where('row_id', $sku->id)
+        ->get();
 
-    expect((float) $sku->gold_weight)->toBe(3.125)
-        ->and($sku->modified_by)->toBe('actor-b');
+    expect((float) $sku->gold_weight)->toBe(6.9)
+        ->and($sku->modified_by)->toBe('seed-actor')
+        ->and($diamonds)->toHaveCount(1)
+        ->and($diamonds[0]->grain)->toBe(4)
+        ->and((string) $diamonds[0]->position)->toBe('Center')
+        ->and(strtoupper((string) $diamonds[0]->diamond_type))->toBe(strtoupper((string) $shape->code));
 
+    SkuMasterDiamond::query()->where('row_id', $sku->id)->delete();
     $sku->delete();
 });
 
-test('synchronizer replaces diamonds only when stone list differs', function () {
+test('when gold weight and diamonds already exist it updates only changed values', function () {
     $shape = MsShape::query()->notDeleted()->whereNotNull('code')->orderBy('name')->first();
     expect($shape)->not->toBeNull();
 
     $sku = SkuMaster::factory()->create([
         'gold_weight' => 1.000,
+        'modified_by' => 'seed',
     ]);
 
     $diamond = SkuMasterDiamond::factory()->create([
@@ -117,13 +128,15 @@ test('synchronizer replaces diamonds only when stone list differs', function () 
         ],
     ], 'actor-same');
 
+    $sku->refresh();
     $diamond->refresh();
 
-    expect($diamond->is_deleted)->toBe(0)
+    expect($sku->modified_by)->toBe('seed')
+        ->and($diamond->is_deleted)->toBe(0)
         ->and($diamond->modified_by)->toBe('seed');
 
     $sync->sync($sku, [
-        'gold_weight' => 1.000,
+        'gold_weight' => 2.500,
         'stones' => [
             [
                 'shape_id' => $shape->row_id,
@@ -135,17 +148,66 @@ test('synchronizer replaces diamonds only when stone list differs', function () 
         ],
     ], 'actor-changed');
 
+    $sku->refresh();
     $diamond->refresh();
     $active = SkuMasterDiamond::query()
         ->notDeleted()
         ->where('row_id', $sku->id)
         ->get();
 
-    expect($diamond->is_deleted)->toBe(1)
+    expect((float) $sku->gold_weight)->toBe(2.5)
+        ->and($sku->modified_by)->toBe('actor-changed')
+        ->and($diamond->is_deleted)->toBe(1)
         ->and($active)->toHaveCount(1)
         ->and($active[0]->grain)->toBe(5)
-        ->and((string) $active[0]->position)->toBe('Bottom')
-        ->and($active[0]->modified_by)->toBe('actor-changed');
+        ->and((string) $active[0]->position)->toBe('Bottom');
+
+    SkuMasterDiamond::query()->where('row_id', $sku->id)->delete();
+    $sku->delete();
+});
+
+test('when master already filled it updates gold weight without rewriting unchanged diamonds', function () {
+    $shape = MsShape::query()->notDeleted()->whereNotNull('code')->orderBy('name')->first();
+    expect($shape)->not->toBeNull();
+
+    $sku = SkuMaster::factory()->create([
+        'gold_weight' => 3.000,
+        'modified_by' => 'seed',
+    ]);
+
+    $diamond = SkuMasterDiamond::factory()->create([
+        'row_id' => $sku->id,
+        'grain' => 2,
+        'grade' => '0.100',
+        'diamond_type' => $shape->code,
+        'diameter' => '0.80',
+        'position' => 'Side',
+        'modified_by' => 'seed',
+    ]);
+
+    $originalDiamondId = $diamond->line_id;
+
+    app(SkuMasterSpkSynchronizer::class)->sync($sku, [
+        'gold_weight' => 4.500,
+        'stones' => [
+            [
+                'shape_id' => $shape->row_id,
+                'position_nama' => 'Side',
+                'pcs' => 2,
+                'carat_per_pcs' => '0.100',
+                'size' => '0.80',
+            ],
+        ],
+    ], 'actor-gold');
+
+    $sku->refresh();
+    $diamond->refresh();
+
+    expect((float) $sku->gold_weight)->toBe(4.5)
+        ->and($sku->modified_by)->toBe('actor-gold')
+        ->and($diamond->is_deleted)->toBe(0)
+        ->and($diamond->line_id)->toBe($originalDiamondId)
+        ->and($diamond->modified_by)->toBe('seed');
 
     SkuMasterDiamond::query()->where('row_id', $sku->id)->delete();
     $sku->delete();
@@ -160,11 +222,25 @@ test('synchronizer skips when sku is null', function () {
     expect(true)->toBeTrue();
 });
 
-test('spk createWithDetails syncs changed gold weight and diamonds to sku master', function () {
+test('spk createWithDetails seeds null gold weight and empty diamonds from form', function () {
     $shape = MsShape::query()->notDeleted()->whereNotNull('code')->orderBy('name')->first();
     expect($shape)->not->toBeNull();
 
-    [$payload, $sku] = skuMasterSyncSpkPayload([
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'gold_weight' => null,
+    ]);
+
+    [$payload] = skuMasterSyncSpkPayload([
+        'sku' => $sku,
         'gold_weight' => 6.900,
         'stones' => [
             [
@@ -188,13 +264,9 @@ test('spk createWithDetails syncs changed gold weight and diamonds to sku master
 
     expect((float) $production->gold_weight)->toBe(6.9)
         ->and((float) $sku->gold_weight)->toBe(6.9)
-        ->and($sku->modified_by)->toBe('sync-actor')
         ->and($diamonds)->toHaveCount(1)
         ->and($diamonds[0]->grain)->toBe(4)
-        ->and((string) $diamonds[0]->grade)->toBe('0.250')
-        ->and((string) $diamonds[0]->diameter)->toBe('1.50')
-        ->and((string) $diamonds[0]->position)->toBe('Center Sync')
-        ->and(strtoupper((string) $diamonds[0]->diamond_type))->toBe(strtoupper((string) $shape->code));
+        ->and((string) $diamonds[0]->position)->toBe('Center Sync');
 
     SpkStone::query()->where('row_id', $production->row_id)->delete();
     $diamonds->each->delete();
@@ -202,68 +274,7 @@ test('spk createWithDetails syncs changed gold weight and diamonds to sku master
     $sku->delete();
 });
 
-test('spk createWithDetails does not rewrite sku master when values match', function () {
-    $shape = MsShape::query()->notDeleted()->whereNotNull('code')->orderBy('name')->first();
-    expect($shape)->not->toBeNull();
-
-    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
-        ?? SkuPrefixCategory::query()->create([
-            'category' => 'TEST '.fake()->unique()->lexify('????'),
-            'prefix' => strtoupper(fake()->unique()->lexify('???')),
-            'usage_count' => 0,
-            'is_active' => 1,
-        ]);
-
-    $sku = SkuMaster::factory()->create([
-        'category_prefix_id' => $category->id,
-        'gold_weight' => 4.500,
-        'modified_by' => 'seed-actor',
-    ]);
-
-    $diamond = SkuMasterDiamond::factory()->create([
-        'row_id' => $sku->id,
-        'grain' => 2,
-        'grade' => '0.100',
-        'diamond_type' => $shape->code,
-        'diameter' => '0.80',
-        'position' => 'Side',
-        'modified_by' => 'seed-actor',
-    ]);
-
-    $originalDiamondId = $diamond->line_id;
-
-    [$payload] = skuMasterSyncSpkPayload([
-        'sku' => $sku,
-        'gold_weight' => 4.500,
-        'stones' => [
-            [
-                'shape_id' => $shape->row_id,
-                'position_nama' => 'Side',
-                'pcs' => 2,
-                'carat_per_pcs' => '0.100',
-                'size' => '0.80',
-            ],
-        ],
-    ]);
-
-    $production = app(SpkService::class)->createWithDetails($payload, 'sync-actor');
-
-    $sku->refresh();
-    $diamond->refresh();
-
-    expect((float) $sku->gold_weight)->toBe(4.5)
-        ->and($sku->modified_by)->toBe('seed-actor')
-        ->and($diamond->is_deleted)->toBe(0)
-        ->and($diamond->line_id)->toBe($originalDiamondId)
-        ->and($diamond->modified_by)->toBe('seed-actor');
-
-    SpkStone::query()->where('row_id', $production->row_id)->delete();
-    $diamond->delete();
-    $production->delete();
-    $sku->delete();
-});
-
-test('spk saveHeader syncs diamond changes without rewriting unchanged gold weight', function () {
+test('spk saveHeader updates only changed master fields when already filled', function () {
     $shape = MsShape::query()->notDeleted()->whereNotNull('code')->orderBy('name')->first();
     expect($shape)->not->toBeNull();
 
@@ -302,7 +313,7 @@ test('spk saveHeader syncs diamond changes without rewriting unchanged gold weig
         'qty' => 1,
         'satuan' => 'Pcs',
         'diameter_length_ringsize' => '16',
-        'gold_weight' => 3.000,
+        'gold_weight' => 4.500,
         'gold_color' => 'Yellow Gold',
         'status_order' => 'NO',
         'stones' => [
@@ -321,11 +332,10 @@ test('spk saveHeader syncs diamond changes without rewriting unchanged gold weig
     $active = SkuMasterDiamond::query()
         ->notDeleted()
         ->where('row_id', $sku->id)
-        ->orderBy('line_id')
         ->get();
 
-    expect((float) $sku->gold_weight)->toBe(3.0)
-        ->and($sku->modified_by)->toBe('seed-actor')
+    expect((float) $sku->gold_weight)->toBe(4.5)
+        ->and($sku->modified_by)->toBe('sync-actor')
         ->and($oldDiamond->is_deleted)->toBe(1)
         ->and($active)->toHaveCount(1)
         ->and($active[0]->grain)->toBe(6)
