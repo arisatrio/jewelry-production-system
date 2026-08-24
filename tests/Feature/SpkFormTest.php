@@ -91,7 +91,7 @@ test('spk form can be saved', function () {
     $sku->delete();
 });
 
-test('spk form saves gold weight independently from sku master', function () {
+test('spk form save syncs gold weight to sku master when changed', function () {
     $production = app(SpkService::class)->createStock('system');
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
         ?? SkuPrefixCategory::query()->create([
@@ -123,16 +123,17 @@ test('spk form saves gold weight independently from sku master', function () {
     ])->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->refresh();
+    $sku->refresh();
 
     expect((float) $production->gold_weight)->toBe(6.9)
-        ->and((float) $sku->gold_weight)->toBe(5.75);
+        ->and((float) $sku->gold_weight)->toBe(6.9);
 
     $this->get(route('spk.show', $production->spk_no))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
-            ->where('item.goldWeight', '6.90')
-            ->where('item.masterGoldWeight', '5.75')
+            ->where('item.goldWeight', '6.900')
+            ->where('item.masterGoldWeight', '6.900')
         );
 
     $this->get(route('spk.form', $production->row_id))
@@ -145,7 +146,8 @@ test('spk form saves gold weight independently from sku master', function () {
             ->where('options.skus', function ($skus) use ($sku) {
                 $match = collect($skus)->firstWhere('value', (string) $sku->id);
 
-                return is_array($match) && $match['goldWeight'] === '5.75';
+                return is_array($match)
+                    && abs((float) $match['goldWeight'] - 6.9) < 0.0005;
             })
         );
 

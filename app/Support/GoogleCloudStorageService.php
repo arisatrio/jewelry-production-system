@@ -7,6 +7,7 @@ use Google\Cloud\Storage\StorageClient;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 class GoogleCloudStorageService
 {
@@ -21,23 +22,39 @@ class GoogleCloudStorageService
         $objectPath = trim($folder, '/').'/'.$this->normalizedFilename($file, $filename);
 
         try {
-            $this->bucket()->upload(
-                fopen($file->getPathname(), 'r'),
-                [
+            $pathname = $file->getPathname();
+
+            if ($pathname === '' || ! is_readable($pathname)) {
+                throw new RuntimeException('File upload tidak dapat dibaca dari temporary path.');
+            }
+
+            $stream = fopen($pathname, 'r');
+
+            if ($stream === false) {
+                throw new RuntimeException('Gagal membuka file upload untuk dikirim ke GCS.');
+            }
+
+            try {
+                $this->bucket()->upload($stream, [
                     'name' => $objectPath,
                     'metadata' => [
-                        'contentType' => $file->getMimeType(),
+                        'contentType' => $file->getMimeType() ?: 'application/octet-stream',
                     ],
-                ],
-            );
-        } catch (\Throwable $exception) {
+                ]);
+            } finally {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+        } catch (Throwable $exception) {
             Log::error('GCS upload failed.', [
                 'path' => $objectPath,
                 'message' => $exception->getMessage(),
+                'credentials' => $this->credentialsPath(),
             ]);
 
             throw new RuntimeException(
-                'Gagal mengunggah gambar ke Google Cloud Storage.',
+                'Gagal mengunggah gambar ke Google Cloud Storage: '.$exception->getMessage(),
                 previous: $exception,
             );
         }
@@ -75,25 +92,28 @@ class GoogleCloudStorageService
             'projectId' => $projectId,
         ]);
 
-        return $storage->bucket($bucketName);
+        $bucket = $storage->bucket($bucketName);
+
+        if (! $bucket->exists()) {
+            throw new RuntimeException(
+                "Bucket GCS '{$bucketName}' tidak ditemukan atau tidak dapat diakses oleh service account.",
+            );
+        }
+
+        return $bucket;
     }
 
     private function credentialsPath(): string
     {
         $configured = (string) config('gcs.credentials');
 
+        // Samakan dengan ERP_WHOJ: path relatif selalu di bawah storage/.
         if ($configured === '') {
             return storage_path('app/private/gcs-credentials.json');
         }
 
         if (str_starts_with($configured, '/')) {
             return $configured;
-        }
-
-        $fromBase = base_path($configured);
-
-        if (is_file($fromBase)) {
-            return $fromBase;
         }
 
         return storage_path($configured);
