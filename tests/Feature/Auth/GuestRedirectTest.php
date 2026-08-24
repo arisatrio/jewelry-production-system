@@ -11,6 +11,8 @@ test('guests are redirected to the login page', function (string $uri) {
     'spk create' => '/spk/create',
     'spk create guide' => '/spk/create-guide',
     'spk print' => '/spk/print',
+    'jewelcad index' => '/jewelcad',
+    'resin index' => '/resin',
     'master data tipe item' => '/master-data/tipe-item',
     'master data varian item' => '/master-data/varian-item',
     'settings profile' => '/settings/profile',

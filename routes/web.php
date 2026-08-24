@@ -7,6 +7,7 @@ use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\QuickLoginController;
+use App\Http\Controllers\ResinController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
@@ -72,6 +73,12 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('jewelcad', JewelCadRequestController::class)
         ->except(['show'])
         ->parameters(['jewelcad' => 'jewelcad']);
+
+    Route::get('resin/select/spks', [ResinController::class, 'searchSpks'])
+        ->name('resin.select.spks');
+    Route::resource('resin', ResinController::class)
+        ->except(['show'])
+        ->parameters(['resin' => 'resin']);
 
     Route::prefix('master-data')->name('master-data.')->group(function () {
         Route::resource('tipe-item', MsItemController::class)
