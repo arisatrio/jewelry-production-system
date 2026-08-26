@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Inertia\Inertia;
@@ -1103,6 +1104,7 @@ class ProductionController extends Controller
             'customer' => $this->customerName($production),
             'status' => $production->status ?: '-',
             'requestOrderNo' => $production->request_order_no ?? '-',
+            'requestOrderCreatedDate' => $this->requestOrderCreatedDate($production),
             'refSpkNo' => $refSpkNo,
             'description' => $production->description ?? '-',
             'qty' => $production->qty ?? '-',
@@ -1117,12 +1119,34 @@ class ProductionController extends Controller
             'frameId' => $production->frame_id ?? '-',
             'fileName' => $production->file_name ?? '-',
             'lastWeight' => $production->last_weight ?? '-',
+            'receivedByProductionDate' => app(SpkApprovalService::class)
+                ->managerApprovedAt($production),
             'createdDate' => $production->created_date?->format('d-M-Y H:i') ?? '-',
             'createdBy' => $production->created_by ?? '-',
             'modifiedDate' => $production->modified_date?->format('d-M-Y H:i') ?? '-',
             'modifiedBy' => $production->modified_by ?? '-',
             'workflowStatus' => $statusMapper->map($production, $hasCompletedProduction),
         ];
+    }
+
+    private function requestOrderCreatedDate(Production $production, string $format = 'd-M-Y'): string
+    {
+        if ($production->spk_type !== 'Pesanan' || blank($production->request_order_no)) {
+            return '-';
+        }
+
+        $transDate = app(RequestOrderRepository::class)
+            ->transDateByDocNo((string) $production->request_order_no);
+
+        if ($transDate === null) {
+            return '-';
+        }
+
+        try {
+            return Carbon::parse($transDate)->format($format);
+        } catch (\Throwable) {
+            return '-';
+        }
     }
 
     private function formatStatusOrder(?string $statusOrder): string
@@ -1449,9 +1473,11 @@ class ProductionController extends Controller
                     'spkNo' => $blank,
                     'spkType' => $blank,
                     'requestOrderNo' => $blank,
+                    'requestOrderCreatedDate' => $blank,
                     'refSpkNo' => $blank,
                     'customerName' => $blank,
                     'orderDate' => $blank,
+                    'receivedByProductionDate' => $blank,
                     'workEstimated' => $blank,
                     'estimatedDelivery' => $blank,
                     'priority' => $blank,
@@ -1644,9 +1670,11 @@ class ProductionController extends Controller
                 ),
                 'spkType' => $this->printText($info['spkType'] ?? null),
                 'requestOrderNo' => $this->printText($info['requestOrderNo'] ?? null),
+                'requestOrderCreatedDate' => $this->printText($info['requestOrderCreatedDate'] ?? null),
                 'refSpkNo' => $this->printText($info['refSpkNo'] ?? null),
                 'customerName' => $this->printText($info['customerName'] ?? null),
                 'orderDate' => $this->printText($info['orderDate'] ?? null),
+                'receivedByProductionDate' => $this->printText($info['receivedByProductionDate'] ?? null),
                 'workEstimated' => $this->printText($info['workEstimated'] ?? null),
                 'estimatedDelivery' => $this->printText($info['estimatedDelivery'] ?? null),
                 'priority' => $this->printText($info['priority'] ?? null),
@@ -1734,9 +1762,12 @@ class ProductionController extends Controller
                 'spkNo' => $production->spk_no,
                 'spkType' => $production->spk_type,
                 'requestOrderNo' => $production->request_order_no,
+                'requestOrderCreatedDate' => $this->requestOrderCreatedDate($production, 'd/m/Y'),
                 'refSpkNo' => null,
                 'customerName' => $production->customer_name,
                 'orderDate' => $production->order_date?->format('d/m/Y'),
+                'receivedByProductionDate' => app(SpkApprovalService::class)
+                    ->managerApprovedAt($production, 'd/m/Y'),
                 'workEstimated' => $production->estimated_delivery_time?->format('d/m/Y'),
                 'estimatedDelivery' => $production->estimated_delivery_time?->format('d/m/Y'),
                 'priority' => $production->priority,

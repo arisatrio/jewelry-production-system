@@ -16,7 +16,7 @@ test('spk form page is accessible', function () {
             ->where('production.isNew', false)
             ->where('production.spkNo', $production->spk_no)
             ->where('production.spkType', 'Stock')
-            ->where('formDocumentNo', 'WHOJ-PRD-FR-001')
+            ->where('formDocumentNo', 'WHOJ-PRD-FRM-001')
             ->where(
                 'productionImageBaseUrl',
                 'https://storage.googleapis.com/system-mahakarya/produksi/',
@@ -141,7 +141,7 @@ test('spk form save syncs gold weight to sku master when changed', function () {
         ->assertInertia(fn ($page) => $page
             ->component('spk/form')
             ->where('production.goldWeight', function ($weight) {
-                return (float) $weight === 6.9;
+                return (string) $weight === '6.900';
             })
             ->where('options.skus', function ($skus) use ($sku) {
                 $match = collect($skus)->firstWhere('value', (string) $sku->id);

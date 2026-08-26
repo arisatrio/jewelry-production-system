@@ -55,7 +55,7 @@ test('spk create page shows form without generating number', function () {
             ->where('production.spkType', 'Stock')
             ->where('production.priority', 'NO')
             ->where('production.qty', '1')
-            ->where('formDocumentNo', 'WHOJ-PRD-FR-001')
+            ->where('formDocumentNo', 'WHOJ-PRD-FRM-001')
             ->has('options.spkTypes')
             ->has('options.categories')
             ->has('options.skus')
@@ -79,7 +79,7 @@ test('spk create guide page renders web form instructions', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/create-guide')
-            ->where('formDocumentNo', 'WHOJ-PRD-FR-001')
+            ->where('formDocumentNo', 'WHOJ-PRD-FRM-001')
         );
 });
 

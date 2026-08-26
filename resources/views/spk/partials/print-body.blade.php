@@ -22,6 +22,7 @@
         : $requestOrderNo.' ('.$customerName.')';
 
     $showRefSpk = $blankTemplate || (($info['refSpkNo'] ?? '-') !== '-');
+    $showRequestOrderCreatedDate = $blankTemplate || $spkType === 'Pesanan';
 @endphp
 
 <section class="spkPrintSection spkPrintSection--info">
@@ -37,7 +38,9 @@
         </div>
     </div>
     @php
-        $infoRowCount = 5 + ($showRefSpk ? 1 : 0);
+        $infoRowCount = 6
+            + ($showRefSpk ? 1 : 0)
+            + ($showRequestOrderCreatedDate ? 1 : 0);
     @endphp
     <table class="spkPrintMetaTable spkPrintMetaTable--info">
         <tbody>
@@ -80,6 +83,18 @@
                     @endif
                 </td>
             </tr>
+            @if ($showRequestOrderCreatedDate)
+                <tr>
+                    <th>Tanggal Pesanan Dibuat</th>
+                    <td>
+                        @if ($blankTemplate)
+                            <span class="spkPrintHint">Tanggal pesanan dibuat di request order (khusus tipe Pesanan)</span>
+                        @else
+                            {{ $info['requestOrderCreatedDate'] ?? $empty }}
+                        @endif
+                    </td>
+                </tr>
+            @endif
             @if ($showRefSpk)
                 <tr>
                     <th>SPK Referensi</th>
@@ -99,6 +114,16 @@
                         <span class="spkPrintHint">Tanggal permintaan produksi (dd/mm/yyyy)</span>
                     @else
                         {{ $info['orderDate'] ?? $empty }}
+                    @endif
+                </td>
+            </tr>
+            <tr>
+                <th>Tanggal Diterima Produksi</th>
+                <td>
+                    @if ($blankTemplate)
+                        <span class="spkPrintHint">Tanggal approve Manager Produksi (dd/mm/yyyy)</span>
+                    @else
+                        {{ $info['receivedByProductionDate'] ?? $empty }}
                     @endif
                 </td>
             </tr>

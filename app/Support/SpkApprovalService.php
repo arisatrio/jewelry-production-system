@@ -237,6 +237,28 @@ class SpkApprovalService
     }
 
     /**
+     * Tanggal approve Manager Produksi (tanggal diterima produksi).
+     */
+    public function managerApprovedAt(Production $production, string $format = 'd-M-Y'): string
+    {
+        $history = $this->history($production);
+        $managerApprove = collect($history)->last(
+            fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_OK
+                && strtoupper($row['status']) === self::STATUS_DONE,
+        );
+
+        if (! is_array($managerApprove) || blank($managerApprove['createdAt'] ?? null)) {
+            return '-';
+        }
+
+        try {
+            return Carbon::parse((string) $managerApprove['createdAt'])->format($format);
+        } catch (\Throwable) {
+            return '-';
+        }
+    }
+
+    /**
      * Gabungan log sysapproval dokumen SPK dan approval tiap proses produksi, urut waktu.
      *
      * @param  list<array{label?: string, sources?: list<array{records?: list<array<string, mixed>>}>}>  $processes

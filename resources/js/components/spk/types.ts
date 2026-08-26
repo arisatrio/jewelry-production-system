@@ -43,6 +43,7 @@ export type SpkWorkflowStatus = {
 
 export type SpkDetail = SpkRow & {
     requestOrderNo: string;
+    requestOrderCreatedDate?: string;
     refSpkNo: string;
     description: string;
     qty: number | string;
@@ -55,6 +56,7 @@ export type SpkDetail = SpkRow & {
     frameId: string;
     fileName: string;
     lastWeight: string | number;
+    receivedByProductionDate?: string;
     createdDate: string;
     createdBy: string;
     modifiedDate: string;

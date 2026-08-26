@@ -70,6 +70,24 @@ class RequestOrderRepository
     }
 
     /**
+     * Resolve request order transaction date (tanggal pesanan dibuat).
+     */
+    public function transDateByDocNo(string $docNo): ?string
+    {
+        if ($docNo === '') {
+            return null;
+        }
+
+        $value = DB::connection('second')
+            ->table('request_order')
+            ->where('doc_no', $docNo)
+            ->where('is_deleted', 0)
+            ->value('trans_date');
+
+        return filled($value) ? (string) $value : null;
+    }
+
+    /**
      * Mark request order as ON GOING after SPK final approval.
      */
     public function markOngoing(string $docNo): bool

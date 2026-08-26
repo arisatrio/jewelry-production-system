@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\QuickLoginController;
+use App\Http\Controllers\ResinController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
@@ -60,6 +62,23 @@ Route::middleware(['auth'])->group(function () {
     Route::get('spk/{production}', [ProductionController::class, 'show'])
         ->where('production', '.*')
         ->name('spk.show');
+    Route::get('jewelcad/select/spks', [JewelCadRequestController::class, 'searchSpks'])
+        ->name('jewelcad.select.spks');
+    Route::get('jewelcad/spk/{rowId}', [JewelCadRequestController::class, 'spkDetail'])
+        ->whereNumber('rowId')
+        ->name('jewelcad.spk.detail');
+    Route::put('jewelcad/spk/{rowId}', [JewelCadRequestController::class, 'syncSpk'])
+        ->whereNumber('rowId')
+        ->name('jewelcad.spk.sync');
+    Route::resource('jewelcad', JewelCadRequestController::class)
+        ->except(['show'])
+        ->parameters(['jewelcad' => 'jewelcad']);
+
+    Route::get('resin/select/spks', [ResinController::class, 'searchSpks'])
+        ->name('resin.select.spks');
+    Route::resource('resin', ResinController::class)
+        ->except(['show'])
+        ->parameters(['resin' => 'resin']);
 
     Route::prefix('master-data')->name('master-data.')->group(function () {
         Route::resource('tipe-item', MsItemController::class)

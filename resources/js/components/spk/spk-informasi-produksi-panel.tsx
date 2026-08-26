@@ -97,11 +97,19 @@ export function SpkInformasiProduksiPanel({
                     <tbody>
                         <MetaRow label="Tipe Produksi">{spkType}</MetaRow>
                         <MetaRow label="Pesanan">{pesananLabel}</MetaRow>
+                        {spkType === 'Pesanan' ? (
+                            <MetaRow label="Tanggal Pesanan Dibuat">
+                                {displayValue(production.requestOrderCreatedDate)}
+                            </MetaRow>
+                        ) : null}
                         {refSpkNo !== '-' ? (
                             <MetaRow label="SPK Referensi">{refSpkNo}</MetaRow>
                         ) : null}
                         <MetaRow label="Tanggal Permintaan">
                             {displayValue(production.orderDate)}
+                        </MetaRow>
+                        <MetaRow label="Tanggal Diterima Produksi">
+                            {displayValue(production.receivedByProductionDate)}
                         </MetaRow>
                         <MetaRow label="Tanggal Estimasi Selesai">
                             {displayValue(production.estimatedDelivery)}
