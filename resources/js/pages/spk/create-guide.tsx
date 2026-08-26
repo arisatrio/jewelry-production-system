@@ -352,7 +352,7 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                             </div>
                                         </GuideField>
                                         <div className="spkFioriDetailFile">
-                                            <GuideField hint="Opsional. Unggah file ke SPK tidak mengganti gambar tampilan. Gambar item tetap memakai design_image master SKU.">
+                                            <GuideField hint="Opsional. Unggah gambar ke SPK; file tersimpan di SPK dan juga mengisi design_image master SKU. Preview tampil di samping form.">
                                                 <FileUploader
                                                     accept=".jpg,.jpeg,.png,.pdf,.webp"
                                                     placeholder="Upload gambar"

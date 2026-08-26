@@ -307,6 +307,56 @@ function readXsrfToken(): string {
     return decodeURIComponent(row.slice('XSRF-TOKEN='.length));
 }
 
+function resolveProductionFileUrl(
+    fileName: string | null | undefined,
+    baseUrl: string,
+): string | null {
+    const path = (fileName ?? '').trim().replace(/\\/g, '/');
+
+    if (path === '' || path === '-') {
+        return null;
+    }
+
+    if (
+        path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('data:') ||
+        path.startsWith('blob:')
+    ) {
+        return path;
+    }
+
+    if (path.startsWith('//')) {
+        return `${window.location.protocol}${path}`;
+    }
+
+    if (path.startsWith('/')) {
+        return `${window.location.origin}${path}`;
+    }
+
+    const normalized = path.replace(/^\/?storage\//, '').replace(/^\/+/, '');
+
+    if (normalized.includes('/')) {
+        return `${window.location.origin}/storage/${normalized}`;
+    }
+
+    const base = baseUrl.trim().replace(/\/+$/, '');
+
+    return base !== '' ? `${base}/${normalized}` : normalized;
+}
+
+function isImageUpload(file: File | null | undefined): boolean {
+    if (!file) {
+        return false;
+    }
+
+    if (file.type.startsWith('image/')) {
+        return true;
+    }
+
+    return /\.(jpe?g|png|webp|gif)$/i.test(file.name);
+}
+
 function resolvePrintImageUrl(url: string | null | undefined): string {
     if (!url || url.trim() === '') {
         return '';
@@ -416,6 +466,7 @@ export default function SpkFormPage({
     stones: productionStones,
     options,
     formDocumentNo,
+    productionImageBaseUrl,
     approvalFooter,
     approval,
 }: SpkFormProps) {
@@ -552,7 +603,47 @@ export default function SpkFormPage({
         return skuOptions.find((sku) => sku.value === selectedSkuId) ?? null;
     }, [skuOptions, selectedSkuId]);
 
-    const itemImageUrl = selectedSku?.imageUrl ?? null;
+    const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(
+        null,
+    );
+
+    useEffect(() => {
+        const file = data.file;
+
+        if (!(file instanceof File) || !isImageUpload(file)) {
+            setUploadPreviewUrl(null);
+
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        setUploadPreviewUrl(objectUrl);
+
+        return () => {
+            URL.revokeObjectURL(objectUrl);
+        };
+    }, [data.file]);
+
+    const productionFileUrl = useMemo(
+        () =>
+            resolveProductionFileUrl(
+                production.fileName,
+                productionImageBaseUrl,
+            ),
+        [production.fileName, productionImageBaseUrl],
+    );
+
+    const itemImageUrl =
+        uploadPreviewUrl ?? productionFileUrl ?? selectedSku?.imageUrl ?? null;
+
+    const imagePreviewHint = uploadPreviewUrl
+        ? 'Menampilkan preview gambar yang baru diunggah.'
+        : productionFileUrl
+          ? 'Menampilkan gambar dari file SPK.'
+          : selectedSku?.imageUrl
+            ? 'Menampilkan gambar dari design_image SKU.'
+            : null;
+
     const showMasterSkuSyncAlert =
         isGoldWeightChangedFromMaster(
             data.gold_weight,
@@ -930,7 +1021,7 @@ export default function SpkFormPage({
                 goldColor: data.gold_color,
                 jwcad3d: data.jwcad_3d,
                 description: data.description,
-                imageUrl: resolvePrintImageUrl(selectedSku?.imageUrl ?? ''),
+                imageUrl: resolvePrintImageUrl(itemImageUrl ?? ''),
             },
             stones: formStones.map((stone) => {
                 const shapeOption = shapeOptions.find(
@@ -1810,10 +1901,9 @@ export default function SpkFormPage({
                                                     {production.fileName}
                                                 </Text>
                                             ) : null}
-                                            {selectedSku?.imageUrl ? (
+                                            {imagePreviewHint ? (
                                                 <Text className="spkFioriHint">
-                                                    Menampilkan gambar dari
-                                                    design_image SKU.
+                                                    {imagePreviewHint}
                                                 </Text>
                                             ) : null}
                                             {errors.file ? (

@@ -149,6 +149,7 @@ test('spk service uploads production image to gcs produksi folder', function () 
         ]);
     $sku = SkuMaster::factory()->create([
         'category_prefix_id' => $category->id,
+        'image_filename' => 'keep-original.jpg',
     ]);
 
     $file = UploadedFile::fake()->image('spk-gambar.png', 80, 80);
@@ -170,6 +171,11 @@ test('spk service uploads production image to gcs produksi folder', function () 
     ], 'tester', $file);
 
     expect($production->file_name)->toMatch('/^\d+\.png$/');
+
+    $sku->refresh();
+
+    expect($sku->design_image)->toBe($production->file_name)
+        ->and($sku->image_filename)->toBe('keep-original.jpg');
 
     $production->delete();
     $sku->delete();

@@ -129,8 +129,11 @@ class SpkService
                 }
             }
 
+            $uploadedImageFileName = null;
+
             if ($file !== null) {
-                $attributes['file_name'] = $this->storeProductionImage($file);
+                $uploadedImageFileName = $this->storeProductionImage($file);
+                $attributes['file_name'] = $uploadedImageFileName;
             } elseif ($sku !== null) {
                 $skuImageFileName = $this->resolveSkuImageFileName($sku);
 
@@ -142,7 +145,7 @@ class SpkService
             $production = Production::query()->create($attributes);
 
             $this->syncStones($production, $data['stones'] ?? [], $actor);
-            $this->skuMasterSynchronizer->sync($sku, $data, $actor);
+            $this->skuMasterSynchronizer->sync($sku, $data, $actor, $uploadedImageFileName);
 
             return $production->refresh();
         });
@@ -347,13 +350,16 @@ class SpkService
                 }
             }
 
+            $uploadedImageFileName = null;
+
             if ($file !== null) {
-                $attributes['file_name'] = $this->storeProductionImage($file);
+                $uploadedImageFileName = $this->storeProductionImage($file);
+                $attributes['file_name'] = $uploadedImageFileName;
             }
 
             $production->update($attributes);
             $this->syncStones($production, $data['stones'] ?? [], $actor);
-            $this->skuMasterSynchronizer->sync($sku, $data, $actor);
+            $this->skuMasterSynchronizer->sync($sku, $data, $actor, $uploadedImageFileName);
 
             return $production->refresh();
         });

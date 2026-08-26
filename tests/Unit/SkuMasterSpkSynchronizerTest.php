@@ -213,13 +213,48 @@ test('when master already filled it updates gold weight without rewriting unchan
     $sku->delete();
 });
 
-test('synchronizer skips when sku is null', function () {
-    app(SkuMasterSpkSynchronizer::class)->sync(null, [
-        'gold_weight' => 9.9,
-        'stones' => [],
-    ], 'actor');
+test('synchronizer writes uploaded image to design_image', function () {
+    $sku = SkuMaster::factory()->create([
+        'gold_weight' => 2.000,
+        'design_image' => null,
+        'image_filename' => 'keep-me.jpg',
+        'modified_by' => 'before',
+    ]);
 
-    expect(true)->toBeTrue();
+    app(SkuMasterSpkSynchronizer::class)->sync($sku, [
+        'gold_weight' => 2.000,
+        'stones' => [],
+    ], 'uploader', '1730000000.png');
+
+    $sku->refresh();
+
+    expect($sku->design_image)->toBe('1730000000.png')
+        ->and($sku->image_filename)->toBe('keep-me.jpg')
+        ->and($sku->modified_by)->toBe('uploader')
+        ->and($sku->image_uploaded_at)->not->toBeNull();
+
+    $sku->delete();
+});
+
+test('synchronizer skips design_image sync when upload filename is empty', function () {
+    $sku = SkuMaster::factory()->create([
+        'gold_weight' => 2.000,
+        'design_image' => 'existing.jpg',
+        'image_filename' => 'existing.jpg',
+        'modified_by' => 'before',
+    ]);
+
+    app(SkuMasterSpkSynchronizer::class)->sync($sku, [
+        'gold_weight' => 2.000,
+        'stones' => [],
+    ], 'uploader', null);
+
+    $sku->refresh();
+
+    expect($sku->design_image)->toBe('existing.jpg')
+        ->and($sku->modified_by)->toBe('before');
+
+    $sku->delete();
 });
 
 test('spk createWithDetails seeds null gold weight and empty diamonds from form', function () {

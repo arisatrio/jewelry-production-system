@@ -21,16 +21,21 @@ class SkuMasterSpkSynchronizer
      * 2. gold_weight filled AND has diamonds → update only fields that differ from the form
      *
      * Mixed states fill the empty side and update the existing side only when changed.
+     * When an image is uploaded on SPK create/edit, design_image is updated.
      *
      * @param  array<string, mixed>  $data
      */
-    public function sync(?SkuMaster $sku, array $data, string $actor): void
-    {
+    public function sync(
+        ?SkuMaster $sku,
+        array $data,
+        string $actor,
+        ?string $uploadedImageFileName = null,
+    ): void {
         if ($sku === null) {
             return;
         }
 
-        DB::connection('second')->transaction(function () use ($sku, $data, $actor): void {
+        DB::connection('second')->transaction(function () use ($sku, $data, $actor, $uploadedImageFileName): void {
             $sku->refresh();
 
             $stones = is_array($data['stones'] ?? null) ? $data['stones'] : [];
@@ -41,6 +46,7 @@ class SkuMasterSpkSynchronizer
             if ($goldEmpty && $diamondsEmpty) {
                 $this->syncGoldWeight($sku, $goldWeight, $actor);
                 $this->insertDiamonds($sku, $this->normalizeSubmittedStones($stones), $actor);
+                $this->syncDesignImage($sku, $uploadedImageFileName, $actor);
 
                 return;
             }
@@ -48,6 +54,7 @@ class SkuMasterSpkSynchronizer
             if (! $goldEmpty && ! $diamondsEmpty) {
                 $this->syncGoldWeight($sku, $goldWeight, $actor);
                 $this->replaceDiamondsWhenChanged($sku, $stones, $actor);
+                $this->syncDesignImage($sku, $uploadedImageFileName, $actor);
 
                 return;
             }
@@ -59,7 +66,30 @@ class SkuMasterSpkSynchronizer
             } else {
                 $this->replaceDiamondsWhenChanged($sku, $stones, $actor);
             }
+
+            $this->syncDesignImage($sku, $uploadedImageFileName, $actor);
         });
+    }
+
+    private function syncDesignImage(SkuMaster $sku, ?string $uploadedImageFileName, string $actor): void
+    {
+        $fileName = trim(str_replace('\\', '/', (string) $uploadedImageFileName));
+
+        if ($fileName === '' || $fileName === '-') {
+            return;
+        }
+
+        $fileName = ltrim($fileName, '/');
+
+        if ($fileName === (string) ($sku->design_image ?? '')) {
+            return;
+        }
+
+        $sku->update([
+            'design_image' => $fileName,
+            'image_uploaded_at' => now(),
+            'modified_by' => $actor,
+        ]);
     }
 
     private function masterGoldWeightIsEmpty(SkuMaster $sku): bool
