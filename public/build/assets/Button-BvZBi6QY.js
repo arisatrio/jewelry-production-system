@@ -1,1 +1,0 @@
-import"./Button-DfERRCGW.js";import{wt as e}from"./app-CE045JoV.js";var t=e(`ui5-button`,[`accessibilityAttributes`,`accessibleDescription`,`accessibleName`,`accessibleNameRef`,`accessibleRole`,`design`,`endIcon`,`form`,`icon`,`loadingDelay`,`tooltip`,`type`],[`disabled`,`loading`,`submits`],[`badge`],[`click`]);t.displayName=`Button`;export{t};
