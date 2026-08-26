@@ -91,3 +91,81 @@ export function sortDashboardStatusRows(
         compareDashboardStatusRows(a, b, key, direction),
     );
 }
+
+const DASHBOARD_MONTHS: Record<string, number> = {
+    Jan: 0,
+    Feb: 1,
+    Mar: 2,
+    Apr: 3,
+    May: 4,
+    Jun: 5,
+    Jul: 6,
+    Aug: 7,
+    Sep: 8,
+    Oct: 9,
+    Nov: 10,
+    Dec: 11,
+};
+
+/**
+ * Parse dashboard date labels (d-M-Y, e.g. 18-Jan-2026) to local midnight.
+ */
+export function parseDashboardDateLabel(
+    value: string | null | undefined,
+): Date | null {
+    if (isEmptySortValue(value)) {
+        return null;
+    }
+
+    const match = String(value).trim().match(
+        /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/,
+    );
+
+    if (!match) {
+        const fallback = Date.parse(String(value));
+
+        if (Number.isNaN(fallback)) {
+            return null;
+        }
+
+        const date = new Date(fallback);
+
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    const day = Number(match[1]);
+    const month = DASHBOARD_MONTHS[match[2] ?? ''];
+    const year = Number(match[3]);
+
+    if (
+        Number.isNaN(day) ||
+        month === undefined ||
+        Number.isNaN(year) ||
+        day < 1 ||
+        day > 31
+    ) {
+        return null;
+    }
+
+    return new Date(year, month, day);
+}
+
+/** True when Est. Delivery is before today's local calendar date. */
+export function isDashboardDateOverdue(
+    value: string | null | undefined,
+    today: Date = new Date(),
+): boolean {
+    const estimated = parseDashboardDateLabel(value);
+
+    if (estimated === null) {
+        return false;
+    }
+
+    const startOfToday = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+    );
+
+    return estimated < startOfToday;
+}

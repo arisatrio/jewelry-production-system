@@ -29,6 +29,7 @@ class SpkService
         private RequestOrderRepository $requestOrders,
         private SpkStatusOrder $statusOrder,
         private GoogleCloudStorageService $gcs,
+        private SkuMasterSpkSynchronizer $skuMasterSynchronizer,
     ) {}
 
     /**
@@ -141,6 +142,7 @@ class SpkService
             $production = Production::query()->create($attributes);
 
             $this->syncStones($production, $data['stones'] ?? [], $actor);
+            $this->skuMasterSynchronizer->sync($sku, $data, $actor);
 
             return $production->refresh();
         });
@@ -351,6 +353,7 @@ class SpkService
 
             $production->update($attributes);
             $this->syncStones($production, $data['stones'] ?? [], $actor);
+            $this->skuMasterSynchronizer->sync($sku, $data, $actor);
 
             return $production->refresh();
         });

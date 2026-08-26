@@ -114,11 +114,13 @@ class SpkStatusMapper
     }
 
     /**
-     * Overdue: status masih backlog dan estimasi delivery sudah lewat hari ini.
+     * Overdue: Approved atau In Progress dengan estimasi delivery sudah lewat hari ini.
      */
     public function isOverdue(Production $production, ?bool $hasCompletedProduction = null): bool
     {
-        if ($this->resolveKey($production, $hasCompletedProduction) === self::KEY_DONE) {
+        $key = $this->resolveKey($production, $hasCompletedProduction);
+
+        if (! in_array($key, [self::KEY_CONFIRMED, self::KEY_IN_PROGRESS], true)) {
             return false;
         }
 

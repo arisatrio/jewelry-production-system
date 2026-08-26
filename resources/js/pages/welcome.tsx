@@ -9,6 +9,7 @@ import { ForecastClusteredBarChart } from '@/components/dashboard/forecast-clust
 import { InProgressProcessBarChart } from '@/components/dashboard/in-progress-process-bar-chart';
 import {
     DASHBOARD_SORT_COLUMNS,
+    isDashboardDateOverdue,
     sortDashboardStatusRows,
     type DashboardSortDirection,
     type DashboardSortKey,
@@ -62,6 +63,7 @@ export type DashboardAnalytics = {
         start: string;
         end: string;
     };
+    backlogYear: number;
     summary: {
         totalSpk: number;
         draftSpk: number;
@@ -187,6 +189,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         forecast,
         today,
         period,
+        backlogYear,
         inProgressByProcess,
     } = analytics;
     const [openList, setOpenList] = useState<DashboardListKey | null>(null);
@@ -194,7 +197,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         'estimatedDelivery',
     );
     const [listSortDirection, setListSortDirection] =
-        useState<DashboardSortDirection>('desc');
+        useState<DashboardSortDirection>('asc');
     const monthTargetSpk =
         summary.planningDoneSpk + summary.planningPendingSpk;
     const todayTargetCompletionPercent =
@@ -255,7 +258,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         {
             key: 'overdue',
             label: 'SPK Overdue Estimasi',
-            hint: 'Lewat estimasi delivery',
+            hint: 'Lewat estimasi · Approved / In Progress',
             count: summary.overdueSpk,
             className: 'is-overdue',
         },
@@ -296,7 +299,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         {
             key: 'monthOverdue',
             label: 'SPK Overdue Bulan Ini',
-            hint: `Lewat estimasi · ${period.label}`,
+            hint: `Lewat estimasi · Approved / In Progress · ${period.label}`,
             count: today.overdueSpk,
             className: 'is-overdue',
         },
@@ -323,11 +326,13 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         openList !== 'monthOverdue' &&
         openList !== 'monthTarget'
             ? today.label
-            : period.label;
+            : openList !== null && openList in statusLists
+              ? `Tahun ${backlogYear}`
+              : period.label;
 
     useEffect(() => {
         setListSortKey('estimatedDelivery');
-        setListSortDirection('desc');
+        setListSortDirection('asc');
     }, [openList]);
 
     const toggleListSort = (key: DashboardSortKey): void => {
@@ -408,14 +413,16 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
                 <div className="dashHeroGrid">
                     <article className="dashPanel dashBacklogPanel">
                         <header className="dashPanelHeader">
-                            <h2 className="dashPanelTitle">Backlog SPK</h2>
+                            <h2 className="dashPanelTitle">
+                                Backlog SPK ({backlogYear})
+                            </h2>
                             <p className="dashPanelMeta">
-                                All time · belum selesai / overdue
+                                Tahun {backlogYear} · belum selesai / overdue
                             </p>
                         </header>
                         <section
                             className="dashStatusStack"
-                            aria-label="Backlog SPK"
+                            aria-label={`Backlog SPK (${backlogYear})`}
                         >
                             {statusCards.map((card) => (
                                 <article
@@ -736,7 +743,19 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
                                             <td>{row.item}</td>
                                             <td>{row.orderDate ?? '—'}</td>
                                             <td>
-                                                {row.estimatedDelivery ?? '—'}
+                                                <div className="dashStatusDateCell">
+                                                    <span>
+                                                        {row.estimatedDelivery ??
+                                                            '—'}
+                                                    </span>
+                                                    {isDashboardDateOverdue(
+                                                        row.estimatedDelivery,
+                                                    ) ? (
+                                                        <span className="dashStatusOverdueBadge">
+                                                            Overdue
+                                                        </span>
+                                                    ) : null}
+                                                </div>
                                             </td>
                                             <td>{row.lastProcess ?? '—'}</td>
                                             <td>

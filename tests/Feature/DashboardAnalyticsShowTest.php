@@ -6,6 +6,7 @@ test('home dashboard includes analytics payload', function () {
         ->assertInertia(fn ($page) => $page
             ->component('welcome')
             ->has('analytics.period.label')
+            ->where('analytics.backlogYear', (int) now()->year)
             ->has('analytics.summary.totalSpk')
             ->has('analytics.summary.draftSpk')
             ->has('analytics.summary.confirmedSpk')

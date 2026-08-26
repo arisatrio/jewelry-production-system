@@ -18,6 +18,11 @@ return [
 
     'folder' => env('GOOGLE_CLOUD_STORAGE_FOLDER', 'produksi'),
 
+    /*
+    | Path kredensial service account.
+    | Relatif = di bawah storage/ (contoh: app/private/gcs-credentials.json
+    | → storage/app/private/gcs-credentials.json). Absolute path juga didukung.
+    */
     'credentials' => env(
         'GOOGLE_CLOUD_STORAGE_CREDENTIALS',
         'app/private/gcs-credentials.json',

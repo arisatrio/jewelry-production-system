@@ -38,6 +38,7 @@ use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
+use RuntimeException;
 
 class ProductionController extends Controller
 {
@@ -299,11 +300,17 @@ class ProductionController extends Controller
      */
     public function store(StoreProductionRequest $request, SpkService $spkService): RedirectResponse
     {
-        $production = $spkService->createWithDetails(
-            $request->validated(),
-            $this->actorName($request),
-            $request->file('file'),
-        );
+        try {
+            $production = $spkService->createWithDetails(
+                $request->validated(),
+                $this->actorName($request),
+                $request->file('file'),
+            );
+        } catch (RuntimeException $exception) {
+            return back()->withErrors([
+                'file' => $exception->getMessage(),
+            ]);
+        }
 
         Inertia::flash('toast', [
             'type' => 'success',
@@ -395,12 +402,18 @@ class ProductionController extends Controller
             abort(403, 'Anda tidak memiliki izin untuk mengedit SPK ini.');
         }
 
-        $spkService->saveHeader(
-            $production,
-            $request->validated(),
-            $this->actorName($request),
-            $request->file('file'),
-        );
+        try {
+            $spkService->saveHeader(
+                $production,
+                $request->validated(),
+                $this->actorName($request),
+                $request->file('file'),
+            );
+        } catch (RuntimeException $exception) {
+            return back()->withErrors([
+                'file' => $exception->getMessage(),
+            ]);
+        }
 
         Inertia::flash('toast', [
             'type' => 'success',
@@ -1966,9 +1979,7 @@ class ProductionController extends Controller
             return $text;
         }
 
-        $formatted = rtrim(rtrim(number_format((float) $normalized, 3, '.', ''), '0'), '.');
-
-        return $formatted !== '' ? $formatted : '0';
+        return number_format((float) $normalized, 2, '.', '');
     }
 
     private function actorName(Request $request): string
