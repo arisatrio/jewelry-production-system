@@ -2057,3 +2057,184 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     }
 }
 
+.skuTreeToolbarActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.skuTree {
+    border-top: 1px solid #e5e7eb;
+    max-height: min(70vh, 52rem);
+    overflow: auto;
+    background: #fff;
+}
+
+.skuTreeEmpty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.skuTreeRow,
+.skuTreeSkuRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 2.35rem;
+    border: 0;
+    border-bottom: 1px solid #f3f4f6;
+    background: transparent;
+    color: #111827;
+    text-align: left;
+    font: inherit;
+}
+
+.skuTreeRow {
+    cursor: pointer;
+    padding-block: 0.35rem;
+    padding-inline-end: 0.75rem;
+}
+
+.skuTreeRow:hover {
+    background: #f8fafc;
+}
+
+.skuTreeRow.is-open {
+    background: #f1f5f9;
+}
+
+.skuTreeTwist {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex: 0 0 auto;
+    border-right: 2px solid #64748b;
+    border-bottom: 2px solid #64748b;
+    transform: rotate(-45deg);
+    transition: transform 0.12s ease;
+    margin-inline-end: 0.15rem;
+}
+
+.skuTreeRow.is-open .skuTreeTwist {
+    transform: rotate(45deg);
+    margin-top: -0.15rem;
+}
+
+.skuTreeTwist.is-leaf {
+    opacity: 0;
+}
+
+.skuTreeFolderIcon,
+.skuTreeFileIcon {
+    color: #0f6cbd;
+    flex: 0 0 auto;
+}
+
+.skuTreeFileIcon {
+    color: #64748b;
+}
+
+.skuTreeLabel {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.skuTreeMeta {
+    margin-inline-start: auto;
+    color: #6b7280;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.skuTreeSkuRow {
+    padding-block: 0.45rem;
+    padding-inline-end: 0.75rem;
+    background: #fcfcfd;
+}
+
+.skuTreeThumb,
+.skuTreeThumbPlaceholder {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.25rem;
+    flex: 0 0 auto;
+    object-fit: cover;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+.skuTreeSkuBody {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.skuTreeSkuCode {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.skuTreeSkuName {
+    font-size: 0.75rem;
+    color: #64748b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.skuTreeSkuStats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+    color: #64748b;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.skuTreeSkuBlock {
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.skuTreeSkuBlock .skuTreeSkuRow {
+    border-bottom: 0;
+}
+
+.skuTreeDiamondList {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0.35rem;
+    background: #f8fafc;
+}
+
+.skuTreeDiamondRow {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    min-height: 1.65rem;
+    padding-block: 0.15rem;
+    padding-inline-end: 0.75rem;
+    font-size: 0.75rem;
+}
+
+.skuTreeDiamondType {
+    flex: 0 0 3.5rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.skuTreeDiamondMeta {
+    color: #64748b;
+}
+
+.skuTreeDiamondEmpty {
+    padding-block: 0.2rem 0.45rem;
+    padding-inline-end: 0.75rem;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    background: #f8fafc;
+}
+

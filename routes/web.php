@@ -8,6 +8,7 @@ use App\Http\Controllers\MsItemVarianceStoneController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\QuickLoginController;
 use App\Http\Controllers\ResinController;
+use App\Http\Controllers\SkuMasterController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
@@ -98,6 +99,9 @@ Route::middleware(['auth'])->group(function () {
                 'varian-item' => 'msItemVariance',
                 'stones' => 'msItemVarianceStone',
             ]);
+
+        Route::get('master-sku', [SkuMasterController::class, 'index'])
+            ->name('master-sku.index');
     });
 });
 

@@ -15,6 +15,7 @@ test('guests are redirected to the login page', function (string $uri) {
     'resin index' => '/resin',
     'master data tipe item' => '/master-data/tipe-item',
     'master data varian item' => '/master-data/varian-item',
+    'master data master sku' => '/master-data/master-sku',
     'settings profile' => '/settings/profile',
     'settings security' => '/settings/security',
     'settings appearance' => '/settings/appearance',
