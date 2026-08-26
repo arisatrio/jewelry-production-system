@@ -126,7 +126,9 @@ test('manager approve changes status to spkdone', function () {
     $footer = $service->footerColumns($updated);
     expect($footer)->toHaveCount(3)
         ->and($footer[2]['title'])->toBe('Manager Produksi')
-        ->and($footer[2]['name'])->toBe('manager-tester');
+        ->and($footer[2]['name'])->toBe('manager-tester')
+        ->and($service->managerApprovedAt($updated))->not->toBe('-')
+        ->and($service->managerApprovedAt($updated))->toBe(now()->format('d-M-Y'));
 
     $production->delete();
 });

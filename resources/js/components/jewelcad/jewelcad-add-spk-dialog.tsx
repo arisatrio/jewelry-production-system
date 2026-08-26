@@ -380,6 +380,9 @@ export function JewelCadAddSpkDialog({
 
         if (estimationBrj.trim() === '') {
             nextErrors.estimation_brj = 'Estimasi BRJ wajib diisi.';
+        } else if (!/^\d+(\.\d{1,3})?$/.test(estimationBrj.trim())) {
+            nextErrors.estimation_brj =
+                'Estimasi BRJ harus angka dengan maksimal 3 desimal.';
         }
 
         if (Object.keys(nextErrors).length > 0) {

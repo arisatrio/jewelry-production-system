@@ -35,6 +35,8 @@ test('spk print preview page renders document header', function () {
         ->assertSee('Dibuat Oleh', false)
         ->assertSee('Deskripsi Item', false)
         ->assertSee('Pesanan', false)
+        ->assertSee('Tanggal Pesanan Dibuat', false)
+        ->assertSee('Tanggal Diterima Produksi', false)
         ->assertDontSee('>No. Pesanan</th>', false)
         ->assertDontSee('>Customer</th>', false)
         ->assertDontSee('>Status Order</th>', false);
@@ -95,6 +97,8 @@ test('spk print preview accepts form document payload', function () {
         ->assertSee('Stock', false)
         ->assertDontSee('Stock (Repeat Order)', false)
         ->assertSee('DP-0009303 (Vera)', false)
+        ->assertDontSee('Tanggal Pesanan Dibuat', false)
+        ->assertSee('Tanggal Diterima Produksi', false)
         ->assertSee('LDR | LR ATARA FLOW 0.7 CT', false)
         ->assertSee('spkPrintFieldSku', false)
         ->assertSee('2T-LDR-ATF-REG-PRS-DMD-DS-070', false)

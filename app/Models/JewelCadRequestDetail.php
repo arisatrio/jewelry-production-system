@@ -94,7 +94,7 @@ class JewelCadRequestDetail extends Model
             'row_id' => 'integer',
             'spk_id' => 'integer',
             'qty' => 'integer',
-            'estimation_brj' => 'decimal:2',
+            'estimation_brj' => 'decimal:3',
             'is_from_new_system' => 'integer',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',

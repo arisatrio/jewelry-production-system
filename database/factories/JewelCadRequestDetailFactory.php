@@ -24,7 +24,7 @@ class JewelCadRequestDetailFactory extends Factory
             'spk_id' => Production::factory(),
             'material' => fake()->randomElement(['White Gold', 'Yellow Gold', 'Rose Gold']),
             'qty' => fake()->numberBetween(1, 10),
-            'estimation_brj' => number_format(fake()->randomFloat(2, 1, 50), 2, '.', ''),
+            'estimation_brj' => number_format(fake()->randomFloat(3, 1, 50), 3, '.', ''),
             'notes' => fake()->optional()->randomElement(['42 CM', 'Ring size 17', 'Prioritas tinggi']),
             'is_deleted' => 0,
             'created_date' => now(),

@@ -77,7 +77,7 @@ class SyncJewelCadSpkRequest extends FormRequest
             'gold_color' => ['required', 'string', 'max:100'],
             'jwcad_3d' => ['nullable', 'string', 'max:100'],
             'file' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,webp'],
-            'estimation_brj' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            'estimation_brj' => ['required', 'numeric', 'min:0', 'decimal:0,3'],
             'stones' => ['nullable', 'array'],
             'stones.*.shape_id' => ['nullable', 'integer'],
             'stones.*.position_id' => ['nullable', 'integer'],
@@ -97,6 +97,8 @@ class SyncJewelCadSpkRequest extends FormRequest
             'gold_weight.required' => 'Berat emas wajib diisi.',
             'gold_color.required' => 'Bahan emas wajib diisi.',
             'estimation_brj.required' => 'Estimasi BRJ wajib diisi.',
+            'estimation_brj.numeric' => 'Estimasi BRJ harus berupa angka.',
+            'estimation_brj.decimal' => 'Estimasi BRJ maksimal 3 desimal.',
         ];
     }
 }

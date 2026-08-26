@@ -162,7 +162,7 @@ test('jewelcad request store updates master spk gold and stones', function () {
         ->and($detail->spk_id)->toBe($production->row_id)
         ->and($detail->material)->toBe('White Gold')
         ->and($detail->qty)->toBe(2)
-        ->and((string) $detail->estimation_brj)->toBe('18.50');
+        ->and((string) $detail->estimation_brj)->toBe('18.500');
 
     $production->refresh();
 

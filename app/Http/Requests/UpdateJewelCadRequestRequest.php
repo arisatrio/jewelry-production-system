@@ -142,7 +142,7 @@ class UpdateJewelCadRequestRequest extends FormRequest
             'details.*.jwcad_3d' => ['nullable', 'string', 'max:100'],
             'details.*.file' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,webp'],
             'details.*.qty' => ['required', 'integer', 'min:1'],
-            'details.*.estimation_brj' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            'details.*.estimation_brj' => ['required', 'numeric', 'min:0', 'decimal:0,3'],
             'details.*.notes' => ['nullable', 'string', 'max:255'],
             'details.*.stones' => ['sometimes', 'array'],
             'details.*.stones.*.shape_id' => ['nullable', 'integer'],
@@ -174,6 +174,7 @@ class UpdateJewelCadRequestRequest extends FormRequest
             'details.*.qty.min' => 'Qty minimal 1.',
             'details.*.estimation_brj.required' => 'Estimasi BRJ wajib diisi.',
             'details.*.estimation_brj.numeric' => 'Estimasi BRJ harus berupa angka.',
+            'details.*.estimation_brj.decimal' => 'Estimasi BRJ maksimal 3 desimal.',
             'details.*.file.mimes' => 'Format gambar harus jpg, jpeg, png, pdf, atau webp.',
             'details.*.file.max' => 'Ukuran gambar maksimal 10 MB.',
         ];

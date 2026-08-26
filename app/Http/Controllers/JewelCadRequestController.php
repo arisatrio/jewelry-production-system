@@ -407,7 +407,7 @@ class JewelCadRequestController extends Controller
                     : '',
                 'qty' => $production->qty ?? 1,
                 'notes' => filled($production->notes) ? (string) $production->notes : '',
-                'estimationBrj' => number_format((float) $validated['estimation_brj'], 2, '.', ''),
+                'estimationBrj' => number_format((float) $validated['estimation_brj'], 3, '.', ''),
             ],
         ]);
     }
@@ -724,7 +724,7 @@ class JewelCadRequestController extends Controller
                         ? number_format((float) $detail->production->gold_weight, 3, '.', '')
                         : '',
                     'qty' => $detail->production?->qty ?? $detail->qty,
-                    'estimationBrj' => number_format((float) $detail->estimation_brj, 2, '.', ''),
+                    'estimationBrj' => number_format((float) $detail->estimation_brj, 3, '.', ''),
                     'notes' => filled($detail->production?->notes)
                         ? (string) $detail->production->notes
                         : $detail->notes,
