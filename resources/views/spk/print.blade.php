@@ -556,6 +556,33 @@
             background: transparent;
         }
 
+        .spkPrintCorFields {
+            width: 100%;
+            margin: 0 0 6px;
+        }
+
+        .spkPrintMetaTable--cor th,
+        .spkPrintMetaTable--cor td {
+            padding: 1px 4px;
+            font-size: 8pt;
+            line-height: 1.2;
+            vertical-align: middle;
+        }
+
+        .spkPrintMetaTable--cor th {
+            width: 16%;
+            white-space: nowrap;
+            background: #f3f4f6;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .spkPrintMetaTable--cor td {
+            width: 34%;
+            min-height: 18px;
+            background: #fff;
+        }
+
         .spkPrintNotesSection {
             width: 100%;
             margin-bottom: 6px;

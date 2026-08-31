@@ -123,7 +123,7 @@
                     @if ($blankTemplate)
                         <span class="spkPrintHint">Tanggal approve Manager Produksi (dd/mm/yyyy)</span>
                     @else
-                        {{ $info['receivedByProductionDate'] ?? $empty }}
+                        {{ $info['receivedByProductionDate'] ?? '' }}
                     @endif
                 </td>
             </tr>

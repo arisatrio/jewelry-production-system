@@ -1674,7 +1674,12 @@ class ProductionController extends Controller
                 'refSpkNo' => $this->printText($info['refSpkNo'] ?? null),
                 'customerName' => $this->printText($info['customerName'] ?? null),
                 'orderDate' => $this->printText($info['orderDate'] ?? null),
-                'receivedByProductionDate' => $this->printText($info['receivedByProductionDate'] ?? null),
+                'receivedByProductionDate' => $this->printText(
+                    in_array(trim((string) ($info['receivedByProductionDate'] ?? '')), ['', '-'], true)
+                        ? null
+                        : ($info['receivedByProductionDate'] ?? null),
+                    '',
+                ),
                 'workEstimated' => $this->printText($info['workEstimated'] ?? null),
                 'estimatedDelivery' => $this->printText($info['estimatedDelivery'] ?? null),
                 'priority' => $this->printText($info['priority'] ?? null),
