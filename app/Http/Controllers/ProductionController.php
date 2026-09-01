@@ -21,8 +21,9 @@ use App\Support\SpkApprovalService;
 use App\Support\SpkCraftsmanReport;
 use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkGoldReport;
-use App\Support\SpkProcessMapper;
+use App\Support\SpkOrderPriorityResolver;
 use App\Support\SpkProductionControlReport;
+use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
 use App\Support\SpkShrinkSummary;
 use App\Support\SpkStatusMapper;
@@ -679,9 +680,9 @@ class ProductionController extends Controller
         $production->loadMissing(['sku', 'categoryPrefix']);
 
         $ukuran = $this->ukuranFromProduction($production);
-        $qty = $production->qty !== null ? (string) $production->qty : '-';
-        $satuan = filled($production->satuan) ? (string) $production->satuan : SpkService::DEFAULT_UNIT;
-        $qtyLabel = $qty === '-' ? '-' : trim($qty.' '.$satuan);
+        $qtyLabel = $production->qty !== null
+            ? SpkQtyUnit::label((int) $production->qty, $production->satuan)
+            : '-';
         $jwcad3d = filled($production->jwcad_3d) ? (string) $production->jwcad_3d : '-';
         $itemTypeName = $this->itemTypeLabel($production);
         $productItemLabel = $this->productItemLabel($production);
@@ -1041,13 +1042,28 @@ class ProductionController extends Controller
             return $customerName;
         }
 
-        if ($customerName === '') {
-            $customerName = '-';
+        $orderNo = filled($production->request_order_no) ? (string) $production->request_order_no : '';
+
+        if ($orderNo === '') {
+            return $customerName !== '' ? $customerName : '-';
         }
 
-        $orderNo = filled($production->request_order_no) ? $production->request_order_no : '-';
+        return app(RequestOrderRepository::class)->displayLabelByDocNo(
+            $orderNo,
+            $customerName !== '' ? $customerName : null,
+        );
+    }
 
-        return "{$orderNo}\n({$customerName})";
+    private function requestOrderLabel(Production $production): string
+    {
+        if ($production->spk_type !== 'Pesanan' || blank($production->request_order_no)) {
+            return '-';
+        }
+
+        return app(RequestOrderRepository::class)->displayLabelByDocNo(
+            (string) $production->request_order_no,
+            filled($production->customer_name) ? (string) $production->customer_name : null,
+        );
     }
 
     /**
@@ -1104,6 +1120,7 @@ class ProductionController extends Controller
             'customer' => $this->customerName($production),
             'status' => $production->status ?: '-',
             'requestOrderNo' => $production->request_order_no ?? '-',
+            'requestOrderLabel' => $this->requestOrderLabel($production),
             'requestOrderCreatedDate' => $this->requestOrderCreatedDate($production),
             'refSpkNo' => $refSpkNo,
             'description' => $production->description ?? '-',
@@ -1114,6 +1131,7 @@ class ProductionController extends Controller
             'goldColor' => $production->gold_color ?? '-',
             'goldContent' => $production->gold_content ?? '-',
             'priority' => $production->priority ?? '-',
+            ...$this->orderPriorityFields($production),
             'statusOrder' => $this->formatStatusOrder($production->status_order),
             'notes' => $production->notes ?? '-',
             'frameId' => $production->frame_id ?? '-',
@@ -1126,6 +1144,22 @@ class ProductionController extends Controller
             'modifiedDate' => $production->modified_date?->format('d-M-Y H:i') ?? '-',
             'modifiedBy' => $production->modified_by ?? '-',
             'workflowStatus' => $statusMapper->map($production, $hasCompletedProduction),
+        ];
+    }
+
+    /**
+     * @return array{orderPriorityLevel: string|null, orderPriorityLabel: string|null}
+     */
+    private function orderPriorityFields(Production $production): array
+    {
+        $orderPriority = app(SpkOrderPriorityResolver::class)->resolve(
+            $production->spk_type,
+            $production->request_order_no,
+        );
+
+        return [
+            'orderPriorityLevel' => $orderPriority['level'] ?? null,
+            'orderPriorityLabel' => $orderPriority['label'] ?? null,
         ];
     }
 
@@ -1209,10 +1243,7 @@ class ProductionController extends Controller
         return [
             'spkTypes' => SpkService::TYPES,
             'units' => SpkService::UNITS,
-            'priorities' => [
-                ['value' => 'YES', 'label' => 'YES'],
-                ['value' => 'NO', 'label' => 'NO'],
-            ],
+            'qtyUnitOptions' => SpkQtyUnit::options(),
             'statusOrders' => [
                 ['value' => 'RO', 'label' => 'Repeat Order'],
                 ['value' => 'NO', 'label' => 'New Order'],
@@ -1379,6 +1410,7 @@ class ProductionController extends Controller
             'spkNo' => (string) $production->spk_no,
             'spkType' => (string) ($production->spk_type ?? ''),
             'requestOrderNo' => $production->request_order_no,
+            'requestOrderLabel' => $this->requestOrderLabel($production),
             'customerName' => $production->customer_name,
             'itemName' => $production->item_name,
             'refSpkId' => $production->ref_spk_id,
@@ -1530,8 +1562,19 @@ class ProductionController extends Controller
             'docNo' => (string) config('spk.form_document_no', 'WHOJ-PRD-FRM-001'),
             'issueNo' => (string) config('spk.issue_no', '01'),
             'revision' => (string) config('spk.revision', '00'),
-            'issueDate' => now()->format('d-m-Y'),
+            'issueDate' => $this->documentIssueDate(),
         ];
+    }
+
+    private function documentIssueDate(): string
+    {
+        $issueDate = config('spk.issue_date');
+
+        if (is_string($issueDate) && trim($issueDate) !== '') {
+            return trim($issueDate);
+        }
+
+        return now()->format('d-m-Y');
     }
 
     /**
@@ -1662,6 +1705,30 @@ class ProductionController extends Controller
             $normalizedApproval = $this->approvalFooter($request);
         }
 
+        $rawSpkType = trim((string) ($info['spkType'] ?? ''));
+        $rawRequestOrderNo = trim((string) ($info['requestOrderNo'] ?? ''));
+
+        if (in_array($rawRequestOrderNo, ['-', '—'], true)) {
+            $rawRequestOrderNo = '';
+        }
+
+        $orderPriority = app(SpkOrderPriorityResolver::class)->resolve(
+            $rawSpkType,
+            $rawRequestOrderNo,
+        );
+
+        $requestOrderCustomer = trim((string) ($info['customerName'] ?? ''));
+        if (in_array($requestOrderCustomer, ['-', '—'], true)) {
+            $requestOrderCustomer = '';
+        }
+
+        $requestOrderLabel = $rawSpkType === 'Pesanan' && $rawRequestOrderNo !== ''
+            ? app(RequestOrderRepository::class)->displayLabelByDocNo(
+                $rawRequestOrderNo,
+                $requestOrderCustomer !== '' ? $requestOrderCustomer : null,
+            )
+            : '';
+
         return [
             'info' => [
                 'spkNo' => $this->printText(
@@ -1670,6 +1737,7 @@ class ProductionController extends Controller
                 ),
                 'spkType' => $this->printText($info['spkType'] ?? null),
                 'requestOrderNo' => $this->printText($info['requestOrderNo'] ?? null),
+                'requestOrderLabel' => $this->printText($requestOrderLabel !== '' ? $requestOrderLabel : null),
                 'requestOrderCreatedDate' => $this->printText($info['requestOrderCreatedDate'] ?? null),
                 'refSpkNo' => $this->printText($info['refSpkNo'] ?? null),
                 'customerName' => $this->printText($info['customerName'] ?? null),
@@ -1683,6 +1751,8 @@ class ProductionController extends Controller
                 'workEstimated' => $this->printText($info['workEstimated'] ?? null),
                 'estimatedDelivery' => $this->printText($info['estimatedDelivery'] ?? null),
                 'priority' => $this->printText($info['priority'] ?? null),
+                'orderPriorityLevel' => $orderPriority['level'] ?? '',
+                'orderPriorityLabel' => $orderPriority['label'] ?? '',
                 'statusOrder' => $this->printText($info['statusOrder'] ?? null),
                 'itemType' => $this->printText($info['itemType'] ?? null),
                 'itemVariance' => $this->printText($info['itemVariance'] ?? null),
@@ -1726,9 +1796,9 @@ class ProductionController extends Controller
      */
     private function printDocumentFromProduction(Production $production, Request $request): array
     {
-        $qty = $production->qty !== null ? (string) $production->qty : '';
-        $satuan = filled($production->satuan) ? (string) $production->satuan : 'Pcs';
-        $qtyLabel = trim($qty.' '.$satuan) !== '' ? trim($qty.' '.$satuan) : '-';
+        $qtyLabel = $production->qty !== null
+            ? SpkQtyUnit::label((int) $production->qty, $production->satuan)
+            : '-';
         $production->loadMissing(['sku', 'categoryPrefix']);
         $itemName = $this->itemTypeLabel($production);
         $productItemName = $this->productItemLabel($production);

@@ -70,12 +70,17 @@ export function SpkInformasiProduksiPanel({
 }: SpkInformasiProduksiPanelProps) {
     const spkType = displayValue(production.tipeProduksi);
 
-    const requestOrderNo = displayValue(production.requestOrderNo);
-    const customerName = displayValue(production.customer);
-    const pesananLabel =
-        requestOrderNo === '-' && customerName === '-'
-            ? '-'
-            : `${requestOrderNo} (${customerName})`;
+    const pesananLabel = displayValue(
+        production.requestOrderLabel ??
+            (() => {
+                const requestOrderNo = displayValue(production.requestOrderNo);
+                const customerName = displayValue(production.customer);
+
+                return requestOrderNo === '-' && customerName === '-'
+                    ? '-'
+                    : `${requestOrderNo} (${customerName})`;
+            })(),
+    );
 
     const refSpkNo = displayValue(production.refSpkNo);
     const notes = displayValue(production.notes);

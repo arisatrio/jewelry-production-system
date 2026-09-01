@@ -3252,15 +3252,31 @@
     align-items: center;
     padding: 0.2rem 0.55rem;
     border-radius: 999px;
-    border: 1px solid #dc2626;
-    background: #dc2626;
-    color: #fff;
+    border: 1px solid transparent;
     font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.04em;
     line-height: 1.2;
     text-transform: uppercase;
     white-space: nowrap;
+}
+
+.spkPriorityLabel--high {
+    border-color: #dc2626;
+    background: #dc2626;
+    color: #fff;
+}
+
+.spkPriorityLabel--medium {
+    border-color: #ca8a04;
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.spkPriorityLabel--low {
+    border-color: #2563eb;
+    background: #dbeafe;
+    color: #1d4ed8;
 }
 
 .spkOverdueLabel {
@@ -3817,6 +3833,17 @@
 
 .spkFioriFormCard ui5-form-item {
     margin-block: 0.1rem;
+}
+
+.spkFioriFormCard ui5-form-group.spkFioriFormGroupContinuation {
+    margin-top: 0;
+}
+
+.spkFioriFormCard ui5-form-group.spkFioriFormGroupContinuation [id$='-group-header-text'],
+.spkFioriFormCard ui5-form-group.spkFioriFormGroupContinuation ui5-title {
+    display: none !important;
+    margin: 0 !important;
+    min-height: 0 !important;
 }
 
 .spkFioriFormCard ui5-form-group {

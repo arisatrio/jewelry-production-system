@@ -187,10 +187,26 @@ test('spk index page respects per page option', function () {
         );
 });
 
-test('spk index page shows request order number with customer name for pesanan type', function () {
+test('spk index page shows request order number with customer name and payment status for pesanan type', function () {
+    $docNo = 'DP-TEST-'.strtoupper(fake()->unique()->bothify('????????'));
+
+    $orderId = DB::connection('second')->table('request_order')->insertGetId([
+        'company_id' => 1,
+        'doc_no' => $docNo,
+        'trans_date' => '2026-08-01',
+        'type_order' => 'CUSTOM',
+        'online_offline' => 'OFFLINE',
+        'is_sales_saved' => 0,
+        'is_submitted' => 0,
+        'is_deleted' => 0,
+        'is_fully_paid' => 1,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ]);
+
     $production = Production::factory()->create([
         'spk_type' => 'Pesanan',
-        'request_order_no' => 'DP-0009303',
+        'request_order_no' => $docNo,
         'customer_name' => 'Vera',
         'status' => '',
         'is_deleted' => 0,
@@ -201,7 +217,7 @@ test('spk index page shows request order number with customer name for pesanan t
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
             ->where('productions.data.0.tipeProduksi', 'Pesanan')
-            ->where('productions.data.0.customer', "DP-0009303\n(Vera)")
+            ->where('productions.data.0.customer', "{$docNo} (Vera) (Lunas)")
         );
 
     $this->get(route('spk.show', $production))
@@ -209,10 +225,12 @@ test('spk index page shows request order number with customer name for pesanan t
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
             ->where('production.customer', 'Vera')
-            ->where('production.requestOrderNo', 'DP-0009303')
+            ->where('production.requestOrderNo', $docNo)
+            ->where('production.requestOrderLabel', "{$docNo} (Vera) (Lunas)")
         );
 
     $production->delete();
+    DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
 });
 
 test('spk index page keeps customer name only for non pesanan type', function () {

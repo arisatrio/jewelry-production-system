@@ -39,7 +39,7 @@ class ProductionFactory extends Factory
             'jwcad_3d' => null,
             'item_id' => null,
             'qty' => fake()->numberBetween(1, 10),
-            'satuan' => fake()->randomElement(['Pcs', 'Pasang']),
+            'satuan' => fake()->randomElement(['Pcs', 'Pasang', 'Setengah Pasang']),
             'diameter_length_ringsize' => null,
             'gold_weight' => fake()->randomFloat(2, 1, 50),
             'gold_color' => fake()->optional()->randomElement(['Yellow', 'White', 'Rose']),

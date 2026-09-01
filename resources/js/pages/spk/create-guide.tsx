@@ -100,11 +100,9 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                 layout="S1 M2 L2 XL2"
                                 labelSpan="S12 M4 L4 XL4"
                                 itemSpacing="Normal"
+                                headerText="Informasi Produksi"
                             >
-                                <FormGroup
-                                    headerText="Informasi Produksi"
-                                    columnSpan={2}
-                                >
+                                <FormGroup>
                                     <FormItem
                                         labelContent={
                                             <Label showColon>No. SPK</Label>
@@ -156,7 +154,7 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                             </Label>
                                         }
                                     >
-                                        <GuideField hint="Wajib untuk tipe Pesanan. Klik Pilih, lalu pilih request order. Contoh: DP-0009303 (Vera). Kosong untuk Stock.">
+                                        <GuideField hint="Wajib untuk tipe Pesanan. Klik Pilih, lalu pilih request order. Contoh: DP-0009303 (Vera) (Lunas). Kosong untuk Stock.">
                                             <div className="spkCreateSelectorRow">
                                                 <div className="spkCreateSelectorValue">
                                                     <span>
@@ -246,27 +244,9 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                             />
                                         </GuideField>
                                     </FormItem>
+                                </FormGroup>
 
-                                    <FormItem
-                                        labelContent={
-                                            <Label showColon required>
-                                                Prioritas
-                                            </Label>
-                                        }
-                                    >
-                                        <GuideField hint="Wajib. YES menampilkan banner PRIORITAS PRODUKSI pada preview print.">
-                                            <Select
-                                                accessibleName="Prioritas"
-                                                disabled
-                                            >
-                                                <Option value="NO" selected>
-                                                    NO
-                                                </Option>
-                                                <Option value="YES">YES</Option>
-                                            </Select>
-                                        </GuideField>
-                                    </FormItem>
-
+                                <FormGroup className="spkFioriFormGroupContinuation">
                                     <FormItem
                                         labelContent={
                                             <Label showColon required>
@@ -309,25 +289,21 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                             </Label>
                                         }
                                     >
-                                        <GuideField hint="Wajib. Jumlah item beserta satuan Pcs atau Pasang.">
-                                            <div className="spkFioriQtyWithUnit">
-                                                <Input value="1" readonly />
-                                                <Select
-                                                    accessibleName="Satuan"
-                                                    className="spkFioriUnitSelect"
-                                                    disabled
-                                                >
-                                                    <Option
-                                                        value="Pcs"
-                                                        selected
-                                                    >
-                                                        Pcs
-                                                    </Option>
-                                                    <Option value="Pasang">
-                                                        Pasang
-                                                    </Option>
-                                                </Select>
-                                            </div>
+                                        <GuideField hint="Wajib. Pilih 1 Pcs, 1 Pasang, atau 1/2 Pasang.">
+                                            <Select
+                                                accessibleName="Qty"
+                                                disabled
+                                            >
+                                                <Option value="1|Pcs" selected>
+                                                    1 Pcs
+                                                </Option>
+                                                <Option value="1|Pasang">
+                                                    1 Pasang
+                                                </Option>
+                                                <Option value="1|Setengah Pasang">
+                                                    1/2 Pasang
+                                                </Option>
+                                            </Select>
                                         </GuideField>
                                     </FormItem>
                                 </FormGroup>

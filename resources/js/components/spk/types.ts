@@ -43,6 +43,7 @@ export type SpkWorkflowStatus = {
 
 export type SpkDetail = SpkRow & {
     requestOrderNo: string;
+    requestOrderLabel?: string;
     requestOrderCreatedDate?: string;
     refSpkNo: string;
     description: string;
@@ -51,6 +52,8 @@ export type SpkDetail = SpkRow & {
     goldColor: string;
     goldContent: string;
     priority: string;
+    orderPriorityLevel?: 'high' | 'medium' | 'low' | null;
+    orderPriorityLabel?: string | null;
     statusOrder: string;
     notes: string;
     frameId: string;

@@ -128,7 +128,8 @@ export function SpkDetailLayout({
         { key: 'inProgress', label: 'In Progress' },
         { key: 'done', label: 'Done' },
     ];
-    const isPriority = production.priority.trim().toUpperCase() === 'YES';
+    const orderPriorityLevel = production.orderPriorityLevel ?? null;
+    const orderPriorityLabel = production.orderPriorityLabel?.trim() ?? '';
     const isOverdue = workflowStatus?.isOverdue === true;
     const productionProcesses = processes.filter(isProductionProcess);
     const mainProcesses = processes.filter(
@@ -221,9 +222,11 @@ export function SpkDetailLayout({
                                 <SpkTypeBadge
                                     type={production.tipeProduksi}
                                 />
-                                {isPriority ? (
-                                    <span className="spkPriorityLabel">
-                                        PRIORITAS
+                                {orderPriorityLabel !== '' && orderPriorityLevel ? (
+                                    <span
+                                        className={`spkPriorityLabel spkPriorityLabel--${orderPriorityLevel}`}
+                                    >
+                                        {orderPriorityLabel}
                                     </span>
                                 ) : null}
                                 {isOverdue ? (

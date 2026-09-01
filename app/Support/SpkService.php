@@ -21,7 +21,7 @@ class SpkService
 
     public const DEFAULT_SUPPLIER_ID = 1;
 
-    public const UNITS = ['Pcs', 'Pasang'];
+    public const UNITS = ['Pcs', 'Pasang', 'Setengah Pasang'];
 
     public const DEFAULT_UNIT = 'Pcs';
 
@@ -83,7 +83,7 @@ class SpkService
                 ...$typeAttributes,
                 'spk_no' => $this->generateNumber($now),
                 'order_date' => $orderDate->toDateString(),
-                'priority' => $data['priority'],
+                'priority' => 'NO',
                 'description' => $data['description'],
                 'estimated_delivery_time' => $estimatedDelivery->toDateString(),
                 'work_estimated' => $workEstimated,
@@ -316,7 +316,6 @@ class SpkService
 
             $attributes = [
                 'order_date' => $orderDate->toDateString(),
-                'priority' => $data['priority'],
                 'description' => $data['description'],
                 'estimated_delivery_time' => $estimatedDelivery->toDateString(),
                 'work_estimated' => $workEstimated,

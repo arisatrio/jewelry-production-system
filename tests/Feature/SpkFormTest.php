@@ -56,7 +56,6 @@ test('spk form can be saved', function () {
     $this->post(route('spk.update', $production->row_id), [
         'order_date' => '2026-08-03', // Senin
         'work_estimated' => 5,
-        'priority' => 'YES',
         'description' => 'Form save test',
         'category_prefix_id' => $category->id,
         'sku_id' => $sku->id,
@@ -73,7 +72,7 @@ test('spk form can be saved', function () {
     $production->refresh();
 
     expect($production->description)->toBe('Form save test')
-        ->and($production->priority)->toBe('YES')
+        ->and($production->priority)->toBe('NO')
         ->and($production->work_estimated)->toBe(5)
         ->and($production->estimated_delivery_time?->toDateString())->toBe('2026-08-10')
         ->and($production->category_prefix_id)->toBe($category->id)
@@ -108,7 +107,6 @@ test('spk form save syncs gold weight to sku master when changed', function () {
     $this->post(route('spk.update', $production->row_id), [
         'order_date' => '2026-08-03',
         'work_estimated' => 5,
-        'priority' => 'YES',
         'description' => 'Gold weight input test',
         'category_prefix_id' => $category->id,
         'sku_id' => $sku->id,
@@ -164,7 +162,6 @@ test('spk form save validates required fields', function () {
         ->assertSessionHasErrors([
             'order_date',
             'estimated_delivery_time',
-            'priority',
             'description',
             'category_prefix_id',
             'sku_id',
@@ -245,7 +242,6 @@ test('approved spk can still be edited', function () {
     $this->post(route('spk.update', $production->row_id), [
         'order_date' => '2026-08-03',
         'work_estimated' => 5,
-        'priority' => 'YES',
         'description' => 'Edited after approved',
         'category_prefix_id' => $category->id,
         'sku_id' => $sku->id,

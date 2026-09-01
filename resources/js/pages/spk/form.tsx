@@ -38,6 +38,13 @@ import {
     update,
 } from '@/routes/spk';
 import {
+    parseSpkQtyUnitValue,
+    spkQtyUnitLabel,
+    spkQtyUnitOptionValue,
+    spkQtyUnitOptionsFor,
+    type SpkQtyUnitOption,
+} from '@/lib/spk-qty-unit';
+import {
     referenceSpks as searchReferenceSpks,
     requestOrders as searchRequestOrders,
 } from '@/routes/spk/select';
@@ -69,7 +76,32 @@ type RequestOrderOption = {
     customer: string;
     item: string;
     refSku: string | null;
+    paymentStatusLabel?: string | null;
+    displayLabel?: string;
 };
+
+type RequestOrderLabelState = {
+    docNo: string;
+    customer: string;
+    item: string;
+    paymentStatusLabel?: string | null;
+    displayLabel: string;
+};
+
+function formatRequestOrderLabel(
+    docNo: string,
+    customer: string,
+    paymentStatusLabel?: string | null,
+): string {
+    const customerName = customer.trim() !== '' ? customer.trim() : '-';
+    const base = `${docNo} (${customerName})`;
+
+    if (paymentStatusLabel?.trim()) {
+        return `${base} (${paymentStatusLabel.trim()})`;
+    }
+
+    return base;
+}
 
 type ReferenceSpkOption = {
     rowId: number;
@@ -87,12 +119,12 @@ type ProductionForm = {
     spkNo: string | null;
     spkType: string;
     requestOrderNo: string | null;
+    requestOrderLabel?: string | null;
     customerName: string | null;
     itemName: string | null;
     refSpkId: number | null;
     refSpkNo: string | null;
     orderDate: string;
-    priority: string;
     description: string;
     workEstimated: number | null;
     estimatedDeliveryTime: string;
@@ -176,7 +208,7 @@ type SpkFormProps = {
     options: {
         spkTypes: SpkType[];
         units: string[];
-        priorities: OptionItem[];
+        qtyUnitOptions: SpkQtyUnitOption[];
         statusOrders: OptionItem[];
         goldColors: string[];
         itemTypes?: OptionItem[];
@@ -504,7 +536,6 @@ export default function SpkFormPage({
             production.refSpkId !== null ? String(production.refSpkId) : '',
         order_date: production.orderDate,
         estimated_delivery_time: production.estimatedDeliveryTime,
-        priority: production.priority || 'NO',
         description: production.description,
         category_prefix_id: initialCategoryId,
         sku_id: initialSkuId,
@@ -530,12 +561,18 @@ export default function SpkFormPage({
         }>,
     });
 
-    const [requestOrderLabel, setRequestOrderLabel] = useState(() =>
+    const [requestOrderLabel, setRequestOrderLabel] = useState<RequestOrderLabelState | null>(() =>
         production.requestOrderNo
             ? {
                   docNo: production.requestOrderNo,
                   customer: production.customerName ?? '',
                   item: production.itemName ?? '',
+                  displayLabel:
+                      production.requestOrderLabel ??
+                      formatRequestOrderLabel(
+                          production.requestOrderNo,
+                          production.customerName ?? '',
+                      ),
               }
             : null,
     );
@@ -778,6 +815,28 @@ export default function SpkFormPage({
         resolvedWorkEstimated !== null
             ? `${resolvedWorkEstimated} hari kerja`
             : '';
+    const qtyUnitOptions = useMemo(
+        () => spkQtyUnitOptionsFor(data.qty, data.satuan),
+        [data.qty, data.satuan],
+    );
+    const selectedQtyUnitValue = spkQtyUnitOptionValue(
+        data.qty,
+        data.satuan,
+    );
+
+    const handleQtyUnitChange = (value: string): void => {
+        const parsed = parseSpkQtyUnitValue(value);
+
+        if (!parsed) {
+            return;
+        }
+
+        setData({
+            ...data,
+            qty: String(parsed.qty),
+            satuan: parsed.satuan,
+        });
+    };
 
     const handleSpkTypeChange = (nextType: string) => {
         setData({
@@ -984,7 +1043,7 @@ export default function SpkFormPage({
             )
             .join(' | ');
 
-        const qtyLabel = `${data.qty || '-'} ${data.satuan || 'Pcs'}`;
+        const qtyLabel = spkQtyUnitLabel(data.qty, data.satuan);
 
         const payload = {
             info: {
@@ -1001,7 +1060,6 @@ export default function SpkFormPage({
                 orderDate: formatDisplayDate(data.order_date),
                 workEstimated: estimatedDeliveryLabel,
                 estimatedDelivery: estimatedDeliveryLabel,
-                priority: data.priority || '',
                 itemType: itemTypeText || production.itemName || '',
                 itemVariance: selectedSku?.label || productItemText || '',
                 qty: qtyLabel,
@@ -1182,11 +1240,9 @@ export default function SpkFormPage({
                                 layout="S1 M2 L2 XL2"
                                 labelSpan="S12 M4 L4 XL4"
                                 itemSpacing="Normal"
+                                headerText="Informasi Produksi"
                             >
-                                <FormGroup
-                                    headerText="Informasi Produksi"
-                                    columnSpan={2}
-                                >
+                                <FormGroup>
                                     <FormItem
                                         labelContent={
                                             <Label showColon>No. SPK</Label>
@@ -1262,14 +1318,10 @@ export default function SpkFormPage({
                                                         <>
                                                             <strong>
                                                                 {
-                                                                    requestOrderLabel.docNo
+                                                                    requestOrderLabel.displayLabel
                                                                 }
                                                             </strong>
                                                             <span>
-                                                                {
-                                                                    requestOrderLabel.customer
-                                                                }{' '}
-                                                                ·{' '}
                                                                 {
                                                                     requestOrderLabel.item
                                                                 }
@@ -1364,6 +1416,8 @@ export default function SpkFormPage({
                                             >
                                                 <Input
                                                     value={
+                                                        production.requestOrderLabel ??
+                                                        requestOrderLabel?.displayLabel ??
                                                         production.requestOrderNo ??
                                                         data.request_order_no
                                                     }
@@ -1497,7 +1551,9 @@ export default function SpkFormPage({
                                     >
                                         <div className="spkFioriDateWithHint">
                                             <DatePicker
-                                                value={data.estimated_delivery_time}
+                                                value={
+                                                    data.estimated_delivery_time
+                                                }
                                                 valueFormat="yyyy-MM-dd"
                                                 displayFormat="dd/MM/yyyy"
                                                 required
@@ -1525,55 +1581,9 @@ export default function SpkFormPage({
                                             </Text>
                                         ) : null}
                                     </FormItem>
+                                </FormGroup>
 
-                                    <FormItem
-                                        labelContent={
-                                            <Label showColon required>
-                                                Prioritas
-                                            </Label>
-                                        }
-                                    >
-                                        <Select
-                                            accessibleName="Prioritas"
-                                            valueState={fieldState(
-                                                errors.priority,
-                                            )}
-                                            onChange={(event) =>
-                                                setData(
-                                                    'priority',
-                                                    event.detail.selectedOption
-                                                        ?.value ?? '',
-                                                )
-                                            }
-                                        >
-                                            <Option
-                                                value=""
-                                                selected={data.priority === ''}
-                                            >
-                                                Pilih prioritas
-                                            </Option>
-                                            {options.priorities.map(
-                                                (option) => (
-                                                    <Option
-                                                        key={option.value}
-                                                        value={option.value}
-                                                        selected={
-                                                            data.priority ===
-                                                            option.value
-                                                        }
-                                                    >
-                                                        {option.label}
-                                                    </Option>
-                                                ),
-                                            )}
-                                        </Select>
-                                        {errors.priority ? (
-                                            <Text className="spkFioriError">
-                                                {errors.priority}
-                                            </Text>
-                                        ) : null}
-                                    </FormItem>
-
+                                <FormGroup className="spkFioriFormGroupContinuation">
                                     <FormItem
                                         labelContent={
                                             <Label showColon required>
@@ -1792,50 +1802,31 @@ export default function SpkFormPage({
                                             </Label>
                                         }
                                     >
-                                        <div className="spkFioriQtyWithUnit">
-                                            <Input
-                                                type="Number"
-                                                value={data.qty}
-                                                required
-                                                valueState={fieldState(
-                                                    errors.qty,
-                                                )}
-                                                onInput={(event) =>
-                                                    setData(
-                                                        'qty',
-                                                        event.target.value ??
-                                                            '',
-                                                    )
-                                                }
-                                            />
-                                            <Select
-                                                accessibleName="Satuan"
-                                                className="spkFioriUnitSelect"
-                                                valueState={fieldState(
-                                                    errors.satuan,
-                                                )}
-                                                onChange={(event) =>
-                                                    setData(
-                                                        'satuan',
-                                                        event.detail
-                                                            .selectedOption
-                                                            ?.value ?? 'Pcs',
-                                                    )
-                                                }
-                                            >
-                                                {options.units.map((unit) => (
-                                                    <Option
-                                                        key={unit}
-                                                        value={unit}
-                                                        selected={
-                                                            data.satuan === unit
-                                                        }
-                                                    >
-                                                        {unit}
-                                                    </Option>
-                                                ))}
-                                            </Select>
-                                        </div>
+                                        <Select
+                                            accessibleName="Qty"
+                                            valueState={fieldState(
+                                                errors.qty || errors.satuan,
+                                            )}
+                                            onChange={(event) =>
+                                                handleQtyUnitChange(
+                                                    event.detail.selectedOption
+                                                        ?.value ?? '1|Pcs',
+                                                )
+                                            }
+                                        >
+                                            {qtyUnitOptions.map((option) => (
+                                                <Option
+                                                    key={option.value}
+                                                    value={option.value}
+                                                    selected={
+                                                        selectedQtyUnitValue ===
+                                                        option.value
+                                                    }
+                                                >
+                                                    {option.label}
+                                                </Option>
+                                            ))}
+                                        </Select>
                                         {errors.qty ? (
                                             <Text className="spkFioriError">
                                                 {errors.qty}
@@ -2292,12 +2283,14 @@ export default function SpkFormPage({
                 columns={[
                     { key: 'docNo', label: 'No. Pesanan' },
                     { key: 'customer', label: 'Customer' },
+                    { key: 'paymentStatus', label: 'Status' },
                     { key: 'item', label: 'Item' },
                 ]}
                 rows={requestOrders.map((row) => ({
                     id: String(row.rowId),
                     docNo: row.docNo,
                     customer: row.customer,
+                    paymentStatus: row.paymentStatusLabel ?? '-',
                     item: row.item,
                 }))}
                 onSelect={(id) => {
@@ -2311,6 +2304,14 @@ export default function SpkFormPage({
                             docNo: selected.docNo,
                             customer: selected.customer,
                             item: selected.item,
+                            paymentStatusLabel: selected.paymentStatusLabel,
+                            displayLabel:
+                                selected.displayLabel ??
+                                formatRequestOrderLabel(
+                                    selected.docNo,
+                                    selected.customer,
+                                    selected.paymentStatusLabel,
+                                ),
                         });
                     }
 
