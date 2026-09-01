@@ -21,7 +21,7 @@ class SpkService
 
     public const DEFAULT_SUPPLIER_ID = 1;
 
-    public const UNITS = ['Pcs', 'Pasang'];
+    public const UNITS = ['Pcs', 'Pasang', 'Setengah Pasang'];
 
     public const DEFAULT_UNIT = 'Pcs';
 
@@ -83,7 +83,7 @@ class SpkService
                 ...$typeAttributes,
                 'spk_no' => $this->generateNumber($now),
                 'order_date' => $orderDate->toDateString(),
-                'priority' => $data['priority'],
+                'priority' => 'NO',
                 'description' => $data['description'],
                 'estimated_delivery_time' => $estimatedDelivery->toDateString(),
                 'work_estimated' => $workEstimated,
@@ -129,8 +129,11 @@ class SpkService
                 }
             }
 
+            $uploadedImageFileName = null;
+
             if ($file !== null) {
-                $attributes['file_name'] = $this->storeProductionImage($file);
+                $uploadedImageFileName = $this->storeProductionImage($file);
+                $attributes['file_name'] = $uploadedImageFileName;
             } elseif ($sku !== null) {
                 $skuImageFileName = $this->resolveSkuImageFileName($sku);
 
@@ -142,7 +145,7 @@ class SpkService
             $production = Production::query()->create($attributes);
 
             $this->syncStones($production, $data['stones'] ?? [], $actor);
-            $this->skuMasterSynchronizer->sync($sku, $data, $actor);
+            $this->skuMasterSynchronizer->sync($sku, $data, $actor, $uploadedImageFileName);
 
             return $production->refresh();
         });
@@ -313,7 +316,6 @@ class SpkService
 
             $attributes = [
                 'order_date' => $orderDate->toDateString(),
-                'priority' => $data['priority'],
                 'description' => $data['description'],
                 'estimated_delivery_time' => $estimatedDelivery->toDateString(),
                 'work_estimated' => $workEstimated,
@@ -347,13 +349,16 @@ class SpkService
                 }
             }
 
+            $uploadedImageFileName = null;
+
             if ($file !== null) {
-                $attributes['file_name'] = $this->storeProductionImage($file);
+                $uploadedImageFileName = $this->storeProductionImage($file);
+                $attributes['file_name'] = $uploadedImageFileName;
             }
 
             $production->update($attributes);
             $this->syncStones($production, $data['stones'] ?? [], $actor);
-            $this->skuMasterSynchronizer->sync($sku, $data, $actor);
+            $this->skuMasterSynchronizer->sync($sku, $data, $actor, $uploadedImageFileName);
 
             return $production->refresh();
         });

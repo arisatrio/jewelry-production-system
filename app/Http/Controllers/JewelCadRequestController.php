@@ -15,6 +15,7 @@ use App\Models\SpkStone;
 use App\Support\GoldColorOptions;
 use App\Support\JewelCadApprovalService;
 use App\Support\SkuMasterDiamondMapper;
+use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -318,7 +319,7 @@ class JewelCadRequestController extends Controller
                     'productItemName' => $productItemName !== '' ? $productItemName : '-',
                     'skuCode' => $skuCode !== '' ? $skuCode : '-',
                     'qty' => $production->qty !== null
-                        ? trim($production->qty.' '.(filled($production->satuan) ? $production->satuan : 'Pcs'))
+                        ? SpkQtyUnit::label((int) $production->qty, $production->satuan)
                         : '-',
                     'diameter' => filled($ukuran['diameter'] ?? null) ? (string) $ukuran['diameter'] : '-',
                     'dimensi' => filled($ukuran['dimensi'] ?? null) ? (string) $ukuran['dimensi'] : '-',

@@ -17,9 +17,12 @@
 
     $requestOrderNo = ($info['requestOrderNo'] ?? $empty) !== '' ? (string) ($info['requestOrderNo'] ?? $empty) : $empty;
     $customerName = ($info['customerName'] ?? $empty) !== '' ? (string) ($info['customerName'] ?? $empty) : $empty;
-    $pesananLabel = $requestOrderNo === $empty && $customerName === $empty
-        ? $empty
-        : $requestOrderNo.' ('.$customerName.')';
+    $requestOrderLabel = trim((string) ($info['requestOrderLabel'] ?? ''));
+    $pesananLabel = $requestOrderLabel !== '' && ! in_array($requestOrderLabel, ['-', '—'], true)
+        ? $requestOrderLabel
+        : ($requestOrderNo === $empty && $customerName === $empty
+            ? $empty
+            : $requestOrderNo.' ('.$customerName.')');
 
     $showRefSpk = $blankTemplate || (($info['refSpkNo'] ?? '-') !== '-');
     $showRequestOrderCreatedDate = $blankTemplate || $spkType === 'Pesanan';
@@ -77,7 +80,7 @@
                 <th>Pesanan</th>
                 <td>
                     @if ($blankTemplate)
-                        <span class="spkPrintHint">Nomor request order dan nama customer, contoh: DP-0009303 (Vera). Kosong jika tipe Stock</span>
+                        <span class="spkPrintHint">Nomor request order, nama customer, dan status lunas. Contoh: DP-0009303 (Vera) (Lunas). Kosong jika tipe Stock</span>
                     @else
                         {{ $pesananLabel }}
                     @endif
@@ -123,7 +126,7 @@
                     @if ($blankTemplate)
                         <span class="spkPrintHint">Tanggal approve Manager Produksi (dd/mm/yyyy)</span>
                     @else
-                        {{ $info['receivedByProductionDate'] ?? $empty }}
+                        {{ $info['receivedByProductionDate'] ?? '' }}
                     @endif
                 </td>
             </tr>
@@ -231,7 +234,7 @@
                                 <span class="spkPrintFieldLabel">Qty</span>
                                 <span class="spkPrintFieldValue">
                                     @if ($blankTemplate)
-                                        <span class="spkPrintHint">Jumlah item beserta satuan (Pcs atau Pasang)</span>
+                                        <span class="spkPrintHint">Jumlah item: 1 Pcs, 1 Pasang, atau 1/2 Pasang</span>
                                     @else
                                         {{ $item['qty'] ?? '-' }}
                                     @endif

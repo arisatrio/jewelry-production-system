@@ -1,5 +1,6 @@
 import { home } from '@/routes';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
+import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
 import { index as varianItemIndex } from '@/routes/master-data/varian-item';
 import { index as resinIndex } from '@/routes/resin';
@@ -62,6 +63,7 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
 export const defaultMasterDataSubmenus: ShellNavItem[] = [
     { text: 'Tipe Item', href: tipeItemIndex.url() },
     { text: 'Master Item Product', href: varianItemIndex.url() },
+    { text: 'Master SKU', href: masterSkuIndex.url() },
 ];
 
 /** Dropdown menus rendered after primary items, before module links. */

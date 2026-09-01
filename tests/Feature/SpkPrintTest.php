@@ -5,14 +5,18 @@ use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Models\SpkStone;
 use App\Support\SpkService;
+use Illuminate\Support\Facades\DB;
 
 test('spk print preview page renders document header', function () {
-    $this->get(route('spk.print'))
+    $response = $this->get(route('spk.print'));
+
+    $response
         ->assertOk()
         ->assertViewIs('spk.print')
         ->assertSee('Wanda House of Jewels', false)
         ->assertSee('FORM SPK', false)
         ->assertSee('Doc No. : WHOJ-PRD-FRM-001', false)
+        ->assertSee('Date: '.now()->format('d-m-Y'), false)
         ->assertDontSee('Page 1 of 1', false)
         ->assertSee('Informasi Produksi', false)
         ->assertSee('No. SPK', false)
@@ -30,6 +34,10 @@ test('spk print preview page renders document header', function () {
         ->assertSee('font-size: 7pt', false)
         ->assertSee('Daftar Batu', false)
         ->assertSee('>Posisi</th>', false)
+        ->assertSee('Tanggal Cor :', false)
+        ->assertSee('No Form Cor :', false)
+        ->assertSee('spkPrintCorFields', false)
+        ->assertSee('spkPrintMetaTable--cor', false)
         ->assertSee('Catatan', false)
         ->assertSee('spkPrintBottom', false)
         ->assertSee('Dibuat Oleh', false)
@@ -40,6 +48,16 @@ test('spk print preview page renders document header', function () {
         ->assertDontSee('>No. Pesanan</th>', false)
         ->assertDontSee('>Customer</th>', false)
         ->assertDontSee('>Status Order</th>', false);
+
+    expect($response->viewData('document')['info']['receivedByProductionDate'])->toBe('');
+});
+
+test('spk print uses configured issue date from config', function () {
+    config(['spk.issue_date' => '15-08-2026']);
+
+    $this->get(route('spk.print'))
+        ->assertOk()
+        ->assertSee('Date: 15-08-2026', false);
 });
 
 test('spk print preview accepts form document payload', function () {
@@ -117,6 +135,8 @@ test('spk print preview accepts form document payload', function () {
         ->assertSee('Round', false)
         ->assertDontSee('Round - R', false)
         ->assertSee('Catatan', false)
+        ->assertSee('Tanggal Cor :', false)
+        ->assertSee('No Form Cor :', false)
         ->assertSee('Catatan print uji', false)
         ->assertSee('Deskripsi Item', false)
         ->assertSee('Deskripsi uji print', false)
@@ -129,12 +149,29 @@ test('spk print preview accepts form document payload', function () {
         ->assertDontSee('>Status Order</th>', false);
 });
 
-test('spk print preview shows priority banner when priority is yes', function () {
+test('spk print preview shows high priority banner for paid custom pesanan', function () {
+    $docNo = 'DP-TEST-'.strtoupper(fake()->unique()->bothify('????????'));
+
+    $orderId = DB::connection('second')->table('request_order')->insertGetId([
+        'company_id' => 1,
+        'doc_no' => $docNo,
+        'trans_date' => '2026-08-01',
+        'type_order' => 'CUSTOM',
+        'online_offline' => 'OFFLINE',
+        'is_sales_saved' => 0,
+        'is_submitted' => 0,
+        'is_deleted' => 0,
+        'is_fully_paid' => 1,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ]);
+
     $this->postJson(route('spk.print'), [
         'document' => [
             'info' => [
-                'spkType' => 'Stock',
-                'priority' => 'YES',
+                'spkType' => 'Pesanan',
+                'requestOrderNo' => $docNo,
+                'priority' => 'NO',
                 'statusOrder' => 'New Order',
             ],
             'item' => [
@@ -148,13 +185,82 @@ test('spk print preview shows priority banner when priority is yes', function ()
         ],
     ])
         ->assertOk()
-        ->assertSee('PRIORITAS PRODUKSI', false)
-        ->assertSee('spkPrintPage--priority', false)
+        ->assertSee('Prioritas Tinggi', false)
+        ->assertSee('spkPrintPage--priority-high', false)
         ->assertSee('spkPrintPriorityPageBorder', false)
-        ->assertSee('Stock', false)
-        ->assertDontSee('Stock (New Order)', false)
-        ->assertDontSee('>Prioritas</th>', false)
-        ->assertDontSee('>Status Order</th>', false);
+        ->assertDontSee('PRIORITAS PRODUKSI', false);
+
+    DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
+});
+
+test('spk print preview shows medium priority banner for unpaid custom pesanan', function () {
+    $docNo = 'DP-TEST-'.strtoupper(fake()->unique()->bothify('????????'));
+
+    $orderId = DB::connection('second')->table('request_order')->insertGetId([
+        'company_id' => 1,
+        'doc_no' => $docNo,
+        'trans_date' => '2026-08-01',
+        'type_order' => 'DP PO',
+        'online_offline' => 'OFFLINE',
+        'is_sales_saved' => 0,
+        'is_submitted' => 0,
+        'is_deleted' => 0,
+        'is_fully_paid' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ]);
+
+    $this->postJson(route('spk.print'), [
+        'document' => [
+            'info' => [
+                'spkType' => 'Pesanan',
+                'requestOrderNo' => $docNo,
+            ],
+            'item' => [],
+            'stones' => [],
+            'notes' => '',
+        ],
+    ])
+        ->assertOk()
+        ->assertSee('Prioritas Sedang', false)
+        ->assertSee('spkPrintPage--priority-medium', false);
+
+    DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
+});
+
+test('spk print preview shows low priority banner for nabung bareng pesanan', function () {
+    $docNo = 'DP-TEST-'.strtoupper(fake()->unique()->bothify('????????'));
+
+    $orderId = DB::connection('second')->table('request_order')->insertGetId([
+        'company_id' => 1,
+        'doc_no' => $docNo,
+        'trans_date' => '2026-08-01',
+        'type_order' => 'Nabung Bareng',
+        'online_offline' => 'OFFLINE',
+        'is_sales_saved' => 0,
+        'is_submitted' => 0,
+        'is_deleted' => 0,
+        'is_fully_paid' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ]);
+
+    $this->postJson(route('spk.print'), [
+        'document' => [
+            'info' => [
+                'spkType' => 'Pesanan',
+                'requestOrderNo' => $docNo,
+            ],
+            'item' => [],
+            'stones' => [],
+            'notes' => '',
+        ],
+    ])
+        ->assertOk()
+        ->assertSee('Prioritas Rendah', false)
+        ->assertSee('spkPrintPage--priority-low', false);
+
+    DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
 });
 
 test('spk print page for existing production renders document body', function () {
@@ -390,6 +496,10 @@ test('spk print template page renders blank form format', function () {
         ->assertSee('Gambar desain item 1:1 dari SKU atau unggahan SPK', false)
         ->assertSee('Daftar Batu', false)
         ->assertSee('>Posisi</th>', false)
+        ->assertSee('Tanggal Cor :', false)
+        ->assertSee('No Form Cor :', false)
+        ->assertSee('spkPrintCorFields', false)
+        ->assertSee('spkPrintMetaTable--cor', false)
         ->assertSee('Catatan', false)
         ->assertSee('min-height: 40px', false)
         ->assertSee('max-height: 52mm', false)

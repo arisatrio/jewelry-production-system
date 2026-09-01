@@ -8,6 +8,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Metadata header untuk dokumen SPK (ISO document control).
+    | issue_date: format d-m-Y. null = tanggal hari ini saat cetak.
     |
     */
 
@@ -21,7 +22,9 @@ return [
 
     'issue_no' => '01',
 
-    'revision' => '00',
+    'revision' => '03',
+
+    'issue_date' => '14/08/2026',
 
     'logo' => 'images/logo.jpg',
 

@@ -115,18 +115,36 @@
             flex: 1 1 auto;
         }
 
-        .spkPrintPage--priority {
-            border: 5px solid #c00000;
+        .spkPrintPage--priority-high {
+            --spk-priority-border: #c00000;
+            --spk-priority-banner-bg: #c00000;
+            --spk-priority-banner-color: #fff;
+        }
+
+        .spkPrintPage--priority-medium {
+            --spk-priority-border: #ca8a04;
+            --spk-priority-banner-bg: #facc15;
+            --spk-priority-banner-color: #713f12;
+        }
+
+        .spkPrintPage--priority-low {
+            --spk-priority-border: #2563eb;
+            --spk-priority-banner-bg: #2563eb;
+            --spk-priority-banner-color: #fff;
+        }
+
+        .spkPrintPage[class*='spkPrintPage--priority-'] {
+            border: 5px solid var(--spk-priority-border);
             box-sizing: border-box;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
-        .spkPrintPage--priority .spkPrintSheet {
+        .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintSheet {
             border: none;
         }
 
-        .spkPrintPage--priority .spkPrintFrame {
+        .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintFrame {
             border: none;
             padding: 0;
         }
@@ -139,14 +157,14 @@
             display: none;
         }
 
-        .spkPrintPage--priority .spkPrintPriorityBanner--flow {
+        .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintPriorityBanner--flow {
             display: block;
             width: max-content;
             max-width: calc(100% - 10px);
             margin: -12mm 0 8px -12mm;
             padding: 5px 14px;
-            background: #c00000;
-            color: #fff;
+            background: var(--spk-priority-banner-bg);
+            color: var(--spk-priority-banner-color);
             font-family: Arial, Helvetica, sans-serif;
             font-size: 11pt;
             font-weight: 700;
@@ -163,17 +181,17 @@
             display: none;
         }
 
-        .spkPrintPage--priority .spkDocumentHeader {
+        .spkPrintPage[class*='spkPrintPage--priority-'] .spkDocumentHeader {
             width: auto;
             margin: 0;
             border-top-width: 1px;
         }
 
-        .spkPrintPage--priority .spkPrintFrame--header {
+        .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintFrame--header {
             padding-top: 0;
         }
 
-        .spkPrintPage--priority .spkPrintBody {
+        .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintBody {
             margin-top: 8px;
             padding: 0;
         }
@@ -556,6 +574,33 @@
             background: transparent;
         }
 
+        .spkPrintCorFields {
+            width: 100%;
+            margin: 0 0 6px;
+        }
+
+        .spkPrintMetaTable--cor th,
+        .spkPrintMetaTable--cor td {
+            padding: 1px 4px;
+            font-size: 8pt;
+            line-height: 1.2;
+            vertical-align: middle;
+        }
+
+        .spkPrintMetaTable--cor th {
+            width: 16%;
+            white-space: nowrap;
+            background: #f3f4f6;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .spkPrintMetaTable--cor td {
+            width: 34%;
+            min-height: 18px;
+            background: #fff;
+        }
+
         .spkPrintNotesSection {
             width: 100%;
             margin-bottom: 6px;
@@ -784,7 +829,7 @@
                 min-height: 0;
             }
 
-            .spkPrintPage--priority {
+            .spkPrintPage[class*='spkPrintPage--priority-'] {
                 border: none !important;
                 padding: 0;
             }
@@ -802,7 +847,7 @@
                 text-align: left;
             }
 
-            .spkPrintPage--priority .spkPrintBottom {
+            .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintBottom {
                 padding-bottom: 6px;
             }
 
@@ -839,16 +884,34 @@
                 height: 4px;
             }
 
-            .spkPrintPage--priority .spkPrintSheet > thead > tr > td {
+            .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintSheet > thead > tr > td {
                 padding-top: 36px;
             }
 
-            .spkPrintPage--priority .spkPrintSheet {
+            .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintSheet {
                 border: none !important;
             }
 
-            .spkPrintPage--priority .spkPrintFrame {
+            .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintFrame {
                 border: none !important;
+            }
+
+            .spkPrintPriorityPageBorder--high {
+                --spk-priority-border: #c00000;
+                --spk-priority-banner-bg: #c00000;
+                --spk-priority-banner-color: #fff;
+            }
+
+            .spkPrintPriorityPageBorder--medium {
+                --spk-priority-border: #ca8a04;
+                --spk-priority-banner-bg: #facc15;
+                --spk-priority-banner-color: #713f12;
+            }
+
+            .spkPrintPriorityPageBorder--low {
+                --spk-priority-border: #2563eb;
+                --spk-priority-banner-bg: #2563eb;
+                --spk-priority-banner-color: #fff;
             }
 
             .spkPrintPriorityPageBorder {
@@ -858,7 +921,7 @@
                 right: 0;
                 bottom: 0;
                 left: 0;
-                border: 5px solid #c00000;
+                border: 5px solid var(--spk-priority-border);
                 pointer-events: none;
                 z-index: 10000;
                 -webkit-print-color-adjust: exact !important;
@@ -879,8 +942,8 @@
                 max-width: calc(100% - 10px);
                 margin: 0;
                 padding: 6px 14px;
-                background: #c00000 !important;
-                color: #fff !important;
+                background: var(--spk-priority-banner-bg) !important;
+                color: var(--spk-priority-banner-color) !important;
                 border: none !important;
                 font-family: Arial, Helvetica, sans-serif;
                 font-size: 11pt;
@@ -897,12 +960,12 @@
                 padding-top: 0;
             }
 
-            .spkPrintPage--priority .spkPrintFrame--header {
+            .spkPrintPage[class*='spkPrintPage--priority-'] .spkPrintFrame--header {
                 padding-top: 0;
                 margin-bottom: 0;
             }
 
-            .spkPrintPage--priority .spkDocumentHeader {
+            .spkPrintPage[class*='spkPrintPage--priority-'] .spkDocumentHeader {
                 margin-top: 0;
             }
 
@@ -934,26 +997,32 @@
     </div>
 
     @php
-        $priorityRaw = (string) ($document['info']['priority'] ?? '');
-        $priorityValue = strtoupper(trim(in_array($priorityRaw, ['-', '—'], true) ? '' : $priorityRaw));
-        $isPriority = $priorityValue === 'YES';
+        $orderPriorityLevel = trim((string) ($document['info']['orderPriorityLevel'] ?? ''));
+        $orderPriorityLabel = trim((string) ($document['info']['orderPriorityLabel'] ?? ''));
+        $priorityPageClass = match ($orderPriorityLevel) {
+            'high' => 'spkPrintPage--priority-high',
+            'medium' => 'spkPrintPage--priority-medium',
+            'low' => 'spkPrintPage--priority-low',
+            default => '',
+        };
+        $hasOrderPriority = $priorityPageClass !== '' && $orderPriorityLabel !== '';
     @endphp
 
-    @if ($isPriority)
-        <div class="spkPrintPriorityPageBorder" aria-hidden="true"></div>
-        <div class="spkPrintPriorityBanner spkPrintPriorityBanner--fixed">
-            PRIORITAS PRODUKSI
+    @if ($hasOrderPriority)
+        <div class="spkPrintPriorityPageBorder spkPrintPriorityPageBorder--{{ $orderPriorityLevel }}" aria-hidden="true"></div>
+        <div class="spkPrintPriorityBanner spkPrintPriorityBanner--fixed spkPrintPriorityPageBorder--{{ $orderPriorityLevel }}">
+            {{ $orderPriorityLabel }}
         </div>
     @endif
 
-    <main class="spkPrintPage{{ $isPriority ? ' spkPrintPage--priority' : '' }}">
+    <main class="spkPrintPage{{ $priorityPageClass !== '' ? ' '.$priorityPageClass : '' }}">
         <table class="spkPrintSheet">
             <thead>
                 <tr>
                     <td>
-                        @if ($isPriority)
+                        @if ($hasOrderPriority)
                             <div class="spkPrintPriorityBanner spkPrintPriorityBanner--flow">
-                                PRIORITAS PRODUKSI
+                                {{ $orderPriorityLabel }}
                             </div>
                         @endif
 
