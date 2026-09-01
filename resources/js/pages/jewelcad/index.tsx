@@ -8,18 +8,18 @@ import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import {
     create,
-    destroy,
-    edit,
     index as jewelCadIndex,
+    show,
 } from '@/routes/jewelcad';
+import { JewelCadSpkStatusCards } from '@/components/jewelcad/jewelcad-spk-status-cards';
 
 type JewelCadRow = {
     id: number;
     docNo: string | null;
     transDate: string | null;
     status: string | null;
+    statusLabel: string | null;
     notes: string | null;
-    detailCount: number;
     materials: string[];
     spkNos: string[];
 };
@@ -34,6 +34,11 @@ type RequestsPaginator = {
 
 type JewelCadIndexProps = {
     requests: RequestsPaginator;
+    spkStatusCounts: {
+        pending: number;
+        inProgress: number;
+        completed: number;
+    };
     filters: {
         search: string;
         per_page: number;
@@ -42,26 +47,30 @@ type JewelCadIndexProps = {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 
-function statusBadgeClass(status: string): string {
-    const lower = status.toLowerCase();
+function formatNotes(notes: string | null): string {
+    const trimmed = notes?.trim() ?? '';
 
-    if (lower.includes('done')) {
-        return 'spkTableBadge--done';
+    return trimmed !== '' ? trimmed : '—';
+}
+
+function formatStatusLabel(
+    statusLabel: string | null,
+    status: string | null,
+): string {
+    const label = statusLabel?.trim() ?? '';
+
+    if (label !== '') {
+        return label;
     }
 
-    if (lower.includes('draft')) {
-        return 'spkTableBadge--draft';
-    }
+    const code = status?.trim() ?? '';
 
-    if (lower.includes('open')) {
-        return 'spkTableBadge--approved';
-    }
-
-    return 'spkTableBadge--default';
+    return code !== '' ? code : '—';
 }
 
 export default function JewelCadIndex({
     requests,
+    spkStatusCounts,
     filters,
 }: JewelCadIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
@@ -121,22 +130,15 @@ export default function JewelCadIndex({
         );
     };
 
-    const handleDelete = (item: JewelCadRow) => {
-        if (!window.confirm(`Hapus request JewelCAD "${item.docNo ?? item.id}"?`)) {
-            return;
-        }
-
-        router.delete(destroy.url(item.id), {
-            preserveScroll: true,
-        });
-    };
-
     return (
         <>
             <Head title="JewelCAD" />
             <div className="spkTableShell">
                 <div className="spkTableCard">
                     <div className="spkTableActions">
+                        <div className="spkTableTitleBlock">
+                            <h1 className="spkTableTitle">Request JewelCAD</h1>
+                        </div>
                         <button
                             type="button"
                             className="spkCreateBtn"
@@ -147,6 +149,8 @@ export default function JewelCadIndex({
                             <span>Tambah</span>
                         </button>
                     </div>
+
+                    <JewelCadSpkStatusCards counts={spkStatusCounts} />
 
                     <div className="spkTableToolbar">
                         <div className="spkTableToolbarLeft">
@@ -196,16 +200,14 @@ export default function JewelCadIndex({
                                     <th>Tanggal</th>
                                     <th>SPK</th>
                                     <th>Material</th>
-                                    <th>Baris</th>
-                                    <th>Status</th>
                                     <th>Catatan</th>
-                                    <th>Aksi</th>
+                                    <th className="spkTableColCenter">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {requests.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8}>
+                                        <td colSpan={6}>
                                             Tidak ada data request JewelCAD.
                                         </td>
                                     </tr>
@@ -213,9 +215,17 @@ export default function JewelCadIndex({
                                     requests.data.map((item) => (
                                         <tr key={item.id}>
                                             <td>
-                                                <span className="spkProduksiLink">
+                                                <button
+                                                    type="button"
+                                                    className="spkProduksiLink"
+                                                    onClick={() =>
+                                                        router.visit(
+                                                            show.url(item.id),
+                                                        )
+                                                    }
+                                                >
                                                     {item.docNo ?? '—'}
-                                                </span>
+                                                </button>
                                             </td>
                                             <td>{item.transDate ?? '—'}</td>
                                             <td>
@@ -252,44 +262,14 @@ export default function JewelCadIndex({
                                                     '—'
                                                 )}
                                             </td>
-                                            <td>{item.detailCount}</td>
-                                            <td>
-                                                {item.status ? (
-                                                    <div className="spkTableStatus">
-                                                        <span
-                                                            className={`spkTableBadge ${statusBadgeClass(item.status)}`}
-                                                        >
-                                                            {item.status}
-                                                        </span>
-                                                    </div>
-                                                ) : (
-                                                    '—'
-                                                )}
+                                            <td className="spkTableColNotes">
+                                                {formatNotes(item.notes)}
                                             </td>
-                                            <td>{item.notes ?? '—'}</td>
-                                            <td>
-                                                <div className="masterDataActions">
-                                                    <button
-                                                        type="button"
-                                                        className="masterDataLinkBtn"
-                                                        onClick={() =>
-                                                            router.visit(
-                                                                edit.url(item.id),
-                                                            )
-                                                        }
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="masterDataDangerBtn"
-                                                        onClick={() =>
-                                                            handleDelete(item)
-                                                        }
-                                                    >
-                                                        Hapus
-                                                    </button>
-                                                </div>
+                                            <td className="spkTableColCenter">
+                                                {formatStatusLabel(
+                                                    item.statusLabel,
+                                                    item.status,
+                                                )}
                                             </td>
                                         </tr>
                                     ))

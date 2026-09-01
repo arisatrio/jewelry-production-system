@@ -1,7 +1,8 @@
-import type { FormEvent } from 'react';
 import { Fragment, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
+import paperPlaneIcon from '@ui5/webcomponents-icons/dist/paper-plane.js';
 import saveIcon from '@ui5/webcomponents-icons/dist/save.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
@@ -28,6 +29,13 @@ type ApprovalFooterColumn = {
     title: string;
     name: string;
     date: string;
+};
+
+type JewelCadApprovalAbilities = {
+    canSubmit: boolean;
+    canEdit: boolean;
+    status: string;
+    statusLabel: string;
 };
 
 type JewelCadDetailForm = {
@@ -70,6 +78,8 @@ type JewelCadFormProps = {
     isNew?: boolean;
     operatorOptions: OperatorOption[];
     approvalFooter?: ApprovalFooterColumn[];
+    approval?: JewelCadApprovalAbilities;
+    submitToManagerUrl?: string;
     initialValues: JewelCadFormValues;
 };
 
@@ -93,12 +103,15 @@ export function JewelCadForm({
     isNew = false,
     operatorOptions,
     approvalFooter = [],
+    approval,
+    submitToManagerUrl,
     initialValues,
 }: JewelCadFormProps) {
     const { data, setData, post, put, processing, errors } =
         useForm<JewelCadFormValues>(initialValues);
 
     const [addSpkOpen, setAddSpkOpen] = useState(false);
+    const [submittingToManager, setSubmittingToManager] = useState(false);
     const [editingDetail, setEditingDetail] =
         useState<JewelCadAddedSpk | null>(null);
     const [operatorText, setOperatorText] = useState(
@@ -258,6 +271,25 @@ export function JewelCadForm({
         });
     };
 
+    const submitToManager = () => {
+        if (!submitToManagerUrl || approval?.canSubmit !== true) {
+            return;
+        }
+
+        setSubmittingToManager(true);
+        router.post(
+            submitToManagerUrl,
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setSubmittingToManager(false),
+            },
+        );
+    };
+
+    const canSubmitToManager =
+        !isNew && approval?.canSubmit === true && Boolean(submitToManagerUrl);
+
     return (
         <>
             <div className="spkDetailShell">
@@ -294,12 +326,30 @@ export function JewelCadForm({
                                         className="spkFioriFormCardBtnYellow"
                                         icon={saveIcon}
                                         type="Submit"
-                                        disabled={processing}
+                                        disabled={
+                                            processing ||
+                                            submittingToManager ||
+                                            (!isNew && approval?.canEdit === false)
+                                        }
                                     >
                                         {processing
                                             ? 'Menyimpan...'
                                             : submitLabel}
                                     </Button>
+                                    {canSubmitToManager ? (
+                                        <Button
+                                            design="Emphasized"
+                                            icon={paperPlaneIcon}
+                                            disabled={
+                                                processing || submittingToManager
+                                            }
+                                            onClick={submitToManager}
+                                        >
+                                            {submittingToManager
+                                                ? 'Mengirim...'
+                                                : 'Kirim ke Manager Produksi'}
+                                        </Button>
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -706,7 +756,7 @@ export function JewelCadForm({
 
                             {approvalFooter.length > 0 ? (
                                 <footer
-                                    className="spkApprovalFooter"
+                                    className="spkApprovalFooter spkApprovalFooter--splitEnds"
                                     aria-label="Persetujuan"
                                 >
                                     {approvalFooter.map((column) => (

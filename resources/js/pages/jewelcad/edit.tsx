@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { JewelCadForm } from '@/components/jewelcad/jewelcad-form';
-import { index, update } from '@/routes/jewelcad';
+import { index, submit, update } from '@/routes/jewelcad';
 
 type OperatorOption = {
     value: string;
@@ -13,10 +13,18 @@ type ApprovalFooterColumn = {
     date: string;
 };
 
+type JewelCadApprovalAbilities = {
+    canSubmit: boolean;
+    canEdit: boolean;
+    status: string;
+    statusLabel: string;
+};
+
 type JewelCadEditProps = {
     formDocumentNo: string;
     operatorOptions: OperatorOption[];
     approvalFooter: ApprovalFooterColumn[];
+    approval: JewelCadApprovalAbilities;
     requestItem: {
         id: number;
         docNo: string | null;
@@ -40,6 +48,7 @@ export default function JewelCadEdit({
     formDocumentNo,
     operatorOptions,
     approvalFooter,
+    approval,
     requestItem,
 }: JewelCadEditProps) {
     return (
@@ -56,6 +65,8 @@ export default function JewelCadEdit({
                 method="put"
                 operatorOptions={operatorOptions}
                 approvalFooter={approvalFooter}
+                approval={approval}
+                submitToManagerUrl={submit.url(requestItem.id)}
                 initialValues={{
                     doc_no: requestItem.docNo ?? '',
                     operator: requestItem.operator ?? '',

@@ -57,6 +57,4 @@ test('jewelcad request detail casts estimation brj to three decimals', function 
     ]);
 
     expect((string) $detail->fresh()->estimation_brj)->toBe('12.345');
-
-    $detail->delete();
 });
