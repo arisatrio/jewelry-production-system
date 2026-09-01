@@ -18,7 +18,7 @@ class JewelCadRequestFactory extends Factory
     public function definition(): array
     {
         return [
-            'doc_no' => sprintf('JWC%07d', fake()->unique()->numberBetween(1, 9999999)),
+            'doc_no' => sprintf('%s/JWC/%05d', now()->format('Y'), fake()->unique()->numberBetween(1, 99999)),
             'operator' => 'system',
             'trans_date' => fake()->date(),
             'notes' => fake()->optional()->sentence(),

@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Employee;
 use App\Models\JewelCadRequest;
 use App\Models\Production;
+use App\Support\JewelCadSpkEligibility;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -134,7 +135,10 @@ class UpdateJewelCadRequestRequest extends FormRequest
                 'required',
                 'integer',
                 Rule::exists(Production::class, 'row_id')->where(
-                    fn ($query) => $query->where('is_deleted', 0),
+                    fn ($query) => app(JewelCadSpkEligibility::class)->applySelectableScope(
+                        $query,
+                        $requestModel instanceof JewelCadRequest ? (int) $requestModel->row_id : null,
+                    ),
                 ),
             ],
             'details.*.material' => ['required', 'string', 'max:100'],
@@ -168,7 +172,7 @@ class UpdateJewelCadRequestRequest extends FormRequest
             'details.required' => 'Minimal harus ada satu detail request.',
             'details.min' => 'Minimal harus ada satu detail request.',
             'details.*.spk_id.required' => 'SPK wajib dipilih.',
-            'details.*.spk_id.exists' => 'SPK yang dipilih tidak valid.',
+            'details.*.spk_id.exists' => 'SPK harus sudah di-approve Manager Produksi dan belum masuk proses produksi.',
             'details.*.material.required' => 'Bahan emas wajib diisi.',
             'details.*.qty.required' => 'Qty wajib diisi.',
             'details.*.qty.min' => 'Qty minimal 1.',

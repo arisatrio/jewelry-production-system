@@ -7,10 +7,12 @@ import { Input } from '@ui5/webcomponents-react/Input';
 import { Label } from '@ui5/webcomponents-react/Label';
 import { Text } from '@ui5/webcomponents-react/Text';
 import {
+    formatGoldWeightGramsLabel,
     GoldWeightMasterHint,
     GoldWeightRowLabel,
     isGoldWeightChangedFromMaster,
     isStoneListChangedFromMaster,
+    parseGoldWeightGrams,
     SpkFormStoneListCard,
     type SpkFormStoneRow,
 } from '@/components/spk/spk-stone-list';
@@ -476,7 +478,9 @@ export function JewelCadAddSpkDialog({
                                     ) : rows.length === 0 ? (
                                         <tr>
                                             <td colSpan={5}>
-                                                Tidak ada SPK ditemukan.
+                                                Tidak ada SPK ditemukan. Hanya SPK
+                                                yang sudah di-approve Manager
+                                                Produksi yang dapat dipilih.
                                             </td>
                                         </tr>
                                     ) : (
@@ -837,6 +841,11 @@ export function JewelCadAddSpkDialog({
                                     setEstimationBrj(event.target.value ?? '')
                                 }
                             />
+                            {parseGoldWeightGrams(goldWeight) !== null ? (
+                                <span className="spkGoldWeightMasterHint">
+                                    {`berat emas ${formatGoldWeightGramsLabel(goldWeight)} g`}
+                                </span>
+                            ) : null}
                             {errors.estimation_brj ? (
                                 <Text className="spkFioriError">
                                     {errors.estimation_brj}

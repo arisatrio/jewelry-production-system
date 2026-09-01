@@ -14,23 +14,28 @@ use App\Models\Production;
 use App\Models\SpkStone;
 use App\Support\GoldColorOptions;
 use App\Support\JewelCadApprovalService;
+use App\Support\JewelCadDocNumberGenerator;
+use App\Support\JewelCadSpkEligibility;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 
 class JewelCadRequestController extends Controller
 {
     /**
      * Display a listing of JewelCAD requests.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, JewelCadSpkEligibility $spkEligibility): Response
     {
         $search = $request->string('search')->trim()->toString();
         $perPage = $request->integer('per_page', 10);
@@ -38,9 +43,6 @@ class JewelCadRequestController extends Controller
 
         $requests = JewelCadRequest::query()
             ->notDeleted()
-            ->withCount([
-                'details as detail_count' => fn ($query) => $query->notDeleted(),
-            ])
             ->with([
                 'details' => function ($query): void {
                     $query->notDeleted()
@@ -78,6 +80,7 @@ class JewelCadRequestController extends Controller
 
         return Inertia::render('jewelcad/index', [
             'requests' => $requests,
+            'spkStatusCounts' => $this->spkStatusCounts($spkEligibility),
             'filters' => [
                 'search' => $search,
                 'per_page' => $perPage,
@@ -119,20 +122,34 @@ class JewelCadRequestController extends Controller
 
         $query = Production::query()
             ->notDeleted()
-            ->whereNotNull('spk_no')
             ->when($exclude !== [], fn ($builder) => $builder->whereNotIn('row_id', $exclude))
             ->orderByDesc('row_id')
-            ->limit($limit)
-            ->select([
-                'row_id',
-                'spk_no',
-                'item_name',
-                'customer_name',
-                'gold_color',
-                'gold_weight',
-                'qty',
-                'notes',
-            ]);
+            ->limit($limit);
+
+        $queue = $request->string('queue')->trim()->toString();
+
+        match ($queue) {
+            'inProgress' => $query->tap(
+                fn (Builder $builder) => app(JewelCadSpkEligibility::class)->applyInProgressScope($builder),
+            ),
+            'completed' => $query->tap(
+                fn (Builder $builder) => app(JewelCadSpkEligibility::class)->applyCompletedScope($builder),
+            ),
+            default => $query->tap(
+                fn (Builder $builder) => app(JewelCadSpkEligibility::class)->applyEligibleScope($builder),
+            ),
+        };
+
+        $query->select([
+            'row_id',
+            'spk_no',
+            'item_name',
+            'customer_name',
+            'gold_color',
+            'gold_weight',
+            'qty',
+            'notes',
+        ]);
 
         if ($search !== '') {
             $like = '%'.$search.'%';
@@ -146,28 +163,44 @@ class JewelCadRequestController extends Controller
             });
         }
 
+        $productions = $query->get();
+        $spkEligibility = app(JewelCadSpkEligibility::class);
+        $requestRefs = in_array($queue, ['inProgress', 'completed'], true)
+            ? $spkEligibility->requestRefsBySpkIds(
+                $productions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+                completed: $queue === 'completed',
+            )
+            : [];
+
         return response()->json([
             'status' => true,
-            'data' => $query->get()->map(fn (Production $production): array => [
-                'rowId' => (int) $production->row_id,
-                'spkNo' => (string) $production->spk_no,
-                'customer' => filled($production->customer_name)
-                    ? (string) $production->customer_name
-                    : '—',
-                'item' => filled($production->item_name)
-                    ? (string) $production->item_name
-                    : '—',
-                'goldColor' => filled($production->gold_color)
-                    ? (string) $production->gold_color
-                    : '',
-                'goldWeight' => $production->gold_weight !== null
-                    ? number_format((float) $production->gold_weight, 3, '.', '')
-                    : '',
-                'qty' => $production->qty ?? 1,
-                'notes' => filled($production->notes)
-                    ? (string) $production->notes
-                    : '',
-            ])->values()->all(),
+            'data' => $productions->map(function (Production $production) use ($requestRefs): array {
+                $spkId = (int) $production->row_id;
+                $requestRef = $requestRefs[$spkId] ?? null;
+
+                return [
+                    'rowId' => $spkId,
+                    'spkNo' => (string) $production->spk_no,
+                    'requestId' => $requestRef['requestId'] ?? null,
+                    'docNo' => $requestRef['docNo'] ?? null,
+                    'customer' => filled($production->customer_name)
+                        ? (string) $production->customer_name
+                        : '—',
+                    'item' => filled($production->item_name)
+                        ? (string) $production->item_name
+                        : '—',
+                    'goldColor' => filled($production->gold_color)
+                        ? (string) $production->gold_color
+                        : '',
+                    'goldWeight' => $production->gold_weight !== null
+                        ? number_format((float) $production->gold_weight, 3, '.', '')
+                        : '',
+                    'qty' => $production->qty ?? 1,
+                    'notes' => filled($production->notes)
+                        ? (string) $production->notes
+                        : '',
+                ];
+            })->values()->all(),
         ]);
     }
 
@@ -181,6 +214,13 @@ class JewelCadRequestController extends Controller
             ->where('row_id', $rowId)
             ->whereNotNull('spk_no')
             ->firstOrFail();
+
+        if (! app(JewelCadSpkEligibility::class)->isEligible($production)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'SPK harus sudah di-approve Manager Produksi dan belum masuk proses produksi.',
+            ], 422);
+        }
 
         $production->loadMissing([
             'sku.diamonds' => fn ($query) => $query->notDeleted()->orderBy('line_id'),
@@ -419,13 +459,17 @@ class JewelCadRequestController extends Controller
     public function store(
         StoreJewelCadRequestRequest $request,
         SpkService $spkService,
+        JewelCadDocNumberGenerator $docNumberGenerator,
+        JewelCadSpkEligibility $spkEligibility,
     ): RedirectResponse {
         $validated = $request->validated();
         $actor = $this->actorName($request);
 
-        DB::connection('third')->transaction(function () use ($validated, $actor, $spkService, $request): void {
+        $jewelCadRequest = DB::connection('third')->transaction(function () use ($validated, $actor, $spkService, $request, $docNumberGenerator, $spkEligibility): JewelCadRequest {
             $jewelCadRequest = JewelCadRequest::query()->create([
-                'doc_no' => $this->nextDocNo(),
+                'doc_no' => $docNumberGenerator->generate(
+                    Carbon::parse($validated['trans_date']),
+                ),
                 'operator' => $validated['operator'],
                 'trans_date' => $validated['trans_date'],
                 'notes' => $validated['notes'] ?? null,
@@ -437,7 +481,9 @@ class JewelCadRequestController extends Controller
                 'modified_by' => $actor,
             ]);
 
-            $this->storeDetails($jewelCadRequest, $validated['details'], $actor, $spkService, $request);
+            $this->storeDetails($jewelCadRequest, $validated['details'], $actor, $spkService, $request, $spkEligibility);
+
+            return $jewelCadRequest;
         });
 
         Inertia::flash('toast', [
@@ -445,15 +491,115 @@ class JewelCadRequestController extends Controller
             'message' => 'Request JewelCAD berhasil ditambahkan.',
         ]);
 
-        return to_route('jewelcad.index');
+        return to_route('jewelcad.show', $jewelCadRequest);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
-    {
-        abort(404);
+    public function show(
+        Request $request,
+        JewelCadRequest $jewelcad,
+        JewelCadApprovalService $approvalService,
+    ): Response {
+        abort_if($jewelcad->is_deleted === 1, 404);
+
+        $jewelcad->load($this->jewelCadDetailEagerLoads());
+
+        return Inertia::render('jewelcad/show', [
+            'formDocumentNo' => (string) config('spk.jewelcad_form_document_no'),
+            'approvalFooter' => $approvalService->footerColumns(
+                $jewelcad,
+                $this->actorName($request),
+            ),
+            'approvalHistory' => $approvalService->history($jewelcad),
+            'approval' => $approvalService->abilitiesFor($jewelcad, $request->user()),
+            'requestItem' => $this->toDetailItem($jewelcad),
+        ]);
+    }
+
+    /**
+     * Kirim request Draft ke Manager Produksi (JWD010).
+     */
+    public function submit(
+        Request $request,
+        JewelCadRequest $jewelcad,
+        JewelCadApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($jewelcad->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($jewelcad, $request->user())['canSubmit']) {
+            abort(403, 'Request ini tidak dapat dikirim ke Manager Produksi.');
+        }
+
+        try {
+            $approvalService->submit($jewelcad, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Request JewelCAD dikirim ke Manager Produksi.',
+        ]);
+
+        return to_route('jewelcad.show', $jewelcad);
+    }
+
+    /**
+     * Manager Produksi meng-approve request (JWD010 → JWD020).
+     */
+    public function managerApprove(
+        Request $request,
+        JewelCadRequest $jewelcad,
+        JewelCadApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($jewelcad->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($jewelcad, $request->user())['canManagerApprove']) {
+            abort(403, 'Request ini tidak dapat di-approve oleh Manager Produksi.');
+        }
+
+        try {
+            $approvalService->managerApprove($jewelcad, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Request JewelCAD di-approve oleh Manager Produksi.',
+        ]);
+
+        return to_route('jewelcad.show', $jewelcad);
+    }
+
+    /**
+     * Menyelesaikan request (JWD020 → JWDDONE).
+     */
+    public function complete(
+        Request $request,
+        JewelCadRequest $jewelcad,
+        JewelCadApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($jewelcad->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($jewelcad, $request->user())['canComplete']) {
+            abort(403, 'Request ini tidak dapat diselesaikan.');
+        }
+
+        try {
+            $approvalService->complete($jewelcad, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Request JewelCAD diselesaikan.',
+        ]);
+
+        return to_route('jewelcad.show', $jewelcad);
     }
 
     /**
@@ -466,25 +612,7 @@ class JewelCadRequestController extends Controller
     ): Response {
         abort_if($jewelcad->is_deleted === 1, 404);
 
-        $jewelcad->load([
-            'details' => fn ($query) => $query->notDeleted()
-                ->with([
-                    'production' => fn ($productionQuery) => $productionQuery
-                        ->notDeleted()
-                        ->select([
-                            'row_id',
-                            'spk_no',
-                            'item_name',
-                            'customer_name',
-                            'gold_color',
-                            'gold_weight',
-                            'qty',
-                            'notes',
-                            'jwcad_3d',
-                        ]),
-                ])
-                ->orderBy('line_id'),
-        ]);
+        $jewelcad->load($this->jewelCadDetailEagerLoads());
 
         return Inertia::render('jewelcad/edit', [
             'formDocumentNo' => (string) config('spk.jewelcad_form_document_no'),
@@ -493,6 +621,7 @@ class JewelCadRequestController extends Controller
                 $jewelcad,
                 $this->actorName($request),
             ),
+            'approval' => $approvalService->abilitiesFor($jewelcad, $request->user()),
             'requestItem' => [
                 ...$this->toFormItem($jewelcad),
                 'operator' => filled($jewelcad->operator)
@@ -509,13 +638,14 @@ class JewelCadRequestController extends Controller
         UpdateJewelCadRequestRequest $request,
         JewelCadRequest $jewelcad,
         SpkService $spkService,
+        JewelCadSpkEligibility $spkEligibility,
     ): RedirectResponse {
         abort_if($jewelcad->is_deleted === 1, 404);
 
         $validated = $request->validated();
         $actor = $this->actorName($request);
 
-        DB::connection('third')->transaction(function () use ($jewelcad, $validated, $actor, $spkService, $request): void {
+        DB::connection('third')->transaction(function () use ($jewelcad, $validated, $actor, $spkService, $request, $spkEligibility): void {
             $jewelcad->update([
                 'doc_no' => $validated['doc_no'],
                 'operator' => $validated['operator'],
@@ -535,7 +665,7 @@ class JewelCadRequestController extends Controller
                     'modified_by' => $actor,
                 ]);
 
-            $this->storeDetails($jewelcad, $validated['details'], $actor, $spkService, $request);
+            $this->storeDetails($jewelcad, $validated['details'], $actor, $spkService, $request, $spkEligibility);
         });
 
         Inertia::flash('toast', [
@@ -543,15 +673,22 @@ class JewelCadRequestController extends Controller
             'message' => 'Request JewelCAD berhasil diperbarui.',
         ]);
 
-        return to_route('jewelcad.index');
+        return to_route('jewelcad.show', $jewelcad);
     }
 
     /**
      * Remove the specified request from storage.
      */
-    public function destroy(Request $request, JewelCadRequest $jewelcad): RedirectResponse
-    {
+    public function destroy(
+        Request $request,
+        JewelCadRequest $jewelcad,
+        JewelCadApprovalService $approvalService,
+    ): RedirectResponse {
         abort_if($jewelcad->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($jewelcad, $request->user())['canDelete']) {
+            abort(403, 'Request ini tidak dapat dihapus.');
+        }
 
         $actor = $this->actorName($request);
 
@@ -601,6 +738,7 @@ class JewelCadRequestController extends Controller
         string $actor,
         SpkService $spkService,
         Request $httpRequest,
+        JewelCadSpkEligibility $spkEligibility,
     ): void {
         foreach ($details as $index => $detail) {
             $production = Production::query()
@@ -608,9 +746,14 @@ class JewelCadRequestController extends Controller
                 ->where('row_id', $detail['spk_id'])
                 ->first();
 
+            if ($production === null) {
+                continue;
+            }
+
+            $spkEligibility->markProcessStarted($production, $actor);
+
             if (
-                $production !== null
-                && array_key_exists('stones', $detail)
+                array_key_exists('stones', $detail)
                 && filled($detail['gold_weight'] ?? null)
                 && filled($detail['material'] ?? null)
             ) {
@@ -644,13 +787,30 @@ class JewelCadRequestController extends Controller
     }
 
     /**
+     * @return array{pending: int, inProgress: int, completed: int}
+     */
+    private function spkStatusCounts(JewelCadSpkEligibility $spkEligibility): array
+    {
+        return [
+            'pending' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyEligibleScope($builder))
+                ->count(),
+            'inProgress' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyInProgressScope($builder))
+                ->count(),
+            'completed' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyCompletedScope($builder))
+                ->count(),
+        ];
+    }
+
+    /**
      * @return array{
      *     id: int,
      *     docNo: string|null,
      *     transDate: string|null,
      *     status: string|null,
      *     notes: string|null,
-     *     detailCount: int,
      *     materials: list<string>,
      *     spkNos: list<string>
      * }
@@ -666,8 +826,8 @@ class JewelCadRequestController extends Controller
             'docNo' => $request->doc_no,
             'transDate' => $request->trans_date?->format('Y-m-d'),
             'status' => $request->status,
-            'notes' => $request->notes,
-            'detailCount' => (int) ($request->detail_count ?? $details->count()),
+            'statusLabel' => app(JewelCadApprovalService::class)->statusLabelFor($request),
+            'notes' => filled($request->notes) ? (string) $request->notes : null,
             'materials' => $details
                 ->pluck('material')
                 ->filter()
@@ -693,11 +853,51 @@ class JewelCadRequestController extends Controller
      *     transDate: string|null,
      *     notes: string|null,
      *     status: string|null,
+     *     createdBy: string|null,
+     *     createdAt: string|null,
+     *     modifiedBy: string|null,
+     *     modifiedAt: string|null,
      *     details: list<array{
      *         spkId: int,
      *         spkNo: string|null,
      *         material: string|null,
      *         goldWeight: string,
+     *         skuCode: string|null,
+     *         satuan: string,
+     *         qty: int|null,
+     *         estimationBrj: string,
+     *         notes: string|null
+     *     }>
+     * }
+     */
+    private function toDetailItem(JewelCadRequest $request): array
+    {
+        return [
+            ...$this->toFormItem($request),
+            'createdBy' => $request->created_by,
+            'createdAt' => $request->created_date?->format('d/m/Y H:i'),
+            'modifiedBy' => $request->modified_by,
+            'modifiedAt' => $request->modified_date?->format('d/m/Y H:i'),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     docNo: string|null,
+     *     operator: string|null,
+     *     transDate: string|null,
+     *     notes: string|null,
+     *     status: string|null,
+     *     details: list<array{
+     *         spkId: int,
+     *         spkNo: string|null,
+     *         material: string|null,
+     *         goldWeight: string,
+     *         skuCode: string|null,
+     *         typeCode: string|null,
+     *         productItemName: string|null,
+     *         satuan: string,
      *         qty: int|null,
      *         estimationBrj: string,
      *         notes: string|null
@@ -715,23 +915,88 @@ class JewelCadRequestController extends Controller
             'status' => $request->status,
             'details' => $request->details
                 ->filter(fn (JewelCadRequestDetail $detail): bool => $detail->is_deleted === 0)
-                ->map(fn (JewelCadRequestDetail $detail): array => [
-                    'spkId' => (int) $detail->spk_id,
-                    'spkNo' => $detail->production?->spk_no,
-                    'material' => filled($detail->production?->gold_color)
-                        ? (string) $detail->production->gold_color
-                        : $detail->material,
-                    'goldWeight' => $detail->production?->gold_weight !== null
-                        ? number_format((float) $detail->production->gold_weight, 3, '.', '')
-                        : '',
-                    'qty' => $detail->production?->qty ?? $detail->qty,
-                    'estimationBrj' => number_format((float) $detail->estimation_brj, 3, '.', ''),
-                    'notes' => filled($detail->production?->notes)
-                        ? (string) $detail->production->notes
-                        : $detail->notes,
-                ])
+                ->map(fn (JewelCadRequestDetail $detail): array => $this->mapDetailRow($detail))
                 ->values()
                 ->all(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     spkId: int,
+     *     spkNo: string|null,
+     *     material: string|null,
+     *     goldWeight: string,
+     *     skuCode: string|null,
+     *     typeCode: string|null,
+     *     productItemName: string|null,
+     *     satuan: string,
+     *     qty: int|null,
+     *     estimationBrj: string,
+     *     notes: string|null
+     * }
+     */
+    private function mapDetailRow(JewelCadRequestDetail $detail): array
+    {
+        $qty = $detail->production?->qty ?? $detail->qty;
+        $typeCode = trim((string) ($detail->production?->categoryPrefix?->prefix ?? ''));
+        $productItemName = trim((string) ($detail->production?->sku?->item_original ?? ''));
+
+        return [
+            'spkId' => (int) $detail->spk_id,
+            'spkNo' => $detail->production?->spk_no,
+            'material' => filled($detail->production?->gold_color)
+                ? (string) $detail->production->gold_color
+                : $detail->material,
+            'goldWeight' => $detail->production?->gold_weight !== null
+                ? number_format((float) $detail->production->gold_weight, 3, '.', '')
+                : '',
+            'skuCode' => filled($detail->production?->sku?->sku_code)
+                ? (string) $detail->production->sku->sku_code
+                : null,
+            'typeCode' => $typeCode !== '' ? $typeCode : null,
+            'productItemName' => $productItemName !== '' ? $productItemName : null,
+            'satuan' => SpkQtyUnit::label($qty, $detail->production?->satuan),
+            'qty' => $qty,
+            'estimationBrj' => number_format((float) $detail->estimation_brj, 3, '.', ''),
+            'notes' => filled($detail->production?->notes)
+                ? (string) $detail->production->notes
+                : $detail->notes,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function jewelCadDetailEagerLoads(): array
+    {
+        return [
+            'details' => fn ($query) => $query->notDeleted()
+                ->with([
+                    'production' => fn ($productionQuery) => $productionQuery
+                        ->notDeleted()
+                        ->with([
+                            'sku' => fn ($skuQuery) => $skuQuery
+                                ->select(['id', 'sku_code', 'item_original']),
+                            'categoryPrefix' => fn ($prefixQuery) => $prefixQuery
+                                ->select(['id', 'prefix']),
+                        ])
+                        ->select([
+                            'row_id',
+                            'spk_no',
+                            'item_name',
+                            'customer_name',
+                            'gold_color',
+                            'gold_weight',
+                            'qty',
+                            'satuan',
+                            'sku_id',
+                            'category_prefix_id',
+                            'notes',
+                            'jwcad_3d',
+                        ]),
+                ])
+                ->orderBy('line_id'),
         ];
     }
 
@@ -782,23 +1047,6 @@ class JewelCadRequestController extends Controller
             ->value('nama_lengkap');
 
         return filled($matched) ? (string) $matched : '';
-    }
-
-    private function nextDocNo(): string
-    {
-        $latest = JewelCadRequest::query()
-            ->notDeleted()
-            ->where('doc_no', 'like', 'JWC%')
-            ->orderByDesc('row_id')
-            ->value('doc_no');
-
-        $nextNumber = 1;
-
-        if (is_string($latest) && preg_match('/(\d+)$/', $latest, $matches) === 1) {
-            $nextNumber = ((int) ($matches[1] ?? 0)) + 1;
-        }
-
-        return sprintf('JWC%07d', $nextNumber);
     }
 
     private function actorName(Request $request): string

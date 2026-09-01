@@ -71,8 +71,13 @@ Route::middleware(['auth'])->group(function () {
     Route::put('jewelcad/spk/{rowId}', [JewelCadRequestController::class, 'syncSpk'])
         ->whereNumber('rowId')
         ->name('jewelcad.spk.sync');
+    Route::post('jewelcad/{jewelcad}/submit', [JewelCadRequestController::class, 'submit'])
+        ->name('jewelcad.submit');
+    Route::post('jewelcad/{jewelcad}/manager-approve', [JewelCadRequestController::class, 'managerApprove'])
+        ->name('jewelcad.manager-approve');
+    Route::post('jewelcad/{jewelcad}/complete', [JewelCadRequestController::class, 'complete'])
+        ->name('jewelcad.complete');
     Route::resource('jewelcad', JewelCadRequestController::class)
-        ->except(['show'])
         ->parameters(['jewelcad' => 'jewelcad']);
 
     Route::get('resin/select/spks', [ResinController::class, 'searchSpks'])

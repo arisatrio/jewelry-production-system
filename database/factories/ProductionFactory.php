@@ -81,4 +81,16 @@ class ProductionFactory extends Factory
             'deleted_by' => 'system',
         ]);
     }
+
+    /**
+     * SPK sudah di-approve Manager Produksi dan siap masuk proses JewelCAD.
+     */
+    public function managerApproved(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => 'SPKDONE',
+            'is_inprocess' => 0,
+            'last_process' => null,
+        ]);
+    }
 }
