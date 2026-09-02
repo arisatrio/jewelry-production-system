@@ -392,7 +392,7 @@ export function JewelCadForm({
                                     <FormItem
                                         labelContent={
                                             <Label showColon required>
-                                                Nomor Request
+                                                Nomor Dokumen
                                             </Label>
                                         }
                                     >

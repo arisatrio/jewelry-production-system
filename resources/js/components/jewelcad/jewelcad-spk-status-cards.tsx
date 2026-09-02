@@ -168,7 +168,7 @@ export function JewelCadSpkStatusCards({ counts }: JewelCadSpkStatusCardsProps) 
                                 <thead>
                                     <tr>
                                         <th>No</th>
-                                        <th>No Request</th>
+                                        <th>No Dokumen</th>
                                         <th>SPK</th>
                                         <th>Item</th>
                                         <th>Customer</th>

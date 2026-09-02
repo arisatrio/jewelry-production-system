@@ -182,7 +182,7 @@ export default function JewelCadIndex({
                         <div className="spkTableToolbarRight">
                             <Input
                                 accessibleName="Cari request JewelCAD"
-                                placeholder="Cari nomor request, SPK, material..."
+                                placeholder="Cari nomor dokumen, SPK, material..."
                                 value={searchQuery}
                                 icon={<Icon name={searchIcon} />}
                                 onInput={(event) =>
@@ -196,7 +196,7 @@ export default function JewelCadIndex({
                         <table className="spkTable">
                             <thead>
                                 <tr>
-                                    <th>No Request</th>
+                                    <th>No Dokumen</th>
                                     <th>Tanggal</th>
                                     <th>SPK</th>
                                     <th>Material</th>
