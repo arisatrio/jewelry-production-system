@@ -93,6 +93,25 @@ function materialGroupKey(material: string): string {
     return trimmed !== '' ? trimmed : 'Tanpa Bahan Emas';
 }
 
+function serializeJewelCadFormPayload(data: JewelCadFormValues) {
+    return {
+        operator: data.operator,
+        trans_date: data.trans_date,
+        notes: data.notes,
+        details: data.details.map((detail) => ({
+            spk_id: detail.spk_id,
+            material: detail.material,
+            gold_weight: detail.gold_weight,
+            jwcad_3d: detail.jwcad_3d,
+            qty: detail.qty,
+            estimation_brj: detail.estimation_brj,
+            notes: detail.notes,
+            ...(detail.file ? { file: detail.file } : {}),
+            stones: detail.stones ?? [],
+        })),
+    };
+}
+
 export function JewelCadForm({
     title,
     formDocumentNo,
@@ -107,7 +126,7 @@ export function JewelCadForm({
     submitToManagerUrl,
     initialValues,
 }: JewelCadFormProps) {
-    const { data, setData, post, put, processing, errors } =
+    const { data, setData, post, put, processing, errors, transform } =
         useForm<JewelCadFormValues>(initialValues);
 
     const [addSpkOpen, setAddSpkOpen] = useState(false);
@@ -257,6 +276,8 @@ export function JewelCadForm({
 
     const submit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+
+        transform((formData) => serializeJewelCadFormPayload(formData));
 
         if (method === 'put') {
             put(submitUrl, {
@@ -633,6 +654,14 @@ export function JewelCadForm({
                                                                                     {detail.spk_no ||
                                                                                         '—'}
                                                                                 </strong>
+                                                                                {detail.material.trim() !==
+                                                                                '' ? (
+                                                                                    <span className="spkFioriHint">
+                                                                                        {
+                                                                                            detail.material
+                                                                                        }
+                                                                                    </span>
+                                                                                ) : null}
                                                                                 {detailError(
                                                                                     index,
                                                                                     'spk_id',
@@ -641,6 +670,17 @@ export function JewelCadForm({
                                                                                         {detailError(
                                                                                             index,
                                                                                             'spk_id',
+                                                                                        )}
+                                                                                    </Text>
+                                                                                ) : null}
+                                                                                {detailError(
+                                                                                    index,
+                                                                                    'material',
+                                                                                ) ? (
+                                                                                    <Text className="spkFioriError">
+                                                                                        {detailError(
+                                                                                            index,
+                                                                                            'material',
                                                                                         )}
                                                                                     </Text>
                                                                                 ) : null}

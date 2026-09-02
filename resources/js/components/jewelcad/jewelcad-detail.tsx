@@ -64,11 +64,19 @@ type JewelCadApprovalAbilities = {
     statusLabel: string;
 };
 
+type JewelCadWorkflowStatus = {
+    key: string;
+    label: string;
+    stageIndex: number;
+    stages: Array<{ key: string; label: string }>;
+};
+
 type JewelCadDetailProps = {
     requestItem: JewelCadDetailItem;
     approvalFooter: ApprovalFooterColumn[];
     approvalHistory: ApprovalHistoryEvent[];
     approval: JewelCadApprovalAbilities;
+    workflowStatus?: JewelCadWorkflowStatus;
     backHref: string;
     editHref: string;
     submitUrl?: string;
@@ -128,24 +136,6 @@ function formatTransDate(isoDate: string | null): string {
     return `${day}/${month}/${year}`;
 }
 
-function statusBadgeClass(status: string): string {
-    const lower = status.toLowerCase();
-
-    if (lower.includes('done')) {
-        return 'spkTableBadge--done';
-    }
-
-    if (lower.includes('draft')) {
-        return 'spkTableBadge--draft';
-    }
-
-    if (lower.includes('open')) {
-        return 'spkTableBadge--approved';
-    }
-
-    return 'spkTableBadge--default';
-}
-
 function materialGroupKey(material: string): string {
     const trimmed = material.trim();
 
@@ -157,6 +147,7 @@ export function JewelCadDetail({
     approvalFooter,
     approvalHistory,
     approval,
+    workflowStatus,
     backHref,
     editHref,
     submitUrl,
@@ -189,6 +180,14 @@ export function JewelCadDetail({
             rows,
         }));
     }, [requestItem.details]);
+
+    const activeStageIndex = workflowStatus?.stageIndex ?? 0;
+    const statusStages = workflowStatus?.stages ?? [
+        { key: 'draft', label: 'Draft' },
+        { key: 'submitted', label: 'Pengajuan Approval' },
+        { key: 'manager', label: 'Serahkan ke JWCAD' },
+        { key: 'done', label: 'Done' },
+    ];
 
     const submitToManager = () => {
         if (!submitUrl || !approval.canSubmit) {
@@ -265,18 +264,30 @@ export function JewelCadDetail({
                                         {displayValue(requestItem.docNo)}
                                     </h1>
                                 </div>
-                                <p className="jewelCadDocSubtitle">
-                                    {requestItem.status ? (
-                                        <span
-                                            className={`spkTableBadge ${statusBadgeClass(requestItem.status)}`}
-                                        >
-                                            {approval.statusLabel ||
-                                                requestItem.status}
-                                        </span>
-                                    ) : (
-                                        '—'
-                                    )}
-                                </p>
+                            </div>
+
+                            <div
+                                className="spkStatusPipeline"
+                                aria-label="Status Request JewelCAD"
+                            >
+                                {statusStages.map((stage, index) => (
+                                    <div
+                                        key={stage.key}
+                                        className={[
+                                            'spkStatusStage',
+                                            index === activeStageIndex
+                                                ? 'is-active'
+                                                : '',
+                                            index < activeStageIndex
+                                                ? 'is-done'
+                                                : '',
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' ')}
+                                    >
+                                        {stage.label}
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
@@ -437,8 +448,8 @@ export function JewelCadDetail({
                                         <th>SKU</th>
                                         <th>Satuan</th>
                                         <th>Catatan</th>
-                                        <th>Estimasi Berat Barang Jadi (g)</th>
-                                        <th>Berat Emas Awal (g)</th>
+                                        <th>Berat <br /> (SPK) (g)</th>
+                                        <th>Estimasi Berat Barang Jadi <br /> (JewelCAD) (g)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -497,12 +508,12 @@ export function JewelCadDetail({
                                                             </td>
                                                             <td>
                                                                 {displayValue(
-                                                                    detail.estimationBrj,
+                                                                    detail.goldWeight,
                                                                 )}
                                                             </td>
                                                             <td>
                                                                 {displayValue(
-                                                                    detail.goldWeight,
+                                                                    detail.estimationBrj,
                                                                 )}
                                                             </td>
                                                         </tr>
