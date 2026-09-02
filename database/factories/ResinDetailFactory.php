@@ -4,13 +4,13 @@ namespace Database\Factories;
 
 use App\Models\Production;
 use App\Models\Resin;
-use App\Support\ResinApprovalService;
+use App\Models\ResinDetail;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<Resin>
+ * @extends Factory<ResinDetail>
  */
-class ResinFactory extends Factory
+class ResinDetailFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -20,12 +20,11 @@ class ResinFactory extends Factory
     public function definition(): array
     {
         return [
-            'doc_no' => sprintf('%s/RSN/%05d', now()->format('Y'), fake()->unique()->numberBetween(1, 99999)),
-            'operator' => 'system',
-            'trans_date' => fake()->date(),
+            'row_id' => Resin::factory(),
             'spk_id' => Production::factory(),
-            'file_upload' => null,
-            'status' => 'DRAFT',
+            'berat_resin' => number_format(fake()->randomFloat(3, 1, 20), 3, '.', ''),
+            'status_resin' => null,
+            'catatan' => fake()->optional()->sentence(),
             'is_deleted' => 0,
             'created_date' => now(),
             'created_by' => 'system',
@@ -37,7 +36,7 @@ class ResinFactory extends Factory
     }
 
     /**
-     * Indicate that the resin is soft-deleted.
+     * Indicate that the detail is soft-deleted.
      */
     public function deleted(): static
     {
@@ -49,26 +48,12 @@ class ResinFactory extends Factory
     }
 
     /**
-     * Indicate that the resin is done.
+     * Indicate that the detail is done.
      */
     public function done(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'status' => ResinApprovalService::STATUS_DONE,
-        ]);
-    }
-
-    public function submitted(): static
-    {
-        return $this->state(fn (array $attributes): array => [
-            'status' => ResinApprovalService::STATUS_SUBMITTED,
-        ]);
-    }
-
-    public function managerApproved(): static
-    {
-        return $this->state(fn (array $attributes): array => [
-            'status' => ResinApprovalService::STATUS_MANAGER,
+            'status_resin' => ResinDetail::STATUS_OK,
         ]);
     }
 }

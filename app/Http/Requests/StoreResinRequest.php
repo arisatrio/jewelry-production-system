@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Models\MsShape;
+use App\Models\Employee;
 use App\Models\Production;
+use App\Models\ResinDetail;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,22 +24,20 @@ class StoreResinRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $stones = collect($this->input('stones', []))
-            ->map(function (mixed $stone): array {
-                $row = is_array($stone) ? $stone : [];
+        $details = collect($this->input('details', []))
+            ->map(function (mixed $detail): array {
+                $row = is_array($detail) ? $detail : [];
 
                 return [
-                    'shape_id' => isset($row['shape_id']) && $row['shape_id'] !== ''
-                        ? (int) $row['shape_id']
+                    'spk_id' => isset($row['spk_id']) && $row['spk_id'] !== ''
+                        ? (int) $row['spk_id']
                         : null,
-                    'pcs' => isset($row['pcs']) && $row['pcs'] !== ''
-                        ? (int) $row['pcs']
+                    'berat_resin' => filled($row['berat_resin'] ?? null)
+                        ? str_replace(',', '.', trim((string) $row['berat_resin']))
                         : null,
-                    'carat' => isset($row['carat']) && $row['carat'] !== ''
-                        ? (int) $row['carat']
-                        : null,
-                    'size' => filled($row['size'] ?? null)
-                        ? trim((string) $row['size'])
+                    'status_resin' => ResinDetail::normalizeInputStatus($row['status_resin'] ?? null),
+                    'catatan' => filled($row['catatan'] ?? null)
+                        ? trim((string) $row['catatan'])
                         : null,
                 ];
             })
@@ -46,8 +45,13 @@ class StoreResinRequest extends FormRequest
             ->all();
 
         $this->merge([
-            'spk_id' => $this->filled('spk_id') ? (int) $this->input('spk_id') : null,
-            'stones' => $stones,
+            'operator' => $this->filled('operator')
+                ? $this->string('operator')->trim()->toString()
+                : null,
+            'notes' => $this->filled('notes')
+                ? $this->string('notes')->trim()->toString()
+                : null,
+            'details' => $details,
         ]);
     }
 
@@ -59,26 +63,33 @@ class StoreResinRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'operator' => [
+                'required',
+                'string',
+                'max:150',
+                Rule::exists(Employee::class, 'nama_lengkap')
+                    ->where('department_id', Employee::DEPARTMENT_PRODUCTION)
+                    ->where('status', Employee::STATUS_ACTIVE)
+                    ->where('is_deleted', 0),
+            ],
             'trans_date' => ['required', 'date'],
-            'spk_id' => [
+            'notes' => ['nullable', 'string'],
+            'details' => ['required', 'array', 'min:1'],
+            'details.*.spk_id' => [
                 'required',
                 'integer',
+                'distinct',
                 Rule::exists(Production::class, 'row_id')->where(
                     fn ($query) => $query->where('is_deleted', 0),
                 ),
             ],
-            'file' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,webp'],
-            'stones' => ['nullable', 'array'],
-            'stones.*.shape_id' => [
+            'details.*.berat_resin' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
+            'details.*.status_resin' => [
                 'nullable',
-                'integer',
-                Rule::exists(MsShape::class, 'row_id')->where(
-                    fn ($query) => $query->where('is_deleted', 0),
-                ),
+                'string',
+                Rule::in(ResinDetail::inputStatuses()),
             ],
-            'stones.*.pcs' => ['nullable', 'integer', 'min:0'],
-            'stones.*.carat' => ['nullable', 'integer', 'min:0'],
-            'stones.*.size' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'details.*.catatan' => ['nullable', 'string', 'max:500'],
         ];
     }
 
@@ -88,15 +99,17 @@ class StoreResinRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'operator.required' => 'Operator resin wajib dipilih.',
+            'operator.exists' => 'Operator resin tidak valid.',
             'trans_date.required' => 'Tanggal resin wajib diisi.',
-            'spk_id.required' => 'SPK wajib dipilih.',
-            'spk_id.exists' => 'SPK yang dipilih tidak valid.',
-            'file.mimes' => 'Format file harus jpg, jpeg, png, pdf, atau webp.',
-            'file.max' => 'Ukuran file maksimal 10 MB.',
-            'stones.*.shape_id.exists' => 'Shape batu tidak valid.',
-            'stones.*.pcs.min' => 'Pcs tidak boleh negatif.',
-            'stones.*.carat.min' => 'Carat tidak boleh negatif.',
-            'stones.*.size.numeric' => 'Size harus berupa angka.',
+            'details.required' => 'Minimal satu SPK wajib ditambahkan.',
+            'details.min' => 'Minimal satu SPK wajib ditambahkan.',
+            'details.*.spk_id.required' => 'SPK wajib dipilih.',
+            'details.*.spk_id.distinct' => 'SPK tidak boleh duplikat.',
+            'details.*.spk_id.exists' => 'SPK yang dipilih tidak valid.',
+            'details.*.berat_resin.numeric' => 'Berat resin harus berupa angka.',
+            'details.*.status_resin.in' => 'Status resin tidak valid.',
+            'details.*.catatan.max' => 'Catatan maksimal 500 karakter.',
         ];
     }
 }

@@ -186,6 +186,44 @@
     text-align: center;
 }
 
+.spkOrderTypeColumn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    line-height: 1.35;
+    white-space: normal;
+    text-align: center;
+}
+
+.spkOrderTypeColumn > span:last-child {
+    display: block;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkTable th.spkTableColTipeProduksi,
+.spkTable td.spkTableColTipeProduksi {
+    width: 9rem;
+    max-width: 10rem;
+    min-width: 7.5rem;
+    text-align: center;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.spkTable th.spkTableColSpkNo,
+.spkTable td.spkTableColSpkNo {
+    width: 7.5rem;
+    max-width: 8rem;
+    min-width: 8rem;
+    white-space: normal;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .spkTable td.spkTableColNotes {
     white-space: normal;
     min-width: 8rem;
@@ -3720,6 +3758,10 @@
     background: #f0fdf4;
 }
 
+.spkCreateDialogTable tbody tr.is-selected {
+    background: #dcfce7;
+}
+
 .spkEditPage {
     display: flex;
     flex-direction: column;
@@ -3939,6 +3981,17 @@
     font-size: 0.75rem;
     line-height: 1.35;
     color: #6b7280;
+}
+
+.spkFioriNotice {
+    margin: 0 1rem 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e9730c;
+    border-radius: 0.25rem;
+    background: #fff4e5;
+    color: #5c3d00;
+    font-size: 0.875rem;
+    line-height: 1.4;
 }
 
 .spkFioriFormCardActions {
@@ -4175,6 +4228,46 @@
 .spkFioriFieldStack > ui5-input,
 .spkFioriFieldStack > ui5-select {
     width: 100%;
+}
+
+.spkFioriSpkSearchResults {
+    max-height: 14rem;
+    overflow: auto;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background: #fff;
+}
+
+.spkFioriSpkSearchResult {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 0;
+    border-bottom: 1px solid #e5e7eb;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.spkFioriSpkSearchResult:last-child {
+    border-bottom: 0;
+}
+
+.spkFioriSpkSearchResult:hover {
+    background: #f3f4f6;
+}
+
+.spkFioriSpkSearchResultTitle {
+    font-weight: 600;
+    color: #111827;
+}
+
+.spkFioriSpkSearchResultMeta {
+    font-size: 0.8125rem;
+    color: #6b7280;
 }
 
 .spkFioriDateWithHint {

@@ -2,14 +2,13 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Employee;
 use App\Models\Production;
 use App\Models\ResinDetail;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateResinRequest extends FormRequest
+class UpdateResinProgressRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -33,7 +32,7 @@ class UpdateResinRequest extends FormRequest
                         ? (int) $row['spk_id']
                         : null,
                     'berat_resin' => filled($row['berat_resin'] ?? null)
-                        ? str_replace(',', '.', trim((string) $row['berat_resin']))
+                        ? trim((string) $row['berat_resin'])
                         : null,
                     'status_resin' => ResinDetail::normalizeInputStatus($row['status_resin'] ?? null),
                     'catatan' => filled($row['catatan'] ?? null)
@@ -45,12 +44,6 @@ class UpdateResinRequest extends FormRequest
             ->all();
 
         $this->merge([
-            'operator' => $this->filled('operator')
-                ? $this->string('operator')->trim()->toString()
-                : null,
-            'notes' => $this->filled('notes')
-                ? $this->string('notes')->trim()->toString()
-                : null,
             'details' => $details,
         ]);
     }
@@ -63,18 +56,6 @@ class UpdateResinRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'doc_no' => ['required', 'string', 'max:50'],
-            'operator' => [
-                'required',
-                'string',
-                'max:150',
-                Rule::exists(Employee::class, 'nama_lengkap')
-                    ->where('department_id', Employee::DEPARTMENT_PRODUCTION)
-                    ->where('status', Employee::STATUS_ACTIVE)
-                    ->where('is_deleted', 0),
-            ],
-            'trans_date' => ['required', 'date'],
-            'notes' => ['nullable', 'string'],
             'details' => ['required', 'array', 'min:1'],
             'details.*.spk_id' => [
                 'required',
@@ -100,12 +81,8 @@ class UpdateResinRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'doc_no.required' => 'Nomor dokumen wajib diisi.',
-            'operator.required' => 'Operator resin wajib dipilih.',
-            'operator.exists' => 'Operator resin tidak valid.',
-            'trans_date.required' => 'Tanggal resin wajib diisi.',
-            'details.required' => 'Minimal satu SPK wajib ditambahkan.',
-            'details.min' => 'Minimal satu SPK wajib ditambahkan.',
+            'details.required' => 'Minimal satu SPK wajib ada.',
+            'details.min' => 'Minimal satu SPK wajib ada.',
             'details.*.spk_id.required' => 'SPK wajib dipilih.',
             'details.*.spk_id.distinct' => 'SPK tidak boleh duplikat.',
             'details.*.spk_id.exists' => 'SPK yang dipilih tidak valid.',

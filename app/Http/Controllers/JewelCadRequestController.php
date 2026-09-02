@@ -17,6 +17,7 @@ use App\Support\JewelCadApprovalService;
 use App\Support\JewelCadDocNumberGenerator;
 use App\Support\JewelCadSpkEligibility;
 use App\Support\JewelCadStatusMapper;
+use App\Support\ProductionOrderTypeLabel;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
@@ -337,6 +338,7 @@ class JewelCadRequestController extends Controller
                     'id' => (int) $production->row_id,
                     'spkNo' => (string) $production->spk_no,
                     'spkType' => filled($production->spk_type) ? (string) $production->spk_type : '-',
+                    'orderTypeLabel' => app(ProductionOrderTypeLabel::class)->forProduction($production),
                     'customer' => filled($production->customer_name)
                         ? (string) $production->customer_name
                         : '-',
@@ -933,6 +935,7 @@ class JewelCadRequestController extends Controller
      *     skuCode: string|null,
      *     typeCode: string|null,
      *     productItemName: string|null,
+     *     itemDescription: string|null,
      *     satuan: string,
      *     qty: int|null,
      *     estimationBrj: string,
@@ -944,10 +947,15 @@ class JewelCadRequestController extends Controller
         $qty = $detail->production?->qty ?? $detail->qty;
         $typeCode = trim((string) ($detail->production?->categoryPrefix?->prefix ?? ''));
         $productItemName = trim((string) ($detail->production?->sku?->item_original ?? ''));
+        $itemDescription = trim((string) ($detail->production?->description ?? ''));
 
         return [
             'spkId' => (int) $detail->spk_id,
             'spkNo' => $detail->production?->spk_no,
+            'spkType' => filled($detail->production?->spk_type)
+                ? (string) $detail->production->spk_type
+                : null,
+            'orderTypeLabel' => app(ProductionOrderTypeLabel::class)->forProduction($detail->production),
             'material' => filled($detail->production?->gold_color)
                 ? (string) $detail->production->gold_color
                 : $detail->material,
@@ -959,6 +967,7 @@ class JewelCadRequestController extends Controller
                 : null,
             'typeCode' => $typeCode !== '' ? $typeCode : null,
             'productItemName' => $productItemName !== '' ? $productItemName : null,
+            'itemDescription' => $itemDescription !== '' ? $itemDescription : null,
             'satuan' => SpkQtyUnit::label($qty, $detail->production?->satuan),
             'qty' => $qty,
             'estimationBrj' => number_format((float) $detail->estimation_brj, 3, '.', ''),
@@ -987,6 +996,8 @@ class JewelCadRequestController extends Controller
                         ->select([
                             'row_id',
                             'spk_no',
+                            'spk_type',
+                            'request_order_no',
                             'item_name',
                             'customer_name',
                             'gold_color',
@@ -996,6 +1007,7 @@ class JewelCadRequestController extends Controller
                             'sku_id',
                             'category_prefix_id',
                             'notes',
+                            'description',
                             'jwcad_3d',
                         ]),
                 ])

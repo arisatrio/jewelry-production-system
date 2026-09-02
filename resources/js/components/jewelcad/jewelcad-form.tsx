@@ -19,6 +19,7 @@ import {
     JewelCadAddSpkDialog,
     type JewelCadAddedSpk,
 } from '@/components/jewelcad/jewelcad-add-spk-dialog';
+import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 
 type OperatorOption = {
     value: string;
@@ -41,6 +42,8 @@ type JewelCadApprovalAbilities = {
 type JewelCadDetailForm = {
     spk_id: string;
     spk_no: string;
+    spk_type: string;
+    order_type_label: string;
     material: string;
     gold_weight: string;
     jwcad_3d: string;
@@ -260,6 +263,8 @@ export function JewelCadForm({
         setEditingDetail({
             spk_id: detail.spk_id,
             spk_no: detail.spk_no,
+            spk_type: detail.spk_type,
+            order_type_label: detail.order_type_label,
             material: detail.material,
             gold_weight: detail.gold_weight,
             jwcad_3d: detail.jwcad_3d,
@@ -608,6 +613,9 @@ export function JewelCadForm({
                                         <thead>
                                             <tr>
                                                 <th>SPK</th>
+                                                <th className="spkTableColCenter spkTableColTipeProduksi">
+                                                    Tipe Produksi
+                                                </th>
                                                 <th>Berat Emas</th>
                                                 <th>Qty</th>
                                                 <th>Catatan</th>
@@ -620,7 +628,7 @@ export function JewelCadForm({
                                         <tbody>
                                             {data.details.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={6}>
+                                                    <td colSpan={7}>
                                                         Belum ada SPK. Klik
                                                         Tambah SPK untuk
                                                         memilih.
@@ -633,7 +641,7 @@ export function JewelCadForm({
                                                             key={`group-${group.material}`}
                                                         >
                                                             <tr className="jewelCadMaterialGroupRow">
-                                                                <td colSpan={6}>
+                                                                <td colSpan={7}>
                                                                     <em>
                                                                         {group.material.toUpperCase()}
                                                                     </em>
@@ -685,6 +693,16 @@ export function JewelCadForm({
                                                                                     </Text>
                                                                                 ) : null}
                                                                             </div>
+                                                                        </td>
+                                                                        <td className="spkTableColCenter spkTableColTipeProduksi">
+                                                                            <SpkOrderTypeColumn
+                                                                                spkType={
+                                                                                    detail.spk_type
+                                                                                }
+                                                                                orderTypeLabel={
+                                                                                    detail.order_type_label
+                                                                                }
+                                                                            />
                                                                         </td>
                                                                         <td>
                                                                             {detail.gold_weight ||

@@ -8,21 +8,19 @@ import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import {
     create,
-    destroy,
-    edit,
     index as resinIndex,
+    show,
 } from '@/routes/resin';
+import { ResinSpkStatusCards } from '@/components/resin/resin-spk-status-cards';
 
 type ResinRow = {
     id: number;
     docNo: string | null;
     transDate: string | null;
     status: string | null;
-    spkNo: string | null;
-    itemName: string | null;
-    customerName: string | null;
-    stoneCount: number;
-    fileUpload: string | null;
+    statusLabel: string | null;
+    spkNos: string[];
+    totalBeratResin: string | null;
 };
 
 type ResinsPaginator = {
@@ -35,6 +33,11 @@ type ResinsPaginator = {
 
 type ResinIndexProps = {
     resins: ResinsPaginator;
+    spkStatusCounts: {
+        pending: number;
+        inProgress: number;
+        completed: number;
+    };
     filters: {
         search: string;
         per_page: number;
@@ -43,37 +46,44 @@ type ResinIndexProps = {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 
-function statusBadgeClass(status: string): string {
-    const lower = status.toLowerCase();
+function formatStatusLabel(
+    statusLabel: string | null,
+    status: string | null,
+): string {
+    const label = statusLabel?.trim() ?? '';
 
-    if (lower.includes('done')) {
+    if (label !== '') {
+        return label;
+    }
+
+    const code = status?.trim() ?? '';
+
+    return code !== '' ? code : '—';
+}
+
+function statusBadgeClass(status: string | null, statusLabel: string | null): string {
+    const label = formatStatusLabel(statusLabel, status).toLowerCase();
+
+    if (label.includes('done') || label.includes('completed')) {
         return 'spkTableBadge--done';
     }
 
-    if (lower.includes('010') || lower.includes('open')) {
+    if (label.includes('draft')) {
+        return 'spkTableBadge--default';
+    }
+
+    if (label.includes('approval') || label.includes('serahkan')) {
         return 'spkTableBadge--approved';
     }
 
     return 'spkTableBadge--default';
 }
 
-function statusLabel(status: string | null): string {
-    if (!status) {
-        return '—';
-    }
-
-    if (status === 'RESDONE') {
-        return 'Done';
-    }
-
-    if (status === 'RES010') {
-        return 'Open';
-    }
-
-    return status;
-}
-
-export default function ResinIndex({ resins, filters }: ResinIndexProps) {
+export default function ResinIndex({
+    resins,
+    spkStatusCounts,
+    filters,
+}: ResinIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
 
     useEffect(() => {
@@ -131,26 +141,15 @@ export default function ResinIndex({ resins, filters }: ResinIndexProps) {
         );
     };
 
-    const handleDelete = (item: ResinRow) => {
-        if (
-            !window.confirm(
-                `Hapus dokumen resin "${item.docNo ?? item.id}"?`,
-            )
-        ) {
-            return;
-        }
-
-        router.delete(destroy.url(item.id), {
-            preserveScroll: true,
-        });
-    };
-
     return (
         <>
             <Head title="Resin" />
             <div className="spkTableShell">
                 <div className="spkTableCard">
                     <div className="spkTableActions">
+                        <div className="spkTableTitleBlock">
+                            <h1 className="spkTableTitle">Request Resin</h1>
+                        </div>
                         <button
                             type="button"
                             className="spkCreateBtn"
@@ -161,6 +160,8 @@ export default function ResinIndex({ resins, filters }: ResinIndexProps) {
                             <span>Tambah</span>
                         </button>
                     </div>
+
+                    <ResinSpkStatusCards counts={spkStatusCounts} />
 
                     <div className="spkTableToolbar">
                         <div className="spkTableToolbarLeft">
@@ -194,7 +195,7 @@ export default function ResinIndex({ resins, filters }: ResinIndexProps) {
                         <div className="spkTableToolbarRight">
                             <Input
                                 accessibleName="Cari dokumen resin"
-                                placeholder="Cari nomor dokumen, SPK, item..."
+                                placeholder="Cari nomor dokumen, SPK..."
                                 value={searchQuery}
                                 icon={<Icon name={searchIcon} />}
                                 onInput={(event) =>
@@ -211,17 +212,14 @@ export default function ResinIndex({ resins, filters }: ResinIndexProps) {
                                     <th>No Dokumen</th>
                                     <th>Tanggal</th>
                                     <th>SPK</th>
-                                    <th>Item</th>
-                                    <th>Customer</th>
-                                    <th>Batu</th>
-                                    <th>Status</th>
-                                    <th>Aksi</th>
+                                    <th>Total Berat Resin (g)</th>
+                                    <th className="spkTableColCenter">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {resins.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8}>
+                                        <td colSpan={5}>
                                             Tidak ada data dokumen resin.
                                         </td>
                                     </tr>
@@ -229,24 +227,48 @@ export default function ResinIndex({ resins, filters }: ResinIndexProps) {
                                     resins.data.map((item) => (
                                         <tr key={item.id}>
                                             <td>
-                                                <span className="spkProduksiLink">
+                                                <button
+                                                    type="button"
+                                                    className="spkProduksiLink"
+                                                    onClick={() =>
+                                                        router.visit(
+                                                            show.url(item.id),
+                                                        )
+                                                    }
+                                                >
                                                     {item.docNo ?? '—'}
-                                                </span>
+                                                </button>
                                             </td>
                                             <td>{item.transDate ?? '—'}</td>
-                                            <td>{item.spkNo ?? '—'}</td>
-                                            <td>{item.itemName ?? '—'}</td>
                                             <td>
-                                                {item.customerName ?? '—'}
+                                                {item.spkNos.length > 0 ? (
+                                                    <div className="spkTableDescription">
+                                                        {item.spkNos.map(
+                                                            (spkNo) => (
+                                                                <span
+                                                                    key={spkNo}
+                                                                    className="spkTableDescriptionItem"
+                                                                >
+                                                                    {spkNo}
+                                                                </span>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    '—'
+                                                )}
                                             </td>
-                                            <td>{item.stoneCount}</td>
                                             <td>
-                                                {item.status ? (
+                                                {item.totalBeratResin ?? '—'}
+                                            </td>
+                                            <td className="spkTableColCenter">
+                                                {item.status || item.statusLabel ? (
                                                     <div className="spkTableStatus">
                                                         <span
-                                                            className={`spkTableBadge ${statusBadgeClass(item.status)}`}
+                                                            className={`spkTableBadge ${statusBadgeClass(item.status, item.statusLabel)}`}
                                                         >
-                                                            {statusLabel(
+                                                            {formatStatusLabel(
+                                                                item.statusLabel,
                                                                 item.status,
                                                             )}
                                                         </span>
@@ -254,32 +276,6 @@ export default function ResinIndex({ resins, filters }: ResinIndexProps) {
                                                 ) : (
                                                     '—'
                                                 )}
-                                            </td>
-                                            <td>
-                                                <div className="masterDataActions">
-                                                    <button
-                                                        type="button"
-                                                        className="masterDataLinkBtn"
-                                                        onClick={() =>
-                                                            router.visit(
-                                                                edit.url(
-                                                                    item.id,
-                                                                ),
-                                                            )
-                                                        }
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="masterDataDangerBtn"
-                                                        onClick={() =>
-                                                            handleDelete(item)
-                                                        }
-                                                    >
-                                                        Hapus
-                                                    </button>
-                                                </div>
                                             </td>
                                         </tr>
                                     ))

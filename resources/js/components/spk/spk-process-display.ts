@@ -33,7 +33,14 @@ export const HIDDEN_COLUMNS = new Set([
 ]);
 
 export const PROCESS_HIDDEN_COLUMNS: Record<string, Set<string>> = {
-    Resin: new Set(['status']),
+    JewelCAD: new Set([
+        'material',
+        'qty',
+        'tanggal',
+        'is_from_new_system',
+        'notes',
+    ]),
+    Resin: new Set(['status', 'tanggal']),
     'Pasang Batu': new Set([
         'status',
         'spk_no',
@@ -54,6 +61,7 @@ export const COLUMN_LABELS: Record<string, string> = {
     date_from: 'Tanggal Serah',
     date_to: 'Tanggal Terima',
     pengrajin: 'Pengrajin',
+    operator: 'Operator',
     material: 'Material',
     qty: 'Qty',
     estimation_brj: 'Estimasi BRJ (g)',
@@ -200,6 +208,7 @@ export const CARD_HEADER_ONLY_FIELDS = new Set([
     'doc_no',
     'process_name',
     'craftsman_id',
+    'operator',
     'item_category',
     'materials_out',
     'materials_in',

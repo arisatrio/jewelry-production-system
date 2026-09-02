@@ -389,6 +389,7 @@ class SpkProcessMapper
         return match ($table) {
             'coranspk' => 'coran',
             'requestjwcaddetails' => 'requestjwcad',
+            'resindetails' => 'resin',
             default => $table,
         };
     }
@@ -398,8 +399,10 @@ class SpkProcessMapper
      */
     private function resolveApprovalStatusLabels(string $docName): array
     {
+        $fallbacks = $this->approvalStatusLabelFallbacks($docName);
+
         if (! Schema::connection('third')->hasTable('sysstatus')) {
-            return [];
+            return $fallbacks;
         }
 
         $query = DB::connection('third')
@@ -410,10 +413,33 @@ class SpkProcessMapper
             $query->where('is_deleted', 0);
         }
 
-        return $query
+        $labels = $query
             ->pluck('current_status', 'code')
             ->map(fn (mixed $label): string => (string) $label)
+            ->filter(fn (string $label, mixed $code): bool => $label !== '' && $label !== (string) $code)
             ->all();
+
+        return array_merge($fallbacks, $labels);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function approvalStatusLabelFallbacks(string $docName): array
+    {
+        return match ($docName) {
+            'resin' => [
+                ResinApprovalService::STATUS_SUBMITTED => 'Pengajuan Approval',
+                ResinApprovalService::STATUS_MANAGER => 'Serahkan ke Resin',
+                ResinApprovalService::STATUS_DONE => 'Completed',
+            ],
+            'requestjwcad' => [
+                JewelCadApprovalService::STATUS_SUBMITTED => 'Pengajuan Approval',
+                JewelCadApprovalService::STATUS_MANAGER => 'Serahkan ke JWCAD',
+                JewelCadApprovalService::STATUS_DONE => 'Completed',
+            ],
+            default => [],
+        };
     }
 
     /**

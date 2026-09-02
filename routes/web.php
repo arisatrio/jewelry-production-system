@@ -82,8 +82,15 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('resin/select/spks', [ResinController::class, 'searchSpks'])
         ->name('resin.select.spks');
+    Route::post('resin/{resin}/submit', [ResinController::class, 'submit'])
+        ->name('resin.submit');
+    Route::post('resin/{resin}/manager-approve', [ResinController::class, 'managerApprove'])
+        ->name('resin.manager-approve');
+    Route::post('resin/{resin}/complete', [ResinController::class, 'complete'])
+        ->name('resin.complete');
+    Route::put('resin/{resin}/progress', [ResinController::class, 'updateProgress'])
+        ->name('resin.update-progress');
     Route::resource('resin', ResinController::class)
-        ->except(['show'])
         ->parameters(['resin' => 'resin']);
 
     Route::prefix('master-data')->name('master-data.')->group(function () {

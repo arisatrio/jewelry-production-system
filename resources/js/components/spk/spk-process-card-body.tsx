@@ -48,13 +48,19 @@ const DETAIL_SECTION_KEYS = new Set([
     'other',
 ]);
 
-const HEADER_CRAFTSMAN_FIELDS = new Set(['pengrajin', 'craftsman_name']);
+const HEADER_CRAFTSMAN_FIELDS = new Set([
+    'pengrajin',
+    'craftsman_name',
+    'operator',
+]);
 
 const FINISHING_BODY_HIDDEN_FIELDS = new Set([
     'tanggal',
     'pengrajin',
     'craftsman_name',
 ]);
+
+const JEWELCAD_TABLE = 'requestjwcaddetails';
 
 const CORAN_MATERIAL_ORDER = [
     'Rose Gold',
@@ -78,6 +84,33 @@ function resolveHeaderCraftsman(
     }
 
     return null;
+}
+
+function resolveHeaderOperator(
+    record: Record<string, unknown>,
+): string | null {
+    if (!hasProcessValue(record.operator)) {
+        return null;
+    }
+
+    return String(record.operator);
+}
+
+function resolveHeaderPerson(
+    record: Record<string, unknown>,
+    table: string,
+): { label: string; value: string | null } {
+    if (table === JEWELCAD_TABLE) {
+        return {
+            label: 'Operator',
+            value: resolveHeaderOperator(record),
+        };
+    }
+
+    return {
+        label: 'Pengrajin',
+        value: resolveHeaderCraftsman(record),
+    };
 }
 
 function formatOptionalGram(weight: number | null): string {
@@ -1106,7 +1139,7 @@ export function SpkProcessCardBody({
         <div className="spkProcessCardList">
             {records.map((record, index) => {
                 const subtitle = processRecordSubtitle(record);
-                const headerCraftsman = resolveHeaderCraftsman(record);
+                const headerPerson = resolveHeaderPerson(record, table);
                 const workDate = processRecordWorkDate(record);
 
                 return (
@@ -1143,10 +1176,10 @@ export function SpkProcessCardBody({
                                 </div>
                                 <div className="spkProcessCardHeaderMetaItem">
                                     <span className="spkProcessCardHeaderMetaLabel">
-                                        Pengrajin
+                                        {headerPerson.label}
                                     </span>
                                     <span className="spkProcessCardHeaderMetaValue">
-                                        {headerCraftsman ?? '—'}
+                                        {headerPerson.value ?? '—'}
                                     </span>
                                 </div>
                             </div>

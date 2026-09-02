@@ -35,6 +35,8 @@ type JewelCadEditProps = {
         details: Array<{
             spkId: number;
             spkNo: string | null;
+            spkType: string | null;
+            orderTypeLabel: string | null;
             material: string | null;
             goldWeight: string;
             qty: number | null;
@@ -75,6 +77,8 @@ export default function JewelCadEdit({
                     details: requestItem.details.map((detail) => ({
                         spk_id: String(detail.spkId),
                         spk_no: detail.spkNo ?? '',
+                        spk_type: detail.spkType ?? '',
+                        order_type_label: detail.orderTypeLabel ?? '',
                         material: detail.material ?? '',
                         gold_weight: detail.goldWeight,
                         jwcad_3d: '',

@@ -2,68 +2,85 @@ import { Head } from '@inertiajs/react';
 import { ResinForm } from '@/components/resin/resin-form';
 import { index, store } from '@/routes/resin';
 
-type ShapeOption = {
-    id: number;
-    name: string;
+type StatusOption = {
+    value: string;
+    label: string;
+};
+
+type OperatorOption = {
+    value: string;
+    label: string;
 };
 
 type ResinCreateProps = {
-    shapeOptions: ShapeOption[];
+    formDocumentNo: string;
+    statusOptions: StatusOption[];
+    operatorOptions: OperatorOption[];
+    approvalFooter: Array<{
+        title: string;
+        name: string;
+        date: string;
+    }>;
     form: {
+        operator: string;
         transDate: string;
-        spkId: number | null;
-        spkNo: string;
-        itemName: string;
-        customerName: string;
-        fileUpload: string | null;
-        fileUrl: string | null;
-        stones: Array<{
-            shapeId: number | null;
-            pcs: number | null;
-            carat: number | null;
-            size: string;
+        notes: string;
+        details: Array<{
+            spkId: number;
+            spkNo: string | null;
+            spkType: string | null;
+            orderTypeLabel: string | null;
+            skuCode: string | null;
+            typeCode: string | null;
+            productItemName: string | null;
+            itemDescription: string | null;
+            satuan: string;
+            beratResin: string;
+            statusResin: string;
+            catatan: string | null;
         }>;
     };
 };
 
 export default function ResinCreate({
-    shapeOptions,
+    formDocumentNo,
+    statusOptions,
+    operatorOptions,
+    approvalFooter,
     form,
 }: ResinCreateProps) {
     return (
         <>
-            <Head title="Tambah Dokumen Resin" />
+            <Head title="Tambah Request Resin" />
             <ResinForm
-                title="Form Dokumen Resin"
+                title="Form Request Resin"
+                formDocumentNo={formDocumentNo}
                 submitLabel="Simpan"
                 cancelHref={index.url()}
                 submitUrl={store.url()}
                 method="post"
                 isNew
-                shapeOptions={shapeOptions}
+                statusOptions={statusOptions}
+                operatorOptions={operatorOptions}
+                approvalFooter={approvalFooter}
                 initialValues={{
                     doc_no: '',
+                    operator: form.operator,
                     trans_date: form.transDate,
-                    spk_id: form.spkId ? String(form.spkId) : '',
-                    spk_no: form.spkNo,
-                    item_name: form.itemName,
-                    customer_name: form.customerName,
-                    file: null,
-                    file_upload: form.fileUpload,
-                    file_url: form.fileUrl,
-                    stones: form.stones.map((stone) => ({
-                        shape_id: stone.shapeId
-                            ? String(stone.shapeId)
-                            : '',
-                        pcs:
-                            stone.pcs !== null && stone.pcs !== undefined
-                                ? String(stone.pcs)
-                                : '',
-                        carat:
-                            stone.carat !== null && stone.carat !== undefined
-                                ? String(stone.carat)
-                                : '',
-                        size: stone.size ?? '',
+                    notes: form.notes,
+                    details: form.details.map((detail) => ({
+                        spk_id: String(detail.spkId),
+                        spk_no: detail.spkNo ?? '',
+                        spk_type: detail.spkType ?? '',
+                        order_type_label: detail.orderTypeLabel ?? '',
+                        type_code: detail.typeCode ?? '',
+                        product_item_name: detail.productItemName ?? '',
+                        sku_code: detail.skuCode ?? '',
+                        item_description: detail.itemDescription ?? '',
+                        satuan: detail.satuan ?? '',
+                        berat_resin: detail.beratResin,
+                        status_resin: detail.statusResin ?? '',
+                        catatan: detail.catatan ?? '',
                     })),
                 }}
             />
@@ -73,5 +90,5 @@ export default function ResinCreate({
 
 ResinCreate.layout = {
     activeMenu: 'Resin',
-    pageTitle: 'Dokumen Resin',
+    pageTitle: 'Request Resin',
 };

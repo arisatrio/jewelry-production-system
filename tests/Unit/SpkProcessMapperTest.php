@@ -1,7 +1,12 @@
 <?php
 
 use App\Models\Production;
+use App\Models\Resin;
+use App\Models\ResinDetail;
+use App\Support\ResinApprovalService;
 use App\Support\SpkProcessMapper;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -11,17 +16,19 @@ test('spk process mapper exposes expected process to table mapping', function ()
     $tabs = collect($mapper->tabs())->keyBy('key');
 
     expect($tabs->get('JewelCAD')['tables'])->toBe(['requestjwcaddetails'])
-        ->and($tabs->get('Resin')['tables'])->toBe(['resin'])
+        ->and($tabs->get('Resin')['tables'])->toBe(['resindetails'])
         ->and($tabs->get('Coran')['tables'])->toBe(['coranspk'])
         ->and($tabs->get('Finishing')['tables'])->toBe(['finishinghandmade'])
         ->and($tabs->get('Poles Rangka')['tables'])->toBe(['polishframe'])
         ->and($tabs->get('Pasang Batu')['tables'])->toBe(['diamondmounting', 'diamondunload'])
         ->and($tabs->get('Poles Chrome')['tables'])->toBe(['polishfinishedgood'])
-        ->and($tabs->get('Pengerjaan Lanjutan')['tables'])->toBe(['grafir'])
-        ->and($tabs->get('Pengerjaan Lanjutan')['placement'])->toBe('main')
-        ->and($tabs->get('Modifikasi Barang Jadi')['tables'])->toBe([])
-        ->and($tabs->get('Modifikasi Barang Jadi')['placement'])->toBe('main')
-        ->and($tabs->get('JewelCAD')['placement'])->toBe('proses-produksi');
+        ->and($tabs->get('JewelCAD')['placement'])->toBe('proses-produksi')
+        ->and($tabs->get('JewelCAD')['parent']['requestjwcaddetails']['fields'] ?? [])
+        ->toBe([
+            'doc_no' => 'doc_no',
+            'tanggal' => 'trans_date',
+            'operator' => 'operator',
+        ]);
 });
 
 test('spk process mapper resolves tables for last process names', function (string $lastProcess, array $tables) {
@@ -87,11 +94,12 @@ test('spk process mapper enriches jewelcad rows from requestjwcad parent', funct
     if ($production->spk_no === '2024/PRD/00012' && $jewelCad['recordCount'] > 0) {
         $row = $jewelCad['sources'][0]['records'][0];
 
-        expect($row)->toHaveKeys(['doc_no', 'tanggal', 'material'])
+        expect($row)->toHaveKeys(['doc_no', 'tanggal', 'operator', 'material'])
             ->and($row['doc_no'])->toBe('JWC0000053')
             ->and($row['tanggal'])->toBe('23-Jul-2024')
             ->and(array_key_first($row))->toBe('doc_no')
-            ->and(array_keys($row)[1] ?? null)->toBe('tanggal');
+            ->and(array_keys($row)[1] ?? null)->toBe('tanggal')
+            ->and(array_keys($row)[2] ?? null)->toBe('operator');
     }
 });
 
@@ -268,6 +276,111 @@ test('spk process mapper attaches finishing material breakdown lines', function 
         ->and($row['tanggal'])->toBe('16-Mar-2026')
         ->and($row['pengrajin'])->toBe('Jajang')
         ->and($row['shrink_percent'])->toBe(7.41);
+});
+
+test('spk process mapper attaches resin approval timeline from parent resin doc', function () {
+    if (! Schema::connection('third')->hasTable('sysapproval')) {
+        $this->markTestSkipped('Tabel sysapproval tidak tersedia.');
+    }
+
+    $production = Production::factory()->create();
+    $resin = Resin::factory()->create([
+        'spk_id' => $production->row_id,
+        'status' => ResinApprovalService::STATUS_DONE,
+    ]);
+    $detail = ResinDetail::factory()->create([
+        'row_id' => $resin->row_id,
+        'spk_id' => $production->row_id,
+    ]);
+
+    $now = now();
+
+    DB::connection('third')
+        ->table('sysapproval')
+        ->where('doc_name', ResinApprovalService::DOC_NAME)
+        ->where('doc_id', $resin->row_id)
+        ->delete();
+
+    DB::connection('third')->table('sysapproval')->insert([
+        [
+            'doc_id' => $resin->row_id,
+            'doc_no' => $resin->doc_no,
+            'doc_name' => ResinApprovalService::DOC_NAME,
+            'status' => ResinApprovalService::STATUS_SUBMITTED,
+            'approve' => ResinApprovalService::APPROVE_OK,
+            'notes' => 'Pengajuan Approval',
+            'is_deleted' => 0,
+            'created_date' => $now->copy()->subHours(2),
+            'created_by' => 'Operator Resin',
+            'modified_date' => null,
+            'modified_by' => null,
+            'deleted_date' => null,
+            'deleted_by' => null,
+        ],
+        [
+            'doc_id' => $resin->row_id,
+            'doc_no' => $resin->doc_no,
+            'doc_name' => ResinApprovalService::DOC_NAME,
+            'status' => ResinApprovalService::STATUS_MANAGER,
+            'approve' => ResinApprovalService::APPROVE_OK,
+            'notes' => 'Serahkan ke Resin',
+            'is_deleted' => 0,
+            'created_date' => $now->copy()->subHour(),
+            'created_by' => 'Manager Production',
+            'modified_date' => null,
+            'modified_by' => null,
+            'deleted_date' => null,
+            'deleted_by' => null,
+        ],
+        [
+            'doc_id' => $resin->row_id,
+            'doc_no' => $resin->doc_no,
+            'doc_name' => ResinApprovalService::DOC_NAME,
+            'status' => ResinApprovalService::STATUS_DONE,
+            'approve' => ResinApprovalService::APPROVE_OK,
+            'notes' => 'Completed',
+            'is_deleted' => 0,
+            'created_date' => $now,
+            'created_by' => 'Operator Resin',
+            'modified_date' => null,
+            'modified_by' => null,
+            'deleted_date' => null,
+            'deleted_by' => null,
+        ],
+    ]);
+
+    try {
+        $processes = (new SpkProcessMapper)->forProduction((int) $production->row_id);
+        $resinTab = collect($processes)->firstWhere('key', 'Resin');
+        $row = collect($resinTab['sources'][0]['records'] ?? [])
+            ->firstWhere('line_id', $detail->line_id);
+
+        expect($row)->not->toBeNull()
+            ->and($row['approvals'])->toHaveCount(3)
+            ->and(collect($row['approvals'])->pluck('status')->all())->toBe([
+                ResinApprovalService::STATUS_SUBMITTED,
+                ResinApprovalService::STATUS_MANAGER,
+                ResinApprovalService::STATUS_DONE,
+            ])
+            ->and(collect($row['approvals'])->pluck('statusLabel')->all())->toBe([
+                'Pengajuan Approval',
+                'Serahkan ke Resin',
+                'Completed',
+            ])
+            ->and($row['approvals'][0]['approve'])->toBe(ResinApprovalService::APPROVE_OK)
+            ->and($row['approvals'][0]['createdBy'])->toBe('Operator Resin')
+            ->and($row['approvals'][1]['createdBy'])->toBe('Manager Production');
+    } finally {
+        DB::connection('third')
+            ->table('sysapproval')
+            ->where('doc_name', ResinApprovalService::DOC_NAME)
+            ->where('doc_id', $resin->row_id)
+            ->delete();
+
+        $detail->delete();
+        $resin->delete();
+        $production->delete();
+    }
 });
 
 test('spk process mapper orders process records by created_date ascending', function () {

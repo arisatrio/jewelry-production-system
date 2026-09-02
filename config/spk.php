@@ -16,6 +16,13 @@ return [
 
     'jewelcad_form_document_no' => 'WHOJ-PRD-FRM-002',
 
+    'resin_form_document_no' => 'WHOJ-PRD-FRM-003',
+
+    'resin_detail_statuses' => [
+        ['value' => 'OK', 'label' => 'OK'],
+        ['value' => 'NOT OK', 'label' => 'NOT OK'],
+    ],
+
     'company_name' => 'Wanda House of Jewels',
 
     'form_title' => 'Form SPK',
