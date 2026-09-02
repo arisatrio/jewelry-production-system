@@ -55,6 +55,7 @@ test('resin index lists total berat resin from detail rows', function () {
     $resin = Resin::factory()->create([
         'spk_id' => $productionA->row_id,
         'doc_no' => '2026/RSN/RSNTOT',
+        'notes' => 'Catatan list resin',
     ]);
     ResinDetail::factory()->create([
         'row_id' => $resin->row_id,
@@ -73,6 +74,7 @@ test('resin index lists total berat resin from detail rows', function () {
             ->component('resin/index')
             ->where('resins.data.0.id', $resin->row_id)
             ->where('resins.data.0.totalBeratResin', '4.250')
+            ->where('resins.data.0.notes', 'Catatan list resin')
         );
 
     ResinDetail::query()->where('row_id', $resin->row_id)->delete();

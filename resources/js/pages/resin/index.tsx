@@ -19,6 +19,7 @@ type ResinRow = {
     transDate: string | null;
     status: string | null;
     statusLabel: string | null;
+    notes: string | null;
     spkNos: string[];
     totalBeratResin: string | null;
 };
@@ -45,6 +46,12 @@ type ResinIndexProps = {
 };
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+
+function formatNotes(notes: string | null): string {
+    const trimmed = notes?.trim() ?? '';
+
+    return trimmed !== '' ? trimmed : '—';
+}
 
 function formatStatusLabel(
     statusLabel: string | null,
@@ -213,13 +220,14 @@ export default function ResinIndex({
                                     <th>Tanggal</th>
                                     <th>SPK</th>
                                     <th>Total Berat Resin (g)</th>
-                                    <th className="spkTableColCenter">Status</th>
+                                    <th>Catatan</th>
+                                    <th className="spkTableColStatus">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {resins.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5}>
+                                        <td colSpan={6}>
                                             Tidak ada data dokumen resin.
                                         </td>
                                     </tr>
@@ -261,7 +269,10 @@ export default function ResinIndex({
                                             <td>
                                                 {item.totalBeratResin ?? '—'}
                                             </td>
-                                            <td className="spkTableColCenter">
+                                            <td className="spkTableColNotes">
+                                                {formatNotes(item.notes)}
+                                            </td>
+                                            <td className="spkTableColStatus">
                                                 {item.status || item.statusLabel ? (
                                                     <div className="spkTableStatus">
                                                         <span

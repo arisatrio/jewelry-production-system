@@ -68,6 +68,24 @@ function formatStatusLabel(
     return code !== '' ? code : '—';
 }
 
+function statusBadgeClass(status: string | null, statusLabel: string | null): string {
+    const label = formatStatusLabel(statusLabel, status).toLowerCase();
+
+    if (label.includes('done') || label.includes('completed')) {
+        return 'spkTableBadge--done';
+    }
+
+    if (label.includes('draft')) {
+        return 'spkTableBadge--default';
+    }
+
+    if (label.includes('approval') || label.includes('serahkan')) {
+        return 'spkTableBadge--approved';
+    }
+
+    return 'spkTableBadge--default';
+}
+
 export default function JewelCadIndex({
     requests,
     spkStatusCounts,
@@ -266,9 +284,19 @@ export default function JewelCadIndex({
                                                 {formatNotes(item.notes)}
                                             </td>
                                             <td className="spkTableColCenter">
-                                                {formatStatusLabel(
-                                                    item.statusLabel,
-                                                    item.status,
+                                                {item.status || item.statusLabel ? (
+                                                    <div className="spkTableStatus">
+                                                        <span
+                                                            className={`spkTableBadge ${statusBadgeClass(item.status, item.statusLabel)}`}
+                                                        >
+                                                            {formatStatusLabel(
+                                                                item.statusLabel,
+                                                                item.status,
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    '—'
                                                 )}
                                             </td>
                                         </tr>

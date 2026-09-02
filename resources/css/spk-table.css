@@ -230,6 +230,15 @@
     max-width: 16rem;
 }
 
+.spkTable th.spkTableColStatus,
+.spkTable td.spkTableColStatus {
+    width: 1%;
+    max-width: 9.5rem;
+    white-space: nowrap;
+    text-align: center;
+    vertical-align: middle;
+}
+
 .masterDataActions--center {
     display: flex;
     justify-content: center;

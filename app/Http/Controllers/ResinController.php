@@ -582,6 +582,7 @@ class ResinController extends Controller
      *     transDate: string|null,
      *     status: string|null,
      *     statusLabel: string,
+     *     notes: string|null,
      *     spkNos: list<string>,
      *     totalBeratResin: string|null
      * }
@@ -592,6 +593,8 @@ class ResinController extends Controller
             ->filter(fn (ResinDetail $detail): bool => $detail->is_deleted === 0)
             ->values();
 
+        $notes = filled($resin->notes) ? (string) $resin->notes : null;
+
         if ($detailRows->isEmpty() && filled($resin->spk_id)) {
             return [
                 'id' => (int) $resin->row_id,
@@ -599,6 +602,7 @@ class ResinController extends Controller
                 'transDate' => $resin->trans_date?->format('Y-m-d'),
                 'status' => $resin->status,
                 'statusLabel' => app(ResinApprovalService::class)->statusLabelFor($resin),
+                'notes' => $notes,
                 'spkNos' => filled($resin->production?->spk_no)
                     ? [(string) $resin->production->spk_no]
                     : [],
@@ -612,6 +616,7 @@ class ResinController extends Controller
             'transDate' => $resin->trans_date?->format('Y-m-d'),
             'status' => $resin->status,
             'statusLabel' => app(ResinApprovalService::class)->statusLabelFor($resin),
+            'notes' => $notes,
             'spkNos' => $detailRows
                 ->map(fn (ResinDetail $detail): ?string => $detail->production?->spk_no)
                 ->filter()
