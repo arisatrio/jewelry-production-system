@@ -16,6 +16,7 @@ use App\Support\GoldColorOptions;
 use App\Support\JewelCadApprovalService;
 use App\Support\JewelCadDocNumberGenerator;
 use App\Support\JewelCadSpkEligibility;
+use App\Support\JewelCadStatusMapper;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
@@ -501,6 +502,7 @@ class JewelCadRequestController extends Controller
         Request $request,
         JewelCadRequest $jewelcad,
         JewelCadApprovalService $approvalService,
+        JewelCadStatusMapper $statusMapper,
     ): Response {
         abort_if($jewelcad->is_deleted === 1, 404);
 
@@ -514,6 +516,7 @@ class JewelCadRequestController extends Controller
             ),
             'approvalHistory' => $approvalService->history($jewelcad),
             'approval' => $approvalService->abilitiesFor($jewelcad, $request->user()),
+            'workflowStatus' => $statusMapper->map($jewelcad),
             'requestItem' => $this->toDetailItem($jewelcad),
         ]);
     }

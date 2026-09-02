@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import pictureIcon from '@ui5/webcomponents-icons/dist/picture.js';
 import { Button } from '@ui5/webcomponents-react/Button';
+import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
+import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { FileUploader } from '@ui5/webcomponents-react/FileUploader';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Input } from '@ui5/webcomponents-react/Input';
@@ -378,6 +380,10 @@ export function JewelCadAddSpkDialog({
 
         if (goldWeight.trim() === '') {
             nextErrors.gold_weight = 'Berat emas wajib diisi.';
+        }
+
+        if (goldColor.trim() === '') {
+            nextErrors.material = 'Bahan emas wajib dipilih.';
         }
 
         if (estimationBrj.trim() === '') {
@@ -765,9 +771,57 @@ export function JewelCadAddSpkDialog({
                                             <tr>
                                                 <th scope="row">Bahan Emas</th>
                                                 <td>
-                                                    {goldColor.trim() !== ''
-                                                        ? goldColor
-                                                        : '—'}
+                                                    <ComboBox
+                                                        accessibleName="Bahan Emas"
+                                                        className="spkItemMetaInput"
+                                                        placeholder="Pilih bahan emas"
+                                                        filter="Contains"
+                                                        showClearIcon
+                                                        value={goldColor}
+                                                        valueState={fieldState(
+                                                            errors.material,
+                                                        )}
+                                                        onSelectionChange={(
+                                                            event,
+                                                        ) => {
+                                                            const item =
+                                                                event.detail
+                                                                    .item;
+
+                                                            if (!item?.value) {
+                                                                return;
+                                                            }
+
+                                                            setGoldColor(
+                                                                String(
+                                                                    item.value,
+                                                                ),
+                                                            );
+                                                        }}
+                                                        onChange={(event) => {
+                                                            setGoldColor(
+                                                                event.target
+                                                                    .value ?? '',
+                                                            );
+                                                        }}
+                                                    >
+                                                        {detail.options.goldColors.map(
+                                                            (color) => (
+                                                                <ComboBoxItem
+                                                                    key={color}
+                                                                    text={color}
+                                                                    value={
+                                                                        color
+                                                                    }
+                                                                />
+                                                            ),
+                                                        )}
+                                                    </ComboBox>
+                                                    {errors.material ? (
+                                                        <Text className="spkFioriError">
+                                                            {errors.material}
+                                                        </Text>
+                                                    ) : null}
                                                 </td>
                                             </tr>
                                             <tr>

@@ -28,11 +28,19 @@ type JewelCadApprovalAbilities = {
     statusLabel: string;
 };
 
+type JewelCadWorkflowStatus = {
+    key: string;
+    label: string;
+    stageIndex: number;
+    stages: Array<{ key: string; label: string }>;
+};
+
 type JewelCadShowProps = {
     formDocumentNo: string;
     approvalFooter: ApprovalFooterColumn[];
     approvalHistory: ApprovalHistoryEvent[];
     approval: JewelCadApprovalAbilities;
+    workflowStatus: JewelCadWorkflowStatus;
     requestItem: {
         id: number;
         docNo: string | null;
@@ -60,6 +68,7 @@ export default function JewelCadShow({
     approvalFooter,
     approvalHistory,
     approval,
+    workflowStatus,
     requestItem,
 }: JewelCadShowProps) {
     return (
@@ -72,6 +81,7 @@ export default function JewelCadShow({
                 approvalFooter={approvalFooter}
                 approvalHistory={approvalHistory}
                 approval={approval}
+                workflowStatus={workflowStatus}
                 backHref={index.url()}
                 editHref={edit.url(requestItem.id)}
                 submitUrl={submit.url(requestItem.id)}
