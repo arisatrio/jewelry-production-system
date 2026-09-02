@@ -15,6 +15,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
+import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
+import {
+    SpkApprovalTimelinePanel,
+    type SpkApprovalTimelineEvent,
+} from '@/components/spk/spk-approval-timeline-panel';
 
 type ApprovalFooterColumn = {
     title: string;
@@ -41,11 +47,14 @@ type JewelCadDetailItem = {
     details: Array<{
         spkId: number;
         spkNo: string | null;
+        spkType: string | null;
+        orderTypeLabel: string | null;
         material: string | null;
         goldWeight: string;
         skuCode: string | null;
         typeCode: string | null;
         productItemName: string | null;
+        itemDescription: string | null;
         satuan: string;
         qty: number | null;
         estimationBrj: string;
@@ -91,37 +100,6 @@ function displayValue(value: string | null | undefined): string {
     return trimmed !== '' ? trimmed : '—';
 }
 
-function SkuColumnValue({
-    typeCode,
-    productItemName,
-    skuCode,
-}: {
-    typeCode: string | null;
-    productItemName: string | null;
-    skuCode: string | null;
-}) {
-    const typeProductLine = [typeCode, productItemName]
-        .map((value) => value?.trim() ?? '')
-        .filter(Boolean)
-        .join(' | ');
-    const sku = skuCode?.trim() ?? '';
-
-    if (typeProductLine === '' && sku === '') {
-        return <>—</>;
-    }
-
-    return (
-        <div className="spkItemTypeProductStack">
-            {typeProductLine !== '' ? (
-                <span className="spkItemTypeProductLine">{typeProductLine}</span>
-            ) : null}
-            {sku !== '' ? (
-                <span className="spkItemSkuCode">{sku}</span>
-            ) : null}
-        </div>
-    );
-}
-
 function formatTransDate(isoDate: string | null): string {
     if (!isoDate) {
         return '—';
@@ -158,6 +136,9 @@ export function JewelCadDetail({
     const [submitting, setSubmitting] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [mainSection, setMainSection] = useState<'informasi' | 'riwayat'>(
+        'informasi',
+    );
 
     const detailsByMaterial = useMemo(() => {
         const groups = new Map<
@@ -180,6 +161,20 @@ export function JewelCadDetail({
             rows,
         }));
     }, [requestItem.details]);
+
+    const approvalTimeline = useMemo<SpkApprovalTimelineEvent[]>(
+        () =>
+            approvalHistory.map((event) => ({
+                source: 'JewelCAD',
+                status: event.status,
+                statusLabel: event.statusLabel,
+                approve: event.approve,
+                notes: event.notes,
+                createdBy: event.createdBy,
+                createdAt: event.createdAt,
+            })),
+        [approvalHistory],
+    );
 
     const activeStageIndex = workflowStatus?.stageIndex ?? 0;
     const statusStages = workflowStatus?.stages ?? [
@@ -393,7 +388,55 @@ export function JewelCadDetail({
 
                 <div className="spkDetailBody">
                     <section className="spkMainPanel">
-                        <div className="spkInformasiProduksiBody">
+                        <div
+                            className="spkSectionTabs"
+                            role="tablist"
+                            aria-label="Konten utama JewelCAD"
+                        >
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={mainSection === 'informasi'}
+                                className={[
+                                    'spkSectionTab',
+                                    mainSection === 'informasi'
+                                        ? 'is-active'
+                                        : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                onClick={() => setMainSection('informasi')}
+                            >
+                                <span className="spkSectionTabLabel">
+                                    Informasi
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={mainSection === 'riwayat'}
+                                className={[
+                                    'spkSectionTab',
+                                    mainSection === 'riwayat'
+                                        ? 'is-active'
+                                        : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                onClick={() => setMainSection('riwayat')}
+                            >
+                                <span className="spkSectionTabLabel">
+                                    Riwayat
+                                </span>
+                            </button>
+                        </div>
+
+                        {mainSection === 'informasi' ? (
+                        <div
+                            role="tabpanel"
+                            aria-label="Informasi"
+                            className="spkInformasiProduksiBody"
+                        >
                             <section className="spkShowSection">
                                 <h3 className="spkShowSectionTitle">
                                     Informasi Request
@@ -445,8 +488,11 @@ export function JewelCadDetail({
                                 <thead>
                                     <tr>
                                         <th>SPK</th>
+                                        <th className="spkTableColCenter spkTableColTipeProduksi">
+                                            Tipe Produksi
+                                        </th>
                                         <th>SKU</th>
-                                        <th>Satuan</th>
+                                        <th>Qty</th>
                                         <th>Catatan</th>
                                         <th>Berat <br /> (SPK) (g)</th>
                                         <th>Estimasi Berat Barang Jadi <br /> (JewelCAD) (g)</th>
@@ -455,7 +501,7 @@ export function JewelCadDetail({
                                 <tbody>
                                     {requestItem.details.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6}>
+                                            <td colSpan={7}>
                                                 Belum ada SPK pada request ini.
                                             </td>
                                         </tr>
@@ -465,7 +511,7 @@ export function JewelCadDetail({
                                                 key={`group-${group.material}`}
                                             >
                                                 <tr className="jewelCadMaterialGroupRow">
-                                                    <td colSpan={6}>
+                                                    <td colSpan={7}>
                                                         <em>
                                                             {group.material.toUpperCase()}
                                                         </em>
@@ -483,8 +529,18 @@ export function JewelCadDetail({
                                                                     )}
                                                                 </strong>
                                                             </td>
+                                                            <td className="spkTableColCenter spkTableColTipeProduksi">
+                                                                <SpkOrderTypeColumn
+                                                                    spkType={
+                                                                        detail.spkType
+                                                                    }
+                                                                    orderTypeLabel={
+                                                                        detail.orderTypeLabel
+                                                                    }
+                                                                />
+                                                            </td>
                                                             <td>
-                                                                <SkuColumnValue
+                                                                <SpkItemSkuColumn
                                                                     typeCode={
                                                                         detail.typeCode
                                                                     }
@@ -493,6 +549,9 @@ export function JewelCadDetail({
                                                                     }
                                                                     skuCode={
                                                                         detail.skuCode
+                                                                    }
+                                                                    itemDescription={
+                                                                        detail.itemDescription
                                                                     }
                                                                 />
                                                             </td>
@@ -526,58 +585,6 @@ export function JewelCadDetail({
                             </table>
                         </div>
                             </section>
-
-                            {approvalHistory.length > 0 ? (
-                                <section className="spkShowSection">
-                                    <h3 className="spkShowSectionTitle">
-                                        Riwayat Approval
-                                    </h3>
-                                    <div className="spkTableScroll">
-                                <table className="spkTable masterDataTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Status</th>
-                                            <th>Keputusan</th>
-                                            <th>Oleh</th>
-                                            <th>Tanggal</th>
-                                            <th>Catatan</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {approvalHistory.map((event, index) => (
-                                            <tr
-                                                key={`history-${event.status}-${index}`}
-                                            >
-                                                <td>
-                                                    {displayValue(
-                                                        event.statusLabel,
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {displayValue(
-                                                        event.approve,
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {displayValue(
-                                                        event.createdBy,
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {displayValue(
-                                                        event.createdAt,
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {displayValue(event.notes)}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                    </div>
-                                </section>
-                            ) : null}
 
                             {approvalFooter.length > 0 ? (
                                 <div className="spkShowBottom">
@@ -617,6 +624,13 @@ export function JewelCadDetail({
                                 </div>
                             ) : null}
                         </div>
+                        ) : null}
+
+                        {mainSection === 'riwayat' ? (
+                            <SpkApprovalTimelinePanel
+                                events={approvalTimeline}
+                            />
+                        ) : null}
                     </section>
                 </div>
             </div>

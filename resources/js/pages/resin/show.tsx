@@ -1,6 +1,13 @@
 import { Head } from '@inertiajs/react';
-import { JewelCadDetail } from '@/components/jewelcad/jewelcad-detail';
-import { complete, destroy, edit, index, managerApprove, submit } from '@/routes/jewelcad';
+import { ResinDetail } from '@/components/resin/resin-detail';
+import {
+    complete,
+    destroy,
+    edit,
+    index,
+    managerApprove,
+    submit,
+} from '@/routes/resin';
 
 type ApprovalFooterColumn = {
     title: string;
@@ -17,7 +24,7 @@ type ApprovalHistoryEvent = {
     createdAt: string | null;
 };
 
-type JewelCadApprovalAbilities = {
+type ResinApprovalAbilities = {
     canSubmit: boolean;
     canEdit: boolean;
     canOpenEdit: boolean;
@@ -28,75 +35,85 @@ type JewelCadApprovalAbilities = {
     statusLabel: string;
 };
 
-type JewelCadWorkflowStatus = {
+type ResinWorkflowStatus = {
     key: string;
     label: string;
     stageIndex: number;
     stages: Array<{ key: string; label: string }>;
 };
 
-type JewelCadShowProps = {
-    formDocumentNo: string;
+type StatusOption = {
+    value: string;
+    label: string;
+};
+
+type ResinShowProps = {
     approvalFooter: ApprovalFooterColumn[];
     approvalHistory: ApprovalHistoryEvent[];
-    approval: JewelCadApprovalAbilities;
-    workflowStatus: JewelCadWorkflowStatus;
-    requestItem: {
+    approval: ResinApprovalAbilities;
+    workflowStatus: ResinWorkflowStatus;
+    statusOptions: StatusOption[];
+    saveProgressUrl: string;
+    resinItem: {
         id: number;
         docNo: string | null;
         operator: string | null;
-        transDate: string | null;
         notes: string | null;
+        transDate: string | null;
         status: string | null;
+        statusLabel: string;
         details: Array<{
             spkId: number;
             spkNo: string | null;
             spkType: string | null;
             orderTypeLabel: string | null;
-            material: string | null;
-            goldWeight: string;
             skuCode: string | null;
             typeCode: string | null;
             productItemName: string | null;
             itemDescription: string | null;
             satuan: string;
-            qty: number | null;
-            estimationBrj: string;
-            notes: string | null;
+            beratResin: string;
+            statusResin: string | null;
+            statusResinLabel: string;
+            catatan: string | null;
         }>;
     };
 };
 
-export default function JewelCadShow({
+export default function ResinShow({
     approvalFooter,
     approvalHistory,
     approval,
     workflowStatus,
-    requestItem,
-}: JewelCadShowProps) {
+    statusOptions,
+    saveProgressUrl,
+    resinItem,
+}: ResinShowProps) {
     return (
         <>
             <Head
-                title={`Detail Request JewelCAD · ${requestItem.docNo ?? requestItem.id}`}
+                title={`Detail Request Resin · ${resinItem.docNo ?? resinItem.id}`}
             />
-            <JewelCadDetail
-                requestItem={requestItem}
+            <ResinDetail
+                resinItem={resinItem}
                 approvalFooter={approvalFooter}
                 approvalHistory={approvalHistory}
                 approval={approval}
                 workflowStatus={workflowStatus}
+                statusOptions={statusOptions}
+                saveProgressUrl={saveProgressUrl}
                 backHref={index.url()}
-                editHref={edit.url(requestItem.id)}
-                submitUrl={submit.url(requestItem.id)}
-                managerApproveUrl={managerApprove.url(requestItem.id)}
-                completeUrl={complete.url(requestItem.id)}
-                deleteUrl={destroy.url(requestItem.id)}
+                editHref={edit.url(resinItem.id)}
+                submitUrl={submit.url(resinItem.id)}
+                managerApproveUrl={managerApprove.url(resinItem.id)}
+                completeUrl={complete.url(resinItem.id)}
+                deleteUrl={destroy.url(resinItem.id)}
             />
         </>
     );
 }
 
-JewelCadShow.layout = {
-    activeMenu: 'JewelCAD',
-    pageTitle: 'Detail Request JewelCAD',
+ResinShow.layout = {
+    activeMenu: 'Resin',
+    pageTitle: 'Detail Request Resin',
 };

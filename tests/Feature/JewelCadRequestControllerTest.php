@@ -400,6 +400,7 @@ test('jewelcad show page is accessible', function () {
         'gold_weight' => 6.5,
         'qty' => 1,
         'notes' => 'Catatan SPK detail',
+        'description' => 'Deskripsi item JewelCAD',
         'sku_id' => $sku->id,
         'category_prefix_id' => $category->id,
     ]);
@@ -427,6 +428,7 @@ test('jewelcad show page is accessible', function () {
             ->where('requestItem.details.0.skuCode', $sku->sku_code)
             ->where('requestItem.details.0.typeCode', $category->prefix)
             ->where('requestItem.details.0.productItemName', $sku->item_original)
+            ->where('requestItem.details.0.itemDescription', 'Deskripsi item JewelCAD')
             ->where('requestItem.details.0.satuan', '1 Pcs')
             ->where('requestItem.details.0.estimationBrj', '12.500')
             ->has('approvalFooter', 2)

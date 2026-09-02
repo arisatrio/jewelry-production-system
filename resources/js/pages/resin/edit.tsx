@@ -1,76 +1,100 @@
 import { Head } from '@inertiajs/react';
 import { ResinForm } from '@/components/resin/resin-form';
-import { index, update } from '@/routes/resin';
+import { index, submit, update } from '@/routes/resin';
 
-type ShapeOption = {
-    id: number;
-    name: string;
+type StatusOption = {
+    value: string;
+    label: string;
+};
+
+type OperatorOption = {
+    value: string;
+    label: string;
 };
 
 type ResinEditProps = {
-    shapeOptions: ShapeOption[];
+    formDocumentNo: string;
+    statusOptions: StatusOption[];
+    operatorOptions: OperatorOption[];
+    approvalFooter: Array<{
+        title: string;
+        name: string;
+        date: string;
+    }>;
+    approval: {
+        canSubmit: boolean;
+        canEdit: boolean;
+        status: string;
+        statusLabel: string;
+    };
     resinItem: {
         id: number;
         docNo: string | null;
         transDate: string | null;
         status: string | null;
-        spkId: number | null;
-        spkNo: string | null;
-        itemName: string | null;
-        customerName: string | null;
-        fileUpload: string | null;
-        fileUrl: string | null;
-        stones: Array<{
-            shapeId: number | null;
-            shapeName: string | null;
-            pcs: number | null;
-            carat: number | null;
-            size: string;
+        operator: string | null;
+        notes: string | null;
+        details: Array<{
+            spkId: number;
+            spkNo: string | null;
+            spkType: string | null;
+            orderTypeLabel: string | null;
+            skuCode: string | null;
+            typeCode: string | null;
+            productItemName: string | null;
+            itemDescription: string | null;
+            satuan: string;
+            beratResin: string;
+            statusResin: string;
+            statusResinLabel: string;
+            catatan: string | null;
         }>;
     };
 };
 
 export default function ResinEdit({
-    shapeOptions,
+    formDocumentNo,
+    statusOptions,
+    operatorOptions,
+    approvalFooter,
+    approval,
     resinItem,
 }: ResinEditProps) {
     return (
         <>
             <Head
-                title={`Edit Dokumen Resin · ${resinItem.docNo ?? resinItem.id}`}
+                title={`Edit Request Resin · ${resinItem.docNo ?? resinItem.id}`}
             />
             <ResinForm
-                title="Form Edit Dokumen Resin"
+                title="Form Edit Request Resin"
+                formDocumentNo={formDocumentNo}
                 submitLabel="Simpan"
                 cancelHref={index.url()}
                 submitUrl={update.url(resinItem.id)}
                 method="put"
-                shapeOptions={shapeOptions}
+                statusOptions={statusOptions}
+                operatorOptions={operatorOptions}
+                approvalFooter={approvalFooter}
+                approval={approval}
+                submitToManagerUrl={submit.url(resinItem.id)}
                 initialValues={{
                     doc_no: resinItem.docNo ?? '',
+                    operator: resinItem.operator ?? '',
                     trans_date: resinItem.transDate ?? '',
-                    spk_id: resinItem.spkId
-                        ? String(resinItem.spkId)
-                        : '',
-                    spk_no: resinItem.spkNo ?? '',
-                    item_name: resinItem.itemName ?? '',
-                    customer_name: resinItem.customerName ?? '',
-                    file: null,
-                    file_upload: resinItem.fileUpload,
-                    file_url: resinItem.fileUrl,
-                    stones: resinItem.stones.map((stone) => ({
-                        shape_id: stone.shapeId
-                            ? String(stone.shapeId)
-                            : '',
-                        pcs:
-                            stone.pcs !== null && stone.pcs !== undefined
-                                ? String(stone.pcs)
-                                : '',
-                        carat:
-                            stone.carat !== null && stone.carat !== undefined
-                                ? String(stone.carat)
-                                : '',
-                        size: stone.size ?? '',
+                    notes: resinItem.notes ?? '',
+                    details: resinItem.details.map((detail) => ({
+                        spk_id: String(detail.spkId),
+                        spk_no: detail.spkNo ?? '',
+                        spk_type: detail.spkType ?? '',
+                        order_type_label: detail.orderTypeLabel ?? '',
+                        type_code: detail.typeCode ?? '',
+                        product_item_name: detail.productItemName ?? '',
+                        sku_code: detail.skuCode ?? '',
+                        item_description: detail.itemDescription ?? '',
+                        satuan: detail.satuan ?? '',
+                        berat_resin: detail.beratResin,
+                        status_resin: detail.statusResin ?? '',
+                        catatan: detail.catatan ?? '',
                     })),
                 }}
             />
@@ -80,5 +104,5 @@ export default function ResinEdit({
 
 ResinEdit.layout = {
     activeMenu: 'Resin',
-    pageTitle: 'Dokumen Resin',
+    pageTitle: 'Request Resin',
 };

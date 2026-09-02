@@ -14,6 +14,8 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $row_id
  * @property string|null $doc_no
+ * @property string|null $operator
+ * @property string|null $notes
  * @property Carbon|null $trans_date
  * @property int|null $spk_id
  * @property string|null $file_upload
@@ -28,6 +30,8 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'doc_no',
+    'operator',
+    'notes',
     'trans_date',
     'spk_id',
     'file_upload',
@@ -72,6 +76,14 @@ class Resin extends Model
     public function stones(): HasMany
     {
         return $this->hasMany(ResinStone::class, 'row_id', 'row_id');
+    }
+
+    /**
+     * @return HasMany<ResinDetail, $this>
+     */
+    public function details(): HasMany
+    {
+        return $this->hasMany(ResinDetail::class, 'row_id', 'row_id');
     }
 
     /**

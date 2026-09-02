@@ -42,6 +42,8 @@ export type JewelCadStonePayload = {
 export type JewelCadAddedSpk = {
     spk_id: string;
     spk_no: string;
+    spk_type: string;
+    order_type_label: string;
     material: string;
     gold_weight: string;
     jwcad_3d: string;
@@ -70,6 +72,7 @@ type SpkDetailPayload = {
         id: number;
         spkNo: string;
         spkType: string;
+        orderTypeLabel: string;
         customer: string;
         itemName: string;
         requestOrderNo: string;
@@ -402,6 +405,8 @@ export function JewelCadAddSpkDialog({
         onAdded({
             spk_id: String(detail.production.id),
             spk_no: detail.production.spkNo,
+            spk_type: detail.production.spkType,
+            order_type_label: detail.production.orderTypeLabel,
             material: goldColor.trim(),
             gold_weight: goldWeight.trim(),
             jwcad_3d: jwcad3d.trim(),

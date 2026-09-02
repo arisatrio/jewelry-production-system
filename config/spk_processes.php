@@ -25,6 +25,7 @@ return [
                     'fields' => [
                         'doc_no' => 'doc_no',
                         'tanggal' => 'trans_date',
+                        'operator' => 'operator',
                     ],
                 ],
             ],
@@ -32,7 +33,18 @@ return [
         [
             'key' => 'Resin',
             'label' => 'Resin',
-            'tables' => ['resin'],
+            'tables' => ['resindetails'],
+            'parent' => [
+                'resindetails' => [
+                    'table' => 'resin',
+                    'local_key' => 'row_id',
+                    'owner_key' => 'row_id',
+                    'fields' => [
+                        'doc_no' => 'doc_no',
+                        'tanggal' => 'trans_date',
+                    ],
+                ],
+            ],
         ],
         [
             'key' => 'Coran',

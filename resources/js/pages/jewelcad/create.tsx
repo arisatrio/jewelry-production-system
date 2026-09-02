@@ -24,6 +24,8 @@ type JewelCadCreateProps = {
         details: Array<{
             spkId: number | null;
             spkNo: string;
+            spkType: string | null;
+            orderTypeLabel: string | null;
             material: string;
             goldWeight: string;
             qty: number;
@@ -60,6 +62,8 @@ export default function JewelCadCreate({
                     details: form.details.map((detail) => ({
                         spk_id: detail.spkId ? String(detail.spkId) : '',
                         spk_no: detail.spkNo,
+                        spk_type: detail.spkType ?? '',
+                        order_type_label: detail.orderTypeLabel ?? '',
                         material: detail.material,
                         gold_weight: detail.goldWeight,
                         jwcad_3d: '',
