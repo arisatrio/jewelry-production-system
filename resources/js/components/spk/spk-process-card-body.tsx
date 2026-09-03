@@ -1,6 +1,7 @@
 import { formatGram } from '@/lib/utils';
 import { Fragment } from 'react';
 import { ArrowLeft, Check } from 'lucide-react';
+import { CoranMaterialBreakdownTables } from '@/components/coran/coran-material-breakdown';
 import {
     formatProcessCellValue,
     hasProcessValue,
@@ -62,11 +63,76 @@ const FINISHING_BODY_HIDDEN_FIELDS = new Set([
 
 const JEWELCAD_TABLE = 'requestjwcaddetails';
 
-const CORAN_MATERIAL_ORDER = [
-    'Rose Gold',
-    'White Gold',
-    'Yellow Gold',
-] as const;
+function CoranMaterialCompare({
+    record,
+}: {
+    record: Record<string, unknown>;
+}) {
+    const submitMaterials = processMaterialLines(record.submit_materials);
+    const resultMaterials = processMaterialLines(record.result_materials);
+    const breakdown = Array.isArray(record.coran_breakdown)
+        ? record.coran_breakdown.flatMap((section) => {
+              if (!section || typeof section !== 'object') {
+                  return [];
+              }
+
+              const row = section as Record<string, unknown>;
+              const color = typeof row.color === 'string' ? row.color : '';
+              const colorKey =
+                  typeof row.colorKey === 'string' ? row.colorKey : '';
+
+              if (color === '' || colorKey === '') {
+                  return [];
+              }
+
+              return [
+                  {
+                      color,
+                      colorKey,
+                      bahan: processMaterialLines(row.bahan).map((line) => ({
+                          name: line.name,
+                          weight: line.weight,
+                      })),
+                      sisa: processMaterialLines(row.sisa).map((line) => ({
+                          name: line.name,
+                          weight: line.weight,
+                      })),
+                  },
+              ];
+          })
+        : [];
+
+    const submitTotal =
+        record.total_submit_material === null ||
+        record.total_submit_material === undefined ||
+        record.total_submit_material === ''
+            ? null
+            : Number(record.total_submit_material);
+    const resultTotal =
+        record.total_result_material === null ||
+        record.total_result_material === undefined ||
+        record.total_result_material === ''
+            ? null
+            : Number(record.total_result_material);
+
+    return (
+        <CoranMaterialBreakdownTables
+            breakdown={breakdown}
+            submitMaterials={submitMaterials}
+            resultMaterials={resultMaterials}
+            totalSubmit={
+                submitTotal === null || Number.isNaN(submitTotal)
+                    ? null
+                    : submitTotal
+            }
+            totalResult={
+                resultTotal === null || Number.isNaN(resultTotal)
+                    ? null
+                    : resultTotal
+            }
+        />
+    );
+}
 
 function resolveHeaderCraftsman(
     record: Record<string, unknown>,
@@ -111,286 +177,6 @@ function resolveHeaderPerson(
         label: 'Pengrajin',
         value: resolveHeaderCraftsman(record),
     };
-}
-
-function formatOptionalGram(weight: number | null): string {
-    return formatGram(weight);
-}
-
-function resolveMaterialShrink(
-    submit: number | null,
-    result: number | null,
-): number | null {
-    if (submit === null && result === null) {
-        return null;
-    }
-
-    return roundGram((submit ?? 0) - (result ?? 0));
-}
-
-function roundGram(value: number): number {
-    return Math.round(value * 1000) / 1000;
-}
-
-type CoranMaterialPair = {
-    name: string;
-    submit: number | null;
-    result: number | null;
-};
-
-function resolveCoranMaterialPairs(
-    record: Record<string, unknown>,
-): CoranMaterialPair[] {
-    const submitLines = processMaterialLines(record.submit_materials);
-    const resultLines = processMaterialLines(record.result_materials);
-    const weights = new Map<string, CoranMaterialPair>();
-
-    for (const line of submitLines) {
-        weights.set(line.name, {
-            name: line.name,
-            submit: line.weight,
-            result: null,
-        });
-    }
-
-    for (const line of resultLines) {
-        const existing = weights.get(line.name);
-
-        if (existing) {
-            existing.result = line.weight;
-        } else {
-            weights.set(line.name, {
-                name: line.name,
-                submit: null,
-                result: line.weight,
-            });
-        }
-    }
-
-    const ordered: CoranMaterialPair[] = [];
-
-    for (const name of CORAN_MATERIAL_ORDER) {
-        const pair = weights.get(name);
-
-        if (pair) {
-            ordered.push(pair);
-            weights.delete(name);
-        }
-    }
-
-    return [...ordered, ...weights.values()];
-}
-
-type CoranBreakdownLine = {
-    name: string;
-    weight: number;
-};
-
-type CoranBreakdownSection = {
-    color: string;
-    colorKey: string;
-    bahan: CoranBreakdownLine[];
-    sisa: CoranBreakdownLine[];
-};
-
-function resolveCoranBreakdown(
-    value: unknown,
-): CoranBreakdownSection[] {
-    if (!Array.isArray(value)) {
-        return [];
-    }
-
-    return value.flatMap((section) => {
-        if (!section || typeof section !== 'object') {
-            return [];
-        }
-
-        const row = section as Record<string, unknown>;
-        const color = typeof row.color === 'string' ? row.color : '';
-        const colorKey = typeof row.colorKey === 'string' ? row.colorKey : '';
-
-        if (color === '' || colorKey === '') {
-            return [];
-        }
-
-        return [
-            {
-                color,
-                colorKey,
-                bahan: processMaterialLines(row.bahan).map((line) => ({
-                    name: line.name,
-                    weight: line.weight,
-                })),
-                sisa: processMaterialLines(row.sisa).map((line) => ({
-                    name: line.name,
-                    weight: line.weight,
-                })),
-            },
-        ];
-    });
-}
-
-function CoranSideTable({
-    title,
-    sections,
-    totalsByColor,
-    total,
-    footerLabel = 'Total',
-}: {
-    title: string;
-    sections: Array<{
-        color: string;
-        colorKey: string;
-        lines: CoranBreakdownLine[];
-    }>;
-    totalsByColor: Map<string, number | null>;
-    total: number | null;
-    footerLabel?: string;
-}) {
-    const visibleSections = sections.filter(
-        (section) =>
-            section.lines.length > 0 ||
-            (totalsByColor.get(section.color) ?? null) !== null,
-    );
-
-    return (
-        <table className="spkCoranMaterialTable">
-            <thead>
-                <tr>
-                    <th scope="col">{title}</th>
-                    <th scope="col">Berat</th>
-                </tr>
-            </thead>
-            <tbody>
-                {visibleSections.length === 0 ? (
-                    <tr>
-                        <td colSpan={2} className="spkCoranBreakdownEmpty">
-                            Tidak ada data
-                        </td>
-                    </tr>
-                ) : (
-                    visibleSections.map((section) => {
-                        const categoryTotal =
-                            totalsByColor.get(section.color) ?? null;
-
-                        return (
-                            <Fragment key={section.colorKey}>
-                                <tr className="spkCoranCategoryRow">
-                                    <th scope="row">{section.color}</th>
-                                    <td>
-                                        {formatOptionalGram(categoryTotal)}
-                                    </td>
-                                </tr>
-                                {section.lines.length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={2}
-                                            className="spkCoranBreakdownEmpty"
-                                        >
-                                            Tidak ada data
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    section.lines.map((line, index) => (
-                                        <tr
-                                            key={`${section.colorKey}-${line.name}-${index}`}
-                                            className="spkCoranLineRow"
-                                        >
-                                            <td>{line.name}</td>
-                                            <td>{formatGram(line.weight)}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </Fragment>
-                        );
-                    })
-                )}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <th scope="row">{footerLabel}</th>
-                    <td>
-                        {total === null || Number.isNaN(total)
-                            ? '—'
-                            : formatGram(total)}
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
-    );
-}
-
-function CoranMaterialCompare({
-    record,
-}: {
-    record: Record<string, unknown>;
-}) {
-    const pairs = resolveCoranMaterialPairs(record);
-    const breakdown = resolveCoranBreakdown(record.coran_breakdown);
-    const submitByColor = new Map(
-        pairs.map((pair) => [pair.name, pair.submit] as const),
-    );
-    const resultByColor = new Map(
-        pairs.map((pair) => [pair.name, pair.result] as const),
-    );
-    const submitTotal =
-        record.total_submit_material === null ||
-        record.total_submit_material === undefined ||
-        record.total_submit_material === ''
-            ? null
-            : Number(record.total_submit_material);
-    const resultTotal =
-        record.total_result_material === null ||
-        record.total_result_material === undefined ||
-        record.total_result_material === ''
-            ? null
-            : Number(record.total_result_material);
-
-    const sections =
-        breakdown.length > 0
-            ? breakdown
-            : CORAN_MATERIAL_ORDER.map((color) => ({
-                  color,
-                  colorKey: color.toLowerCase().replace(' ', ''),
-                  bahan: [] as CoranBreakdownLine[],
-                  sisa: [] as CoranBreakdownLine[],
-              }));
-
-    return (
-        <div className="spkProcessInfoItem is-coran-materials">
-            <div className="spkCoranDetailLabel">Detail Batch Coran</div>
-            <div className="spkCoranMaterialSplit">
-                <CoranSideTable
-                    title="Bahan"
-                    sections={sections.map((section) => ({
-                        color: section.color,
-                        colorKey: section.colorKey,
-                        lines: section.bahan,
-                    }))}
-                    totalsByColor={submitByColor}
-                    total={
-                        submitTotal === null || Number.isNaN(submitTotal)
-                            ? null
-                            : submitTotal
-                    }
-                />
-                <CoranSideTable
-                    title="Sisa"
-                    sections={sections.map((section) => ({
-                        color: section.color,
-                        colorKey: section.colorKey,
-                        lines: section.sisa,
-                    }))}
-                    totalsByColor={resultByColor}
-                    total={
-                        resultTotal === null || Number.isNaN(resultTotal)
-                            ? null
-                            : resultTotal
-                    }
-                />
-            </div>
-        </div>
-    );
 }
 
 function DiamondMountingBatch({

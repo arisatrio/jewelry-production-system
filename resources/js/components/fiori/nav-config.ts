@@ -1,4 +1,5 @@
 import { home } from '@/routes';
+import { index as coranIndex } from '@/routes/coran';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
@@ -43,7 +44,7 @@ export const defaultAnalyticsSubmenus: ShellNavItem[] = [
 export const defaultProduksiSubmenus: ShellNavItem[] = [
     { text: 'JewelCAD', href: jewelCadIndex.url() },
     { text: 'Resin', href: resinIndex.url() },
-    { text: 'Coran' },
+    { text: 'Coran', href: coranIndex.url() },
     { text: 'Finishing' },
     { text: 'Poles Rangka' },
     { text: 'Pasang Batu' },
