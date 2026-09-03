@@ -1,1 +1,0 @@
-import{Nt as e}from"./app-Bbyreg_A.js";import"./Text-BSCDQXxU.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};
