@@ -18,9 +18,16 @@ return [
 
     'resin_form_document_no' => 'WHOJ-PRD-FRM-003',
 
+    'coran_form_document_no' => 'WHOJ-PRD-FRM-004',
+
     'resin_detail_statuses' => [
         ['value' => 'OK', 'label' => 'OK'],
         ['value' => 'NOT OK', 'label' => 'NOT OK'],
+    ],
+
+    'coran_detail_statuses' => [
+        ['value' => 'OK', 'label' => 'OK'],
+        ['value' => 'NOK', 'label' => 'Not OK'],
     ],
 
     'company_name' => 'Wanda House of Jewels',

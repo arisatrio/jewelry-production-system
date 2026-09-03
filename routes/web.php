@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CoranController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MsItemController;
@@ -92,6 +93,15 @@ Route::middleware(['auth'])->group(function () {
         ->name('resin.update-progress');
     Route::resource('resin', ResinController::class)
         ->parameters(['resin' => 'resin']);
+
+    Route::get('coran/select/spks', [CoranController::class, 'searchSpks'])
+        ->name('coran.select.spks');
+    Route::get('coran/create', [CoranController::class, 'create'])->name('coran.create');
+    Route::post('coran', [CoranController::class, 'store'])->name('coran.store');
+    Route::get('coran', [CoranController::class, 'index'])->name('coran.index');
+    Route::get('coran/{coran}', [CoranController::class, 'show'])
+        ->whereNumber('coran')
+        ->name('coran.show');
 
     Route::prefix('master-data')->name('master-data.')->group(function () {
         Route::resource('tipe-item', MsItemController::class)
