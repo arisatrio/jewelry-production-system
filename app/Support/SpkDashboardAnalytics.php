@@ -570,6 +570,7 @@ class SpkDashboardAnalytics
         }
 
         if (Schema::connection('third')->hasColumn('spk', 'estimated_delivery_time')) {
+            $doneExpr = $this->doneExpression();
             $target = $this->monthScopedSpkBase()
                 ->whereNotNull('estimated_delivery_time')
                 ->whereBetween('estimated_delivery_time', [
@@ -578,8 +579,8 @@ class SpkDashboardAnalytics
                 ])
                 ->selectRaw("
                     COUNT(*) as total_count,
-                    SUM(CASE WHEN status = 'SPKDONE' THEN 1 ELSE 0 END) as done_count,
-                    SUM(CASE WHEN status = 'SPKDONE' THEN 0 ELSE 1 END) as pending_count,
+                    SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
+                    SUM(CASE WHEN ({$doneExpr}) THEN 0 ELSE 1 END) as pending_count,
                     SUM(COALESCE(qty, 1)) as qty_total
                 ")
                 ->first();
@@ -1363,6 +1364,7 @@ class SpkDashboardAnalytics
             ];
         }
 
+        $doneExpr = $this->doneExpression();
         $rows = $this->monthScopedSpkBase()
             ->whereNotNull('estimated_delivery_time')
             ->whereBetween('estimated_delivery_time', [
@@ -1371,8 +1373,8 @@ class SpkDashboardAnalytics
             ])
             ->selectRaw("
                 DATE(estimated_delivery_time) as planning_date,
-                SUM(CASE WHEN status = 'SPKDONE' THEN 1 ELSE 0 END) as done_count,
-                SUM(CASE WHEN status = 'SPKDONE' THEN 0 ELSE 1 END) as pending_count
+                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
+                SUM(CASE WHEN ({$doneExpr}) THEN 0 ELSE 1 END) as pending_count
             ")
             ->groupByRaw('DATE(estimated_delivery_time)')
             ->orderBy('planning_date')
@@ -1430,7 +1432,7 @@ class SpkDashboardAnalytics
     /**
      * Planning estimasi vs realisasi produksi (cluster per kategori item).
      * Scope: hanya SPK dengan estimated delivery di bulan terpilih.
-     * Estimasi = total SPK, Realisasi = SPK berstatus SPKDONE.
+     * Estimasi = total SPK, Realisasi = SPK dengan proses produksi terminal.
      *
      * @return array{
      *     spkCount: int,
@@ -1496,12 +1498,13 @@ class SpkDashboardAnalytics
             WHEN item_name IS NULL OR TRIM(item_name) = '' THEN 'Custom'
             ELSE TRIM(item_name)
         END";
+        $doneExpr = $this->doneExpression();
 
         $rows = $base
             ->selectRaw("
                 {$itemExpr} as item_label,
                 COUNT(*) as estimasi_count,
-                SUM(CASE WHEN status = 'SPKDONE' THEN 1 ELSE 0 END) as realisasi_count
+                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as realisasi_count
             ")
             ->groupByRaw($itemExpr)
             ->orderByDesc('estimasi_count')

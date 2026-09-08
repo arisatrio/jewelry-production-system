@@ -181,6 +181,61 @@ test('spk dashboard analytics for current month returns structured payload', fun
         ]);
 });
 
+test('dashboard target and realization use terminal production status as done', function () {
+    $before = (new SpkDashboardAnalytics)->summarize();
+    $item = (string) $before['forecast']['byItemType'][0]['item'];
+    $beforeItem = $before['forecast']['byItemType'][0]['values'];
+    $beforeToday = collect($before['planningDaily']['days'])->firstWhere('date', now()->toDateString());
+
+    $approvedOnly = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPKDONE',
+        'last_process' => null,
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'item_name' => $item,
+        'created_date' => now(),
+        'estimated_delivery_time' => now(),
+    ]);
+    $completedProduction = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'last_process' => 'Poles Chrome',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+        'item_name' => $item,
+        'created_date' => now(),
+        'estimated_delivery_time' => now(),
+    ]);
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-DASHBOARD-DONE-'.$completedProduction->row_id,
+        'process_name' => 'Poles Chrome',
+        'spk_id' => $completedProduction->row_id,
+        'status' => 'PFGDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    try {
+        $after = (new SpkDashboardAnalytics)->summarize();
+        $afterItem = collect($after['forecast']['byItemType'])->firstWhere('item', $item)['values'];
+        $afterToday = collect($after['planningDaily']['days'])->firstWhere('date', now()->toDateString());
+
+        expect($after['today']['targetSpk'])->toBe($before['today']['targetSpk'] + 2)
+            ->and($after['today']['targetDoneSpk'])->toBe($before['today']['targetDoneSpk'] + 1)
+            ->and($after['today']['targetPendingSpk'])->toBe($before['today']['targetPendingSpk'] + 1)
+            ->and($afterToday['done'])->toBe($beforeToday['done'] + 1)
+            ->and($afterToday['pending'])->toBe($beforeToday['pending'] + 1)
+            ->and($afterItem['Estimasi'])->toBe($beforeItem['Estimasi'] + 2)
+            ->and($afterItem['Realisasi'])->toBe($beforeItem['Realisasi'] + 1);
+    } finally {
+        DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+        $approvedOnly->delete();
+        $completedProduction->delete();
+    }
+});
+
 test('dashboard backlog status grouping matches dashboard card labels', function (array $attributes, string $key, string $label, bool $hasCompletedPolesChrome) {
     $production = new Production($attributes);
     $production->row_id = 1;
