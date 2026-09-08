@@ -13,8 +13,10 @@ test('coran create page is accessible', function () {
             ->has('formDocumentNo')
             ->has('statusOptions')
             ->has('craftsmanOptions')
+            ->has('materialOptions')
             ->has('form.transDate')
             ->has('form.details')
+            ->has('form.materials')
         );
 });
 

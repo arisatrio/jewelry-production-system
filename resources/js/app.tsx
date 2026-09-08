@@ -17,6 +17,8 @@ createInertiaApp({
     layout: (name) => {
         switch (true) {
             case name === 'welcome':
+            case name.startsWith('analytics/'):
+            case name.startsWith('dashboard/'):
             case name.startsWith('spk/'):
             case name.startsWith('jewelcad/'):
             case name.startsWith('resin/'):

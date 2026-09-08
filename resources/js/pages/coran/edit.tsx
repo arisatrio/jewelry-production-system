@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { CoranForm } from '@/components/coran/coran-form';
-import { index, store } from '@/routes/coran';
+import { show, update } from '@/routes/coran';
 
 type StatusOption = {
     value: string;
@@ -17,12 +17,20 @@ type MaterialOption = {
     label: string;
 };
 
-type CoranCreateProps = {
+type CoranEditProps = {
     formDocumentNo: string;
     statusOptions: StatusOption[];
     craftsmanOptions: CraftsmanOption[];
     materialOptions: MaterialOption[];
+    approval: {
+        canEdit: boolean;
+        canOpenEdit: boolean;
+        status: string;
+        statusLabel: string;
+    };
     form: {
+        id: number;
+        docNo: string | null;
         transDate: string;
         craftsmanId: number | null;
         details: Array<{
@@ -48,22 +56,25 @@ type CoranCreateProps = {
     };
 };
 
-export default function CoranCreate({
+export default function CoranEdit({
     formDocumentNo,
     statusOptions,
     craftsmanOptions,
     materialOptions,
     form,
-}: CoranCreateProps) {
+}: CoranEditProps) {
     return (
         <>
-            <Head title="Tambah Dokumen Coran" />
+            <Head
+                title={`Edit Dokumen Coran · ${form.docNo ?? form.id}`}
+            />
             <CoranForm
-                title="Form Dokumen Coran"
+                title="Form Edit Dokumen Coran"
                 formDocumentNo={formDocumentNo}
                 submitLabel="Simpan"
-                cancelHref={index.url()}
-                submitUrl={store.url()}
+                cancelHref={show.url(form.id)}
+                submitUrl={update.url(form.id)}
+                method="put"
                 statusOptions={statusOptions}
                 craftsmanOptions={craftsmanOptions}
                 materialOptions={materialOptions}
@@ -101,3 +112,8 @@ export default function CoranCreate({
         </>
     );
 }
+
+CoranEdit.layout = {
+    activeMenu: 'Coran',
+    pageTitle: 'Edit Dokumen Coran',
+};

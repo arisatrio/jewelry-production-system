@@ -30,6 +30,7 @@ class CoranFactory extends Factory
             'shrink' => number_format(fake()->randomFloat(3, 0, 2), 3, '.', ''),
             'weight' => '0.000',
             'status' => null,
+            'is_from_new_system' => 0,
             'is_deleted' => 0,
             'created_date' => now(),
             'created_by' => 'system',

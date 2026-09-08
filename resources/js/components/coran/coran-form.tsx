@@ -17,6 +17,11 @@ import {
     CoranAddSpkDialog,
     type CoranAddedSpk,
 } from '@/components/coran/coran-add-spk-dialog';
+import {
+    CoranMaterialEditor,
+    type CoranMaterialFormLine,
+    type CoranMaterialOption,
+} from '@/components/coran/coran-material-editor';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 
@@ -41,6 +46,7 @@ type CoranDetailForm = {
     item_description: string;
     satuan: string;
     weight: string;
+    kadar: string;
     status: string;
 };
 
@@ -48,6 +54,7 @@ type CoranFormValues = {
     trans_date: string;
     craftsman_id: string;
     details: CoranDetailForm[];
+    materials: CoranMaterialFormLine[];
 };
 
 type CoranFormProps = {
@@ -56,8 +63,10 @@ type CoranFormProps = {
     submitLabel: string;
     cancelHref: string;
     submitUrl: string;
+    method?: 'post' | 'put';
     statusOptions: StatusOption[];
     craftsmanOptions: CraftsmanOption[];
+    materialOptions: CoranMaterialOption[];
     initialValues: CoranFormValues;
 };
 
@@ -95,11 +104,13 @@ export function CoranForm({
     submitLabel,
     cancelHref,
     submitUrl,
+    method = 'post',
     statusOptions,
     craftsmanOptions,
+    materialOptions,
     initialValues,
 }: CoranFormProps) {
-    const { data, setData, post, processing, errors, transform } =
+    const { data, setData, post, put, processing, errors, transform } =
         useForm<CoranFormValues>(initialValues);
     const [addSpkOpen, setAddSpkOpen] = useState(false);
 
@@ -144,6 +155,7 @@ export function CoranForm({
             {
                 ...added,
                 weight: '',
+                kadar: '',
                 status: '',
             },
         ]);
@@ -161,13 +173,36 @@ export function CoranForm({
             details: formData.details.map((detail) => ({
                 spk_id: Number(detail.spk_id),
                 weight: normalizeWeightForSubmit(detail.weight),
+                kadar: normalizeWeightForSubmit(detail.kadar),
                 status: normalizeStatusForSubmit(detail.status),
             })),
+            materials: formData.materials
+                .filter(
+                    (line) =>
+                        line.materialgold_id.trim() !== '' ||
+                        line.weight.trim() !== '',
+                )
+                .map((line) => ({
+                    section: line.section,
+                    materialgold_id:
+                        line.materialgold_id.trim() !== ''
+                            ? Number(line.materialgold_id)
+                            : null,
+                    weight: normalizeWeightForSubmit(line.weight),
+                    notes:
+                        line.notes.trim() !== '' ? line.notes.trim() : null,
+                })),
         }));
 
-        post(submitUrl, {
+        const options = {
             preserveScroll: true,
-        });
+        };
+
+        if (method === 'put') {
+            put(submitUrl, options);
+        } else {
+            post(submitUrl, options);
+        }
     };
 
     return (
@@ -342,6 +377,7 @@ export function CoranForm({
                                                 <th>SKU</th>
                                                 <th>Qty</th>
                                                 <th>Berat Coran</th>
+                                                <th>Kadar</th>
                                                 <th>Status Coran</th>
                                                 <th className="spkTableActionCol">
                                                     Aksi
@@ -351,7 +387,7 @@ export function CoranForm({
                                         <tbody>
                                             {data.details.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={7}>
+                                                    <td colSpan={8}>
                                                         Belum ada SPK. Klik
                                                         Tambah SPK untuk
                                                         memilih.
@@ -462,6 +498,49 @@ export function CoranForm({
                                                             </td>
                                                             <td>
                                                                 <div className="spkFioriFieldStack">
+                                                                    <Input
+                                                                        type="Number"
+                                                                        accessibleName="Kadar"
+                                                                        value={
+                                                                            detail.kadar
+                                                                        }
+                                                                        valueState={fieldState(
+                                                                            detailError(
+                                                                                errors,
+                                                                                index,
+                                                                                'kadar',
+                                                                            ),
+                                                                        )}
+                                                                        onInput={(
+                                                                            event,
+                                                                        ) =>
+                                                                            updateDetail(
+                                                                                index,
+                                                                                'kadar',
+                                                                                event
+                                                                                    .target
+                                                                                    .value ??
+                                                                                    '',
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                    {detailError(
+                                                                        errors,
+                                                                        index,
+                                                                        'kadar',
+                                                                    ) ? (
+                                                                        <Text className="spkFioriError">
+                                                                            {detailError(
+                                                                                errors,
+                                                                                index,
+                                                                                'kadar',
+                                                                            )}
+                                                                        </Text>
+                                                                    ) : null}
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <div className="spkFioriFieldStack">
                                                                     <Select
                                                                         accessibleName="Status coran"
                                                                         onChange={(
@@ -546,6 +625,16 @@ export function CoranForm({
                                     </table>
                                 </div>
                             </div>
+
+                            <CoranMaterialEditor
+                                materials={data.materials}
+                                materialOptions={materialOptions}
+                                errors={errors}
+                                disabled={processing}
+                                onChange={(materials) =>
+                                    setData('materials', materials)
+                                }
+                            />
                         </section>
                     </form>
                 </div>

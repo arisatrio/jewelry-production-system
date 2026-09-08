@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $shrink
  * @property string|null $weight
  * @property string|null $status
+ * @property int $is_from_new_system
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -45,6 +46,7 @@ use Illuminate\Support\Carbon;
     'shrink',
     'weight',
     'status',
+    'is_from_new_system',
     'is_deleted',
     'created_date',
     'created_by',
@@ -67,6 +69,13 @@ class Coran extends Model
     protected $primaryKey = 'row_id';
 
     public $timestamps = false;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_from_new_system' => 0,
+    ];
 
     /**
      * @param  Builder<Coran>  $query
@@ -116,6 +125,7 @@ class Coran extends Model
             'result_material_yellowgold' => 'decimal:3',
             'shrink' => 'decimal:3',
             'weight' => 'decimal:3',
+            'is_from_new_system' => 'integer',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',
             'modified_date' => 'datetime',

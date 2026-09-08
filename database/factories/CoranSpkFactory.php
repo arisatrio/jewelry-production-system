@@ -23,6 +23,7 @@ class CoranSpkFactory extends Factory
             'row_id' => Coran::factory(),
             'spk_id' => Production::factory(),
             'weight' => number_format(fake()->randomFloat(3, 1, 20), 3, '.', ''),
+            'kadar' => number_format(fake()->randomElement([37.5, 75, 91.6]), 2, '.', ''),
             'status' => CoranSpk::STATUS_OK,
             'is_deleted' => 0,
             'created_date' => now(),

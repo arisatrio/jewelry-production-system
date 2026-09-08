@@ -15,7 +15,7 @@ import {
     type DashboardSortKey,
     type DashboardStatusSpkItem,
 } from '@/components/dashboard/sort-status-rows';
-import { home } from '@/routes';
+import { workOrder } from '@/routes/analytics';
 import { show as spkShow } from '@/routes/spk';
 import {
     Dialog,
@@ -168,7 +168,7 @@ export type DashboardAnalytics = {
     };
 };
 
-type WelcomeProps = {
+type WorkOrderDashboardProps = {
     analytics: DashboardAnalytics;
     filters: {
         month: string;
@@ -181,7 +181,7 @@ type WelcomeProps = {
     };
 };
 
-export default function Welcome({ analytics, navigation }: WelcomeProps) {
+export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderDashboardProps) {
     const {
         summary,
         statusLists,
@@ -354,7 +354,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         }
 
         router.get(
-            home.url({
+            workOrder.url({
                 query: {
                     month,
                 },
@@ -773,7 +773,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
     );
 }
 
-Welcome.layout = {
-    activeMenu: 'Dashboard',
-    pageTitle: 'Dashboard',
+WorkOrderDashboard.layout = {
+    activeMenu: 'Work Order',
+    pageTitle: 'Work Order',
 };

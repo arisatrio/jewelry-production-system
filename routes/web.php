@@ -1,15 +1,19 @@
 <?php
 
 use App\Http\Controllers\CoranController;
+use App\Http\Controllers\CraftsmanPerformanceDashboardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JewelCadRequestController;
+use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\QuickLoginController;
 use App\Http\Controllers\ResinController;
+use App\Http\Controllers\ShopFloorDashboardController;
 use App\Http\Controllers\SkuMasterController;
+use App\Http\Controllers\SkuOutputDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
@@ -19,6 +23,18 @@ Route::post('login/quick', [QuickLoginController::class, 'store'])
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('home');
     Route::redirect('dashboard', '/')->name('dashboard');
+    Route::redirect('dashboard/work-order', '/analytics/work-order');
+    Route::redirect('dashboard/material-yield', '/analytics/material-yield');
+    Route::get('analytics/work-order', [DashboardController::class, 'workOrder'])
+        ->name('analytics.work-order');
+    Route::get('analytics/shop-floor', [ShopFloorDashboardController::class, 'index'])
+        ->name('analytics.shop-floor');
+    Route::get('analytics/material-yield', [MaterialYieldDashboardController::class, 'index'])
+        ->name('analytics.material-yield');
+    Route::get('analytics/craftsman-performance', [CraftsmanPerformanceDashboardController::class, 'index'])
+        ->name('analytics.craftsman-performance');
+    Route::get('analytics/sku-output', [SkuOutputDashboardController::class, 'index'])
+        ->name('analytics.sku-output');
     Route::get('spk', [ProductionController::class, 'index'])->name('spk.index');
     Route::get('spk/create-guide', [ProductionController::class, 'createGuide'])
         ->name('spk.create.guide');
@@ -98,6 +114,24 @@ Route::middleware(['auth'])->group(function () {
         ->name('coran.select.spks');
     Route::get('coran/create', [CoranController::class, 'create'])->name('coran.create');
     Route::post('coran', [CoranController::class, 'store'])->name('coran.store');
+    Route::get('coran/{coran}/edit', [CoranController::class, 'edit'])
+        ->whereNumber('coran')
+        ->name('coran.edit');
+    Route::put('coran/{coran}', [CoranController::class, 'update'])
+        ->whereNumber('coran')
+        ->name('coran.update');
+    Route::delete('coran/{coran}', [CoranController::class, 'destroy'])
+        ->whereNumber('coran')
+        ->name('coran.destroy');
+    Route::post('coran/{coran}/submit', [CoranController::class, 'submit'])
+        ->whereNumber('coran')
+        ->name('coran.submit');
+    Route::post('coran/{coran}/manager-approve', [CoranController::class, 'managerApprove'])
+        ->whereNumber('coran')
+        ->name('coran.manager-approve');
+    Route::post('coran/{coran}/complete', [CoranController::class, 'complete'])
+        ->whereNumber('coran')
+        ->name('coran.complete');
     Route::get('coran', [CoranController::class, 'index'])->name('coran.index');
     Route::get('coran/{coran}', [CoranController::class, 'show'])
         ->whereNumber('coran')

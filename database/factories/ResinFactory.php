@@ -26,6 +26,7 @@ class ResinFactory extends Factory
             'spk_id' => Production::factory(),
             'file_upload' => null,
             'status' => 'DRAFT',
+            'is_from_new_system' => 0,
             'is_deleted' => 0,
             'created_date' => now(),
             'created_by' => 'system',

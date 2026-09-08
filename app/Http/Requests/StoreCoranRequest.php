@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\CoranSpk;
 use App\Models\Production;
+use App\Support\CoranMaterialGoldSynchronizer;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -37,9 +38,41 @@ class StoreCoranRequest extends FormRequest
                     'weight' => filled($row['weight'] ?? null)
                         ? str_replace(',', '.', trim((string) $row['weight']))
                         : null,
+                    'kadar' => filled($row['kadar'] ?? null)
+                        ? str_replace(',', '.', trim((string) $row['kadar']))
+                        : null,
                     'status' => CoranSpk::normalizeInputStatus($row['status'] ?? null),
                 ];
             })
+            ->values()
+            ->all();
+
+        $materials = collect($this->input('materials', []))
+            ->map(function (mixed $material): ?array {
+                $row = is_array($material) ? $material : [];
+                $section = trim((string) ($row['section'] ?? ''));
+                $materialId = isset($row['materialgold_id']) && $row['materialgold_id'] !== ''
+                    ? (int) $row['materialgold_id']
+                    : null;
+                $weight = filled($row['weight'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['weight']))
+                    : null;
+                $notes = isset($row['notes'])
+                    ? trim((string) $row['notes'])
+                    : '';
+
+                if ($section === '' && $materialId === null && $weight === null && $notes === '') {
+                    return null;
+                }
+
+                return [
+                    'section' => $section !== '' ? $section : null,
+                    'materialgold_id' => $materialId,
+                    'weight' => $weight,
+                    'notes' => $notes !== '' ? $notes : null,
+                ];
+            })
+            ->filter()
             ->values()
             ->all();
 
@@ -50,6 +83,7 @@ class StoreCoranRequest extends FormRequest
                 ? (int) $craftsmanId
                 : null,
             'details' => $details,
+            'materials' => $materials,
         ]);
     }
 
@@ -73,11 +107,21 @@ class StoreCoranRequest extends FormRequest
                 ),
             ],
             'details.*.weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
+            'details.*.kadar' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'details.*.status' => [
                 'nullable',
                 'string',
                 Rule::in(CoranSpk::inputStatuses()),
             ],
+            'materials' => ['nullable', 'array'],
+            'materials.*.section' => [
+                'required',
+                'string',
+                Rule::in(CoranMaterialGoldSynchronizer::sectionKeys()),
+            ],
+            'materials.*.materialgold_id' => ['required', 'integer', 'min:1'],
+            'materials.*.weight' => ['required', 'numeric', 'min:0', 'decimal:0,3'],
+            'materials.*.notes' => ['nullable', 'string', 'max:500'],
         ];
     }
 
@@ -90,24 +134,65 @@ class StoreCoranRequest extends FormRequest
             function (Validator $validator): void {
                 $craftsmanId = $this->integer('craftsman_id');
 
-                if ($craftsmanId <= 0) {
+                if ($craftsmanId > 0) {
+                    if (! Schema::connection('third')->hasTable('mscraftsman')) {
+                        $validator->errors()->add('craftsman_id', 'Pengrajin tidak valid.');
+                    } else {
+                        $exists = DB::connection('third')
+                            ->table('mscraftsman')
+                            ->where('row_id', $craftsmanId)
+                            ->where('is_deleted', 0)
+                            ->exists();
+
+                        if (! $exists) {
+                            $validator->errors()->add('craftsman_id', 'Pengrajin tidak valid.');
+                        }
+                    }
+                }
+
+                $materials = collect($this->input('materials', []));
+
+                if ($materials->isEmpty()) {
                     return;
                 }
 
-                if (! Schema::connection('third')->hasTable('mscraftsman')) {
-                    $validator->errors()->add('craftsman_id', 'Pengrajin tidak valid.');
+                if (! Schema::connection('third')->hasTable('msmaterialgold')) {
+                    $validator->errors()->add('materials', 'Master bahan emas tidak tersedia.');
 
                     return;
                 }
 
-                $exists = DB::connection('third')
-                    ->table('mscraftsman')
-                    ->where('row_id', $craftsmanId)
-                    ->where('is_deleted', 0)
-                    ->exists();
+                $materialIds = $materials
+                    ->pluck('materialgold_id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->filter(fn (int $id): bool => $id > 0)
+                    ->unique()
+                    ->values()
+                    ->all();
 
-                if (! $exists) {
-                    $validator->errors()->add('craftsman_id', 'Pengrajin tidak valid.');
+                if ($materialIds === []) {
+                    return;
+                }
+
+                $query = DB::connection('third')
+                    ->table('msmaterialgold')
+                    ->whereIn('row_id', $materialIds);
+
+                if (Schema::connection('third')->hasColumn('msmaterialgold', 'is_deleted')) {
+                    $query->where('is_deleted', 0);
+                }
+
+                $validIds = $query->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all();
+
+                foreach ($materials as $index => $material) {
+                    $materialId = (int) ($material['materialgold_id'] ?? 0);
+
+                    if ($materialId > 0 && ! in_array($materialId, $validIds, true)) {
+                        $validator->errors()->add(
+                            "materials.{$index}.materialgold_id",
+                            'Bahan emas tidak valid.',
+                        );
+                    }
                 }
             },
         ];
@@ -126,7 +211,13 @@ class StoreCoranRequest extends FormRequest
             'details.*.spk_id.distinct' => 'SPK tidak boleh duplikat.',
             'details.*.spk_id.exists' => 'SPK yang dipilih tidak valid.',
             'details.*.weight.numeric' => 'Berat coran harus berupa angka.',
+            'details.*.kadar.numeric' => 'Kadar harus berupa angka.',
             'details.*.status.in' => 'Status coran tidak valid.',
+            'materials.*.section.required' => 'Kategori bahan emas wajib dipilih.',
+            'materials.*.section.in' => 'Kategori bahan emas tidak valid.',
+            'materials.*.materialgold_id.required' => 'Bahan emas wajib dipilih.',
+            'materials.*.weight.required' => 'Berat bahan emas wajib diisi.',
+            'materials.*.weight.numeric' => 'Berat bahan emas harus berupa angka.',
         ];
     }
 }

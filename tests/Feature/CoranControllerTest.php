@@ -109,6 +109,9 @@ test('coran show page is accessible', function () {
             ->where('workflowStatus.key', 'done')
             ->has('workflowStatus.stages')
             ->has('approvalHistory')
+            ->has('approvalFooter')
+            ->has('approval.canOpenEdit')
+            ->has('approval.canSubmit')
             ->has('coranItem.coranBreakdown')
         );
 

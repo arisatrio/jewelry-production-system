@@ -1,7 +1,14 @@
 import { Head } from '@inertiajs/react';
 import { CoranDetail } from '@/components/coran/coran-detail';
-import { index } from '@/routes/coran';
 import type { CoranBreakdownSection } from '@/components/coran/coran-material-breakdown';
+import {
+    complete,
+    destroy,
+    edit,
+    index,
+    managerApprove,
+    submit,
+} from '@/routes/coran';
 
 type CoranMaterialLine = {
     name: string;
@@ -15,6 +22,12 @@ type CoranWorkflowStatus = {
     stages: Array<{ key: string; label: string }>;
 };
 
+type ApprovalFooterColumn = {
+    title: string;
+    name: string;
+    date: string;
+};
+
 type ApprovalHistoryEvent = {
     status: string;
     statusLabel: string;
@@ -24,9 +37,22 @@ type ApprovalHistoryEvent = {
     createdAt: string | null;
 };
 
+type CoranApprovalAbilities = {
+    canSubmit: boolean;
+    canEdit: boolean;
+    canOpenEdit: boolean;
+    canDelete: boolean;
+    canManagerApprove: boolean;
+    canComplete: boolean;
+    status: string;
+    statusLabel: string;
+};
+
 type CoranShowProps = {
     workflowStatus: CoranWorkflowStatus;
     approvalHistory: ApprovalHistoryEvent[];
+    approvalFooter: ApprovalFooterColumn[];
+    approval: CoranApprovalAbilities;
     coranItem: {
         id: number;
         docNo: string | null;
@@ -57,6 +83,7 @@ type CoranShowProps = {
             customerName: string | null;
             satuan: string;
             weight: string | null;
+            kadar: string | null;
             status: string | null;
             statusLabel: string;
         }>;
@@ -66,6 +93,8 @@ type CoranShowProps = {
 export default function CoranShow({
     workflowStatus,
     approvalHistory,
+    approvalFooter,
+    approval,
     coranItem,
 }: CoranShowProps) {
     return (
@@ -77,7 +106,14 @@ export default function CoranShow({
                 coranItem={coranItem}
                 workflowStatus={workflowStatus}
                 approvalHistory={approvalHistory}
+                approvalFooter={approvalFooter}
+                approval={approval}
+                editHref={edit.url(coranItem.id)}
                 backHref={index.url()}
+                deleteUrl={destroy.url(coranItem.id)}
+                submitUrl={submit.url(coranItem.id)}
+                managerApproveUrl={managerApprove.url(coranItem.id)}
+                completeUrl={complete.url(coranItem.id)}
             />
         </>
     );

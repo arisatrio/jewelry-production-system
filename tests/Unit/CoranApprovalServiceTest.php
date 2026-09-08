@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Coran;
+use App\Models\CoranSpk;
+use App\Models\User;
 use App\Support\CoranApprovalService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -19,6 +21,79 @@ test('coran approval service maps done status and stages', function () {
         ->and($mapped['stageIndex'])->toBe(3)
         ->and($mapped['stages'])->toHaveCount(4)
         ->and($service->statusLabelFor($coran))->toBe('Completed');
+});
+
+test('coran approval service submits open document to manager', function () {
+    $coran = Coran::factory()->create([
+        'status' => null,
+    ]);
+    CoranSpk::factory()->create([
+        'row_id' => $coran->row_id,
+    ]);
+
+    $updated = app(CoranApprovalService::class)->submit($coran, 'Operator Test');
+
+    expect($updated->status)->toBe(CoranApprovalService::STATUS_SUBMITTED);
+
+    CoranSpk::query()->where('row_id', $coran->row_id)->delete();
+    if (Schema::connection('third')->hasTable('sysapproval')) {
+        DB::connection('third')
+            ->table('sysapproval')
+            ->where('doc_name', CoranApprovalService::DOC_NAME)
+            ->where('doc_id', $coran->row_id)
+            ->delete();
+    }
+    $coran->delete();
+});
+
+test('coran approval service advances manager approve and complete', function () {
+    $service = app(CoranApprovalService::class);
+
+    $coran = Coran::factory()->create([
+        'status' => CoranApprovalService::STATUS_SUBMITTED,
+    ]);
+
+    $manager = $service->managerApprove($coran, 'Manager Test');
+    expect($manager->status)->toBe(CoranApprovalService::STATUS_MANAGER);
+
+    $done = $service->complete($manager, 'Operator Test');
+    expect($done->status)->toBe(CoranApprovalService::STATUS_DONE);
+
+    if (Schema::connection('third')->hasTable('sysapproval')) {
+        DB::connection('third')
+            ->table('sysapproval')
+            ->where('doc_name', CoranApprovalService::DOC_NAME)
+            ->where('doc_id', $coran->row_id)
+            ->delete();
+    }
+    $coran->delete();
+});
+
+test('coran approval abilities follow workflow stage', function () {
+    $user = User::factory()->make();
+    $service = app(CoranApprovalService::class);
+
+    $open = Coran::factory()->make(['status' => null]);
+    $submitted = Coran::factory()->make([
+        'status' => CoranApprovalService::STATUS_SUBMITTED,
+    ]);
+    $manager = Coran::factory()->make([
+        'status' => CoranApprovalService::STATUS_MANAGER,
+    ]);
+    $done = Coran::factory()->make([
+        'status' => CoranApprovalService::STATUS_DONE,
+    ]);
+
+    expect($service->abilitiesFor($open, $user)['canSubmit'])->toBeTrue()
+        ->and($service->abilitiesFor($open, $user)['canOpenEdit'])->toBeTrue()
+        ->and($service->abilitiesFor($open, $user)['canDelete'])->toBeTrue()
+        ->and($service->abilitiesFor($submitted, $user)['canManagerApprove'])->toBeTrue()
+        ->and($service->abilitiesFor($submitted, $user)['canOpenEdit'])->toBeFalse()
+        ->and($service->abilitiesFor($submitted, $user)['canDelete'])->toBeFalse()
+        ->and($service->abilitiesFor($manager, $user)['canComplete'])->toBeTrue()
+        ->and($service->abilitiesFor($done, $user)['canOpenEdit'])->toBeTrue()
+        ->and($service->abilitiesFor($done, $user)['canDelete'])->toBeTrue()
+        ->and($service->abilitiesFor($done, $user)['canSubmit'])->toBeFalse();
 });
 
 test('coran approval service returns history rows for a document', function () {

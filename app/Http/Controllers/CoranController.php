@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCoranRequest;
+use App\Http\Requests\UpdateCoranRequest;
 use App\Models\Coran;
 use App\Models\CoranSpk;
 use App\Models\Production;
 use App\Support\CoranApprovalService;
 use App\Support\CoranDocNumberGenerator;
 use App\Support\CoranMaterialBreakdown;
+use App\Support\CoranMaterialGoldSynchronizer;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkQtyUnit;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 
 class CoranController extends Controller
 {
@@ -77,16 +80,18 @@ class CoranController extends Controller
     /**
      * Show the form for creating a new coran document.
      */
-    public function create(): Response
+    public function create(CoranMaterialGoldSynchronizer $materialSynchronizer): Response
     {
         return Inertia::render('coran/create', [
             'formDocumentNo' => (string) config('spk.coran_form_document_no'),
             'statusOptions' => $this->detailStatusOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
+            'materialOptions' => $materialSynchronizer->materialOptions(),
             'form' => [
                 'transDate' => now()->format('Y-m-d'),
                 'craftsmanId' => null,
                 'details' => [],
+                'materials' => [],
             ],
         ]);
     }
@@ -158,12 +163,14 @@ class CoranController extends Controller
     public function store(
         StoreCoranRequest $request,
         CoranDocNumberGenerator $docNumberGenerator,
+        CoranMaterialGoldSynchronizer $materialSynchronizer,
     ): RedirectResponse {
         $validated = $request->validated();
         $actor = $this->actorName($request);
         $details = $validated['details'];
+        $materials = $validated['materials'] ?? [];
 
-        $coran = DB::connection('third')->transaction(function () use ($validated, $details, $actor, $docNumberGenerator): Coran {
+        $coran = DB::connection('third')->transaction(function () use ($validated, $details, $materials, $actor, $docNumberGenerator, $materialSynchronizer): Coran {
             $totalWeight = collect($details)
                 ->map(fn (array $detail): float => (float) ($detail['weight'] ?? 0))
                 ->sum();
@@ -178,9 +185,10 @@ class CoranController extends Controller
                 'result_material_rosegold' => '0.000',
                 'result_material_whitegold' => '0.000',
                 'result_material_yellowgold' => '0.000',
-                'shrink' => null,
+                'shrink' => '0.00',
                 'weight' => number_format($totalWeight, 3, '.', ''),
                 'status' => null,
+                'is_from_new_system' => 1,
                 'is_deleted' => 0,
                 'created_date' => now(),
                 'created_by' => $actor,
@@ -189,8 +197,10 @@ class CoranController extends Controller
             ]);
 
             $this->storeDetails($coran, $details, $actor);
+            $materialSynchronizer->sync($coran, $materials, $actor);
+            $this->recalculateShrink($coran->refresh());
 
-            return $coran;
+            return $coran->refresh();
         });
 
         Inertia::flash('toast', [
@@ -205,6 +215,7 @@ class CoranController extends Controller
      * Display the specified coran document.
      */
     public function show(
+        Request $request,
         Coran $coran,
         CoranApprovalService $approvalService,
         CoranMaterialBreakdown $materialBreakdown,
@@ -227,11 +238,279 @@ class CoranController extends Controller
             'coranItem' => $this->toDetailItem($coran, $approvalService, $materialBreakdown),
             'workflowStatus' => $approvalService->map($coran),
             'approvalHistory' => $approvalService->history($coran),
+            'approvalFooter' => $approvalService->footerColumns(
+                $coran,
+                $this->actorName($request),
+            ),
+            'approval' => $approvalService->abilitiesFor($coran, $request->user()),
         ]);
     }
 
     /**
-     * @param  list<array{spk_id: int, weight?: string|null, status?: string|null}>  $details
+     * Show the form for editing the specified coran document.
+     */
+    public function edit(
+        Request $request,
+        Coran $coran,
+        CoranApprovalService $approvalService,
+        CoranMaterialGoldSynchronizer $materialSynchronizer,
+    ): Response {
+        abort_if($coran->is_deleted === 1, 404);
+        abort_unless(
+            $approvalService->canEditForm($coran),
+            403,
+            'Dokumen coran tidak dapat diubah pada status saat ini.',
+        );
+
+        $coran->load([
+            'details' => fn ($query) => $query
+                ->notDeleted()
+                ->with([
+                    'production' => fn ($productionQuery) => $productionQuery
+                        ->notDeleted()
+                        ->with($this->productionSpkInfoRelations())
+                        ->select($this->productionSpkInfoColumns()),
+                ])
+                ->orderBy('line_id'),
+        ]);
+
+        $details = $coran->details
+            ->filter(fn (CoranSpk $detail): bool => $detail->is_deleted === 0)
+            ->values()
+            ->map(fn (CoranSpk $detail): array => [
+                'spkId' => (int) $detail->spk_id,
+                'spkNo' => $detail->production?->spk_no,
+                ...$this->productionSpkInfoFields($detail->production),
+                'weight' => $this->formatDecimal($detail->weight) ?? '',
+                'kadar' => $this->formatKadar($detail->kadar) ?? '',
+                'status' => filled($detail->status) ? (string) $detail->status : '',
+            ])
+            ->all();
+
+        return Inertia::render('coran/edit', [
+            'formDocumentNo' => (string) config('spk.coran_form_document_no'),
+            'statusOptions' => $this->detailStatusOptions(),
+            'craftsmanOptions' => $this->craftsmanOptions(),
+            'materialOptions' => $materialSynchronizer->materialOptions(),
+            'approval' => $approvalService->abilitiesFor($coran, $request->user()),
+            'form' => [
+                'id' => (int) $coran->row_id,
+                'docNo' => $coran->doc_no,
+                'transDate' => $coran->trans_date?->format('Y-m-d') ?? now()->format('Y-m-d'),
+                'craftsmanId' => filled($coran->craftsman_id) && (int) $coran->craftsman_id > 0
+                    ? (int) $coran->craftsman_id
+                    : null,
+                'details' => $details,
+                'materials' => $materialSynchronizer->formLinesFor($coran),
+            ],
+        ]);
+    }
+
+    /**
+     * Kirim dokumen Open ke Manager Produksi (COR010).
+     */
+    public function submit(
+        Request $request,
+        Coran $coran,
+        CoranApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($coran->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($coran, $request->user())['canSubmit']) {
+            abort(403, 'Dokumen ini tidak dapat dikirim ke Manager Produksi.');
+        }
+
+        try {
+            $approvalService->submit($coran, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen coran dikirim ke Manager Produksi.',
+        ]);
+
+        return to_route('coran.show', $coran);
+    }
+
+    /**
+     * Manager Produksi meng-approve dokumen (COR010 → COR020).
+     */
+    public function managerApprove(
+        Request $request,
+        Coran $coran,
+        CoranApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($coran->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($coran, $request->user())['canManagerApprove']) {
+            abort(403, 'Dokumen ini tidak dapat di-approve oleh Manager Produksi.');
+        }
+
+        try {
+            $approvalService->managerApprove($coran, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen coran di-approve oleh Manager Produksi.',
+        ]);
+
+        return to_route('coran.show', $coran);
+    }
+
+    /**
+     * Selesaikan dokumen (COR020 → CORDONE).
+     */
+    public function complete(
+        Request $request,
+        Coran $coran,
+        CoranApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($coran->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($coran, $request->user())['canComplete']) {
+            abort(403, 'Dokumen ini tidak dapat diselesaikan.');
+        }
+
+        try {
+            $approvalService->complete($coran, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen coran selesai.',
+        ]);
+
+        return to_route('coran.show', $coran);
+    }
+
+    /**
+     * Update the specified coran document.
+     */
+    public function update(
+        UpdateCoranRequest $request,
+        Coran $coran,
+        CoranApprovalService $approvalService,
+        CoranMaterialGoldSynchronizer $materialSynchronizer,
+    ): RedirectResponse {
+        abort_if($coran->is_deleted === 1, 404);
+        abort_unless(
+            $approvalService->canEditForm($coran),
+            403,
+            'Dokumen coran tidak dapat diubah pada status saat ini.',
+        );
+
+        $validated = $request->validated();
+        $actor = $this->actorName($request);
+        $details = $validated['details'];
+        $materials = $validated['materials'] ?? [];
+
+        DB::connection('third')->transaction(function () use ($coran, $validated, $details, $materials, $actor, $materialSynchronizer): void {
+            $totalWeight = collect($details)
+                ->map(fn (array $detail): float => (float) ($detail['weight'] ?? 0))
+                ->sum();
+
+            $coran->update([
+                'trans_date' => $validated['trans_date'],
+                'craftsman_id' => $validated['craftsman_id'] ?? null,
+                'weight' => number_format($totalWeight, 3, '.', ''),
+                'modified_date' => now(),
+                'modified_by' => $actor,
+            ]);
+
+            $coran->details()
+                ->notDeleted()
+                ->update([
+                    'is_deleted' => 1,
+                    'deleted_date' => now(),
+                    'deleted_by' => $actor,
+                    'modified_date' => now(),
+                    'modified_by' => $actor,
+                ]);
+
+            $this->storeDetails($coran, $details, $actor);
+            $materialSynchronizer->sync($coran, $materials, $actor);
+            $this->recalculateShrink($coran->refresh());
+        });
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen coran berhasil diperbarui.',
+        ]);
+
+        return to_route('coran.show', $coran);
+    }
+
+    /**
+     * Soft-delete the specified coran document.
+     */
+    public function destroy(
+        Request $request,
+        Coran $coran,
+        CoranApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($coran->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($coran, $request->user())['canDelete']) {
+            abort(403, 'Dokumen coran tidak dapat dihapus pada status saat ini.');
+        }
+
+        $actor = $this->actorName($request);
+
+        DB::connection('third')->transaction(function () use ($coran, $actor): void {
+            $coran->update([
+                'is_deleted' => 1,
+                'deleted_date' => now(),
+                'deleted_by' => $actor,
+                'modified_date' => now(),
+                'modified_by' => $actor,
+            ]);
+
+            $coran->details()
+                ->notDeleted()
+                ->update([
+                    'is_deleted' => 1,
+                    'deleted_date' => now(),
+                    'deleted_by' => $actor,
+                    'modified_date' => now(),
+                    'modified_by' => $actor,
+                ]);
+
+            if (
+                Schema::connection('third')->hasTable('trmaterialgold')
+                && Schema::connection('third')->hasColumn('trmaterialgold', 'is_deleted')
+            ) {
+                DB::connection('third')
+                    ->table('trmaterialgold')
+                    ->where('ref_row_id', $coran->row_id)
+                    ->whereIn('transtype_id', CoranMaterialGoldSynchronizer::transtypeIds())
+                    ->where('is_deleted', 0)
+                    ->update([
+                        'is_deleted' => 1,
+                        'deleted_date' => now(),
+                        'deleted_by' => $actor,
+                        'modified_date' => now(),
+                        'modified_by' => $actor,
+                    ]);
+            }
+        });
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen coran berhasil dihapus.',
+        ]);
+
+        return to_route('coran.index');
+    }
+
+    /**
+     * @param  list<array{spk_id: int, weight?: string|null, kadar?: string|null, status?: string|null}>  $details
      */
     private function storeDetails(Coran $coran, array $details, string $actor): void
     {
@@ -240,6 +519,9 @@ class CoranController extends Controller
                 'spk_id' => $detail['spk_id'],
                 'weight' => filled($detail['weight'] ?? null)
                     ? $detail['weight']
+                    : null,
+                'kadar' => filled($detail['kadar'] ?? null)
+                    ? $detail['kadar']
                     : null,
                 'status' => filled($detail['status'] ?? null)
                     ? (string) $detail['status']
@@ -251,6 +533,28 @@ class CoranController extends Controller
                 'modified_by' => $actor,
             ]);
         }
+    }
+
+    private function recalculateShrink(Coran $coran): void
+    {
+        $totalSubmit = collect([
+            $coran->submit_material_rosegold,
+            $coran->submit_material_whitegold,
+            $coran->submit_material_yellowgold,
+        ])->sum(fn (mixed $value): float => (float) ($value ?? 0));
+
+        $totalResult = collect([
+            $coran->result_material_rosegold,
+            $coran->result_material_whitegold,
+            $coran->result_material_yellowgold,
+        ])->sum(fn (mixed $value): float => (float) ($value ?? 0));
+
+        $totalSpkWeight = (float) ($coran->weight ?? 0);
+        $shrink = round($totalSubmit - $totalResult - $totalSpkWeight, 2);
+
+        $coran->forceFill([
+            'shrink' => number_format($shrink, 2, '.', ''),
+        ])->save();
     }
 
     /**
@@ -389,6 +693,7 @@ class CoranController extends Controller
      *         customerName: string|null,
      *         satuan: string,
      *         weight: string|null,
+     *         kadar: string|null,
      *         status: string|null,
      *         statusLabel: string
      *     }>
@@ -462,6 +767,7 @@ class CoranController extends Controller
                     'spkNo' => $detail->production?->spk_no,
                     ...$this->productionSpkInfoFields($detail->production),
                     'weight' => $this->formatDecimal($detail->weight),
+                    'kadar' => $this->formatKadar($detail->kadar),
                     'status' => filled($detail->status) ? (string) $detail->status : null,
                     'statusLabel' => $this->spkStatusLabel(
                         filled($detail->status) ? (string) $detail->status : null,
@@ -643,6 +949,17 @@ class CoranController extends Controller
         }
 
         return number_format($number, 3, '.', '');
+    }
+
+    private function formatKadar(mixed $value): ?string
+    {
+        $number = $this->toFloat($value);
+
+        if ($number === null) {
+            return null;
+        }
+
+        return number_format($number, 2, '.', '');
     }
 
     private function toFloat(mixed $value): ?float

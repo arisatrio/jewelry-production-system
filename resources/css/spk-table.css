@@ -2241,6 +2241,148 @@
     }
 }
 
+.spkCoranMaterialEditorSplit {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    align-items: start;
+    margin-top: 0.85rem;
+}
+
+.spkCoranMaterialEditorPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.spkCoranMaterialEditorPanelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.spkCoranMaterialEditorPanelTitle {
+    margin: 0;
+    color: #111827;
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.spkCoranMaterialEditorTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.spkCoranMaterialEditorTable th,
+.spkCoranMaterialEditorTable td {
+    padding: 0.45rem 0.55rem;
+    text-align: left;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    vertical-align: middle;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.spkCoranMaterialEditorTable thead th {
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: #f8fafc;
+}
+
+.spkCoranMaterialEditorTable thead th:nth-child(2),
+.spkCoranMaterialEditorTable tbody td:nth-child(2),
+.spkCoranMaterialEditorTable tfoot td:nth-child(2) {
+    width: 7rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.spkCoranMaterialEditorTable thead th:last-child,
+.spkCoranMaterialEditorTable tbody td:last-child,
+.spkCoranMaterialEditorTable tfoot td:last-child {
+    width: 3.25rem;
+    text-align: center;
+}
+
+.spkCoranMaterialEditorTable tbody tr.spkCoranMaterialEditorGroupRow th,
+.spkCoranMaterialEditorTable tbody tr.spkCoranMaterialEditorGroupRow td {
+    background: #f8fafc;
+    color: #111827;
+    font-weight: 700;
+}
+
+.spkCoranMaterialEditorTable tbody tr.spkCoranLineRow td:first-child {
+    padding-left: 1.1rem;
+}
+
+.spkCoranMaterialComboBox {
+    width: 100%;
+}
+
+.spkCoranMaterialLineMain {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.spkCoranMaterialLineNotes {
+    color: #64748b;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.spkCoranMaterialDialog {
+    max-width: 28rem;
+}
+
+.spkCoranMaterialDialogForm {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.spkCoranMaterialDialogForm ui5-combobox,
+.spkCoranMaterialDialogForm ui5-input,
+.spkCoranMaterialDialogForm ui5-select,
+.spkCoranMaterialDialogForm ui5-textarea {
+    width: 100%;
+}
+
+.spkCoranMaterialEditorTable tfoot th,
+.spkCoranMaterialEditorTable tfoot td {
+    border-bottom: none;
+    background: #f8fafc;
+    color: #111827;
+    font-weight: 700;
+}
+
+.spkCoranMaterialEditorTable tfoot td:nth-child(2) {
+    text-align: right;
+}
+
+@media (max-width: 900px) {
+    .spkCoranMaterialEditorSplit {
+        grid-template-columns: 1fr;
+    }
+
+    .spkCoranMaterialEditorPanelHeader {
+        flex-wrap: wrap;
+    }
+}
+
 .spkProcessMaterialLines {
     display: flex;
     flex-direction: column;

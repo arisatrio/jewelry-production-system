@@ -32,14 +32,14 @@ class CoranMaterialBreakdown
             return $empty;
         }
 
-        $transtypeMap = [
-            1 => ['colorKey' => 'rosegold', 'bucket' => 'bahan'],
-            2 => ['colorKey' => 'whitegold', 'bucket' => 'bahan'],
-            3 => ['colorKey' => 'rosegold', 'bucket' => 'sisa'],
-            4 => ['colorKey' => 'whitegold', 'bucket' => 'sisa'],
-            10 => ['colorKey' => 'yellowgold', 'bucket' => 'bahan'],
-            11 => ['colorKey' => 'yellowgold', 'bucket' => 'sisa'],
-        ];
+        $transtypeMap = [];
+
+        foreach (CoranMaterialGoldSynchronizer::SECTION_MAP as $section) {
+            $transtypeMap[$section['transtype_id']] = [
+                'colorKey' => $section['color_key'],
+                'bucket' => $section['bucket'],
+            ];
+        }
 
         $query = DB::connection('third')
             ->table('trmaterialgold as t')

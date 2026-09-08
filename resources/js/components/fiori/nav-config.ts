@@ -1,3 +1,10 @@
+import {
+    craftsmanPerformance,
+    materialYield,
+    shopFloor,
+    skuOutput,
+    workOrder,
+} from '@/routes/analytics';
 import { home } from '@/routes';
 import { index as coranIndex } from '@/routes/coran';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
@@ -35,10 +42,11 @@ export const defaultLaporanSubmenus: ShellNavItem[] = [
 ];
 
 export const defaultAnalyticsSubmenus: ShellNavItem[] = [
-    { text: 'Analytics Produktivitas' },
-    { text: 'Analytics Cost & Susut' },
-    { text: 'Analytics Bottleneck' },
-    { text: 'Analytics Lead Time' },
+    { text: 'Work Order', href: workOrder.url() },
+    { text: 'Shop Floor', href: shopFloor.url() },
+    { text: 'Material & Yield', href: materialYield.url() },
+    { text: 'Performance Pengrajin', href: craftsmanPerformance.url() },
+    { text: 'Output SKU', href: skuOutput.url() },
 ];
 
 export const defaultProduksiSubmenus: ShellNavItem[] = [

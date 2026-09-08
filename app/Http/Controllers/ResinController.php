@@ -224,6 +224,7 @@ class ResinController extends Controller
                 'trans_date' => $validated['trans_date'],
                 'spk_id' => $details[0]['spk_id'],
                 'status' => 'DRAFT',
+                'is_from_new_system' => 1,
                 'is_deleted' => 0,
                 'created_date' => now(),
                 'created_by' => $actor,

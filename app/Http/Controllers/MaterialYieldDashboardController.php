@@ -2,42 +2,29 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\SpkDashboardAnalytics;
+use App\Support\SpkMaterialYieldAnalytics;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class DashboardController extends Controller
+class MaterialYieldDashboardController extends Controller
 {
     /**
-     * Display the production analytics dashboard (home).
+     * Display the material & yield analytics dashboard.
      */
     public function index(Request $request): Response
     {
-        return $this->renderDashboard($request, 'welcome');
-    }
-
-    /**
-     * Display the work order dashboard under Analytics.
-     */
-    public function workOrder(Request $request): Response
-    {
-        return $this->renderDashboard($request, 'analytics/work-order');
-    }
-
-    private function renderDashboard(Request $request, string $component): Response
-    {
         $month = $this->resolveMonth($request->string('month')->toString());
-        $analytics = (new SpkDashboardAnalytics($month))->summarize();
+        $analytics = (new SpkMaterialYieldAnalytics($month))->summarize();
 
         $previousMonth = $month->copy()->subMonthNoOverflow()->startOfMonth();
         $nextMonth = $month->copy()->addMonthNoOverflow()->startOfMonth();
         $currentMonth = Carbon::parse(now()->toDateTimeString())->startOfMonth();
         $canGoNext = $nextMonth->lte($currentMonth);
 
-        return Inertia::render($component, [
+        return Inertia::render('analytics/material-yield', [
             'analytics' => $analytics,
             'filters' => [
                 'month' => $month->format('Y-m'),

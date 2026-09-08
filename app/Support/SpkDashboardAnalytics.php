@@ -338,6 +338,194 @@ class SpkDashboardAnalytics
     }
 
     /**
+     * Aggregate material & yield analytics for the current (or given) month.
+     *
+     * @return array<string, mixed>
+     */
+    public function summarizeMaterialYield(): array
+    {
+        $spkStats = $this->resolveSpkStats();
+        $shrink = $this->resolveShrinkAnalytics();
+        $gold = $this->resolveGoldAnalytics();
+        $stone = $this->resolveStoneAnalytics();
+        $control = $this->resolveControlAnalytics($spkStats, $gold);
+        $craftsmen = $this->resolveCraftsmanRanking();
+
+        $goldRequirement = $this->nullableFloat($spkStats['goldRequirement']) ?? 0.0;
+        $goldUsed = $this->nullableFloat($gold['used']) ?? 0.0;
+        $goldVariance = round($goldUsed - $goldRequirement, 3);
+        $stoneStart = (float) $stone['startCrt'];
+        $stoneDifference = (float) $stone['difference'];
+        $stoneLossPercent = abs($stoneStart) >= 0.00005
+            ? round(($stoneDifference / $stoneStart) * 100, 2)
+            : null;
+
+        return [
+            'period' => [
+                'label' => $this->formatPeriodLabel(),
+                'start' => $this->periodStart->toDateString(),
+                'end' => $this->periodEnd->toDateString(),
+            ],
+            'summary' => [
+                'totalSpk' => $spkStats['total'],
+                'totalShrink' => $shrink['totalShrink'],
+                'shrinkOkCount' => $shrink['okCount'],
+                'shrinkNokCount' => $shrink['nokCount'],
+                'goldRequirement' => $spkStats['goldRequirement'],
+                'goldIssued' => $gold['issued'],
+                'goldReturned' => $gold['returned'],
+                'goldUsed' => $gold['used'],
+                'goldVariance' => $this->formatWeight($goldVariance),
+                'stoneStartCrt' => $stone['startCrt'],
+                'stoneEndCrt' => $stone['endCrt'],
+                'stoneDifference' => $stone['difference'],
+                'stoneLossPercent' => $stoneLossPercent !== null
+                    ? number_format($stoneLossPercent, 2, '.', '')
+                    : null,
+                'avgYieldPercent' => $control['avgYieldPercent'],
+                'avgGoldYieldPercent' => $control['avgGoldYieldPercent'],
+            ],
+            'shrink' => $shrink,
+            'gold' => $gold,
+            'stone' => $stone,
+            'control' => $control,
+            'craftsmen' => $craftsmen,
+        ];
+    }
+
+    /**
+     * Aggregate shop-floor / process health analytics.
+     *
+     * WIP & aging memakai backlog tahun berjalan (posisi lantai saat ini).
+     * Throughput selesai memakai scope bulan terpilih.
+     *
+     * @return array<string, mixed>
+     */
+    public function summarizeShopFloor(): array
+    {
+        $wipByProcess = $this->resolveShopFloorWipByProcess();
+        $aging = $this->resolveShopFloorAging();
+        $craftsmen = $this->resolveCraftsmanRanking();
+        $completedThisMonth = $this->resolveShopFloorCompletedThisMonth();
+        $overdueWip = $this->resolveShopFloorOverdueWipCount();
+
+        $wipTotal = (int) collect($wipByProcess)->sum('count');
+        $bottleneck = $wipByProcess[0] ?? null;
+
+        return [
+            'period' => [
+                'label' => $this->formatPeriodLabel(),
+                'start' => $this->periodStart->toDateString(),
+                'end' => $this->periodEnd->toDateString(),
+            ],
+            'backlogYear' => (int) now()->year,
+            'summary' => [
+                'wipSpk' => $wipTotal,
+                'overdueWipSpk' => $overdueWip,
+                'completedThisMonth' => $completedThisMonth,
+                'bottleneckProcess' => $bottleneck['label'] ?? null,
+                'bottleneckCount' => $bottleneck['count'] ?? 0,
+                'avgAgeDays' => $aging['avgAgeDays'],
+                'agedOver7Days' => $aging['agedOver7Days'],
+                'activeProcesses' => count($wipByProcess),
+            ],
+            'wipByProcess' => $wipByProcess,
+            'agingBuckets' => $aging['buckets'],
+            'agingByProcess' => $aging['byProcess'],
+            'craftsmen' => $craftsmen,
+        ];
+    }
+
+    /**
+     * Aggregate craftsman performance analytics for the current (or given) month.
+     *
+     * @return array<string, mixed>
+     */
+    public function summarizeCraftsmanPerformance(): array
+    {
+        $ranking = $this->resolveCraftsmanPerformanceRanking(20);
+        $byProcess = $this->resolveCraftsmanJobsByProcess();
+        $totalJobs = (int) collect($ranking)->sum('jobCount');
+        $totalShrink = round((float) collect($ranking)->sum(
+            fn (array $row): float => (float) $row['totalShrink'],
+        ), 3);
+        $top = $ranking[0] ?? null;
+        $heaviestShrink = collect($ranking)
+            ->sortByDesc(fn (array $row): float => (float) $row['totalShrink'])
+            ->values()
+            ->first();
+
+        return [
+            'period' => [
+                'label' => $this->formatPeriodLabel(),
+                'start' => $this->periodStart->toDateString(),
+                'end' => $this->periodEnd->toDateString(),
+            ],
+            'summary' => [
+                'activeCraftsmen' => count($ranking),
+                'totalJobs' => $totalJobs,
+                'totalShrink' => $this->formatWeight($totalShrink),
+                'avgJobsPerCraftsman' => count($ranking) > 0
+                    ? number_format($totalJobs / count($ranking), 1, '.', '')
+                    : null,
+                'topCraftsman' => $top['name'] ?? null,
+                'topCraftsmanJobs' => $top['jobCount'] ?? 0,
+                'heaviestShrinkCraftsman' => $heaviestShrink['name'] ?? null,
+                'heaviestShrink' => $heaviestShrink['totalShrink'] ?? '0.000',
+            ],
+            'ranking' => $ranking,
+            'byProcess' => $byProcess,
+        ];
+    }
+
+    /**
+     * Aggregate SKU / item output analytics for the current (or given) month.
+     *
+     * @return array<string, mixed>
+     */
+    public function summarizeSkuOutput(): array
+    {
+        $bySku = $this->resolveSkuOutputRows(20);
+        $byItem = $this->resolveItemOutputRows(12);
+        $spkCount = (int) collect($bySku)->sum('spkCount');
+        $qtyTotal = (int) collect($bySku)->sum('qty');
+        $doneSpk = (int) collect($bySku)->sum('doneSpk');
+        $doneQty = (int) collect($bySku)->sum('doneQty');
+        $uniqueSku = count($bySku);
+
+        // If sku grouping returned empty (no sku column), fall back to item totals.
+        if ($uniqueSku === 0 && $byItem !== []) {
+            $spkCount = (int) collect($byItem)->sum('spkCount');
+            $qtyTotal = (int) collect($byItem)->sum('qty');
+            $doneSpk = (int) collect($byItem)->sum('doneSpk');
+            $doneQty = (int) collect($byItem)->sum('doneQty');
+            $uniqueSku = count($byItem);
+        }
+
+        $completionPercent = $spkCount > 0
+            ? number_format(($doneSpk / $spkCount) * 100, 1, '.', '')
+            : null;
+
+        return [
+            'period' => [
+                'label' => $this->formatPeriodLabel(),
+                'start' => $this->periodStart->toDateString(),
+                'end' => $this->periodEnd->toDateString(),
+            ],
+            'summary' => [
+                'totalSpk' => $spkCount,
+                'totalQty' => $qtyTotal,
+                'doneSpk' => $doneSpk,
+                'doneQty' => $doneQty,
+                'uniqueSku' => $uniqueSku,
+                'completionPercent' => $completionPercent,
+            ],
+            'bySku' => $bySku,
+            'byItem' => $byItem,
+        ];
+    }
+
+    /**
      * Snapshot operasional untuk hari kalender berjalan,
      * terbatas pada SPK scope bulan (dibuat ATAU estimasi delivery).
      *
@@ -1492,6 +1680,214 @@ class SpkDashboardAnalytics
     }
 
     /**
+     * WIP lantai produksi saat ini (backlog tahun berjalan) per proses terakhir.
+     *
+     * @return list<array{label: string, count: int}>
+     */
+    private function resolveShopFloorWipByProcess(): array
+    {
+        if (
+            ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'last_process')
+        ) {
+            return [];
+        }
+
+        ['inProgress' => $inProgressExpr, 'confirmed' => $confirmedExpr] = $this->statusExpressions();
+
+        $processExpr = "CASE
+            WHEN last_process IS NULL OR TRIM(last_process) = '' THEN 'Tanpa Proses'
+            ELSE TRIM(last_process)
+        END";
+
+        $rows = $this->yearScopedSpkBase()
+            ->whereRaw('NOT ('.$this->doneExpression().')')
+            ->whereRaw("NOT ({$confirmedExpr})")
+            ->whereRaw("({$inProgressExpr})")
+            ->selectRaw("{$processExpr} as process_label, COUNT(*) as aggregate_count")
+            ->groupByRaw($processExpr)
+            ->orderByDesc('aggregate_count')
+            ->get();
+
+        return $rows->map(function (object $row): array {
+            $label = trim((string) $row->process_label);
+
+            return [
+                'label' => $label !== '' ? $label : 'Tanpa Proses',
+                'count' => (int) $row->aggregate_count,
+            ];
+        })->values()->all();
+    }
+
+    private function resolveShopFloorOverdueWipCount(): int
+    {
+        if (! Schema::connection('third')->hasTable('spk')) {
+            return 0;
+        }
+
+        return $this->applyOverdueFilter($this->yearScopedSpkBase())->count();
+    }
+
+    private function resolveShopFloorCompletedThisMonth(): int
+    {
+        if (! Schema::connection('third')->hasTable('spk')) {
+            return 0;
+        }
+
+        return $this->monthScopedSpkBase()
+            ->whereRaw($this->doneExpression())
+            ->count();
+    }
+
+    /**
+     * @return array{
+     *     avgAgeDays: string|null,
+     *     agedOver7Days: int,
+     *     buckets: list<array{label: string, count: int}>,
+     *     byProcess: list<array{process: string, count: int, avgAgeDays: string|null, maxAgeDays: string|null}>
+     * }
+     */
+    private function resolveShopFloorAging(): array
+    {
+        $emptyBuckets = [
+            ['label' => '0–2 hari', 'count' => 0],
+            ['label' => '3–7 hari', 'count' => 0],
+            ['label' => '8–14 hari', 'count' => 0],
+            ['label' => '>14 hari', 'count' => 0],
+        ];
+
+        if (
+            ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'last_process')
+        ) {
+            return [
+                'avgAgeDays' => null,
+                'agedOver7Days' => 0,
+                'buckets' => $emptyBuckets,
+                'byProcess' => [],
+            ];
+        }
+
+        ['inProgress' => $inProgressExpr, 'confirmed' => $confirmedExpr] = $this->statusExpressions();
+
+        $rows = $this->yearScopedSpkBase()
+            ->whereRaw('NOT ('.$this->doneExpression().')')
+            ->whereRaw("NOT ({$confirmedExpr})")
+            ->whereRaw("({$inProgressExpr})")
+            ->orderByDesc('row_id')
+            ->limit(500)
+            ->get([
+                'row_id',
+                'last_process',
+                'modified_date',
+                'created_date',
+            ]);
+
+        if ($rows->isEmpty()) {
+            return [
+                'avgAgeDays' => null,
+                'agedOver7Days' => 0,
+                'buckets' => $emptyBuckets,
+                'byProcess' => [],
+            ];
+        }
+
+        $lastProcessDates = $this->resolveLastProcessDates($rows, 'Y-m-d H:i:s');
+        $now = now();
+        $ages = [];
+        /** @var array<string, array{ages: list<float>, count: int}> $byProcess */
+        $byProcess = [];
+        $buckets = [
+            '0-2' => 0,
+            '3-7' => 0,
+            '8-14' => 0,
+            '14+' => 0,
+        ];
+        $agedOver7Days = 0;
+
+        foreach ($rows as $row) {
+            $spkId = (int) ($row->row_id ?? 0);
+            $process = filled($row->last_process ?? null)
+                ? trim((string) $row->last_process)
+                : 'Tanpa Proses';
+
+            $anchor = $lastProcessDates[$spkId]
+                ?? (filled($row->modified_date ?? null) ? (string) $row->modified_date : null)
+                ?? (filled($row->created_date ?? null) ? (string) $row->created_date : null);
+
+            if ($anchor === null) {
+                continue;
+            }
+
+            $ageDays = max(
+                0.0,
+                round((float) Carbon::parse($anchor)->diffInDays($now, absolute: true), 1),
+            );
+            $ages[] = $ageDays;
+
+            if ($ageDays > 7) {
+                $agedOver7Days++;
+            }
+
+            if ($ageDays <= 2) {
+                $buckets['0-2']++;
+            } elseif ($ageDays <= 7) {
+                $buckets['3-7']++;
+            } elseif ($ageDays <= 14) {
+                $buckets['8-14']++;
+            } else {
+                $buckets['14+']++;
+            }
+
+            if (! isset($byProcess[$process])) {
+                $byProcess[$process] = [
+                    'ages' => [],
+                    'count' => 0,
+                ];
+            }
+
+            $byProcess[$process]['ages'][] = $ageDays;
+            $byProcess[$process]['count']++;
+        }
+
+        $agingByProcess = collect($byProcess)
+            ->map(function (array $group, string $process): array {
+                $avg = $group['ages'] !== []
+                    ? round(array_sum($group['ages']) / count($group['ages']), 1)
+                    : null;
+                $max = $group['ages'] !== []
+                    ? round(max($group['ages']), 1)
+                    : null;
+
+                return [
+                    'process' => $process,
+                    'count' => $group['count'],
+                    'avgAgeDays' => $avg !== null ? number_format($avg, 1, '.', '') : null,
+                    'maxAgeDays' => $max !== null ? number_format($max, 1, '.', '') : null,
+                ];
+            })
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+
+        $avgAge = $ages !== []
+            ? round(array_sum($ages) / count($ages), 1)
+            : null;
+
+        return [
+            'avgAgeDays' => $avgAge !== null ? number_format($avgAge, 1, '.', '') : null,
+            'agedOver7Days' => $agedOver7Days,
+            'buckets' => [
+                ['label' => '0–2 hari', 'count' => $buckets['0-2']],
+                ['label' => '3–7 hari', 'count' => $buckets['3-7']],
+                ['label' => '8–14 hari', 'count' => $buckets['8-14']],
+                ['label' => '>14 hari', 'count' => $buckets['14+']],
+            ],
+            'byProcess' => $agingByProcess,
+        ];
+    }
+
+    /**
      * Distribusi tipe produksi untuk periode:
      * SPK dibuat di bulan terpilih ATAU estimasi delivery di bulan terpilih
      * (tanpa double-count jika keduanya masuk periode).
@@ -1700,6 +2096,20 @@ class SpkDashboardAnalytics
      */
     private function resolveCraftsmanRanking(): array
     {
+        return array_map(function (array $row): array {
+            return [
+                'name' => $row['name'],
+                'jobCount' => $row['jobCount'],
+                'totalShrink' => $row['totalShrink'],
+            ];
+        }, $this->resolveCraftsmanPerformanceRanking(10));
+    }
+
+    /**
+     * @return list<array{name: string, jobCount: int, totalShrink: string, avgShrink: string|null}>
+     */
+    private function resolveCraftsmanPerformanceRanking(int $limit): array
+    {
         /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
         $sources = config('spk_processes.shrink_sources', []);
         /** @var array<int, array{id: int, jobCount: int, totalShrink: float}> $byCraftsman */
@@ -1765,16 +2175,222 @@ class SpkDashboardAnalytics
         }
 
         uasort($byCraftsman, fn (array $left, array $right): int => $right['jobCount'] <=> $left['jobCount']);
-        $top = array_slice(array_values($byCraftsman), 0, 10);
+        $top = array_slice(array_values($byCraftsman), 0, $limit);
         $names = $this->resolveCraftsmanNames(array_column($top, 'id'));
 
         return array_map(function (array $row) use ($names): array {
+            $avgShrink = $row['jobCount'] > 0
+                ? round($row['totalShrink'] / $row['jobCount'], 3)
+                : null;
+
             return [
                 'name' => $names[$row['id']] ?? "Pengrajin {$row['id']}",
                 'jobCount' => $row['jobCount'],
                 'totalShrink' => $this->formatWeight(round($row['totalShrink'], 3)),
+                'avgShrink' => $avgShrink !== null ? $this->formatWeight($avgShrink) : null,
             ];
         }, $top);
+    }
+
+    /**
+     * @return list<array{process: string, jobCount: int, craftsmanCount: int, totalShrink: string}>
+     */
+    private function resolveCraftsmanJobsByProcess(): array
+    {
+        /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
+        $sources = config('spk_processes.shrink_sources', []);
+        $byProcess = [];
+
+        foreach ($sources as $source) {
+            $table = $source['table'];
+
+            if (! Schema::connection('third')->hasTable($table)) {
+                continue;
+            }
+
+            $craftsmanColumn = Schema::connection('third')->hasColumn($table, 'craftsman_id')
+                ? 'craftsman_id'
+                : (Schema::connection('third')->hasColumn($table, 'craftman_id') ? 'craftman_id' : null);
+
+            if ($craftsmanColumn === null) {
+                continue;
+            }
+
+            $query = DB::connection('third')->table($table)
+                ->whereNotNull($craftsmanColumn)
+                ->where($craftsmanColumn, '>', 0);
+
+            if (Schema::connection('third')->hasColumn($table, 'is_deleted')) {
+                $query->where('is_deleted', 0);
+            }
+
+            $this->applyProcessPeriodFilter($query, $table, $source['date_column']);
+
+            if ($source['shrink_column'] === 'computed_mounting') {
+                $stats = $query
+                    ->selectRaw("COUNT(*) as job_count, COUNT(DISTINCT {$craftsmanColumn}) as craftsman_count, SUM(COALESCE(total_weigth_frame_diamond, 0) - COALESCE(weight_finish_goods, 0)) as total_shrink")
+                    ->first();
+            } else {
+                $column = $source['shrink_column'];
+
+                if (! Schema::connection('third')->hasColumn($table, $column)) {
+                    continue;
+                }
+
+                $stats = $query
+                    ->selectRaw("COUNT(*) as job_count, COUNT(DISTINCT {$craftsmanColumn}) as craftsman_count, SUM(COALESCE({$column}, 0)) as total_shrink")
+                    ->first();
+            }
+
+            $jobCount = (int) ($stats->job_count ?? 0);
+
+            if ($jobCount === 0) {
+                continue;
+            }
+
+            $byProcess[] = [
+                'process' => $source['label'],
+                'jobCount' => $jobCount,
+                'craftsmanCount' => (int) ($stats->craftsman_count ?? 0),
+                'totalShrink' => $this->formatWeight(round((float) ($stats->total_shrink ?? 0), 3)),
+            ];
+        }
+
+        usort($byProcess, fn (array $left, array $right): int => $right['jobCount'] <=> $left['jobCount']);
+
+        return $byProcess;
+    }
+
+    /**
+     * @return list<array{sku: string, item: string, spkCount: int, qty: int, doneSpk: int, doneQty: int, completionPercent: string}>
+     */
+    private function resolveSkuOutputRows(int $limit): array
+    {
+        if (
+            ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'sku_id')
+        ) {
+            return [];
+        }
+
+        $doneExpr = $this->doneExpression();
+
+        $rows = $this->monthScopedSpkBase()
+            ->whereNotNull('sku_id')
+            ->where('sku_id', '>', 0)
+            ->selectRaw("
+                sku_id,
+                MAX(TRIM(COALESCE(item_name, ''))) as item_label,
+                COUNT(*) as spk_count,
+                SUM(COALESCE(qty, 1)) as qty_total,
+                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_spk,
+                SUM(CASE WHEN ({$doneExpr}) THEN COALESCE(qty, 1) ELSE 0 END) as done_qty
+            ")
+            ->groupBy('sku_id')
+            ->orderByDesc('qty_total')
+            ->limit($limit)
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $skuIds = $rows->map(fn (object $row): int => (int) $row->sku_id)->all();
+        $skuCodes = $this->resolveSkuCodes($skuIds);
+
+        return $rows->map(function (object $row) use ($skuCodes): array {
+            $skuId = (int) $row->sku_id;
+            $spkCount = (int) $row->spk_count;
+            $doneSpk = (int) $row->done_spk;
+            $item = trim((string) ($row->item_label ?? ''));
+
+            return [
+                'sku' => $skuCodes[$skuId] ?? "SKU #{$skuId}",
+                'item' => $item !== '' ? $item : '—',
+                'spkCount' => $spkCount,
+                'qty' => (int) round((float) $row->qty_total),
+                'doneSpk' => $doneSpk,
+                'doneQty' => (int) round((float) $row->done_qty),
+                'completionPercent' => $spkCount > 0
+                    ? number_format(($doneSpk / $spkCount) * 100, 1, '.', '')
+                    : '0.0',
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @return list<array{item: string, spkCount: int, qty: int, doneSpk: int, doneQty: int, completionPercent: string}>
+     */
+    private function resolveItemOutputRows(int $limit): array
+    {
+        if (
+            ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'item_name')
+        ) {
+            return [];
+        }
+
+        $doneExpr = $this->doneExpression();
+        $itemExpr = "CASE
+            WHEN item_name IS NULL OR TRIM(item_name) = '' THEN 'Custom'
+            ELSE TRIM(item_name)
+        END";
+
+        $rows = $this->monthScopedSpkBase()
+            ->selectRaw("
+                {$itemExpr} as item_label,
+                COUNT(*) as spk_count,
+                SUM(COALESCE(qty, 1)) as qty_total,
+                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_spk,
+                SUM(CASE WHEN ({$doneExpr}) THEN COALESCE(qty, 1) ELSE 0 END) as done_qty
+            ")
+            ->groupByRaw($itemExpr)
+            ->orderByDesc('qty_total')
+            ->limit($limit)
+            ->get();
+
+        return $rows->map(function (object $row): array {
+            $spkCount = (int) $row->spk_count;
+            $doneSpk = (int) $row->done_spk;
+            $item = trim((string) $row->item_label);
+
+            return [
+                'item' => $item !== '' ? $item : 'Custom',
+                'spkCount' => $spkCount,
+                'qty' => (int) round((float) $row->qty_total),
+                'doneSpk' => $doneSpk,
+                'doneQty' => (int) round((float) $row->done_qty),
+                'completionPercent' => $spkCount > 0
+                    ? number_format(($doneSpk / $spkCount) * 100, 1, '.', '')
+                    : '0.0',
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return array<int, string>
+     */
+    private function resolveSkuCodes(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        try {
+            if (! Schema::connection('second')->hasTable('sku_master')) {
+                return [];
+            }
+
+            return DB::connection('second')
+                ->table('sku_master')
+                ->whereIn('id', $ids)
+                ->pluck('sku_code', 'id')
+                ->map(fn (mixed $code): string => (string) $code)
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /**
