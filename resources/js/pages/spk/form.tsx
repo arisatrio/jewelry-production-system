@@ -1,5 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import paperPlaneIcon from '@ui5/webcomponents-icons/dist/paper-plane.js';
 import pictureIcon from '@ui5/webcomponents-icons/dist/picture.js';
@@ -1014,6 +1015,19 @@ export default function SpkFormPage({
     };
 
     const openPrintPreview = async () => {
+        const isApprovedForPrint =
+            approval.status === 'SPKDONE' ||
+            approval.history.some(
+                (event) =>
+                    event.status === 'SPK010' && event.approve === 'OK',
+            );
+
+        if (!isApprovedForPrint) {
+            toast.warning('Setujui SPK terlebih dahulu.');
+
+            return;
+        }
+
         const selectedCategory =
             categoryOptions.find(
                 (category) => category.value === data.category_prefix_id,

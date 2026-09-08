@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import barCodeIcon from '@ui5/webcomponents-icons/dist/bar-code.js';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
@@ -161,6 +162,19 @@ export function SpkDetailLayout({
     };
 
     const openPrintPreview = (): void => {
+        const isApprovedForPrint =
+            approval?.status === 'SPKDONE' ||
+            approval?.history.some(
+                (event) =>
+                    event.status === 'SPK010' && event.approve === 'OK',
+            ) === true;
+
+        if (!isApprovedForPrint) {
+            toast.warning('Setujui SPK terlebih dahulu.');
+
+            return;
+        }
+
         const previewUrl = ProductionController.print.url(
             Number(production.id),
         );
