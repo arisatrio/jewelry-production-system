@@ -15,6 +15,7 @@ type CraftsmanOption = {
 type MaterialOption = {
     value: string;
     label: string;
+    stock: string;
 };
 
 type CoranEditProps = {
@@ -65,9 +66,7 @@ export default function CoranEdit({
 }: CoranEditProps) {
     return (
         <>
-            <Head
-                title={`Edit Dokumen Coran · ${form.docNo ?? form.id}`}
-            />
+            <Head title={`Edit Dokumen Coran · ${form.docNo ?? form.id}`} />
             <CoranForm
                 title="Form Edit Dokumen Coran"
                 formDocumentNo={formDocumentNo}

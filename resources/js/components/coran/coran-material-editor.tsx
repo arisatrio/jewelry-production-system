@@ -23,6 +23,7 @@ import { formatGram } from '@/lib/utils';
 export type CoranMaterialOption = {
     value: string;
     label: string;
+    stock: string;
 };
 
 export type CoranMaterialFormLine = {
@@ -97,9 +98,7 @@ function resolveMaterialLabel(
         return '';
     }
 
-    return (
-        options.find((option) => option.value === materialId)?.label ?? ''
-    );
+    return options.find((option) => option.value === materialId)?.label ?? '';
 }
 
 function MaterialGoldComboBox({
@@ -196,6 +195,7 @@ function MaterialGoldComboBox({
                 <ComboBoxItem
                     key={option.value}
                     text={option.label}
+                    additionalText={`Stok: ${formatGram(Number(option.stock))}`}
                     value={option.value}
                 />
             ))}
@@ -310,9 +310,7 @@ function MaterialBucketTable({
                                                         ) : null}
                                                         {materialError ? (
                                                             <Text className="spkFioriError">
-                                                                {
-                                                                    materialError
-                                                                }
+                                                                {materialError}
                                                             </Text>
                                                         ) : null}
                                                     </div>
@@ -398,8 +396,7 @@ export function CoranMaterialEditor({
             const sectionError = errors[`materials.${index}.section`];
 
             if (materialError) {
-                mapped[`materials.${line.key}.materialgold_id`] =
-                    materialError;
+                mapped[`materials.${line.key}.materialgold_id`] = materialError;
             }
 
             if (weightError) {
@@ -439,9 +436,7 @@ export function CoranMaterialEditor({
 
         if (
             draft.section.trim() === '' ||
-            !modalBucket.groups.some(
-                (group) => group.section === draft.section,
-            )
+            !modalBucket.groups.some((group) => group.section === draft.section)
         ) {
             nextErrors.section = 'Warna bahan emas wajib dipilih.';
         }
@@ -452,7 +447,11 @@ export function CoranMaterialEditor({
 
         const weight = draft.weight.trim().replace(',', '.');
 
-        if (weight === '' || Number.isNaN(Number(weight)) || Number(weight) < 0) {
+        if (
+            weight === '' ||
+            Number.isNaN(Number(weight)) ||
+            Number(weight) < 0
+        ) {
             nextErrors.weight = 'Gramasi wajib diisi dengan angka valid.';
         }
 
@@ -543,8 +542,8 @@ export function CoranMaterialEditor({
                                     setDraft((current) => ({
                                         ...current,
                                         section:
-                                            event.detail.selectedOption
-                                                .value ?? '',
+                                            event.detail.selectedOption.value ??
+                                            '',
                                     }));
                                     setDraftErrors((current) => ({
                                         ...current,

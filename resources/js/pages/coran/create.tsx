@@ -15,6 +15,7 @@ type CraftsmanOption = {
 type MaterialOption = {
     value: string;
     label: string;
+    stock: string;
 };
 
 type CoranCreateProps = {

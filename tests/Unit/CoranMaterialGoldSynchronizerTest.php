@@ -115,6 +115,52 @@ test('coran material gold synchronizer lists active material options', function 
     expect($options)->toBeArray();
 
     if ($options !== []) {
-        expect($options[0])->toHaveKeys(['value', 'label']);
+        expect($options[0])->toHaveKeys(['value', 'label', 'stock']);
+    }
+});
+
+test('coran material gold options include remaining stock from in and out transactions', function () {
+    if (
+        ! Schema::connection('third')->hasTable('msmaterialgold')
+        || ! Schema::connection('third')->hasTable('trmaterialgold')
+        || ! Schema::connection('third')->hasTable('mstranstype')
+    ) {
+        $this->markTestSkipped('Material gold stock tables are not available.');
+    }
+
+    $connection = DB::connection('third');
+    $materialId = $connection->table('msmaterialgold')->insertGetId([
+        'name' => 'Material Stock Test '.uniqid(),
+        'is_deleted' => 0,
+    ]);
+
+    try {
+        $connection->table('trmaterialgold')->insert([
+            [
+                'transtype_id' => 12,
+                'materialgold_id' => $materialId,
+                'weight' => '10.250',
+                'is_deleted' => 0,
+            ],
+            [
+                'transtype_id' => 13,
+                'materialgold_id' => $materialId,
+                'weight' => '2.500',
+                'is_deleted' => 0,
+            ],
+        ]);
+
+        $option = collect(app(CoranMaterialGoldSynchronizer::class)->materialOptions())
+            ->firstWhere('value', (string) $materialId);
+
+        expect($option)->not->toBeNull()
+            ->and($option['stock'])->toBe('7.750');
+    } finally {
+        $connection->table('trmaterialgold')
+            ->where('materialgold_id', $materialId)
+            ->delete();
+        $connection->table('msmaterialgold')
+            ->where('row_id', $materialId)
+            ->delete();
     }
 });

@@ -82,7 +82,7 @@ class CoranMaterialGoldSynchronizer
     }
 
     /**
-     * @return list<array{value: string, label: string}>
+     * @return list<array{value: string, label: string, stock: string}>
      */
     public function materialOptions(): array
     {
@@ -91,20 +91,58 @@ class CoranMaterialGoldSynchronizer
         }
 
         $query = DB::connection('third')
-            ->table('msmaterialgold')
-            ->whereNotNull('name')
-            ->where('name', '!=', '')
-            ->orderBy('name');
+            ->table('msmaterialgold as material')
+            ->whereNotNull('material.name')
+            ->where('material.name', '!=', '')
+            ->orderBy('material.name');
 
         if (Schema::connection('third')->hasColumn('msmaterialgold', 'is_deleted')) {
-            $query->where('is_deleted', 0);
+            $query->where('material.is_deleted', 0);
+        }
+
+        $columns = ['material.row_id', 'material.name'];
+
+        if (
+            Schema::connection('third')->hasTable('trmaterialgold')
+            && Schema::connection('third')->hasTable('mstranstype')
+        ) {
+            $stockQuery = DB::connection('third')
+                ->table('trmaterialgold as transaction')
+                ->join('mstranstype as transaction_type', 'transaction_type.row_id', '=', 'transaction.transtype_id')
+                ->select('transaction.materialgold_id')
+                ->selectRaw(
+                    "SUM(CASE
+                        WHEN UPPER(TRIM(transaction_type.in_out)) = 'IN' THEN COALESCE(transaction.weight, 0)
+                        WHEN UPPER(TRIM(transaction_type.in_out)) = 'OUT' THEN -COALESCE(transaction.weight, 0)
+                        ELSE 0
+                    END) as stock"
+                )
+                ->groupBy('transaction.materialgold_id');
+
+            if (Schema::connection('third')->hasColumn('trmaterialgold', 'is_deleted')) {
+                $stockQuery->where('transaction.is_deleted', 0);
+            }
+
+            if (Schema::connection('third')->hasColumn('mstranstype', 'is_deleted')) {
+                $stockQuery->where('transaction_type.is_deleted', 0);
+            }
+
+            $query->leftJoinSub(
+                $stockQuery,
+                'material_stock',
+                'material_stock.materialgold_id',
+                '=',
+                'material.row_id',
+            );
+            $columns[] = 'material_stock.stock';
         }
 
         return $query
-            ->get(['row_id', 'name'])
+            ->get($columns)
             ->map(fn (object $row): array => [
                 'value' => (string) $row->row_id,
                 'label' => (string) $row->name,
+                'stock' => number_format((float) ($row->stock ?? 0), 3, '.', ''),
             ])
             ->values()
             ->all();
