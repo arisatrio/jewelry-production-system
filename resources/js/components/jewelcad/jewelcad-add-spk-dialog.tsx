@@ -390,10 +390,11 @@ export function JewelCadAddSpkDialog({
         }
 
         if (estimationBrj.trim() === '') {
-            nextErrors.estimation_brj = 'Estimasi BRJ wajib diisi.';
+            nextErrors.estimation_brj =
+                'Estimasi Berat Keluar Cor wajib diisi.';
         } else if (!/^\d+(\.\d{1,3})?$/.test(estimationBrj.trim())) {
             nextErrors.estimation_brj =
-                'Estimasi BRJ harus angka dengan maksimal 3 desimal.';
+                'Estimasi Berat Keluar Cor harus angka dengan maksimal 3 desimal.';
         }
 
         if (Object.keys(nextErrors).length > 0) {
@@ -890,7 +891,7 @@ export function JewelCadAddSpkDialog({
 
                         <div className="jewelCadAddSpkEstimation">
                             <Label showColon required>
-                                Estimasi BRJ
+                                Estimasi Berat Keluar Cor
                             </Label>
                             <Input
                                 type="Number"

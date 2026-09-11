@@ -437,6 +437,11 @@
     line-height: 1.25;
 }
 
+.spkTableSubtitle {
+    color: #6b7280;
+    font-size: 0.8125rem;
+}
+
 .spkTypeTabs {
     display: flex;
     flex-wrap: wrap;

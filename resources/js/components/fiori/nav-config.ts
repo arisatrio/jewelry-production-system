@@ -1,3 +1,4 @@
+import { home } from '@/routes';
 import {
     craftsmanPerformance,
     materialYield,
@@ -5,8 +6,8 @@ import {
     skuOutput,
     workOrder,
 } from '@/routes/analytics';
-import { home } from '@/routes';
 import { index as coranIndex } from '@/routes/coran';
+import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
@@ -67,6 +68,10 @@ export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
 export const defaultInventorySubmenus: ShellNavItem[] = [
     { text: 'Batu' },
     { text: 'Bahan Emas' },
+    {
+        text: 'Transaksi Bahan Emas',
+        href: goldMaterialTransactionsIndex.url(),
+    },
 ];
 
 export const defaultMasterDataSubmenus: ShellNavItem[] = [
@@ -94,7 +99,11 @@ export const defaultPostSpkDropdowns: ShellNavDropdown[] = [
 /** Dropdown menus rendered after trailing module links. */
 export const defaultTrailingDropdowns: ShellNavDropdown[] = [
     { id: 'inventory', text: 'Inventory', items: defaultInventorySubmenus },
-    { id: 'master-data', text: 'Master Data', items: defaultMasterDataSubmenus },
+    {
+        id: 'master-data',
+        text: 'Master Data',
+        items: defaultMasterDataSubmenus,
+    },
 ];
 
 /** @deprecated Prefer processes from SPK show props / config/spk_processes.php */

@@ -495,7 +495,7 @@ export function JewelCadDetail({
                                         <th>Qty</th>
                                         <th>Catatan</th>
                                         <th>Berat <br /> (SPK) (g)</th>
-                                        <th>Estimasi Berat Barang Jadi <br /> (JewelCAD) (g)</th>
+                                        <th>Estimasi Berat Keluar Cor <br /> (g)</th>
                                     </tr>
                                 </thead>
                                 <tbody>

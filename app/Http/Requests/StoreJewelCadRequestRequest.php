@@ -157,9 +157,9 @@ class StoreJewelCadRequestRequest extends FormRequest
             'details.*.material.required' => 'Bahan emas wajib diisi.',
             'details.*.qty.required' => 'Qty wajib diisi.',
             'details.*.qty.min' => 'Qty minimal 1.',
-            'details.*.estimation_brj.required' => 'Estimasi BRJ wajib diisi.',
-            'details.*.estimation_brj.numeric' => 'Estimasi BRJ harus berupa angka.',
-            'details.*.estimation_brj.decimal' => 'Estimasi BRJ maksimal 3 desimal.',
+            'details.*.estimation_brj.required' => 'Estimasi Berat Keluar Cor wajib diisi.',
+            'details.*.estimation_brj.numeric' => 'Estimasi Berat Keluar Cor harus berupa angka.',
+            'details.*.estimation_brj.decimal' => 'Estimasi Berat Keluar Cor maksimal 3 desimal.',
             'details.*.file.mimes' => 'Format gambar harus jpg, jpeg, png, pdf, atau webp.',
             'details.*.file.max' => 'Ukuran gambar maksimal 10 MB.',
         ];

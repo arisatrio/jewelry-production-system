@@ -64,7 +64,7 @@ export const COLUMN_LABELS: Record<string, string> = {
     operator: 'Operator',
     material: 'Material',
     qty: 'Qty',
-    estimation_brj: 'Estimasi BRJ (g)',
+    estimation_brj: 'Estimasi Berat Keluar Cor (g)',
     process_name: 'Nama Proses',
     craftsman_id: 'ID Pengrajin',
     start_weight: 'Berat Awal (g)',
@@ -230,7 +230,7 @@ export const METRIC_SHORT_LABELS: Record<string, string> = {
     mounting_shrink: 'Susut Mounting',
     polish_shrink: 'Susut Poles',
     spk_usage_percent: 'Pemakaian item',
-    estimation_brj: 'Est. BRJ',
+    estimation_brj: 'Est. Berat Keluar Cor',
 };
 
 export const SHRINK_VALUE_COLUMNS = new Set([

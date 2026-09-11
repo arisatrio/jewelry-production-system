@@ -619,7 +619,7 @@ export function JewelCadForm({
                                                 <th>Berat Emas</th>
                                                 <th>Qty</th>
                                                 <th>Catatan</th>
-                                                <th>Estimasi BRJ</th>
+                                                <th>Estimasi Berat Keluar Cor</th>
                                                 <th className="spkTableActionCol">
                                                     Aksi
                                                 </th>

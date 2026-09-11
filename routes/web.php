@@ -3,6 +3,7 @@
 use App\Http\Controllers\CoranController;
 use App\Http\Controllers\CraftsmanPerformanceDashboardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GoldMaterialTransactionController;
 use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MsItemController;
@@ -136,6 +137,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('coran/{coran}', [CoranController::class, 'show'])
         ->whereNumber('coran')
         ->name('coran.show');
+
+    Route::prefix('inventory')->name('inventory.')->group(function () {
+        Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])
+            ->name('gold-material-transactions.index');
+        Route::post('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'store'])
+            ->name('gold-material-transactions.store');
+    });
 
     Route::prefix('master-data')->name('master-data.')->group(function () {
         Route::resource('tipe-item', MsItemController::class)

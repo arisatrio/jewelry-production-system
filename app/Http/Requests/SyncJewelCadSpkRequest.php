@@ -96,9 +96,9 @@ class SyncJewelCadSpkRequest extends FormRequest
         return [
             'gold_weight.required' => 'Berat emas wajib diisi.',
             'gold_color.required' => 'Bahan emas wajib diisi.',
-            'estimation_brj.required' => 'Estimasi BRJ wajib diisi.',
-            'estimation_brj.numeric' => 'Estimasi BRJ harus berupa angka.',
-            'estimation_brj.decimal' => 'Estimasi BRJ maksimal 3 desimal.',
+            'estimation_brj.required' => 'Estimasi Berat Keluar Cor wajib diisi.',
+            'estimation_brj.numeric' => 'Estimasi Berat Keluar Cor harus berupa angka.',
+            'estimation_brj.decimal' => 'Estimasi Berat Keluar Cor maksimal 3 desimal.',
         ];
     }
 }
