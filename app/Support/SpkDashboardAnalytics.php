@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Models\Production;
+use App\Models\SkuMaster;
+use App\Models\SkuPrefixCategory;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Query\Builder;
@@ -834,11 +836,11 @@ class SpkDashboardAnalytics
 
     /**
      * @return array{
-     *     draft: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null}>,
-     *     confirmed: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null}>,
-     *     inProgress: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null}>,
-     *     overdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null}>,
-     *     done: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null}>
+     *     draft: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     confirmed: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     inProgress: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     overdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     done: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
      * }
      */
     private function resolveStatusLists(): array
@@ -865,7 +867,7 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * @return list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null}>
+     * @return list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
      */
     private function statusListFor(string $status): array
     {
@@ -897,27 +899,18 @@ class SpkDashboardAnalytics
         $rows = $query
             ->orderByDesc('row_id')
             ->limit(200)
-            ->get([
-                'row_id',
-                'spk_no',
-                'spk_type',
-                'customer_name',
-                'item_name',
-                'order_date',
-                'estimated_delivery_time',
-                'last_process',
-            ]);
+            ->get($this->spkListSelectColumns());
 
         return $this->mapSpkListRows($rows);
     }
 
     /**
      * @return array{
-     *     todayCreated: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>,
-     *     todayInProcess: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>,
-     *     todayTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>,
-     *     monthTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>,
-     *     monthOverdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>
+     *     todayCreated: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     todayInProcess: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     todayTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     monthTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     monthOverdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
      * }
      */
     private function resolveTodayLists(): array
@@ -944,7 +937,7 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * @return list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>
+     * @return list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
      */
     private function todayListFor(string $key): array
     {
@@ -980,16 +973,7 @@ class SpkDashboardAnalytics
         $rows = $query
             ->orderByDesc('row_id')
             ->limit(200)
-            ->get([
-                'row_id',
-                'spk_no',
-                'spk_type',
-                'customer_name',
-                'item_name',
-                'order_date',
-                'estimated_delivery_time',
-                'last_process',
-            ]);
+            ->get($this->spkListSelectColumns());
 
         return $this->mapSpkListRows($rows);
     }
@@ -1019,33 +1003,290 @@ class SpkDashboardAnalytics
     }
 
     /**
+     * @return list<string>
+     */
+    private function spkListSelectColumns(): array
+    {
+        $columns = [
+            'row_id',
+            'spk_no',
+            'spk_type',
+            'customer_name',
+            'item_name',
+            'order_date',
+            'estimated_delivery_time',
+            'last_process',
+        ];
+
+        if (Schema::connection('third')->hasColumn('spk', 'status')) {
+            $columns[] = 'status';
+        }
+
+        if (Schema::connection('third')->hasColumn('spk', 'is_inprocess')) {
+            $columns[] = 'is_inprocess';
+        }
+
+        if (Schema::connection('third')->hasColumn('spk', 'request_order_no')) {
+            $columns[] = 'request_order_no';
+        }
+
+        if (Schema::connection('third')->hasColumn('spk', 'created_date')) {
+            $columns[] = 'created_date';
+        }
+
+        if (Schema::connection('third')->hasColumn('spk', 'description')) {
+            $columns[] = 'description';
+        }
+
+        if (Schema::connection('third')->hasColumn('spk', 'sku_id')) {
+            $columns[] = 'sku_id';
+        }
+
+        if (Schema::connection('third')->hasColumn('spk', 'category_prefix_id')) {
+            $columns[] = 'category_prefix_id';
+        }
+
+        return $columns;
+    }
+
+    /**
      * @param  Collection<int, object>  $rows
-     * @return list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, lastProcess: string|null, lastProcessDate: string|null}>
+     * @return list<array{
+     *     spkNo: string,
+     *     type: string,
+     *     customer: string,
+     *     item: string,
+     *     typeSkuLabel: string|null,
+     *     itemDescription: string|null,
+     *     skuAssigned: bool,
+     *     description: string,
+     *     createdDate: string|null,
+     *     orderDate: string|null,
+     *     estimatedDelivery: string|null,
+     *     status: string,
+     *     lastProcess: string|null,
+     *     lastProcessDate: string|null
+     * }>
      */
     private function mapSpkListRows($rows): array
     {
-        $lastProcessDates = $this->resolveLastProcessDates($rows);
+        $lastProcessDates = $this->resolveLastProcessDates($rows, 'd-M-Y');
+        $orderTypeLabels = $this->resolveOrderTypeLabels($rows);
+        $typeSkuMeta = $this->resolveTypeSkuMeta($rows);
+        $doneIds = array_flip(self::completedProductionSpkIds(
+            $rows
+                ->map(fn (object $row): int => (int) ($row->row_id ?? 0))
+                ->filter(fn (int $id): bool => $id > 0)
+                ->values()
+                ->all(),
+        ));
 
-        return $rows->map(function (object $row) use ($lastProcessDates): array {
+        return $rows->map(function (object $row) use ($lastProcessDates, $orderTypeLabels, $typeSkuMeta, $doneIds): array {
             $spkId = (int) ($row->row_id ?? 0);
+            $production = new Production([
+                'status' => (string) ($row->status ?? ''),
+                'is_inprocess' => (int) ($row->is_inprocess ?? 0),
+                'last_process' => $row->last_process ?? null,
+            ]);
+            $production->row_id = $spkId;
+
+            $meta = $typeSkuMeta[$spkId] ?? [
+                'typeSkuLabel' => null,
+                'itemDescription' => null,
+                'skuAssigned' => false,
+                'description' => '-',
+            ];
 
             return [
                 'spkNo' => filled($row->spk_no ?? null) ? (string) $row->spk_no : '-',
                 'type' => filled($row->spk_type ?? null) ? (string) $row->spk_type : '-',
-                'customer' => filled($row->customer_name ?? null) ? (string) $row->customer_name : '-',
+                'customer' => $orderTypeLabels[$spkId] ?? '—',
                 'item' => filled($row->item_name ?? null) ? (string) $row->item_name : '-',
+                'typeSkuLabel' => $meta['typeSkuLabel'],
+                'itemDescription' => $meta['itemDescription'],
+                'skuAssigned' => $meta['skuAssigned'],
+                'description' => $meta['description'],
+                'createdDate' => filled($row->created_date ?? null)
+                    ? Carbon::parse((string) $row->created_date)->format('d-M-Y')
+                    : null,
                 'orderDate' => filled($row->order_date ?? null)
                     ? Carbon::parse((string) $row->order_date)->format('d-M-Y')
                     : null,
                 'estimatedDelivery' => filled($row->estimated_delivery_time ?? null)
                     ? Carbon::parse((string) $row->estimated_delivery_time)->format('d-M-Y')
                     : null,
+                'status' => self::backlogStatusLabel($production, isset($doneIds[$spkId])),
                 'lastProcess' => filled($row->last_process ?? null)
                     ? (string) $row->last_process
                     : null,
                 'lastProcessDate' => $lastProcessDates[$spkId] ?? null,
             ];
         })->values()->all();
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return array<int, array{typeSkuLabel: string|null, itemDescription: string|null, skuAssigned: bool, description: string}>
+     */
+    private function resolveTypeSkuMeta(Collection $rows): array
+    {
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $skuIds = $rows
+            ->map(fn (object $row): int => (int) ($row->sku_id ?? 0))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $prefixIds = $rows
+            ->map(fn (object $row): int => (int) ($row->category_prefix_id ?? 0))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $skus = $skuIds === []
+            ? collect()
+            : SkuMaster::query()
+                ->whereIn('id', $skuIds)
+                ->get(['id', 'sku_code'])
+                ->keyBy('id');
+
+        $prefixes = $prefixIds === []
+            ? collect()
+            : SkuPrefixCategory::query()
+                ->whereIn('id', $prefixIds)
+                ->get(['id', 'prefix'])
+                ->keyBy('id');
+
+        /** @var array<int, array{typeSkuLabel: string|null, itemDescription: string|null, skuAssigned: bool, description: string}> $meta */
+        $meta = [];
+
+        foreach ($rows as $row) {
+            $spkId = (int) ($row->row_id ?? 0);
+
+            if ($spkId <= 0) {
+                continue;
+            }
+
+            $skuId = (int) ($row->sku_id ?? 0);
+            $sku = $skuId > 0 ? $skus->get($skuId) : null;
+            $skuAssigned = $sku !== null;
+
+            $typeSkuLabel = null;
+
+            if ($skuAssigned) {
+                $prefixId = (int) ($row->category_prefix_id ?? 0);
+                $typeCode = trim((string) ($prefixes->get($prefixId)?->prefix ?? ''));
+                $skuCode = trim((string) ($sku->sku_code ?? ''));
+                $parts = array_values(array_filter(
+                    [$typeCode, $skuCode],
+                    fn (string $part): bool => $part !== '',
+                ));
+                $typeSkuLabel = $parts !== [] ? implode(' | ', $parts) : null;
+            }
+
+            $itemDescription = null;
+
+            if (filled($row->description ?? null)) {
+                $description = trim((string) $row->description);
+                $itemDescription = $description !== '' ? $description : null;
+            }
+
+            $searchParts = array_values(array_filter([
+                $typeSkuLabel,
+                $itemDescription,
+                $skuAssigned ? null : 'belum assign SKU',
+            ], fn (?string $part): bool => filled($part)));
+
+            $meta[$spkId] = [
+                'typeSkuLabel' => $typeSkuLabel,
+                'itemDescription' => $itemDescription,
+                'skuAssigned' => $skuAssigned,
+                'description' => $searchParts !== [] ? implode(' ', $searchParts) : '-',
+            ];
+        }
+
+        return $meta;
+    }
+
+    /**
+     * Label sekunder kolom Tipe Produksi (no request/nama), sama seperti list SPK.
+     *
+     * @param  Collection<int, object>  $rows
+     * @return array<int, string>
+     */
+    private function resolveOrderTypeLabels(Collection $rows): array
+    {
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $requestOrders = app(RequestOrderRepository::class);
+        $requestRows = $requestOrders->rowsByDocNos(
+            $rows
+                ->filter(fn (object $row): bool => ($row->spk_type ?? null) === 'Pesanan'
+                    && filled($row->request_order_no ?? null))
+                ->map(fn (object $row): string => (string) $row->request_order_no)
+                ->unique()
+                ->values()
+                ->all(),
+        );
+
+        /** @var array<int, string> $labels */
+        $labels = [];
+
+        foreach ($rows as $row) {
+            $spkId = (int) ($row->row_id ?? 0);
+
+            if ($spkId <= 0) {
+                continue;
+            }
+
+            $customerName = filled($row->customer_name ?? null)
+                ? (string) $row->customer_name
+                : '';
+
+            if (($row->spk_type ?? null) !== 'Pesanan') {
+                $labels[$spkId] = $customerName !== '' ? $customerName : '—';
+
+                continue;
+            }
+
+            $orderNo = filled($row->request_order_no ?? null)
+                ? (string) $row->request_order_no
+                : '';
+
+            if ($orderNo === '') {
+                $labels[$spkId] = $customerName !== '' ? $customerName : '—';
+
+                continue;
+            }
+
+            $requestRow = $requestRows[$orderNo] ?? null;
+
+            if ($requestRow === null) {
+                $labels[$spkId] = $requestOrders->pesananDisplayLabel(
+                    $orderNo,
+                    $customerName !== '' ? $customerName : '-',
+                );
+
+                continue;
+            }
+
+            $labels[$spkId] = $requestOrders->pesananDisplayLabel(
+                (string) $requestRow->doc_no,
+                $customerName !== ''
+                    ? $customerName
+                    : (filled($requestRow->customer_name) ? (string) $requestRow->customer_name : '-'),
+                $requestRow->is_fully_paid,
+            );
+        }
+
+        return $labels;
     }
 
     /**

@@ -3,8 +3,14 @@ export type DashboardStatusSpkItem = {
     type: string;
     customer: string;
     item: string;
+    typeSkuLabel: string | null;
+    itemDescription: string | null;
+    skuAssigned: boolean;
+    description: string;
+    createdDate: string | null;
     orderDate: string | null;
     estimatedDelivery: string | null;
+    status: string;
     lastProcess: string | null;
     lastProcessDate: string | null;
 };
@@ -13,6 +19,7 @@ export type DashboardSortKey = keyof DashboardStatusSpkItem;
 export type DashboardSortDirection = 'asc' | 'desc';
 
 const DATE_SORT_KEYS = new Set<DashboardSortKey>([
+    'createdDate',
     'orderDate',
     'estimatedDelivery',
     'lastProcessDate',
@@ -22,18 +29,24 @@ export const DASHBOARD_SORT_COLUMNS: Array<{
     key: DashboardSortKey;
     label: string;
 }> = [
-    { key: 'spkNo', label: 'SPK No' },
-    { key: 'type', label: 'Tipe' },
-    { key: 'customer', label: 'Customer' },
-    { key: 'item', label: 'Item' },
-    { key: 'orderDate', label: 'Order' },
-    { key: 'estimatedDelivery', label: 'Est. Delivery' },
+    { key: 'spkNo', label: 'Produksi No' },
+    { key: 'type', label: 'Tipe Produksi' },
+    { key: 'description', label: 'Tipe | SKU' },
+    { key: 'createdDate', label: 'Tanggal SPK Dibuat' },
+    { key: 'orderDate', label: 'Tanggal Permintaan' },
+    { key: 'estimatedDelivery', label: 'Tanggal Estimasi Selesai' },
     { key: 'lastProcess', label: 'Proses terakhir' },
-    { key: 'lastProcessDate', label: 'Tanggal proses terakhir' },
+    { key: 'status', label: 'Status' },
 ];
 
-function isEmptySortValue(value: string | null | undefined): boolean {
-    return value === null || value === undefined || value === '' || value === '-';
+function isEmptySortValue(value: string | null | undefined | boolean): boolean {
+    return (
+        value === null ||
+        value === undefined ||
+        value === '' ||
+        value === '-' ||
+        value === '—'
+    );
 }
 
 export function compareDashboardStatusRows(
@@ -43,8 +56,8 @@ export function compareDashboardStatusRows(
     direction: DashboardSortDirection,
 ): number {
     const multiplier = direction === 'asc' ? 1 : -1;
-    const aEmpty = isEmptySortValue(a[key]);
-    const bEmpty = isEmptySortValue(b[key]);
+    const aEmpty = isEmptySortValue(a[key] as string | null | undefined | boolean);
+    const bEmpty = isEmptySortValue(b[key] as string | null | undefined | boolean);
 
     if (aEmpty && bEmpty) {
         return 0;
@@ -117,9 +130,9 @@ export function parseDashboardDateLabel(
         return null;
     }
 
-    const match = String(value).trim().match(
-        /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/,
-    );
+    const match = String(value)
+        .trim()
+        .match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
 
     if (!match) {
         const fallback = Date.parse(String(value));

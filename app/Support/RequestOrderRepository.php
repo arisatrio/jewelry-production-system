@@ -70,15 +70,37 @@ class RequestOrderRepository
         ];
     }
 
+    /**
+     * @param  list<string>  $docNos
+     * @return array<string, stdClass>
+     */
+    public function rowsByDocNos(array $docNos): array
+    {
+        $docNos = collect($docNos)
+            ->map(fn (mixed $docNo): string => trim((string) $docNo))
+            ->filter(fn (string $docNo): bool => $docNo !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($docNos === []) {
+            return [];
+        }
+
+        return $this->baseQuery()
+            ->whereIn('ro.doc_no', $docNos)
+            ->get()
+            ->keyBy(fn (stdClass $row): string => (string) $row->doc_no)
+            ->all();
+    }
+
     public function displayLabelByDocNo(string $docNo, ?string $customerName = null): string
     {
         if ($docNo === '') {
             return '-';
         }
 
-        $row = $this->baseQuery()
-            ->where('ro.doc_no', $docNo)
-            ->first();
+        $row = $this->rowsByDocNos([$docNo])[$docNo] ?? null;
 
         if ($row === null) {
             $customer = filled($customerName) ? (string) $customerName : '-';

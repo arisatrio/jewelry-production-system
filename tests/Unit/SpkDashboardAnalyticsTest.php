@@ -70,6 +70,10 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         ->and($report['todayLists']['todayInProcess'])->toBeArray()
         ->and($report['todayLists']['todayCreated'])->toBeArray()
         ->and($report['todayLists']['monthOverdue'])->toBeArray()
+        ->and(
+            ($report['todayLists']['todayTarget'][0] ?? null) === null
+                || array_key_exists('status', $report['todayLists']['todayTarget'][0])
+        )->toBeTrue()
         ->and($report['today']['date'])->toBe(now()->toDateString())
         ->and($report['summary']['todayTargetSpk'])->toBe($report['today']['targetSpk'])
         ->and($report['summary']['todayCreatedSpk'])->toBe($report['today']['createdSpk'])
@@ -136,8 +140,14 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             'type',
             'customer',
             'item',
+            'typeSkuLabel',
+            'itemDescription',
+            'skuAssigned',
+            'description',
+            'createdDate',
             'orderDate',
             'estimatedDelivery',
+            'status',
             'lastProcess',
             'lastProcessDate',
         ])

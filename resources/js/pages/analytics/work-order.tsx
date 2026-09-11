@@ -15,6 +15,12 @@ import {
     type DashboardSortKey,
     type DashboardStatusSpkItem,
 } from '@/components/dashboard/sort-status-rows';
+import {
+    SpkTableDescriptionCell,
+    SpkTableLastProcessCell,
+    SpkTableStatusCell,
+    SpkTableTipeProduksiCell,
+} from '@/components/spk/spk-list-cells';
 import { workOrder } from '@/routes/analytics';
 import { show as spkShow } from '@/routes/spk';
 import {
@@ -645,7 +651,7 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                     }
                 }}
             >
-                <DialogContent className="dashStatusModal">
+                <DialogContent className="dashStatusModal sm:max-w-[min(92rem,calc(100vw-2rem))]">
                     <DialogHeader>
                         <DialogTitle>
                             {openListMeta?.label ?? 'Daftar SPK'}
@@ -738,9 +744,29 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                                     '—'
                                                 )}
                                             </td>
-                                            <td>{row.type}</td>
-                                            <td>{row.customer}</td>
-                                            <td>{row.item}</td>
+                                            <td className="spkTableCustomer">
+                                                <SpkTableTipeProduksiCell
+                                                    row={{
+                                                        tipeProduksi: row.type,
+                                                        customer: row.customer,
+                                                    }}
+                                                />
+                                            </td>
+                                            <td>
+                                                <SpkTableDescriptionCell
+                                                    row={{
+                                                        typeSkuLabel:
+                                                            row.typeSkuLabel,
+                                                        itemDescription:
+                                                            row.itemDescription,
+                                                        skuAssigned:
+                                                            row.skuAssigned,
+                                                    }}
+                                                />
+                                            </td>
+                                            <td>
+                                                {row.createdDate ?? '—'}
+                                            </td>
                                             <td>{row.orderDate ?? '—'}</td>
                                             <td>
                                                 <div className="dashStatusDateCell">
@@ -757,9 +783,25 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                                     ) : null}
                                                 </div>
                                             </td>
-                                            <td>{row.lastProcess ?? '—'}</td>
                                             <td>
-                                                {row.lastProcessDate ?? '—'}
+                                                <SpkTableLastProcessCell
+                                                    row={{
+                                                        prosesTerakhir:
+                                                            row.lastProcess ??
+                                                            '',
+                                                        prosesTerakhirDate:
+                                                            row.lastProcessDate ??
+                                                            '',
+                                                        status: row.status,
+                                                    }}
+                                                />
+                                            </td>
+                                            <td>
+                                                <SpkTableStatusCell
+                                                    row={{
+                                                        status: row.status,
+                                                    }}
+                                                />
                                             </td>
                                         </tr>
                                     ))}

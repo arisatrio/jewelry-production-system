@@ -35,8 +35,12 @@ test('request order repository resolves display label by doc no', function () {
     ]);
 
     $label = app(RequestOrderRepository::class)->displayLabelByDocNo($docNo, 'Vera');
+    $rows = app(RequestOrderRepository::class)->rowsByDocNos([$docNo, 'MISSING-DOC']);
 
-    expect($label)->toBe("{$docNo} (Vera) (Lunas)");
+    expect($label)->toBe("{$docNo} (Vera) (Lunas)")
+        ->and($rows)->toHaveKey($docNo)
+        ->and($rows)->not->toHaveKey('MISSING-DOC')
+        ->and((string) $rows[$docNo]->doc_no)->toBe($docNo);
 
     DB::connection('second')->table('request_order')->where('row_id', $rowId)->delete();
 });

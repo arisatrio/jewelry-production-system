@@ -156,12 +156,14 @@
     word-break: break-word;
 }
 
-.spkTableFixed .spkTable tbody td.spkTableCustomer {
+.spkTableFixed .spkTable tbody td.spkTableCustomer,
+.dashStatusTable tbody td.spkTableCustomer {
     white-space: normal;
     line-height: 1.35;
 }
 
-.spkTableFixed .spkTable tbody td.spkTableCustomer > span {
+.spkTableFixed .spkTable tbody td.spkTableCustomer > span,
+.dashStatusTable tbody td.spkTableCustomer > span {
     display: block;
     margin-top: 0.2rem;
     white-space: pre-line;
