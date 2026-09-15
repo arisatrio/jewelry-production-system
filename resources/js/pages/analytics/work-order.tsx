@@ -8,13 +8,17 @@ import { DistributionPieChart } from '@/components/dashboard/distribution-pie-ch
 import { ForecastClusteredBarChart } from '@/components/dashboard/forecast-clustered-bar-chart';
 import { InProgressProcessBarChart } from '@/components/dashboard/in-progress-process-bar-chart';
 import {
+    DASHBOARD_CENTERED_COLUMNS,
     DASHBOARD_SORT_COLUMNS,
+    formatEstimatedDeliveryRemainingLabel,
+    formatProcessSlaRemainingLabel,
     isDashboardDateOverdue,
     sortDashboardStatusRows,
     type DashboardSortDirection,
     type DashboardSortKey,
     type DashboardStatusSpkItem,
 } from '@/components/dashboard/sort-status-rows';
+
 import {
     SpkTableDescriptionCell,
     SpkTableLastProcessCell,
@@ -58,10 +62,20 @@ export type DashboardTodayKey =
     | 'todayCreated'
     | 'todayInProcess'
     | 'todayTarget'
+    | 'weekTarget'
     | 'monthTarget'
     | 'monthOverdue';
 
-export type DashboardListKey = DashboardStatusKey | DashboardTodayKey;
+export type DashboardChartKey =
+    | 'productionTypes'
+    | 'itemDistribution'
+    | 'bottleneck'
+    | 'forecast';
+
+export type DashboardListKey =
+    | DashboardStatusKey
+    | DashboardTodayKey
+    | DashboardChartKey;
 
 export type DashboardAnalytics = {
     period: {
@@ -94,6 +108,10 @@ export type DashboardAnalytics = {
         todayTargetPendingSpk: number;
         todayCreatedSpk: number;
         todayInProcessSpk: number;
+        weekTargetSpk: number;
+        weekTargetDoneSpk: number;
+        weekTargetPendingSpk: number;
+        weekTargetLabel: string;
         monthOverdueSpk: number;
     };
     today: {
@@ -107,8 +125,17 @@ export type DashboardAnalytics = {
         inProcessSpk: number;
         overdueSpk: number;
     };
+    weekTarget?: {
+        start: string;
+        end: string;
+        label: string;
+        targetSpk: number;
+        targetDoneSpk: number;
+        targetPendingSpk: number;
+    };
     statusLists: Record<DashboardStatusKey, DashboardStatusSpkItem[]>;
     todayLists: Record<DashboardTodayKey, DashboardStatusSpkItem[]>;
+    chartLists: Record<DashboardChartKey, DashboardStatusSpkItem[]>;
     productionTypes: DashboardDistributionItem[];
     itemDistribution: DashboardDistributionItem[];
     inProgressByProcess: Array<{
@@ -192,8 +219,10 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         summary,
         statusLists,
         todayLists,
+        chartLists,
         forecast,
         today,
+        weekTarget,
         period,
         backlogYear,
         inProgressByProcess,
@@ -206,14 +235,26 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         useState<DashboardSortDirection>('asc');
     const monthTargetSpk =
         summary.planningDoneSpk + summary.planningPendingSpk;
+    const weekTargetSpk = weekTarget?.targetSpk ?? 0;
+    const weekTargetDoneSpk = weekTarget?.targetDoneSpk ?? 0;
+    const weekTargetLabel = weekTarget?.label ?? 'Minggu ini';
     const todayTargetCompletionPercent =
         today.targetSpk > 0
             ? ((today.targetDoneSpk / today.targetSpk) * 100).toFixed(1)
+            : '0.0';
+    const weekTargetCompletionPercent =
+        weekTargetSpk > 0
+            ? ((weekTargetDoneSpk / weekTargetSpk) * 100).toFixed(1)
             : '0.0';
     const monthTargetCompletionPercent =
         monthTargetSpk > 0
             ? ((summary.planningDoneSpk / monthTargetSpk) * 100).toFixed(1)
             : '0.0';
+    const targetCardKeys = new Set<DashboardTodayKey>([
+        'todayTarget',
+        'weekTarget',
+        'monthTarget',
+    ]);
 
     const targetToneClass = (percentText: string, totalTarget: number): string => {
         if (totalTarget <= 0) {
@@ -264,7 +305,7 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         {
             key: 'overdue',
             label: 'SPK Overdue Estimasi',
-            hint: 'Lewat estimasi · Approved / In Progress',
+            hint: 'Lewat estimasi',
             count: summary.overdueSpk,
             className: 'is-overdue',
         },
@@ -282,6 +323,7 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         label: string;
         hint: string;
         count: number;
+        completionPercent?: string;
         className?: string;
     }> = [
         {
@@ -301,26 +343,87 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
             label: 'Target SPK Hari Ini',
             hint: `${today.label} · ${today.targetDoneSpk.toLocaleString('id-ID')} selesai dari ${today.targetSpk.toLocaleString('id-ID')}${today.targetQty > 0 ? ` · qty ${today.targetQty.toLocaleString('id-ID')}` : ''}`,
             count: today.targetSpk,
+            completionPercent: todayTargetCompletionPercent,
+        },
+        {
+            key: 'weekTarget',
+            label: 'Target SPK Minggu Ini',
+            hint: `${weekTargetLabel} · ${weekTargetDoneSpk.toLocaleString('id-ID')} selesai dari ${weekTargetSpk.toLocaleString('id-ID')}`,
+            count: weekTargetSpk,
+            completionPercent: weekTargetCompletionPercent,
+        },
+        {
+            key: 'monthTarget',
+            label: 'Target SPK Bulan Ini',
+            hint: `${period.label} · ${summary.planningDoneSpk.toLocaleString('id-ID')} selesai dari ${monthTargetSpk.toLocaleString('id-ID')}`,
+            count: monthTargetSpk,
+            completionPercent: monthTargetCompletionPercent,
         },
         {
             key: 'monthOverdue',
             label: 'SPK Overdue Bulan Ini',
-            hint: `Lewat estimasi · Approved / In Progress · ${period.label}`,
+            hint: `Lewat estimasi · ${period.label}`,
             count: today.overdueSpk,
             className: 'is-overdue',
+        },
+    ];
+
+    const bottleneckSpkCount = inProgressByProcess.reduce(
+        (sum, row) => sum + row.count,
+        0,
+    );
+
+    const chartCards: Array<{
+        key: DashboardChartKey;
+        label: string;
+        hint: string;
+        count: number;
+    }> = [
+        {
+            key: 'productionTypes',
+            label: 'Tipe Produksi',
+            hint: `Dibuat atau estimasi selesai ${period.label}`,
+            count: analytics.productionTypes.reduce(
+                (sum, row) => sum + row.count,
+                0,
+            ),
+        },
+        {
+            key: 'itemDistribution',
+            label: 'Item Produksi',
+            hint: `Dibuat atau estimasi selesai ${period.label}`,
+            count: analytics.itemDistribution.reduce(
+                (sum, row) => sum + row.count,
+                0,
+            ),
+        },
+        {
+            key: 'bottleneck',
+            label: 'Bottleneck Proses SPK',
+            hint: `Lewat SLA proses · ${period.label}`,
+            count: bottleneckSpkCount,
+        },
+        {
+            key: 'forecast',
+            label: 'Planning Estimasi Vs Realisasi',
+            hint: `Estimasi selesai ${period.label}`,
+            count: forecast.spkCount,
         },
     ];
 
     const openListMeta =
         statusCards.find((card) => card.key === openList) ??
         todayCards.find((card) => card.key === openList) ??
+        chartCards.find((card) => card.key === openList) ??
         null;
     const openListRows =
         openList === null
             ? []
             : openList in statusLists
               ? (statusLists[openList as DashboardStatusKey] ?? [])
-              : (todayLists[openList as DashboardTodayKey] ?? []);
+              : openList in todayLists
+                ? (todayLists[openList as DashboardTodayKey] ?? [])
+                : (chartLists[openList as DashboardChartKey] ?? []);
     const sortedOpenListRows = sortDashboardStatusRows(
         openListRows,
         listSortKey,
@@ -330,11 +433,14 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         openList !== null &&
         openList in todayLists &&
         openList !== 'monthOverdue' &&
-        openList !== 'monthTarget'
+        openList !== 'monthTarget' &&
+        openList !== 'weekTarget'
             ? today.label
-            : openList !== null && openList in statusLists
-              ? `Tahun ${backlogYear}`
-              : period.label;
+            : openList === 'weekTarget'
+              ? weekTargetLabel
+              : openList !== null && openList in statusLists
+                ? `Tahun ${backlogYear}`
+                : period.label;
 
     useEffect(() => {
         setListSortKey('estimatedDelivery');
@@ -468,12 +574,16 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                             {todayCards.map((card) => (
                                 <div key={card.key} className="dashKpiCardGroup">
                                     <article
-                                        className={`dashKpiCard is-today${card.className ? ` ${card.className}` : ''}${card.key === 'todayTarget' ? ` ${targetToneClass(todayTargetCompletionPercent, card.count)}` : ''}`}
+                                        className={`dashKpiCard is-today${card.className ? ` ${card.className}` : ''}${
+                                            targetCardKeys.has(card.key)
+                                                ? ` ${targetToneClass(card.completionPercent ?? '0.0', card.count)}`
+                                                : ''
+                                        }`}
                                     >
                                         <span className="dashKpiLabel">
                                             {card.label}
                                         </span>
-                                        {card.key === 'todayTarget' ? (
+                                        {targetCardKeys.has(card.key) ? (
                                             <div className="dashKpiValueRow">
                                                 <strong className="dashKpiValue">
                                                     {card.count.toLocaleString(
@@ -482,9 +592,7 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                                 </strong>
                                                 {card.count > 0 ? (
                                                     <span className="dashKpiSubvalue">
-                                                        {
-                                                            todayTargetCompletionPercent
-                                                        }
+                                                        {card.completionPercent}
                                                         %
                                                     </span>
                                                 ) : null}
@@ -509,51 +617,6 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                             <Eye aria-hidden="true" />
                                         </button>
                                     </article>
-                                    {card.key === 'todayTarget' ? (
-                                        <article
-                                            className={`dashKpiCard is-today ${targetToneClass(monthTargetCompletionPercent, monthTargetSpk)}`}
-                                        >
-                                            <span className="dashKpiLabel">
-                                                Target SPK Selesai Bulan Ini
-                                            </span>
-                                            <div className="dashKpiValueRow">
-                                                <strong className="dashKpiValue">
-                                                    {monthTargetSpk.toLocaleString(
-                                                        'id-ID',
-                                                    )}
-                                                </strong>
-                                                {monthTargetSpk > 0 ? (
-                                                    <span className="dashKpiSubvalue">
-                                                        {
-                                                            monthTargetCompletionPercent
-                                                        }
-                                                        %
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                            <span className="dashKpiHint">
-                                                {period.label} ·{' '}
-                                                {summary.planningDoneSpk.toLocaleString(
-                                                    'id-ID',
-                                                )}{' '}
-                                                selesai dari{' '}
-                                                {monthTargetSpk.toLocaleString(
-                                                    'id-ID',
-                                                )}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                className="dashKpiFileBtn"
-                                                aria-label="Lihat daftar Target SPK Selesai Bulan Ini"
-                                                title="Lihat daftar Target SPK Selesai Bulan Ini"
-                                                onClick={() =>
-                                                    setOpenList('monthTarget')
-                                                }
-                                            >
-                                                <Eye aria-hidden="true" />
-                                            </button>
-                                        </article>
-                                    ) : null}
                                 </div>
                             ))}
                         </section>
@@ -561,14 +624,27 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                         <div className="dashPieRow">
                             <div className="dashPieColumn">
                                 <article className="dashPanel dashPiePanel is-compact">
-                                    <header className="dashPanelHeader">
-                                        <h2 className="dashPanelTitle">
-                                            Tipe Produksi
-                                        </h2>
-                                        <p className="dashPanelMeta">
-                                            Dibuat atau estimasi selesai{' '}
-                                            {period.label}
-                                        </p>
+                                    <header className="dashPanelHeader is-with-action">
+                                        <div className="dashPanelHeaderText">
+                                            <h2 className="dashPanelTitle">
+                                                Tipe Produksi
+                                            </h2>
+                                            <p className="dashPanelMeta">
+                                                Dibuat atau estimasi selesai{' '}
+                                                {period.label}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="dashKpiFileBtn dashPanelDetailBtn"
+                                            aria-label="Lihat daftar Tipe Produksi"
+                                            title="Lihat daftar SPK"
+                                            onClick={() =>
+                                                setOpenList('productionTypes')
+                                            }
+                                        >
+                                            <Eye aria-hidden="true" />
+                                        </button>
                                     </header>
                                     <DistributionPieChart
                                         items={analytics.productionTypes}
@@ -577,22 +653,31 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                 </article>
 
                                 <article className="dashPanel dashProcessBarPanel">
-                                    <header className="dashPanelHeader">
-                                        <h2 className="dashPanelTitle">
-                                          Bottleneck Proses SPK
-                                        </h2>
-                                        <p className="dashPanelMeta">
-                                            Dibuat atau estimasi selesai{' '}
-                                            {period.label} ·{' '}
-                                            {inProgressByProcess
-                                                .reduce(
-                                                    (sum, row) =>
-                                                        sum + row.count,
-                                                    0,
-                                                )
-                                                .toLocaleString('id-ID')}{' '}
-                                            SPK in progress
-                                        </p>
+                                    <header className="dashPanelHeader is-with-action">
+                                        <div className="dashPanelHeaderText">
+                                            <h2 className="dashPanelTitle">
+                                                Bottleneck Proses SPK
+                                            </h2>
+                                            <p className="dashPanelMeta">
+                                                Dibuat atau estimasi selesai{' '}
+                                                {period.label} ·{' '}
+                                                {bottleneckSpkCount.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                SPK lewat SLA proses
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="dashKpiFileBtn dashPanelDetailBtn"
+                                            aria-label="Lihat daftar Bottleneck Proses SPK"
+                                            title="Lihat daftar SPK"
+                                            onClick={() =>
+                                                setOpenList('bottleneck')
+                                            }
+                                        >
+                                            <Eye aria-hidden="true" />
+                                        </button>
                                     </header>
                                     <InProgressProcessBarChart
                                         items={inProgressByProcess}
@@ -602,14 +687,27 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
 
                             <div className="dashForecastColumn">
                                 <article className="dashPanel dashPiePanel is-compact">
-                                    <header className="dashPanelHeader">
-                                        <h2 className="dashPanelTitle">
-                                            Item Produksi
-                                        </h2>
-                                        <p className="dashPanelMeta">
-                                            Dibuat atau estimasi selesai{' '}
-                                            {period.label}
-                                        </p>
+                                    <header className="dashPanelHeader is-with-action">
+                                        <div className="dashPanelHeaderText">
+                                            <h2 className="dashPanelTitle">
+                                                Item Produksi
+                                            </h2>
+                                            <p className="dashPanelMeta">
+                                                Dibuat atau estimasi selesai{' '}
+                                                {period.label}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="dashKpiFileBtn dashPanelDetailBtn"
+                                            aria-label="Lihat daftar Item Produksi"
+                                            title="Lihat daftar SPK"
+                                            onClick={() =>
+                                                setOpenList('itemDistribution')
+                                            }
+                                        >
+                                            <Eye aria-hidden="true" />
+                                        </button>
                                     </header>
                                     <DistributionPieChart
                                         items={analytics.itemDistribution}
@@ -618,18 +716,32 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                 </article>
 
                                 <article className="dashPanel dashForecastPanel">
-                                    <header className="dashPanelHeader">
-                                        <h2 className="dashPanelTitle">
-                                            Planning Estimasi Produksi Vs
-                                            Realisasi Produksi
-                                        </h2>
-                                        <p className="dashPanelMeta">
-                                            Estimasi selesai {period.label} ·{' '}
-                                            {forecast.spkCount.toLocaleString(
-                                                'id-ID',
-                                            )}{' '}
-                                            SPK · cluster per item
-                                        </p>
+                                    <header className="dashPanelHeader is-with-action">
+                                        <div className="dashPanelHeaderText">
+                                            <h2 className="dashPanelTitle">
+                                                Planning Estimasi Produksi Vs
+                                                Realisasi Produksi
+                                            </h2>
+                                            <p className="dashPanelMeta">
+                                                Estimasi selesai {period.label}{' '}
+                                                ·{' '}
+                                                {forecast.spkCount.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                SPK · cluster per item
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="dashKpiFileBtn dashPanelDetailBtn"
+                                            aria-label="Lihat daftar Planning Estimasi Vs Realisasi"
+                                            title="Lihat daftar SPK"
+                                            onClick={() =>
+                                                setOpenList('forecast')
+                                            }
+                                        >
+                                            <Eye aria-hidden="true" />
+                                        </button>
                                     </header>
                                     <ForecastClusteredBarChart
                                         types={forecast.types}
@@ -698,6 +810,20 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                                     <th
                                                         key={column.key}
                                                         aria-sort={ariaSort}
+                                                        className={[
+                                                            DASHBOARD_CENTERED_COLUMNS.has(
+                                                                column.key,
+                                                            )
+                                                                ? 'is-text-center'
+                                                                : undefined,
+                                                            column.key ===
+                                                            'lastProcess'
+                                                                ? 'dashStatusColLastProcess'
+                                                                : undefined,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' ') ||
+                                                            undefined}
                                                     >
                                                         <button
                                                             type="button"
@@ -764,26 +890,44 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                                     }}
                                                 />
                                             </td>
-                                            <td>
+                                            <td className="is-text-center">
                                                 {row.createdDate ?? '—'}
                                             </td>
-                                            <td>{row.orderDate ?? '—'}</td>
-                                            <td>
-                                                <div className="dashStatusDateCell">
-                                                    <span>
-                                                        {row.estimatedDelivery ??
-                                                            '—'}
-                                                    </span>
-                                                    {isDashboardDateOverdue(
-                                                        row.estimatedDelivery,
-                                                    ) ? (
-                                                        <span className="dashStatusOverdueBadge">
-                                                            Overdue
-                                                        </span>
-                                                    ) : null}
-                                                </div>
+                                            <td className="is-text-center">
+                                                {row.orderDate ?? '—'}
                                             </td>
-                                            <td>
+                                            <td className="is-text-center">
+                                                {(() => {
+                                                    const remainingLabel =
+                                                        formatEstimatedDeliveryRemainingLabel(
+                                                            row.estimatedDelivery,
+                                                        );
+
+                                                    return (
+                                                        <div className="dashStatusDateCell">
+                                                            <span>
+                                                                {row.estimatedDelivery ??
+                                                                    '—'}
+                                                            </span>
+                                                            {remainingLabel ? (
+                                                                <span className="dashStatusRemainingHint">
+                                                                    {
+                                                                        remainingLabel
+                                                                    }
+                                                                </span>
+                                                            ) : null}
+                                                            {isDashboardDateOverdue(
+                                                                row.estimatedDelivery,
+                                                            ) ? (
+                                                                <span className="dashStatusOverdueBadge">
+                                                                    Overdue
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </td>
+                                            <td className="is-text-center dashStatusColLastProcess">
                                                 <SpkTableLastProcessCell
                                                     row={{
                                                         prosesTerakhir:
@@ -793,10 +937,20 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                                             row.lastProcessDate ??
                                                             '',
                                                         status: row.status,
+                                                        processSlaHint:
+                                                            formatProcessSlaRemainingLabel(
+                                                                row.processSlaRemainingDays,
+                                                                row.lastProcess,
+                                                            ),
+                                                        processSlaPastTarget:
+                                                            typeof row.processSlaRemainingDays ===
+                                                                'number' &&
+                                                            row.processSlaRemainingDays <
+                                                                0,
                                                     }}
                                                 />
                                             </td>
-                                            <td>
+                                            <td className="is-text-center">
                                                 <SpkTableStatusCell
                                                     row={{
                                                         status: row.status,

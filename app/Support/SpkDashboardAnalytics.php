@@ -63,6 +63,11 @@ class SpkDashboardAnalytics
 
     private CarbonInterface $periodEnd;
 
+    /**
+     * @var Collection<int, object>|null
+     */
+    private ?Collection $bottleneckSpkRows = null;
+
     public function __construct(?CarbonInterface $month = null)
     {
         $anchor = Carbon::parse(($month ?? now())->toDateTimeString())->startOfMonth();
@@ -286,9 +291,11 @@ class SpkDashboardAnalytics
         $forecast = $this->resolveProductionForecast();
         $planningDaily = $this->resolvePlanningDaily();
         $today = $this->resolveTodayMetrics();
+        $weekTarget = $this->resolveWeekTargetMetrics();
         $statusLists = $this->resolveStatusLists();
         $todayLists = $this->resolveTodayLists();
         $inProgressByProcess = $this->resolveInProgressByProcess();
+        $chartLists = $this->resolveChartLists();
 
         return [
             'period' => [
@@ -321,11 +328,17 @@ class SpkDashboardAnalytics
                 'todayTargetPendingSpk' => $today['targetPendingSpk'],
                 'todayCreatedSpk' => $today['createdSpk'],
                 'todayInProcessSpk' => $today['inProcessSpk'],
+                'weekTargetSpk' => $weekTarget['targetSpk'],
+                'weekTargetDoneSpk' => $weekTarget['targetDoneSpk'],
+                'weekTargetPendingSpk' => $weekTarget['targetPendingSpk'],
+                'weekTargetLabel' => $weekTarget['label'],
                 'monthOverdueSpk' => $today['overdueSpk'],
             ],
             'today' => $today,
+            'weekTarget' => $weekTarget,
             'statusLists' => $statusLists,
             'todayLists' => $todayLists,
+            'chartLists' => $chartLists,
             'productionTypes' => $productionTypes,
             'itemDistribution' => $itemDistribution,
             'inProgressByProcess' => $inProgressByProcess,
@@ -624,6 +637,94 @@ class SpkDashboardAnalytics
         ];
     }
 
+    /**
+     * Target SPK dengan estimasi selesai di minggu kalender berjalan (Senin–Minggu).
+     *
+     * @return array{
+     *     start: string,
+     *     end: string,
+     *     label: string,
+     *     targetSpk: int,
+     *     targetDoneSpk: int,
+     *     targetPendingSpk: int
+     * }
+     */
+    private function resolveWeekTargetMetrics(): array
+    {
+        $weekStart = now()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $weekEnd = now()->endOfWeek(Carbon::SUNDAY)->endOfDay();
+
+        $empty = [
+            'start' => $weekStart->toDateString(),
+            'end' => $weekEnd->toDateString(),
+            'label' => $this->formatWeekLabel($weekStart, $weekEnd),
+            'targetSpk' => 0,
+            'targetDoneSpk' => 0,
+            'targetPendingSpk' => 0,
+        ];
+
+        if (
+            ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'estimated_delivery_time')
+        ) {
+            return $empty;
+        }
+
+        $doneExpr = $this->doneExpression();
+        $target = $this->spkBase()
+            ->whereNotNull('estimated_delivery_time')
+            ->whereBetween('estimated_delivery_time', [
+                $weekStart->toDateTimeString(),
+                $weekEnd->toDateTimeString(),
+            ])
+            ->selectRaw("
+                COUNT(*) as total_count,
+                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
+                SUM(CASE WHEN ({$doneExpr}) THEN 0 ELSE 1 END) as pending_count
+            ")
+            ->first();
+
+        return [
+            'start' => $weekStart->toDateString(),
+            'end' => $weekEnd->toDateString(),
+            'label' => $this->formatWeekLabel($weekStart, $weekEnd),
+            'targetSpk' => (int) ($target->total_count ?? 0),
+            'targetDoneSpk' => (int) ($target->done_count ?? 0),
+            'targetPendingSpk' => (int) ($target->pending_count ?? 0),
+        ];
+    }
+
+    private function formatWeekLabel(CarbonInterface $start, CarbonInterface $end): string
+    {
+        $months = [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+        ];
+
+        $startMonth = $months[$start->month] ?? $start->format('F');
+        $endMonth = $months[$end->month] ?? $end->format('F');
+
+        if ($start->isSameMonth($end)) {
+            return $start->day.'–'.$end->day.' '.$endMonth.' '.$end->year;
+        }
+
+        if ($start->isSameYear($end)) {
+            return $start->day.' '.$startMonth.' – '.$end->day.' '.$endMonth.' '.$end->year;
+        }
+
+        return $start->day.' '.$startMonth.' '.$start->year.' – '.$end->day.' '.$endMonth.' '.$end->year;
+    }
+
     private function formatDayLabel(CarbonInterface $day): string
     {
         $months = [
@@ -909,6 +1010,7 @@ class SpkDashboardAnalytics
      *     todayCreated: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     todayInProcess: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     todayTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     weekTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     monthTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     monthOverdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
      * }
@@ -919,6 +1021,7 @@ class SpkDashboardAnalytics
             'todayCreated' => [],
             'todayInProcess' => [],
             'todayTarget' => [],
+            'weekTarget' => [],
             'monthTarget' => [],
             'monthOverdue' => [],
         ];
@@ -931,6 +1034,7 @@ class SpkDashboardAnalytics
             'todayCreated' => $this->todayListFor('todayCreated'),
             'todayInProcess' => $this->todayListFor('todayInProcess'),
             'todayTarget' => $this->todayListFor('todayTarget'),
+            'weekTarget' => $this->todayListFor('weekTarget'),
             'monthTarget' => $this->todayListFor('monthTarget'),
             'monthOverdue' => $this->todayListFor('monthOverdue'),
         ];
@@ -943,6 +1047,8 @@ class SpkDashboardAnalytics
     {
         $dayStart = now()->startOfDay();
         $dayEnd = now()->endOfDay();
+        $weekStart = now()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $weekEnd = now()->endOfWeek(Carbon::SUNDAY)->endOfDay();
         $query = $this->monthScopedSpkBase();
 
         $query = match ($key) {
@@ -951,6 +1057,12 @@ class SpkDashboardAnalytics
                 ->whereBetween('estimated_delivery_time', [
                     $this->periodStart->toDateTimeString(),
                     $this->periodEnd->toDateTimeString(),
+                ]),
+            'weekTarget' => $this->spkBase()
+                ->whereNotNull('estimated_delivery_time')
+                ->whereBetween('estimated_delivery_time', [
+                    $weekStart->toDateTimeString(),
+                    $weekEnd->toDateTimeString(),
                 ]),
             'todayTarget' => $query
                 ->whereNotNull('estimated_delivery_time')
@@ -1065,12 +1177,16 @@ class SpkDashboardAnalytics
      *     estimatedDelivery: string|null,
      *     status: string,
      *     lastProcess: string|null,
-     *     lastProcessDate: string|null
+     *     lastProcessDate: string|null,
+     *     processSlaRemainingDays: int|null
      * }>
      */
     private function mapSpkListRows($rows): array
     {
-        $lastProcessDates = $this->resolveLastProcessDates($rows, 'd-M-Y');
+        $rawProcessDates = $this->resolveLastProcessDates($rows, 'Y-m-d H:i:s');
+        $lastProcessDates = collect($rawProcessDates)
+            ->map(fn (string $date): string => Carbon::parse($date)->format('d-M-Y'))
+            ->all();
         $orderTypeLabels = $this->resolveOrderTypeLabels($rows);
         $typeSkuMeta = $this->resolveTypeSkuMeta($rows);
         $doneIds = array_flip(self::completedProductionSpkIds(
@@ -1080,8 +1196,20 @@ class SpkDashboardAnalytics
                 ->values()
                 ->all(),
         ));
+        $processMapper = new SpkProcessMapper;
+        $slaResolver = new SpkProcessSlaResolver($processMapper);
+        $today = now()->startOfDay();
 
-        return $rows->map(function (object $row) use ($lastProcessDates, $orderTypeLabels, $typeSkuMeta, $doneIds): array {
+        return $rows->map(function (object $row) use (
+            $rawProcessDates,
+            $lastProcessDates,
+            $orderTypeLabels,
+            $typeSkuMeta,
+            $doneIds,
+            $processMapper,
+            $slaResolver,
+            $today,
+        ): array {
             $spkId = (int) ($row->row_id ?? 0);
             $production = new Production([
                 'status' => (string) ($row->status ?? ''),
@@ -1120,8 +1248,48 @@ class SpkDashboardAnalytics
                     ? (string) $row->last_process
                     : null,
                 'lastProcessDate' => $lastProcessDates[$spkId] ?? null,
+                'processSlaRemainingDays' => $this->resolveProcessSlaRemainingDays(
+                    filled($row->last_process ?? null) ? (string) $row->last_process : null,
+                    $rawProcessDates[$spkId] ?? null,
+                    $processMapper,
+                    $slaResolver,
+                    $today,
+                ),
             ];
         })->values()->all();
+    }
+
+    /**
+     * Sisa hari kalender sampai deadline SLA proses (positif = sisa, negatif = lewat).
+     */
+    private function resolveProcessSlaRemainingDays(
+        ?string $lastProcess,
+        ?string $processStartedAt,
+        SpkProcessMapper $processMapper,
+        SpkProcessSlaResolver $slaResolver,
+        CarbonInterface $today,
+    ): ?int {
+        if ($lastProcess === null || $lastProcess === '' || $processStartedAt === null) {
+            return null;
+        }
+
+        $processKey = $processMapper->processKeyForLastProcess($lastProcess);
+
+        if ($processKey === null) {
+            return null;
+        }
+
+        $workingDays = $slaResolver->targetFor($processKey);
+
+        if ($workingDays === null || $workingDays <= 0) {
+            return null;
+        }
+
+        $deadline = $slaResolver
+            ->slaDeadlineDate(Carbon::parse($processStartedAt), $workingDays)
+            ->startOfDay();
+
+        return (int) $today->copy()->startOfDay()->diffInDays($deadline, false);
     }
 
     /**
@@ -1883,44 +2051,179 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Jumlah SPK in progress per proses terakhir
-     * (scope: dibuat ATAU estimasi delivery di bulan terpilih).
+     * Bottleneck: SPK in progress yang sudah lewat SLA proses terakhir,
+     * dikelompokkan per proses (scope: dibuat ATAU estimasi delivery di bulan terpilih).
      *
      * @return list<array{label: string, count: int}>
      */
     private function resolveInProgressByProcess(): array
     {
+        /** @var array<string, int> $counts */
+        $counts = [];
+
+        foreach ($this->bottleneckSpkRows() as $row) {
+            $processKey = (string) ($row->process_key ?? '');
+
+            if ($processKey === '') {
+                continue;
+            }
+
+            $counts[$processKey] = ($counts[$processKey] ?? 0) + 1;
+        }
+
+        return collect($counts)
+            ->map(fn (int $count, string $label): array => [
+                'label' => $label,
+                'count' => $count,
+            ])
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Daftar SPK untuk dialog detail tiap chart dashboard.
+     *
+     * @return array{
+     *     productionTypes: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     itemDistribution: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     bottleneck: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     forecast: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
+     * }
+     */
+    private function resolveChartLists(): array
+    {
+        $empty = [
+            'productionTypes' => [],
+            'itemDistribution' => [],
+            'bottleneck' => [],
+            'forecast' => [],
+        ];
+
+        if (! Schema::connection('third')->hasTable('spk')) {
+            return $empty;
+        }
+
+        return [
+            'productionTypes' => $this->chartListFor('productionTypes'),
+            'itemDistribution' => $this->chartListFor('itemDistribution'),
+            'bottleneck' => $this->chartListFor('bottleneck'),
+            'forecast' => $this->chartListFor('forecast'),
+        ];
+    }
+
+    /**
+     * @return list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
+     */
+    private function chartListFor(string $key): array
+    {
+        if ($key === 'bottleneck') {
+            $spkIds = $this->bottleneckSpkRows()
+                ->map(fn (object $row): int => (int) $row->row_id)
+                ->unique()
+                ->values()
+                ->take(200)
+                ->all();
+
+            if ($spkIds === []) {
+                return [];
+            }
+
+            $rows = $this->spkBase()
+                ->whereIn('row_id', $spkIds)
+                ->orderByDesc('row_id')
+                ->limit(200)
+                ->get($this->spkListSelectColumns());
+
+            return $this->mapSpkListRows($rows);
+        }
+
+        $query = match ($key) {
+            'productionTypes' => $this->monthScopedSpkBase()
+                ->whereNotNull('spk_type')
+                ->where('spk_type', '!=', ''),
+            'itemDistribution' => $this->monthScopedSpkBase(),
+            'forecast' => Schema::connection('third')->hasColumn('spk', 'estimated_delivery_time')
+                ? $this->planningBaseQuery()
+                : $this->spkBase()->whereRaw('0'),
+            default => $this->spkBase()->whereRaw('0'),
+        };
+
+        $rows = $query
+            ->orderByDesc('row_id')
+            ->limit(200)
+            ->get($this->spkListSelectColumns());
+
+        return $this->mapSpkListRows($rows);
+    }
+
+    /**
+     * SPK in progress bulan-scoped yang sudah lewat SLA proses terakhir.
+     *
+     * @return Collection<int, object>
+     */
+    private function bottleneckSpkRows(): Collection
+    {
+        if ($this->bottleneckSpkRows !== null) {
+            return $this->bottleneckSpkRows;
+        }
+
         if (
             ! Schema::connection('third')->hasTable('spk')
             || ! Schema::connection('third')->hasColumn('spk', 'last_process')
         ) {
-            return [];
+            return $this->bottleneckSpkRows = collect();
         }
 
         ['inProgress' => $inProgressExpr, 'confirmed' => $confirmedExpr] = $this->statusExpressions();
-
-        $processExpr = "CASE
-            WHEN last_process IS NULL OR TRIM(last_process) = '' THEN 'Tanpa Proses'
-            ELSE TRIM(last_process)
-        END";
 
         $rows = $this->monthScopedSpkBase()
             ->whereRaw('NOT ('.$this->doneExpression().')')
             ->whereRaw("NOT ({$confirmedExpr})")
             ->whereRaw("({$inProgressExpr})")
-            ->selectRaw("{$processExpr} as process_label, COUNT(*) as aggregate_count")
-            ->groupByRaw($processExpr)
-            ->orderByDesc('aggregate_count')
-            ->get();
+            ->whereNotNull('last_process')
+            ->whereRaw("TRIM(last_process) <> ''")
+            ->get(['row_id', 'last_process']);
 
-        return $rows->map(function (object $row): array {
-            $label = trim((string) $row->process_label);
+        if ($rows->isEmpty()) {
+            return $this->bottleneckSpkRows = collect();
+        }
 
-            return [
-                'label' => $label !== '' ? $label : 'Tanpa Proses',
-                'count' => (int) $row->aggregate_count,
-            ];
-        })->values()->all();
+        $processDates = $this->resolveLastProcessDates($rows, 'Y-m-d H:i:s');
+        $mapper = new SpkProcessMapper;
+        $slaResolver = new SpkProcessSlaResolver($mapper);
+        $today = now()->startOfDay();
+        $matched = collect();
+
+        foreach ($rows as $row) {
+            $spkId = (int) $row->row_id;
+            $processDate = $processDates[$spkId] ?? null;
+
+            if ($processDate === null) {
+                continue;
+            }
+
+            $processKey = $mapper->processKeyForLastProcess((string) $row->last_process);
+
+            if ($processKey === null) {
+                continue;
+            }
+
+            $workingDays = $slaResolver->targetFor($processKey);
+
+            if ($workingDays === null || $workingDays <= 0) {
+                continue;
+            }
+
+            if (! $slaResolver->isPastSla(Carbon::parse($processDate), $workingDays, $today)) {
+                continue;
+            }
+
+            $row->process_key = $processKey;
+            $matched->push($row);
+        }
+
+        return $this->bottleneckSpkRows = $matched;
     }
 
     /**

@@ -107,6 +107,20 @@ class SpkProcessMapper
     }
 
     /**
+     * Resolve process tab key for a given Production.last_process value.
+     */
+    public function processKeyForLastProcess(?string $lastProcess): ?string
+    {
+        $matched = $this->matchTabByLastProcess($lastProcess, $this->tabs());
+
+        if ($matched === null) {
+            return null;
+        }
+
+        return $matched['key'];
+    }
+
+    /**
      * @param  list<array{key: string, label: string, tables: list<string>, placement: string}>  $tabs
      * @return array{key: string, label: string, tables: list<string>, placement: string}|null
      */

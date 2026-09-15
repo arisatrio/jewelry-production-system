@@ -13,9 +13,25 @@ export type DashboardStatusSpkItem = {
     status: string;
     lastProcess: string | null;
     lastProcessDate: string | null;
+    processSlaRemainingDays?: number | null;
 };
 
-export type DashboardSortKey = keyof DashboardStatusSpkItem;
+export type DashboardSortKey =
+    | 'spkNo'
+    | 'type'
+    | 'customer'
+    | 'item'
+    | 'typeSkuLabel'
+    | 'itemDescription'
+    | 'skuAssigned'
+    | 'description'
+    | 'createdDate'
+    | 'orderDate'
+    | 'estimatedDelivery'
+    | 'status'
+    | 'lastProcess'
+    | 'lastProcessDate';
+
 export type DashboardSortDirection = 'asc' | 'desc';
 
 const DATE_SORT_KEYS = new Set<DashboardSortKey>([
@@ -38,6 +54,14 @@ export const DASHBOARD_SORT_COLUMNS: Array<{
     { key: 'lastProcess', label: 'Proses terakhir' },
     { key: 'status', label: 'Status' },
 ];
+
+export const DASHBOARD_CENTERED_COLUMNS = new Set<DashboardSortKey>([
+    'createdDate',
+    'orderDate',
+    'estimatedDelivery',
+    'lastProcess',
+    'status',
+]);
 
 function isEmptySortValue(value: string | null | undefined | boolean): boolean {
     return (
@@ -181,4 +205,67 @@ export function isDashboardDateOverdue(
     );
 
     return estimated < startOfToday;
+}
+
+/**
+ * Label sisa hari sampai estimasi selesai, contoh: "(2 hari lagi)".
+ * Null jika tanggal invalid atau sudah lewat (pakai badge Overdue).
+ */
+export function formatEstimatedDeliveryRemainingLabel(
+    value: string | null | undefined,
+    today: Date = new Date(),
+): string | null {
+    const estimated = parseDashboardDateLabel(value);
+
+    if (estimated === null) {
+        return null;
+    }
+
+    const startOfToday = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+    );
+    const days = Math.round(
+        (estimated.getTime() - startOfToday.getTime()) / 86_400_000,
+    );
+
+    if (days < 0) {
+        return null;
+    }
+
+    if (days === 0) {
+        return '(hari ini)';
+    }
+
+    return `(${days} hari lagi)`;
+}
+
+/**
+ * Label sisa/lewat hari dari target SLA proses,
+ * contoh: "lewat 1 hari dari target proses JewelCAD".
+ */
+export function formatProcessSlaRemainingLabel(
+    remainingDays: number | null | undefined,
+    processName?: string | null,
+): string | null {
+    if (remainingDays === null || remainingDays === undefined) {
+        return null;
+    }
+
+    const processLabel = (processName ?? '').trim();
+    const targetSuffix =
+        processLabel !== '' ? ` target proses ${processLabel}` : ' target';
+
+    if (remainingDays > 0) {
+        return `sisa ${remainingDays} hari dari${targetSuffix}`;
+    }
+
+    if (remainingDays === 0) {
+        return processLabel !== ''
+            ? `hari terakhir target proses ${processLabel}`
+            : 'hari terakhir target';
+    }
+
+    return `lewat ${Math.abs(remainingDays)} hari dari${targetSuffix}`;
 }

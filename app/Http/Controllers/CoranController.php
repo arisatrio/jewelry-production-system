@@ -11,8 +11,10 @@ use App\Support\CoranApprovalService;
 use App\Support\CoranDocNumberGenerator;
 use App\Support\CoranMaterialBreakdown;
 use App\Support\CoranMaterialGoldSynchronizer;
+use App\Support\CoranSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkQtyUnit;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,8 +70,11 @@ class CoranController extends Controller
             ->withQueryString()
             ->through(fn (Coran $coran): array => $this->toListItem($coran));
 
+        $spkEligibility = app(CoranSpkEligibility::class);
+
         return Inertia::render('coran/index', [
             'corans' => $corans,
+            'spkStatusCounts' => $this->spkStatusCounts($spkEligibility),
             'filters' => [
                 'search' => $search,
                 'per_page' => $perPage,
@@ -112,15 +117,32 @@ class CoranController extends Controller
 
         $query = Production::query()
             ->notDeleted()
-            ->whereNotNull('spk_no')
             ->when($exclude !== [], fn ($builder) => $builder->whereNotIn('row_id', $exclude))
-            ->with($this->productionSpkInfoRelations())
-            ->select([
-                ...$this->productionSpkInfoColumns(),
-                'gold_color',
-            ])
             ->orderByDesc('row_id')
             ->limit($limit);
+
+        $queue = $request->string('queue')->trim()->toString();
+        $spkEligibility = app(CoranSpkEligibility::class);
+
+        match ($queue) {
+            'inProgress' => $query->tap(
+                fn (Builder $builder) => $spkEligibility->applyInProgressScope($builder),
+            ),
+            'completed' => $query->tap(
+                fn (Builder $builder) => $spkEligibility->applyCompletedScope($builder),
+            ),
+            'pending' => $query->tap(
+                fn (Builder $builder) => $spkEligibility->applyEligibleScope($builder),
+            ),
+            default => $query->whereNotNull('spk_no'),
+        };
+
+        $query->with($this->productionSpkInfoRelations());
+
+        $query->select([
+            ...$this->productionSpkInfoColumns(),
+            'gold_color',
+        ]);
 
         if ($search !== '') {
             $like = '%'.$search.'%';
@@ -134,13 +156,23 @@ class CoranController extends Controller
         }
 
         $productions = $query->get();
+        $coranRefs = in_array($queue, ['inProgress', 'completed'], true)
+            ? $spkEligibility->coranRefsBySpkIds(
+                $productions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+            )
+            : [];
 
         return response()->json([
             'status' => true,
-            'data' => $productions->map(function (Production $production): array {
+            'data' => $productions->map(function (Production $production) use ($coranRefs): array {
+                $spkId = (int) $production->row_id;
+                $coranRef = $coranRefs[$spkId] ?? null;
+
                 return [
-                    'rowId' => (int) $production->row_id,
+                    'rowId' => $spkId,
                     'spkNo' => (string) $production->spk_no,
+                    'coranId' => $coranRef['coranId'] ?? null,
+                    'docNo' => $coranRef['docNo'] ?? null,
                     'customer' => filled($production->customer_name)
                         ? (string) $production->customer_name
                         : '—',
@@ -256,11 +288,6 @@ class CoranController extends Controller
         CoranMaterialGoldSynchronizer $materialSynchronizer,
     ): Response {
         abort_if($coran->is_deleted === 1, 404);
-        abort_unless(
-            $approvalService->canEditForm($coran),
-            403,
-            'Dokumen coran tidak dapat diubah pada status saat ini.',
-        );
 
         $coran->load([
             'details' => fn ($query) => $query
@@ -514,7 +541,18 @@ class CoranController extends Controller
      */
     private function storeDetails(Coran $coran, array $details, string $actor): void
     {
+        $spkEligibility = app(CoranSpkEligibility::class);
+
         foreach ($details as $detail) {
+            $production = Production::query()
+                ->notDeleted()
+                ->where('row_id', $detail['spk_id'])
+                ->first();
+
+            if ($production !== null) {
+                $spkEligibility->syncLastWeight($production, $detail['weight'] ?? null, $actor);
+            }
+
             $coran->details()->create([
                 'spk_id' => $detail['spk_id'],
                 'weight' => filled($detail['weight'] ?? null)
@@ -969,5 +1007,23 @@ class CoranController extends Controller
         }
 
         return (float) $value;
+    }
+
+    /**
+     * @return array{pending: int, inProgress: int, completed: int}
+     */
+    private function spkStatusCounts(CoranSpkEligibility $spkEligibility): array
+    {
+        return [
+            'pending' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyEligibleScope($builder))
+                ->count(),
+            'inProgress' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyInProgressScope($builder))
+                ->count(),
+            'completed' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyCompletedScope($builder))
+                ->count(),
+        ];
     }
 }

@@ -75,7 +75,7 @@ class CoranApprovalService
 
     public function canEditForm(Coran $coran): bool
     {
-        return $this->isOpen($coran) || $this->isDone($coran);
+        return $coran->is_deleted !== 1;
     }
 
     public function canDelete(Coran $coran): bool
@@ -107,7 +107,7 @@ class CoranApprovalService
         return [
             'canSubmit' => $isOpen && $canEditDraft,
             'canEdit' => $canEditForm,
-            'canOpenEdit' => $canEditForm,
+            'canOpenEdit' => $canEditDraft,
             'canDelete' => $canDelete,
             'canManagerApprove' => $isPendingManager && SpkApprovalRoles::canManagerApprove($user),
             'canComplete' => $isPendingComplete && $canEditDraft,

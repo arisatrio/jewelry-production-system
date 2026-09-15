@@ -345,17 +345,8 @@ export function CoranForm({
                             </Form>
 
                             <div className="spkFioriDetailBlock">
-                                <div className="spkStoneCardHeader">
-                                    <div className="spkFioriDetailBlockTitle">
-                                        List SPK
-                                    </div>
-                                    <Button
-                                        design="Emphasized"
-                                        type="Button"
-                                        onClick={openAddSpk}
-                                    >
-                                        Tambah SPK
-                                    </Button>
+                                <div className="spkFioriDetailBlockTitle">
+                                    List SPK
                                 </div>
 
                                 {errors.details ? (
@@ -385,21 +376,12 @@ export function CoranForm({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {data.details.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={8}>
-                                                        Belum ada SPK. Klik
-                                                        Tambah SPK untuk
-                                                        memilih.
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                data.details.map(
-                                                    (detail, index) => (
-                                                        <tr
-                                                            key={`detail-${detail.spk_id}-${index}`}
-                                                            className="masterDataRowForm"
-                                                        >
+                                            {data.details.map(
+                                                (detail, index) => (
+                                                    <tr
+                                                        key={`detail-${detail.spk_id}-${index}`}
+                                                        className="masterDataRowForm"
+                                                    >
                                                             <td className="spkTableColSpkNo">
                                                                 <strong>
                                                                     {detail.spk_no ||
@@ -619,8 +601,23 @@ export function CoranForm({
                                                             </td>
                                                         </tr>
                                                     ),
-                                                )
-                                            )}
+                                                )}
+                                            <tr>
+                                                <td colSpan={7}>
+                                                    {data.details.length === 0
+                                                        ? 'Belum ada SPK.'
+                                                        : null}
+                                                </td>
+                                                <td className="spkTableActionCol">
+                                                    <Button
+                                                        design="Emphasized"
+                                                        type="Button"
+                                                        onClick={openAddSpk}
+                                                    >
+                                                        Tambah SPK
+                                                    </Button>
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>

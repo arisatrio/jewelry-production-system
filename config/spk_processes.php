@@ -12,6 +12,26 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | SLA Target Defaults (hari kerja Senin–Jumat)
+    |--------------------------------------------------------------------------
+    |
+    | Fallback bila belum ada baris di tabel spk_process_sla_targets.
+    | Key harus cocok dengan tabs[].key.
+    |
+    */
+
+    'sla_defaults' => [
+        'JewelCAD' => 2,
+        'Resin' => 1,
+        'Coran' => 2,
+        'Finishing' => 3,
+        'Poles Rangka' => 2,
+        'Pasang Batu' => 2,
+        'Poles Chrome' => 1,
+    ],
+
     'tabs' => [
         [
             'key' => 'JewelCAD',

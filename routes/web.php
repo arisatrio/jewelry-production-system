@@ -3,6 +3,7 @@
 use App\Http\Controllers\CoranController;
 use App\Http\Controllers\CraftsmanPerformanceDashboardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FinishingController;
 use App\Http\Controllers\GoldMaterialTransactionController;
 use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MaterialYieldDashboardController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\ResinController;
 use App\Http\Controllers\ShopFloorDashboardController;
 use App\Http\Controllers\SkuMasterController;
 use App\Http\Controllers\SkuOutputDashboardController;
+use App\Http\Controllers\SpkProcessSlaController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
@@ -138,6 +140,21 @@ Route::middleware(['auth'])->group(function () {
         ->whereNumber('coran')
         ->name('coran.show');
 
+    Route::get('finishing/select/spks', [FinishingController::class, 'searchSpks'])
+        ->name('finishing.select.spks');
+    Route::get('finishing/create', [FinishingController::class, 'create'])->name('finishing.create');
+    Route::post('finishing', [FinishingController::class, 'store'])->name('finishing.store');
+    Route::get('finishing/{finishing}/edit', [FinishingController::class, 'edit'])
+        ->whereNumber('finishing')
+        ->name('finishing.edit');
+    Route::put('finishing/{finishing}', [FinishingController::class, 'update'])
+        ->whereNumber('finishing')
+        ->name('finishing.update');
+    Route::get('finishing', [FinishingController::class, 'index'])->name('finishing.index');
+    Route::get('finishing/{finishing}', [FinishingController::class, 'show'])
+        ->whereNumber('finishing')
+        ->name('finishing.show');
+
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])
             ->name('gold-material-transactions.index');
@@ -166,6 +183,11 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('master-sku', [SkuMasterController::class, 'index'])
             ->name('master-sku.index');
+
+        Route::get('spk-process-sla', [SpkProcessSlaController::class, 'edit'])
+            ->name('spk-process-sla.edit');
+        Route::put('spk-process-sla', [SpkProcessSlaController::class, 'update'])
+            ->name('spk-process-sla.update');
     });
 });
 

@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(SpkPermissionSeeder::class);
+        $this->call(SpkProcessSlaTargetSeeder::class);
 
         // User::factory(10)->create();
 

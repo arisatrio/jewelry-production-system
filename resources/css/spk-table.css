@@ -260,6 +260,19 @@
     font-weight: 500;
 }
 
+.spkTableLastProcessSlaHint {
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.spkTableLastProcessSlaHint.is-within-target {
+    color: #ca8a04;
+}
+
+.spkTableLastProcessSlaHint.is-past-target {
+    color: #c2410c;
+}
+
 .spkTableBadge {
     display: inline-flex;
     align-items: center;
@@ -2266,7 +2279,7 @@
 .spkCoranMaterialEditorPanelHeader {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.75rem;
 }
 

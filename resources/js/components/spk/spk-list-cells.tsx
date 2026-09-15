@@ -8,7 +8,11 @@ type SpkListDescriptionFields = Pick<
 type SpkListLastProcessFields = Pick<
     SpkRow,
     'prosesTerakhir' | 'prosesTerakhirDate' | 'status'
->;
+> & {
+    processSlaHint?: string | null;
+    /** true jika sudah lewat target SLA proses */
+    processSlaPastTarget?: boolean;
+};
 
 type SpkListStatusFields = Pick<SpkRow, 'status'>;
 
@@ -119,6 +123,7 @@ export function SpkTableLastProcessCell({
 }) {
     const lastProcess = row.prosesTerakhir.trim();
     const lastProcessDate = (row.prosesTerakhirDate ?? '').trim();
+    const processSlaHint = (row.processSlaHint ?? '').trim();
 
     if (lastProcess !== '') {
         return (
@@ -127,6 +132,17 @@ export function SpkTableLastProcessCell({
                 {lastProcessDate !== '' ? (
                     <span className="spkTableLastProcessDate">
                         pada {lastProcessDate}
+                    </span>
+                ) : null}
+                {processSlaHint !== '' ? (
+                    <span
+                        className={`spkTableLastProcessSlaHint${
+                            row.processSlaPastTarget
+                                ? ' is-past-target'
+                                : ' is-within-target'
+                        }`}
+                    >
+                        {processSlaHint}
                     </span>
                 ) : null}
             </div>

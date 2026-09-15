@@ -7,11 +7,13 @@ import {
     workOrder,
 } from '@/routes/analytics';
 import { index as coranIndex } from '@/routes/coran';
+import { index as finishingIndex } from '@/routes/finishing';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
 import { index as varianItemIndex } from '@/routes/master-data/varian-item';
+import { edit as spkProcessSlaEdit } from '@/routes/master-data/spk-process-sla';
 import { index as resinIndex } from '@/routes/resin';
 import { index as spkIndex } from '@/routes/spk';
 
@@ -54,7 +56,7 @@ export const defaultProduksiSubmenus: ShellNavItem[] = [
     { text: 'JewelCAD', href: jewelCadIndex.url() },
     { text: 'Resin', href: resinIndex.url() },
     { text: 'Coran', href: coranIndex.url() },
-    { text: 'Finishing' },
+    { text: 'Finishing', href: finishingIndex.url() },
     { text: 'Poles Rangka' },
     { text: 'Pasang Batu' },
     { text: 'Poles Chrome' },
@@ -78,6 +80,7 @@ export const defaultMasterDataSubmenus: ShellNavItem[] = [
     { text: 'Tipe Item', href: tipeItemIndex.url() },
     { text: 'Master Item Product', href: varianItemIndex.url() },
     { text: 'Master SKU', href: masterSkuIndex.url() },
+    { text: 'SLA Proses SPK', href: spkProcessSlaEdit.url() },
 ];
 
 /** Dropdown menus rendered after primary items, before module links. */

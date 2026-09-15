@@ -63,6 +63,10 @@ test('coran store creates document with spk details', function () {
         ->and((string) $detail->weight)->toBe('2.500')
         ->and($detail->status)->toBe(CoranSpk::STATUS_OK);
 
+    $production->refresh();
+
+    expect((float) $production->last_weight)->toBe(2.5);
+
     CoranSpk::query()->where('row_id', $coran->row_id)->delete();
     $coran->delete();
     $production->delete();

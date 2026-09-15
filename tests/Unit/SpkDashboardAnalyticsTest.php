@@ -16,6 +16,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         'summary',
         'statusLists',
         'todayLists',
+        'chartLists',
         'productionTypes',
         'itemDistribution',
         'inProgressByProcess',
@@ -27,6 +28,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         'forecast',
         'planningDaily',
         'today',
+        'weekTarget',
     ])
         ->and($report['period']['start'])->toBe('2026-03-01')
         ->and($report['period']['end'])->toStartWith('2026-03-')
@@ -47,6 +49,10 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             'todayTargetSpk',
             'todayCreatedSpk',
             'todayInProcessSpk',
+            'weekTargetSpk',
+            'weekTargetDoneSpk',
+            'weekTargetPendingSpk',
+            'weekTargetLabel',
             'monthOverdueSpk',
         ])
         ->and($report['today'])->toHaveKeys([
@@ -60,13 +66,34 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             'inProcessSpk',
             'overdueSpk',
         ])
+        ->and($report['weekTarget'])->toHaveKeys([
+            'start',
+            'end',
+            'label',
+            'targetSpk',
+            'targetDoneSpk',
+            'targetPendingSpk',
+        ])
         ->and($report['todayLists'])->toHaveKeys([
             'todayTarget',
+            'weekTarget',
+            'monthTarget',
             'todayInProcess',
             'todayCreated',
             'monthOverdue',
         ])
+        ->and($report['chartLists'])->toHaveKeys([
+            'productionTypes',
+            'itemDistribution',
+            'bottleneck',
+            'forecast',
+        ])
+        ->and($report['chartLists']['productionTypes'])->toBeArray()
+        ->and($report['chartLists']['itemDistribution'])->toBeArray()
+        ->and($report['chartLists']['bottleneck'])->toBeArray()
+        ->and($report['chartLists']['forecast'])->toBeArray()
         ->and($report['todayLists']['todayTarget'])->toBeArray()
+        ->and($report['todayLists']['weekTarget'])->toBeArray()
         ->and($report['todayLists']['todayInProcess'])->toBeArray()
         ->and($report['todayLists']['todayCreated'])->toBeArray()
         ->and($report['todayLists']['monthOverdue'])->toBeArray()
@@ -76,6 +103,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         )->toBeTrue()
         ->and($report['today']['date'])->toBe(now()->toDateString())
         ->and($report['summary']['todayTargetSpk'])->toBe($report['today']['targetSpk'])
+        ->and($report['summary']['weekTargetSpk'])->toBe($report['weekTarget']['targetSpk'])
         ->and($report['summary']['todayCreatedSpk'])->toBe($report['today']['createdSpk'])
         ->and($report['summary']['todayInProcessSpk'])->toBe($report['today']['inProcessSpk'])
         ->and($report['summary']['monthOverdueSpk'])->toBe($report['today']['overdueSpk'])

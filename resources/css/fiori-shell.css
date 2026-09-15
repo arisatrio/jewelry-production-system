@@ -564,7 +564,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
 
 .dashTodayKpis {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 0.65rem;
     flex-shrink: 0;
 }
@@ -1105,6 +1105,44 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     white-space: nowrap;
 }
 
+.dashStatusTable th.is-text-center,
+.dashStatusTable td.is-text-center {
+    text-align: center;
+}
+
+.dashStatusTable th.is-text-center .dashStatusSortBtn {
+    justify-content: center;
+    width: 100%;
+}
+
+.dashStatusTable td.is-text-center .dashStatusDateCell {
+    align-items: center;
+    width: 100%;
+}
+
+.dashStatusTable td.is-text-center .spkTableLastProcess,
+.dashStatusTable td.is-text-center .spkTableStatus {
+    align-items: center;
+}
+
+.dashStatusTable th.dashStatusColLastProcess,
+.dashStatusTable td.dashStatusColLastProcess {
+    width: 8.5rem;
+    max-width: 9rem;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.dashStatusTable td.dashStatusColLastProcess .spkTableLastProcess {
+    max-width: 8.5rem;
+}
+
+.dashStatusTable td.dashStatusColLastProcess .spkTableLastProcessSlaHint {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .dashStatusTable thead th {
     position: sticky;
     top: 0;
@@ -1169,6 +1207,12 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     white-space: normal;
 }
 
+.dashStatusRemainingHint {
+    color: #6b7280;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
 .dashStatusOverdueBadge {
     display: inline-flex;
     align-items: center;
@@ -1222,6 +1266,24 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     flex-direction: column;
     gap: 0.15rem;
     margin-bottom: 0.75rem;
+}
+
+.dashPanelHeader.is-with-action {
+    position: relative;
+    padding-inline-end: 2.35rem;
+}
+
+.dashPanelHeaderText {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.dashPanel .dashPanelDetailBtn {
+    position: absolute;
+    top: 0;
+    right: 0;
 }
 
 .dashPanelTitle {

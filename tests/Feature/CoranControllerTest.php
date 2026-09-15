@@ -12,6 +12,9 @@ test('coran index page is accessible', function () {
             ->component('coran/index')
             ->has('corans.data')
             ->has('corans.total')
+            ->has('spkStatusCounts.pending')
+            ->has('spkStatusCounts.inProgress')
+            ->has('spkStatusCounts.completed')
             ->has('filters.search')
             ->has('filters.per_page')
         );
@@ -151,6 +154,34 @@ test('coran index can search by spk number', function () {
             ->where('corans.data.0.id', $coran->row_id)
             ->where('corans.data.0.spkNos.0', $production->spk_no)
         );
+
+    CoranSpk::query()->where('row_id', $coran->row_id)->delete();
+    $coran->delete();
+    $production->delete();
+});
+
+test('coran spk selector endpoint supports queue filter', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/CQF'.Str::upper(Str::random(4)),
+    ]);
+    $coran = Coran::factory()->create([
+        'status' => 'DRAFT',
+        'doc_no' => 'COR'.Str::upper(Str::random(7)),
+    ]);
+    CoranSpk::factory()->create([
+        'row_id' => $coran->row_id,
+        'spk_id' => $production->row_id,
+    ]);
+
+    $this->getJson(route('coran.select.spks', ['queue' => 'inProgress']))
+        ->assertOk()
+        ->assertJsonPath('status', true)
+        ->assertJsonFragment([
+            'rowId' => $production->row_id,
+            'spkNo' => $production->spk_no,
+            'coranId' => $coran->row_id,
+            'docNo' => $coran->doc_no,
+        ]);
 
     CoranSpk::query()->where('row_id', $coran->row_id)->delete();
     $coran->delete();

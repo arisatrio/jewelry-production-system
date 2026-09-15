@@ -228,9 +228,6 @@ function MaterialBucketTable({
     return (
         <div className="spkCoranMaterialEditorPanel">
             <div className="spkCoranMaterialEditorPanelHeader">
-                <h4 className="spkCoranMaterialEditorPanelTitle">
-                    {bucket.title}
-                </h4>
                 <Button
                     design="Emphasized"
                     icon={addIcon}
@@ -239,7 +236,7 @@ function MaterialBucketTable({
                     accessibleName={`Tambah ${bucket.title}`}
                     onClick={onAddRequest}
                 >
-                    Tambah
+                    Tambah {bucket.title}
                 </Button>
             </div>
 

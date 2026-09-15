@@ -7,6 +7,7 @@ import { Input } from '@ui5/webcomponents-react/Input';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import { create, index as coranIndex, show } from '@/routes/coran';
+import { CoranSpkStatusCards } from '@/components/coran/coran-spk-status-cards';
 
 type CoranRow = {
     id: number;
@@ -31,6 +32,11 @@ type CoransPaginator = {
 
 type CoranIndexProps = {
     corans: CoransPaginator;
+    spkStatusCounts: {
+        pending: number;
+        inProgress: number;
+        completed: number;
+    };
     filters: {
         search: string;
         per_page: number;
@@ -68,7 +74,11 @@ function statusBadgeClass(status: string | null, statusLabel: string | null): st
     return 'spkTableBadge--default';
 }
 
-export default function CoranIndex({ corans, filters }: CoranIndexProps) {
+export default function CoranIndex({
+    corans,
+    spkStatusCounts,
+    filters,
+}: CoranIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
 
     useEffect(() => {
@@ -145,6 +155,8 @@ export default function CoranIndex({ corans, filters }: CoranIndexProps) {
                             <span>Tambah</span>
                         </button>
                     </div>
+
+                    <CoranSpkStatusCards counts={spkStatusCounts} />
 
                     <div className="spkTableToolbar">
                         <div className="spkTableToolbarLeft">

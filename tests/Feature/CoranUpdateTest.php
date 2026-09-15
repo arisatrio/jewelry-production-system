@@ -84,15 +84,59 @@ test('coran show exposes edit and delete for done documents', function () {
     $coran->delete();
 });
 
-test('coran edit is forbidden for submitted documents', function () {
+test('coran edit page is accessible for submitted documents', function () {
     $coran = Coran::factory()->create([
         'doc_no' => 'COR'.Str::upper(Str::random(7)),
         'status' => CoranApprovalService::STATUS_SUBMITTED,
     ]);
 
-    $this->get(route('coran.edit', $coran))->assertForbidden();
+    $this->get(route('coran.edit', $coran))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coran/edit')
+            ->where('form.id', $coran->row_id)
+            ->where('approval.canOpenEdit', true)
+            ->where('approval.canEdit', true)
+        );
 
     $coran->delete();
+});
+
+test('coran update is allowed for submitted documents', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/CORSUB'.Str::upper(Str::random(3)),
+    ]);
+    $coran = Coran::factory()->create([
+        'doc_no' => 'COR'.Str::upper(Str::random(7)),
+        'status' => CoranApprovalService::STATUS_SUBMITTED,
+    ]);
+    CoranSpk::factory()->create([
+        'row_id' => $coran->row_id,
+        'spk_id' => $production->row_id,
+        'weight' => '1.000',
+    ]);
+
+    $this->put(route('coran.update', $coran), [
+        'trans_date' => now()->format('Y-m-d'),
+        'craftsman_id' => null,
+        'details' => [
+            [
+                'spk_id' => $production->row_id,
+                'weight' => '2.000',
+                'status' => 'OK',
+            ],
+        ],
+    ])->assertRedirect(route('coran.show', $coran));
+
+    $coran->refresh();
+    $production->refresh();
+
+    expect((string) $coran->weight)->toBe('2.000')
+        ->and((float) $production->last_weight)->toBe(2.0);
+
+    CoranSpk::query()->where('row_id', $coran->row_id)->delete();
+    $coran->delete();
+    $production->delete();
 });
 
 test('coran destroy soft deletes document and details', function () {
@@ -220,6 +264,10 @@ test('coran update replaces details materials and totals', function () {
 
     expect($activeDetails)->toHaveCount(1)
         ->and((int) $activeDetails->first()->spk_id)->toBe((int) $productionB->row_id);
+
+    $productionB->refresh();
+
+    expect((float) $productionB->last_weight)->toBe(2.5);
 
     $rows = DB::connection('third')
         ->table('trmaterialgold')
