@@ -1,1 +1,0 @@
-import{cn as e}from"./app-DMcsgPds.js";import"./Text-WBeMibvp.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};
