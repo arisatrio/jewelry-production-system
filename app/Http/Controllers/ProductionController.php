@@ -96,15 +96,15 @@ class ProductionController extends Controller
             ->withQueryString();
 
         $pageProductions = $productions->getCollection();
-        $doneIds = array_flip(SpkDashboardAnalytics::completedProductionSpkIds(
+        $doneKinds = SpkDashboardAnalytics::completedProductionKinds(
             $pageProductions->pluck('row_id')->all(),
-        ));
+        );
         $lastProcessDates = SpkDashboardAnalytics::lastProcessDatesFor($pageProductions);
 
         $productions = $productions->through(
             fn (Production $production): array => $this->toListItem(
                 $production,
-                isset($doneIds[(int) $production->row_id]),
+                $doneKinds[(int) $production->row_id] ?? false,
                 $lastProcessDates[(int) $production->row_id] ?? null,
             ),
         );
@@ -144,7 +144,7 @@ class ProductionController extends Controller
 
         if ($spkNo === null) {
             return to_route('spk.index', [
-                'status' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$statusKey],
+                'status' => $this->backlogStatusFilterLabel($statusKey),
             ]);
         }
 
@@ -765,7 +765,7 @@ class ProductionController extends Controller
             'previousUrl' => $previousRowId !== null ? $urlForRowId((int) $previousRowId) : null,
             'nextUrl' => $nextRowId !== null ? $urlForRowId((int) $nextRowId) : null,
             'backUrl' => $statusKey !== null
-                ? route('spk.index', ['status' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$statusKey]])
+                ? route('spk.index', ['status' => $this->backlogStatusFilterLabel($statusKey)])
                 : route('spk.index'),
         ];
     }
@@ -783,9 +783,36 @@ class ProductionController extends Controller
             return $value;
         }
 
+        if ($value === 'done' || strcasecmp($value, 'Done') === 0) {
+            return 'done';
+        }
+
+        if (
+            $value === 'DONE RANGKA'
+            || strcasecmp($value, 'DONE (Rangka)') === 0
+        ) {
+            return SpkDashboardAnalytics::KEY_DONE_RANGKA;
+        }
+
+        if (
+            $value === 'DONE BARANG JADI'
+            || strcasecmp($value, 'DONE (Barang Jadi)') === 0
+        ) {
+            return SpkDashboardAnalytics::KEY_DONE_BARANG_JADI;
+        }
+
         $key = array_search($value, $labels, true);
 
         return is_string($key) ? $key : null;
+    }
+
+    private function backlogStatusFilterLabel(string $statusKey): string
+    {
+        if ($statusKey === 'done') {
+            return 'Done';
+        }
+
+        return SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$statusKey] ?? $statusKey;
     }
 
     private function applyBacklogStatusFilter(Builder $query, string $statusKey): void
@@ -835,9 +862,17 @@ class ProductionController extends Controller
             return;
         }
 
-        if ($statusKey === 'done') {
+        if ($statusKey === 'done' || SpkDashboardAnalytics::isDoneStatusKey($statusKey)) {
             $allIds = Production::query()->notDeleted()->pluck('row_id')->all();
-            $doneIds = SpkDashboardAnalytics::completedProductionSpkIds($allIds);
+            $doneKinds = SpkDashboardAnalytics::completedProductionKinds($allIds);
+
+            $doneIds = $statusKey === 'done'
+                ? array_keys($doneKinds)
+                : collect($doneKinds)
+                    ->filter(fn (string $kind): bool => $kind === $statusKey)
+                    ->keys()
+                    ->all();
+
             $query->whereIn('row_id', $doneIds);
         }
     }
@@ -1072,7 +1107,7 @@ class ProductionController extends Controller
      */
     private function toListItem(
         Production $production,
-        ?bool $hasCompletedPolesChrome = null,
+        bool|string|null $completed = null,
         ?string $lastProcessDate = null,
     ): array {
         return [
@@ -1091,7 +1126,7 @@ class ProductionController extends Controller
             'orderDate' => $production->order_date?->format('d-M-Y') ?? '-',
             'createdDate' => $production->created_date?->format('d-M-Y') ?? '-',
             'estimatedDelivery' => $production->estimated_delivery_time?->format('d-M-Y') ?? '-',
-            'status' => SpkDashboardAnalytics::backlogStatusLabel($production, $hasCompletedPolesChrome),
+            'status' => SpkDashboardAnalytics::backlogStatusLabel($production, $completed),
             'prosesTerakhir' => $production->last_process ?? '',
             'prosesTerakhirDate' => $lastProcessDate ?? '',
         ];
@@ -1102,7 +1137,7 @@ class ProductionController extends Controller
      */
     private function toDetail(Production $production, SpkStatusMapper $statusMapper): array
     {
-        $hasCompletedProduction = SpkDashboardAnalytics::hasCompletedProduction((int) $production->row_id);
+        $completedKind = SpkDashboardAnalytics::completedProductionKind((int) $production->row_id);
         $refSpkNo = '-';
 
         if ($production->ref_spk_id !== null) {
@@ -1117,7 +1152,7 @@ class ProductionController extends Controller
         }
 
         return [
-            ...$this->toListItem($production, $hasCompletedProduction),
+            ...$this->toListItem($production, $completedKind ?? false),
             'customer' => $this->customerName($production),
             'status' => $production->status ?: '-',
             'requestOrderNo' => $production->request_order_no ?? '-',
@@ -1144,7 +1179,7 @@ class ProductionController extends Controller
             'createdBy' => $production->created_by ?? '-',
             'modifiedDate' => $production->modified_date?->format('d-M-Y H:i') ?? '-',
             'modifiedBy' => $production->modified_by ?? '-',
-            'workflowStatus' => $statusMapper->map($production, $hasCompletedProduction),
+            'workflowStatus' => $statusMapper->map($production, $completedKind ?? false),
         ];
     }
 

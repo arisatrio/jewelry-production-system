@@ -56,7 +56,8 @@ export type DashboardStatusKey =
     | 'confirmed'
     | 'inProgress'
     | 'overdue'
-    | 'done';
+    | 'doneRangka'
+    | 'doneBarangJadi';
 
 export type DashboardTodayKey =
     | 'todayCreated'
@@ -90,6 +91,8 @@ export type DashboardAnalytics = {
         confirmedSpk: number;
         inProgressSpk: number;
         doneSpk: number;
+        doneRangkaSpk: number;
+        doneBarangJadiSpk: number;
         overdueSpk: number;
         totalShrink: string;
         shrinkOkCount: number;
@@ -310,10 +313,17 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
             className: 'is-overdue',
         },
         {
-            key: 'done',
-            label: 'Done',
-            hint: 'Poles BJ completed / Serahkan ke JB',
-            count: summary.doneSpk,
+            key: 'doneRangka',
+            label: 'DONE (Rangka)',
+            hint: 'Poles Rangka completed / Serahkan ke JB',
+            count: summary.doneRangkaSpk ?? 0,
+            className: 'is-done',
+        },
+        {
+            key: 'doneBarangJadi',
+            label: 'DONE (Barang Jadi)',
+            hint: 'Poles Chrome completed / Serahkan ke JB',
+            count: summary.doneBarangJadiSpk ?? 0,
             className: 'is-done',
         },
     ];

@@ -57,7 +57,8 @@ export type SpkTableProps = {
         pendingManager: string;
         confirmed: string;
         inProgress: string;
-        done: string;
+        doneRangka: string;
+        doneBarangJadi: string;
     };
     statuses?: string[];
     selectedStatus?: string;

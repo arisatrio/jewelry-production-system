@@ -14,6 +14,10 @@ use Illuminate\Support\Facades\Schema;
 
 class SpkDashboardAnalytics
 {
+    public const KEY_DONE_RANGKA = 'doneRangka';
+
+    public const KEY_DONE_BARANG_JADI = 'doneBarangJadi';
+
     /**
      * @var array<string, string>
      */
@@ -22,11 +26,12 @@ class SpkDashboardAnalytics
         'pendingManager' => 'Menunggu Approval',
         'confirmed' => 'Approved',
         'inProgress' => 'In Progress',
-        'done' => 'Done',
+        self::KEY_DONE_RANGKA => 'DONE (Rangka)',
+        self::KEY_DONE_BARANG_JADI => 'DONE (Barang Jadi)',
     ];
 
     /**
-     * Poles Chrome (polishfinishedgood) statuses that mean production is done:
+     * Poles Chrome (polishfinishedgood) statuses that mean DONE BARANG JADI:
      * PFGDONE = Poles BJ completed, PFG040 = Serahkan ke JB.
      *
      * @var list<string>
@@ -34,7 +39,7 @@ class SpkDashboardAnalytics
     public const POLES_CHROME_DONE_STATUSES = ['PFGDONE', 'PFG040'];
 
     /**
-     * Poles Barang Jadi (polishfinishedgood) statuses that mean production is done
+     * Poles Barang Jadi (polishfinishedgood) statuses that mean DONE BARANG JADI
      * for SPK tipe Exchange / Refund / Reparasi:
      * RPFDONE = Poles Barang Jadi completed.
      *
@@ -43,7 +48,7 @@ class SpkDashboardAnalytics
     public const POLES_BARANG_JADI_REF_DONE_STATUSES = ['RPFDONE'];
 
     /**
-     * Finishing (finishinghandmade) statuses that mean production is done
+     * Finishing (finishinghandmade) statuses that mean DONE BARANG JADI
      * for SPK tipe Exchange / Refund / Reparasi:
      * RFHDONE = Finishing reparasi completed.
      *
@@ -52,7 +57,7 @@ class SpkDashboardAnalytics
     public const FINISHING_REF_DONE_STATUSES = ['RFHDONE'];
 
     /**
-     * Poles Rangka (polishframe) statuses that mean production is done:
+     * Poles Rangka (polishframe) statuses that mean DONE RANGKA:
      * PRKDONE = Completed, PRK040 = Serahkan ke JB.
      *
      * @var list<string>
@@ -76,16 +81,21 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Exclusive backlog group used by dashboard cards.
+     * Exclusive backlog group used by dashboard cards / SPK list.
      *
-     * @return 'draft'|'confirmed'|'inProgress'|'done'
+     * @param  bool|string|null  $completed
+     *                                       true = selesai (jenis di-resolve dari DB / last_process)
+     *                                       false = belum selesai
+     *                                       'doneRangka'|'doneBarangJadi' = jenis selesai spesifik
+     *                                       null = cek otomatis dari proses produksi
+     * @return 'draft'|'confirmed'|'inProgress'|'doneRangka'|'doneBarangJadi'
      */
-    public static function backlogStatusKey(Production $production, ?bool $hasCompletedPolesChrome = null): string
+    public static function backlogStatusKey(Production $production, bool|string|null $completed = null): string
     {
-        $isDone = $hasCompletedPolesChrome ?? self::hasCompletedProduction((int) $production->row_id);
+        $doneKey = self::resolveDoneStatusKey($production, $completed);
 
-        if ($isDone) {
-            return 'done';
+        if ($doneKey !== null) {
+            return $doneKey;
         }
 
         $status = strtoupper(trim((string) ($production->status ?? '')));
@@ -110,9 +120,14 @@ class SpkDashboardAnalytics
         return 'draft';
     }
 
-    public static function backlogStatusLabel(Production $production, ?bool $hasCompletedPolesChrome = null): string
+    public static function backlogStatusLabel(Production $production, bool|string|null $completed = null): string
     {
-        return self::BACKLOG_STATUS_LABELS[self::backlogStatusKey($production, $hasCompletedPolesChrome)];
+        return self::BACKLOG_STATUS_LABELS[self::backlogStatusKey($production, $completed)];
+    }
+
+    public static function isDoneStatusKey(string $key): bool
+    {
+        return in_array($key, [self::KEY_DONE_RANGKA, self::KEY_DONE_BARANG_JADI], true);
     }
 
     public static function hasCompletedPolesChrome(int $spkId): bool
@@ -123,6 +138,48 @@ class SpkDashboardAnalytics
     public static function hasCompletedProduction(int $spkId): bool
     {
         return self::completedProductionSpkIds([$spkId]) !== [];
+    }
+
+    /**
+     * @return self::KEY_DONE_RANGKA|self::KEY_DONE_BARANG_JADI|null
+     */
+    public static function completedProductionKind(int $spkId): ?string
+    {
+        return self::completedProductionKinds([$spkId])[$spkId] ?? null;
+    }
+
+    /**
+     * @param  list<int|string|null>  $spkIds
+     * @return array<int, self::KEY_DONE_RANGKA|self::KEY_DONE_BARANG_JADI>
+     */
+    public static function completedProductionKinds(array $spkIds): array
+    {
+        $barangJadiIds = array_flip([
+            ...self::completedPolesChromeSpkIds($spkIds),
+            ...self::completedReferencePolesBarangJadiSpkIds($spkIds),
+            ...self::completedReferenceFinishingSpkIds($spkIds),
+        ]);
+        $rangkaIds = array_flip(
+            self::completedSpkIdsFromTable('polishframe', self::POLES_RANGKA_DONE_STATUSES, $spkIds),
+        );
+
+        $kinds = [];
+
+        foreach ($spkIds as $spkId) {
+            $id = (int) $spkId;
+
+            if ($id <= 0) {
+                continue;
+            }
+
+            if (isset($barangJadiIds[$id])) {
+                $kinds[$id] = self::KEY_DONE_BARANG_JADI;
+            } elseif (isset($rangkaIds[$id])) {
+                $kinds[$id] = self::KEY_DONE_RANGKA;
+            }
+        }
+
+        return $kinds;
     }
 
     /**
@@ -138,14 +195,57 @@ class SpkDashboardAnalytics
      * @param  list<int|string|null>  $spkIds
      * @return list<int>
      */
+    public static function completedPolesRangkaSpkIds(array $spkIds): array
+    {
+        return self::completedSpkIdsFromTable('polishframe', self::POLES_RANGKA_DONE_STATUSES, $spkIds);
+    }
+
+    /**
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
     public static function completedProductionSpkIds(array $spkIds): array
     {
-        return collect([
-            ...self::completedSpkIdsFromTable('polishfinishedgood', self::POLES_CHROME_DONE_STATUSES, $spkIds),
-            ...self::completedSpkIdsFromTable('polishframe', self::POLES_RANGKA_DONE_STATUSES, $spkIds),
-            ...self::completedReferencePolesBarangJadiSpkIds($spkIds),
-            ...self::completedReferenceFinishingSpkIds($spkIds),
-        ])->unique()->values()->all();
+        return array_keys(self::completedProductionKinds($spkIds));
+    }
+
+    /**
+     * @return self::KEY_DONE_RANGKA|self::KEY_DONE_BARANG_JADI|null
+     */
+    private static function resolveDoneStatusKey(Production $production, bool|string|null $completed): ?string
+    {
+        if ($completed === false) {
+            return null;
+        }
+
+        if (is_string($completed) && self::isDoneStatusKey($completed)) {
+            return $completed;
+        }
+
+        if ($completed === true) {
+            // Caller asserts selesai; bedakan jenis dari last_process (hindari lookup row_id palsu di unit test).
+            return self::inferDoneKeyFromLastProcess($production->last_process);
+        }
+
+        // null = cek otomatis dari tabel proses produksi
+        return self::completedProductionKind((int) $production->row_id);
+    }
+
+    /**
+     * @return self::KEY_DONE_RANGKA|self::KEY_DONE_BARANG_JADI
+     */
+    private static function inferDoneKeyFromLastProcess(mixed $lastProcess): string
+    {
+        $normalized = strtolower(trim((string) $lastProcess));
+
+        if (
+            str_contains($normalized, 'rangka')
+            || str_contains($normalized, 'frame')
+        ) {
+            return self::KEY_DONE_RANGKA;
+        }
+
+        return self::KEY_DONE_BARANG_JADI;
     }
 
     /**
@@ -310,6 +410,8 @@ class SpkDashboardAnalytics
                 'confirmedSpk' => $spkStats['confirmed'],
                 'inProgressSpk' => $spkStats['inProgress'],
                 'doneSpk' => $spkStats['done'],
+                'doneRangkaSpk' => $spkStats['doneRangka'],
+                'doneBarangJadiSpk' => $spkStats['doneBarangJadi'],
                 'overdueSpk' => $spkStats['overdue'],
                 'totalShrink' => $shrink['totalShrink'],
                 'shrinkOkCount' => $shrink['okCount'],
@@ -768,6 +870,8 @@ class SpkDashboardAnalytics
                 'confirmed' => 0,
                 'inProgress' => 0,
                 'done' => 0,
+                'doneRangka' => 0,
+                'doneBarangJadi' => 0,
                 'overdue' => 0,
                 'goldRequirement' => '0.000',
                 'avgLeadDays' => null,
@@ -843,6 +947,8 @@ class SpkDashboardAnalytics
             'confirmed' => $statusCounts['confirmed'],
             'inProgress' => $statusCounts['inProgress'],
             'done' => $statusCounts['done'],
+            'doneRangka' => $statusCounts['doneRangka'],
+            'doneBarangJadi' => $statusCounts['doneBarangJadi'],
             'overdue' => $overdue,
             'goldRequirement' => $this->formatWeight($goldRequirement),
             'avgLeadDays' => $avgLeadDays,
@@ -891,10 +997,10 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Classify SPK into waiting-approval (sudah dikirim ke produksi) / Confirmed / In Progress / Done.
+     * Classify SPK into waiting-approval / Confirmed / In Progress / Done Rangka / Done Barang Jadi.
      * Draft yang belum dikirim ke produksi tidak dihitung di waiting-approval.
      *
-     * @return array{draft: int, confirmed: int, inProgress: int, done: int}
+     * @return array{draft: int, confirmed: int, inProgress: int, done: int, doneRangka: int, doneBarangJadi: int}
      */
     private function resolveStatusCounts(Builder $query): array
     {
@@ -903,10 +1009,18 @@ class SpkDashboardAnalytics
             'confirmed' => $confirmedExpr,
             'managerApproved' => $managerApprovedExpr,
         ] = $this->statusExpressions();
+        $doneBarangJadiExpr = $this->doneBarangJadiExpression();
+        $doneRangkaExpr = $this->doneRangkaExpression();
         $doneExpr = $this->doneExpression();
 
         $counts = $query
             ->selectRaw("
+                SUM(CASE WHEN ({$doneBarangJadiExpr}) THEN 1 ELSE 0 END) as done_barang_jadi_count,
+                SUM(CASE
+                    WHEN ({$doneBarangJadiExpr}) THEN 0
+                    WHEN ({$doneRangkaExpr}) THEN 1
+                    ELSE 0
+                END) as done_rangka_count,
                 SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
                 SUM(CASE
                     WHEN ({$doneExpr}) THEN 0
@@ -932,6 +1046,8 @@ class SpkDashboardAnalytics
             'confirmed' => (int) ($counts->confirmed_count ?? 0),
             'inProgress' => (int) ($counts->in_progress_count ?? 0),
             'done' => (int) ($counts->done_count ?? 0),
+            'doneRangka' => (int) ($counts->done_rangka_count ?? 0),
+            'doneBarangJadi' => (int) ($counts->done_barang_jadi_count ?? 0),
         ];
     }
 
@@ -941,7 +1057,8 @@ class SpkDashboardAnalytics
      *     confirmed: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     inProgress: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     overdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
-     *     done: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
+     *     doneRangka: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     doneBarangJadi: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
      * }
      */
     private function resolveStatusLists(): array
@@ -951,7 +1068,8 @@ class SpkDashboardAnalytics
             'confirmed' => [],
             'inProgress' => [],
             'overdue' => [],
-            'done' => [],
+            'doneRangka' => [],
+            'doneBarangJadi' => [],
         ];
 
         if (! Schema::connection('third')->hasTable('spk')) {
@@ -963,7 +1081,8 @@ class SpkDashboardAnalytics
             'confirmed' => $this->statusListFor('confirmed'),
             'inProgress' => $this->statusListFor('inProgress'),
             'overdue' => $this->statusListFor('overdue'),
-            'done' => $this->statusListFor('done'),
+            'doneRangka' => $this->statusListFor(self::KEY_DONE_RANGKA),
+            'doneBarangJadi' => $this->statusListFor(self::KEY_DONE_BARANG_JADI),
         ];
     }
 
@@ -981,7 +1100,10 @@ class SpkDashboardAnalytics
         $query = $this->yearScopedSpkBase();
 
         $query = match ($status) {
-            'done' => $query->whereRaw($this->doneExpression()),
+            self::KEY_DONE_BARANG_JADI => $query->whereRaw($this->doneBarangJadiExpression()),
+            self::KEY_DONE_RANGKA => $query
+                ->whereRaw($this->doneRangkaExpression())
+                ->whereRaw('NOT ('.$this->doneBarangJadiExpression().')'),
             'overdue' => $this->applyOverdueFilter($query),
             'confirmed' => $query
                 ->whereRaw('NOT ('.$this->doneExpression().')')
@@ -1189,13 +1311,13 @@ class SpkDashboardAnalytics
             ->all();
         $orderTypeLabels = $this->resolveOrderTypeLabels($rows);
         $typeSkuMeta = $this->resolveTypeSkuMeta($rows);
-        $doneIds = array_flip(self::completedProductionSpkIds(
+        $doneKinds = self::completedProductionKinds(
             $rows
                 ->map(fn (object $row): int => (int) ($row->row_id ?? 0))
                 ->filter(fn (int $id): bool => $id > 0)
                 ->values()
                 ->all(),
-        ));
+        );
         $processMapper = new SpkProcessMapper;
         $slaResolver = new SpkProcessSlaResolver($processMapper);
         $today = now()->startOfDay();
@@ -1205,7 +1327,7 @@ class SpkDashboardAnalytics
             $lastProcessDates,
             $orderTypeLabels,
             $typeSkuMeta,
-            $doneIds,
+            $doneKinds,
             $processMapper,
             $slaResolver,
             $today,
@@ -1243,7 +1365,7 @@ class SpkDashboardAnalytics
                 'estimatedDelivery' => filled($row->estimated_delivery_time ?? null)
                     ? Carbon::parse((string) $row->estimated_delivery_time)->format('d-M-Y')
                     : null,
-                'status' => self::backlogStatusLabel($production, isset($doneIds[$spkId])),
+                'status' => self::backlogStatusLabel($production, $doneKinds[$spkId] ?? false),
                 'lastProcess' => filled($row->last_process ?? null)
                     ? (string) $row->last_process
                     : null,
@@ -1574,10 +1696,10 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Done: Poles Chrome (PFGDONE/PFG040), Poles Rangka (PRKDONE/PRK040),
+     * DONE BARANG JADI: Poles Chrome (PFGDONE/PFG040),
      * or RPFDONE / RFHDONE for Exchange/Refund/Reparasi.
      */
-    private function doneExpression(): string
+    private function doneBarangJadiExpression(): string
     {
         $expressions = [];
         $refTypes = collect(SpkService::REFERENCE_TYPES)
@@ -1634,23 +1756,48 @@ class SpkDashboardAnalytics
             )";
         }
 
-        if (Schema::connection('third')->hasTable('polishframe')) {
-            $statuses = collect(self::POLES_RANGKA_DONE_STATUSES)
-                ->map(fn (string $status): string => "'{$status}'")
-                ->implode(', ');
-
-            $deleted = Schema::connection('third')->hasColumn('polishframe', 'is_deleted')
-                ? 'AND COALESCE(pf.is_deleted, 0) = 0'
-                : '';
-
-            $expressions[] = "EXISTS (
-                SELECT 1
-                FROM polishframe pf
-                WHERE pf.spk_id = spk.row_id
-                  AND pf.status IN ({$statuses})
-                  {$deleted}
-            )";
+        if ($expressions === []) {
+            return '0';
         }
+
+        return '('.implode(' OR ', $expressions).')';
+    }
+
+    /**
+     * DONE RANGKA: Poles Rangka (PRKDONE/PRK040).
+     */
+    private function doneRangkaExpression(): string
+    {
+        if (! Schema::connection('third')->hasTable('polishframe')) {
+            return '0';
+        }
+
+        $statuses = collect(self::POLES_RANGKA_DONE_STATUSES)
+            ->map(fn (string $status): string => "'{$status}'")
+            ->implode(', ');
+
+        $deleted = Schema::connection('third')->hasColumn('polishframe', 'is_deleted')
+            ? 'AND COALESCE(pf.is_deleted, 0) = 0'
+            : '';
+
+        return "(EXISTS (
+            SELECT 1
+            FROM polishframe pf
+            WHERE pf.spk_id = spk.row_id
+              AND pf.status IN ({$statuses})
+              {$deleted}
+        ))";
+    }
+
+    /**
+     * Selesai produksi: DONE BARANG JADI atau DONE RANGKA.
+     */
+    private function doneExpression(): string
+    {
+        $expressions = array_values(array_filter([
+            $this->doneBarangJadiExpression(),
+            $this->doneRangkaExpression(),
+        ], fn (string $expression): bool => $expression !== '0'));
 
         if ($expressions === []) {
             return '0';

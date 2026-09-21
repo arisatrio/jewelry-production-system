@@ -19,7 +19,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $weight_whitegold
  * @property string|null $weight_yellowgold
  * @property string|null $kadar
+ * @property string|null $kadar_rosegold
+ * @property string|null $kadar_whitegold
+ * @property string|null $kadar_yellowgold
  * @property string|null $status
+ * @property string|null $status_rosegold
+ * @property string|null $status_whitegold
+ * @property string|null $status_yellowgold
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -36,7 +42,13 @@ use Illuminate\Support\Carbon;
     'weight_whitegold',
     'weight_yellowgold',
     'kadar',
+    'kadar_rosegold',
+    'kadar_whitegold',
+    'kadar_yellowgold',
     'status',
+    'status_rosegold',
+    'status_whitegold',
+    'status_yellowgold',
     'is_deleted',
     'created_date',
     'created_by',
@@ -78,6 +90,49 @@ class CoranSpk extends Model
             'NOK', 'NOT OK', 'NOTOK' => self::STATUS_NOK,
             default => $normalized,
         };
+    }
+
+    /**
+     * Aggregate per-color QC status into a single line status.
+     *
+     * @param  list<string|null>  $statuses
+     */
+    public static function aggregateInputStatus(array $statuses): ?string
+    {
+        $normalized = collect($statuses)
+            ->map(fn (mixed $status): ?string => self::normalizeInputStatus($status))
+            ->filter()
+            ->values();
+
+        if ($normalized->isEmpty()) {
+            return null;
+        }
+
+        if ($normalized->contains(self::STATUS_NOK)) {
+            return self::STATUS_NOK;
+        }
+
+        if ($normalized->contains(self::STATUS_OK)) {
+            return self::STATUS_OK;
+        }
+
+        return $normalized->first();
+    }
+
+    /**
+     * First filled kadar among color-specific values.
+     *
+     * @param  list<string|null>  $kadars
+     */
+    public static function firstFilledKadar(array $kadars): ?string
+    {
+        foreach ($kadars as $kadar) {
+            if (filled($kadar)) {
+                return (string) $kadar;
+            }
+        }
+
+        return null;
     }
 
     protected $connection = 'third';
@@ -126,6 +181,9 @@ class CoranSpk extends Model
             'weight_whitegold' => 'decimal:2',
             'weight_yellowgold' => 'decimal:2',
             'kadar' => 'decimal:2',
+            'kadar_rosegold' => 'decimal:2',
+            'kadar_whitegold' => 'decimal:2',
+            'kadar_yellowgold' => 'decimal:2',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',
             'modified_date' => 'datetime',

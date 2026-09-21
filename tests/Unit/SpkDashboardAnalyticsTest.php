@@ -154,12 +154,15 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             $report['planningDaily']['doneTotal']
             + $report['planningDaily']['pendingTotal'],
         )
-        ->and($report['statusLists'])->toHaveKeys(['draft', 'confirmed', 'inProgress', 'overdue', 'done'])
+        ->and($report['statusLists'])->toHaveKeys(['draft', 'confirmed', 'inProgress', 'overdue', 'doneRangka', 'doneBarangJadi'])
         ->and($report['backlogYear'])->toBe((int) now()->year)
         ->and($report['summary']['overdueSpk'])->toBeInt()
         ->and($report['summary']['doneSpk'])->toBeInt()
+        ->and($report['summary']['doneRangkaSpk'])->toBeInt()
+        ->and($report['summary']['doneBarangJadiSpk'])->toBeInt()
         ->and($report['statusLists']['overdue'])->toBeArray()
-        ->and($report['statusLists']['done'])->toBeArray()
+        ->and($report['statusLists']['doneRangka'])->toBeArray()
+        ->and($report['statusLists']['doneBarangJadi'])->toBeArray()
         ->and($report['statusLists']['inProgress'][0] ?? $report['statusLists']['draft'][0] ?? null)->not->toBeNull()
         ->and(
             ($report['statusLists']['inProgress'][0] ?? $report['statusLists']['draft'][0] ?? $report['statusLists']['confirmed'][0] ?? $report['statusLists']['overdue'][0])
@@ -289,8 +292,8 @@ test('dashboard backlog status grouping matches dashboard card labels', function
             'last_process' => 'Poles Chrome',
             'is_inprocess' => 1,
         ],
-        'done',
-        'Done',
+        'doneBarangJadi',
+        'DONE (Barang Jadi)',
         true,
     ],
     'done poles rangka completed' => [
@@ -300,8 +303,8 @@ test('dashboard backlog status grouping matches dashboard card labels', function
             'last_process' => 'Poles Rangka',
             'is_inprocess' => 1,
         ],
-        'done',
-        'Done',
+        'doneRangka',
+        'DONE (Rangka)',
         true,
     ],
     'done poles barang jadi rpfdone for reference type' => [
@@ -312,8 +315,8 @@ test('dashboard backlog status grouping matches dashboard card labels', function
             'is_inprocess' => 1,
             'spk_type' => 'Reparasi',
         ],
-        'done',
-        'Done',
+        'doneBarangJadi',
+        'DONE (Barang Jadi)',
         true,
     ],
     'spkdone without process is confirmed' => [
@@ -532,7 +535,7 @@ test('completed production includes rpfdone for reference types only', function 
     expect(SpkDashboardAnalytics::hasCompletedProduction((int) $production->row_id))->toBeTrue()
         ->and(SpkDashboardAnalytics::completedReferencePolesBarangJadiSpkIds([(int) $production->row_id]))
         ->toContain((int) $production->row_id)
-        ->and(SpkDashboardAnalytics::backlogStatusKey($production))->toBe('done');
+        ->and(SpkDashboardAnalytics::backlogStatusKey($production))->toBe('doneBarangJadi');
 
     DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
     $production->delete();
@@ -564,7 +567,7 @@ test('completed production includes rfhdone for reference types only', function 
     expect(SpkDashboardAnalytics::hasCompletedProduction((int) $production->row_id))->toBeTrue()
         ->and(SpkDashboardAnalytics::completedReferenceFinishingSpkIds([(int) $production->row_id]))
         ->toContain((int) $production->row_id)
-        ->and(SpkDashboardAnalytics::backlogStatusKey($production))->toBe('done');
+        ->and(SpkDashboardAnalytics::backlogStatusKey($production))->toBe('doneBarangJadi');
 
     DB::connection('third')->table('finishinghandmade')->where('row_id', $processId)->delete();
     $production->delete();
@@ -629,3 +632,73 @@ test('completed production ignores rfhdone for non-reference types', function ()
     DB::connection('third')->table('finishinghandmade')->where('row_id', $processId)->delete();
     $production->delete();
 });
+
+test('done barang jadi takes priority over done rangka when both processes are completed', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'last_process' => 'Poles Chrome',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $rangkaId = DB::connection('third')->table('polishframe')->insertGetId([
+        'doc_no' => 'TEST-PRK-BOTH-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => 'PRKDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $chromeId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-PFG-BOTH-'.$production->row_id,
+        'process_name' => 'Poles Chrome',
+        'spk_id' => $production->row_id,
+        'status' => 'PFG040',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    expect(SpkDashboardAnalytics::completedProductionKind((int) $production->row_id))
+        ->toBe(SpkDashboardAnalytics::KEY_DONE_BARANG_JADI)
+        ->and(SpkDashboardAnalytics::backlogStatusKey($production))
+        ->toBe(SpkDashboardAnalytics::KEY_DONE_BARANG_JADI)
+        ->and(SpkDashboardAnalytics::backlogStatusLabel($production))
+        ->toBe('DONE (Barang Jadi)');
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $chromeId)->delete();
+    DB::connection('third')->table('polishframe')->where('row_id', $rangkaId)->delete();
+    $production->delete();
+});
+
+test('done rangka is returned when only polishframe is completed or handed to jb', function (string $processStatus) {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishframe')->insertGetId([
+        'doc_no' => 'TEST-PRK-KIND-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => $processStatus,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    expect(SpkDashboardAnalytics::completedProductionKind((int) $production->row_id))
+        ->toBe(SpkDashboardAnalytics::KEY_DONE_RANGKA)
+        ->and(SpkDashboardAnalytics::backlogStatusLabel($production))
+        ->toBe('DONE (Rangka)');
+
+    DB::connection('third')->table('polishframe')->where('row_id', $processId)->delete();
+    $production->delete();
+})->with([
+    'completed' => ['PRKDONE'],
+    'serahkan jb' => ['PRK040'],
+]);

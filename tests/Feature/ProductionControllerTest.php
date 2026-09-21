@@ -389,7 +389,7 @@ test('spk index marks status done when poles chrome is completed or handed to jb
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('productions.data.0.status', 'Done')
+            ->where('productions.data.0.status', 'DONE (Barang Jadi)')
             ->where('productions.data.0.prosesTerakhir', 'Poles Chrome')
             ->where('productions.data.0.prosesTerakhirDate', now()->format('d-M-Y'))
         );
@@ -424,7 +424,7 @@ test('spk index marks status done when poles rangka is completed or handed to jb
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('productions.data.0.status', 'Done')
+            ->where('productions.data.0.status', 'DONE (Rangka)')
             ->where('productions.data.0.prosesTerakhir', 'Poles Rangka')
         );
 
@@ -459,7 +459,7 @@ test('spk index marks status done when reference type poles barang jadi is rpfdo
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('productions.data.0.status', 'Done')
+            ->where('productions.data.0.status', 'DONE (Barang Jadi)')
             ->where('productions.data.0.prosesTerakhir', 'Poles Barang Jadi')
         );
 
@@ -495,7 +495,7 @@ test('spk index marks status done when reference type finishing is rfhdone', fun
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('productions.data.0.status', 'Done')
+            ->where('productions.data.0.status', 'DONE (Barang Jadi)')
             ->where('productions.data.0.prosesTerakhir', 'Finishing')
         );
 

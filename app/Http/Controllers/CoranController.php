@@ -312,8 +312,7 @@ class CoranController extends Controller
                 'weightRosegold' => $this->formatDecimal($detail->weight_rosegold) ?? '',
                 'weightWhitegold' => $this->formatDecimal($detail->weight_whitegold) ?? '',
                 'weightYellowgold' => $this->formatDecimal($detail->weight_yellowgold) ?? '',
-                'kadar' => $this->formatKadar($detail->kadar) ?? '',
-                'status' => filled($detail->status) ? (string) $detail->status : '',
+                ...$this->detailKadarStatusFormFields($detail),
             ])
             ->all();
 
@@ -547,7 +546,17 @@ class CoranController extends Controller
      *     weight_whitegold?: string|null,
      *     weight_yellowgold?: string|null,
      *     kadar?: string|null,
-     *     status?: string|null
+     *     weight_rosegold?: string|null,
+     *     weight_whitegold?: string|null,
+     *     weight_yellowgold?: string|null,
+     *     kadar?: string|null,
+     *     kadar_rosegold?: string|null,
+     *     kadar_whitegold?: string|null,
+     *     kadar_yellowgold?: string|null,
+     *     status?: string|null,
+     *     status_rosegold?: string|null,
+     *     status_whitegold?: string|null,
+     *     status_yellowgold?: string|null
      * }>  $details
      */
     private function storeDetails(Coran $coran, array $details, string $actor): void
@@ -592,6 +601,30 @@ class CoranController extends Controller
                     : null;
                 $payload['weight_yellowgold'] = filled($detail['weight_yellowgold'] ?? null)
                     ? $detail['weight_yellowgold']
+                    : null;
+            }
+
+            if (Schema::connection('third')->hasColumn('coranspk', 'kadar_rosegold')) {
+                $payload['kadar_rosegold'] = filled($detail['kadar_rosegold'] ?? null)
+                    ? $detail['kadar_rosegold']
+                    : null;
+                $payload['kadar_whitegold'] = filled($detail['kadar_whitegold'] ?? null)
+                    ? $detail['kadar_whitegold']
+                    : null;
+                $payload['kadar_yellowgold'] = filled($detail['kadar_yellowgold'] ?? null)
+                    ? $detail['kadar_yellowgold']
+                    : null;
+            }
+
+            if (Schema::connection('third')->hasColumn('coranspk', 'status_rosegold')) {
+                $payload['status_rosegold'] = filled($detail['status_rosegold'] ?? null)
+                    ? (string) $detail['status_rosegold']
+                    : null;
+                $payload['status_whitegold'] = filled($detail['status_whitegold'] ?? null)
+                    ? (string) $detail['status_whitegold']
+                    : null;
+                $payload['status_yellowgold'] = filled($detail['status_yellowgold'] ?? null)
+                    ? (string) $detail['status_yellowgold']
                     : null;
             }
 
@@ -837,11 +870,7 @@ class CoranController extends Controller
                     'weightRosegold' => $this->formatDecimal($detail->weight_rosegold),
                     'weightWhitegold' => $this->formatDecimal($detail->weight_whitegold),
                     'weightYellowgold' => $this->formatDecimal($detail->weight_yellowgold),
-                    'kadar' => $this->formatKadar($detail->kadar),
-                    'status' => filled($detail->status) ? (string) $detail->status : null,
-                    'statusLabel' => $this->spkStatusLabel(
-                        filled($detail->status) ? (string) $detail->status : null,
-                    ),
+                    ...$this->detailKadarStatusDisplayFields($detail),
                 ])
                 ->values()
                 ->all(),
@@ -991,6 +1020,131 @@ class CoranController extends Controller
                 ? (string) $production->customer_name
                 : null,
             'satuan' => SpkQtyUnit::label($production->qty, $production->satuan),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     kadar: string,
+     *     kadarRosegold: string,
+     *     kadarWhitegold: string,
+     *     kadarYellowgold: string,
+     *     status: string,
+     *     statusRosegold: string,
+     *     statusWhitegold: string,
+     *     statusYellowgold: string
+     * }
+     */
+    private function detailKadarStatusFormFields(CoranSpk $detail): array
+    {
+        $legacyKadar = $this->formatKadar($detail->kadar) ?? '';
+        $legacyStatus = filled($detail->status) ? (string) $detail->status : '';
+
+        $kadarRosegold = $this->formatKadar($detail->kadar_rosegold ?? null) ?? '';
+        $kadarWhitegold = $this->formatKadar($detail->kadar_whitegold ?? null) ?? '';
+        $kadarYellowgold = $this->formatKadar($detail->kadar_yellowgold ?? null) ?? '';
+        $hasColorKadar = $kadarRosegold !== ''
+            || $kadarWhitegold !== ''
+            || $kadarYellowgold !== '';
+
+        if (! $hasColorKadar && $legacyKadar !== '') {
+            $kadarRosegold = $legacyKadar;
+        }
+
+        $statusRosegold = filled($detail->status_rosegold ?? null)
+            ? (string) $detail->status_rosegold
+            : '';
+        $statusWhitegold = filled($detail->status_whitegold ?? null)
+            ? (string) $detail->status_whitegold
+            : '';
+        $statusYellowgold = filled($detail->status_yellowgold ?? null)
+            ? (string) $detail->status_yellowgold
+            : '';
+        $hasColorStatus = $statusRosegold !== ''
+            || $statusWhitegold !== ''
+            || $statusYellowgold !== '';
+
+        if (! $hasColorStatus && $legacyStatus !== '') {
+            $statusRosegold = $legacyStatus;
+        }
+
+        return [
+            'kadar' => $legacyKadar,
+            'kadarRosegold' => $kadarRosegold,
+            'kadarWhitegold' => $kadarWhitegold,
+            'kadarYellowgold' => $kadarYellowgold,
+            'status' => $legacyStatus,
+            'statusRosegold' => $statusRosegold,
+            'statusWhitegold' => $statusWhitegold,
+            'statusYellowgold' => $statusYellowgold,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     kadar: string|null,
+     *     kadarRosegold: string|null,
+     *     kadarWhitegold: string|null,
+     *     kadarYellowgold: string|null,
+     *     status: string|null,
+     *     statusLabel: string,
+     *     statusRosegold: string|null,
+     *     statusRosegoldLabel: string,
+     *     statusWhitegold: string|null,
+     *     statusWhitegoldLabel: string,
+     *     statusYellowgold: string|null,
+     *     statusYellowgoldLabel: string
+     * }
+     */
+    private function detailKadarStatusDisplayFields(CoranSpk $detail): array
+    {
+        $legacyKadar = $this->formatKadar($detail->kadar);
+        $kadarRosegold = $this->formatKadar($detail->kadar_rosegold ?? null);
+        $kadarWhitegold = $this->formatKadar($detail->kadar_whitegold ?? null);
+        $kadarYellowgold = $this->formatKadar($detail->kadar_yellowgold ?? null);
+
+        if (
+            $kadarRosegold === null
+            && $kadarWhitegold === null
+            && $kadarYellowgold === null
+            && $legacyKadar !== null
+        ) {
+            $kadarRosegold = $legacyKadar;
+        }
+
+        $legacyStatus = filled($detail->status) ? (string) $detail->status : null;
+        $statusRosegold = filled($detail->status_rosegold ?? null)
+            ? (string) $detail->status_rosegold
+            : null;
+        $statusWhitegold = filled($detail->status_whitegold ?? null)
+            ? (string) $detail->status_whitegold
+            : null;
+        $statusYellowgold = filled($detail->status_yellowgold ?? null)
+            ? (string) $detail->status_yellowgold
+            : null;
+
+        if (
+            $statusRosegold === null
+            && $statusWhitegold === null
+            && $statusYellowgold === null
+            && $legacyStatus !== null
+        ) {
+            $statusRosegold = $legacyStatus;
+        }
+
+        return [
+            'kadar' => $legacyKadar,
+            'kadarRosegold' => $kadarRosegold,
+            'kadarWhitegold' => $kadarWhitegold,
+            'kadarYellowgold' => $kadarYellowgold,
+            'status' => $legacyStatus,
+            'statusLabel' => $this->spkStatusLabel($legacyStatus),
+            'statusRosegold' => $statusRosegold,
+            'statusRosegoldLabel' => $this->spkStatusLabel($statusRosegold),
+            'statusWhitegold' => $statusWhitegold,
+            'statusWhitegoldLabel' => $this->spkStatusLabel($statusWhitegold),
+            'statusYellowgold' => $statusYellowgold,
+            'statusYellowgoldLabel' => $this->spkStatusLabel($statusYellowgold),
         ];
     }
 

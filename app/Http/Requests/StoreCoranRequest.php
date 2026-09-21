@@ -54,11 +54,69 @@ class StoreCoranRequest extends FormRequest
                         (float) ($weightRosegold ?? 0)
                         + (float) ($weightWhitegold ?? 0)
                         + (float) ($weightYellowgold ?? 0),
-                        3,
+                        2,
                         '.',
                         '',
                     );
                 }
+
+                $kadarRosegold = filled($row['kadar_rosegold'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['kadar_rosegold']))
+                    : null;
+                $kadarWhitegold = filled($row['kadar_whitegold'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['kadar_whitegold']))
+                    : null;
+                $kadarYellowgold = filled($row['kadar_yellowgold'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['kadar_yellowgold']))
+                    : null;
+
+                $hasColorKadar = $kadarRosegold !== null
+                    || $kadarWhitegold !== null
+                    || $kadarYellowgold !== null;
+
+                $legacyKadar = filled($row['kadar'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['kadar']))
+                    : null;
+
+                if (! $hasColorKadar && $legacyKadar !== null) {
+                    $kadarRosegold = $legacyKadar;
+                    $kadarWhitegold = $legacyKadar;
+                    $kadarYellowgold = $legacyKadar;
+                    $hasColorKadar = true;
+                }
+
+                $kadar = $hasColorKadar
+                    ? CoranSpk::firstFilledKadar([
+                        $kadarRosegold,
+                        $kadarWhitegold,
+                        $kadarYellowgold,
+                    ])
+                    : $legacyKadar;
+
+                $statusRosegold = CoranSpk::normalizeInputStatus($row['status_rosegold'] ?? null);
+                $statusWhitegold = CoranSpk::normalizeInputStatus($row['status_whitegold'] ?? null);
+                $statusYellowgold = CoranSpk::normalizeInputStatus($row['status_yellowgold'] ?? null);
+
+                $hasColorStatus = $statusRosegold !== null
+                    || $statusWhitegold !== null
+                    || $statusYellowgold !== null;
+
+                $legacyStatus = CoranSpk::normalizeInputStatus($row['status'] ?? null);
+
+                if (! $hasColorStatus && $legacyStatus !== null) {
+                    $statusRosegold = $legacyStatus;
+                    $statusWhitegold = $legacyStatus;
+                    $statusYellowgold = $legacyStatus;
+                    $hasColorStatus = true;
+                }
+
+                $status = $hasColorStatus
+                    ? CoranSpk::aggregateInputStatus([
+                        $statusRosegold,
+                        $statusWhitegold,
+                        $statusYellowgold,
+                    ])
+                    : $legacyStatus;
 
                 return [
                     'spk_id' => isset($row['spk_id']) && $row['spk_id'] !== ''
@@ -68,10 +126,14 @@ class StoreCoranRequest extends FormRequest
                     'weight_rosegold' => $weightRosegold,
                     'weight_whitegold' => $weightWhitegold,
                     'weight_yellowgold' => $weightYellowgold,
-                    'kadar' => filled($row['kadar'] ?? null)
-                        ? str_replace(',', '.', trim((string) $row['kadar']))
-                        : null,
-                    'status' => CoranSpk::normalizeInputStatus($row['status'] ?? null),
+                    'kadar' => $kadar,
+                    'kadar_rosegold' => $kadarRosegold,
+                    'kadar_whitegold' => $kadarWhitegold,
+                    'kadar_yellowgold' => $kadarYellowgold,
+                    'status' => $status,
+                    'status_rosegold' => $statusRosegold,
+                    'status_whitegold' => $statusWhitegold,
+                    'status_yellowgold' => $statusYellowgold,
                 ];
             })
             ->values()
@@ -141,7 +203,25 @@ class StoreCoranRequest extends FormRequest
             'details.*.weight_whitegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'details.*.weight_yellowgold' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'details.*.kadar' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'details.*.kadar_rosegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'details.*.kadar_whitegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'details.*.kadar_yellowgold' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'details.*.status' => [
+                'nullable',
+                'string',
+                Rule::in(CoranSpk::inputStatuses()),
+            ],
+            'details.*.status_rosegold' => [
+                'nullable',
+                'string',
+                Rule::in(CoranSpk::inputStatuses()),
+            ],
+            'details.*.status_whitegold' => [
+                'nullable',
+                'string',
+                Rule::in(CoranSpk::inputStatuses()),
+            ],
+            'details.*.status_yellowgold' => [
                 'nullable',
                 'string',
                 Rule::in(CoranSpk::inputStatuses()),
@@ -248,7 +328,13 @@ class StoreCoranRequest extends FormRequest
             'details.*.weight_whitegold.numeric' => 'Berat White Gold harus berupa angka.',
             'details.*.weight_yellowgold.numeric' => 'Berat Yellow Gold harus berupa angka.',
             'details.*.kadar.numeric' => 'Kadar harus berupa angka.',
+            'details.*.kadar_rosegold.numeric' => 'Kadar Rose Gold harus berupa angka.',
+            'details.*.kadar_whitegold.numeric' => 'Kadar White Gold harus berupa angka.',
+            'details.*.kadar_yellowgold.numeric' => 'Kadar Yellow Gold harus berupa angka.',
             'details.*.status.in' => 'Status coran tidak valid.',
+            'details.*.status_rosegold.in' => 'Status Rose Gold tidak valid.',
+            'details.*.status_whitegold.in' => 'Status White Gold tidak valid.',
+            'details.*.status_yellowgold.in' => 'Status Yellow Gold tidak valid.',
             'materials.*.section.required' => 'Kategori bahan emas wajib dipilih.',
             'materials.*.section.in' => 'Kategori bahan emas tidak valid.',
             'materials.*.materialgold_id.required' => 'Bahan emas wajib dipilih.',

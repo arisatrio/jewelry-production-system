@@ -52,8 +52,17 @@ type CoranDetailRow = {
     weightWhitegold?: string | null;
     weightYellowgold?: string | null;
     kadar: string | null;
+    kadarRosegold?: string | null;
+    kadarWhitegold?: string | null;
+    kadarYellowgold?: string | null;
     status: string | null;
     statusLabel: string;
+    statusRosegold?: string | null;
+    statusRosegoldLabel?: string;
+    statusWhitegold?: string | null;
+    statusWhitegoldLabel?: string;
+    statusYellowgold?: string | null;
+    statusYellowgoldLabel?: string;
 };
 
 type CoranDetailItem = {
@@ -578,14 +587,14 @@ export function CoranDetail({
                                                     <br />
                                                     hasil coran (g)
                                                 </th>
+                                                <th>Kadar</th>
+                                                <th className="spkTableColCenter">
+                                                    Status
+                                                </th>
                                                 <th>
                                                     Total
                                                     <br />
                                                     Berat (g)
-                                                </th>
-                                                <th>Kadar</th>
-                                                <th className="spkTableColCenter">
-                                                    Status
                                                 </th>
                                             </tr>
                                         </thead>
@@ -600,10 +609,26 @@ export function CoranDetail({
                                             ) : (
                                                 coranItem.details.map(
                                                     (detail) => {
-                                                        const qcStatus =
-                                                            resolveQcStatusFromCoranStatus(
-                                                                detail.status,
-                                                            );
+                                                        const statusColors = [
+                                                            {
+                                                                label: 'Rose Gold',
+                                                                status: detail.statusRosegold,
+                                                                statusLabel:
+                                                                    detail.statusRosegoldLabel,
+                                                            },
+                                                            {
+                                                                label: 'White Gold',
+                                                                status: detail.statusWhitegold,
+                                                                statusLabel:
+                                                                    detail.statusWhitegoldLabel,
+                                                            },
+                                                            {
+                                                                label: 'Yellow Gold',
+                                                                status: detail.statusYellowgold,
+                                                                statusLabel:
+                                                                    detail.statusYellowgoldLabel,
+                                                            },
+                                                        ];
 
                                                         return (
                                                             <tr
@@ -673,29 +698,75 @@ export function CoranDetail({
                                                                     </div>
                                                                 </td>
                                                                 <td>
+                                                                    <div className="spkFioriFieldStack">
+                                                                        <span>
+                                                                            Rose
+                                                                            Gold:{' '}
+                                                                            {displayValue(
+                                                                                detail.kadarRosegold,
+                                                                            )}
+                                                                        </span>
+                                                                        <span>
+                                                                            White
+                                                                            Gold:{' '}
+                                                                            {displayValue(
+                                                                                detail.kadarWhitegold,
+                                                                            )}
+                                                                        </span>
+                                                                        <span>
+                                                                            Yellow
+                                                                            Gold:{' '}
+                                                                            {displayValue(
+                                                                                detail.kadarYellowgold,
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="spkTableColCenter">
+                                                                    <div className="spkFioriFieldStack items-center gap-2">
+                                                                        {statusColors.map(
+                                                                            (
+                                                                                color,
+                                                                            ) => {
+                                                                                const qcStatus =
+                                                                                    resolveQcStatusFromCoranStatus(
+                                                                                        color.status ??
+                                                                                            null,
+                                                                                    );
+
+                                                                                return (
+                                                                                    <div
+                                                                                        key={`${detail.lineId}-${color.label}`}
+                                                                                        className="spkFioriFieldStack items-center"
+                                                                                    >
+                                                                                        <span>
+                                                                                            {
+                                                                                                color.label
+                                                                                            }
+                                                                                        </span>
+                                                                                        {qcStatus ? (
+                                                                                            <SpkQcStatusBadge
+                                                                                                status={
+                                                                                                    qcStatus
+                                                                                                }
+                                                                                            />
+                                                                                        ) : (
+                                                                                            displayValue(
+                                                                                                color.statusLabel,
+                                                                                            )
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            },
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td>
                                                                     <strong>
                                                                         {displayValue(
                                                                             detail.weight,
                                                                         )}
                                                                     </strong>
-                                                                </td>
-                                                                <td>
-                                                                    {displayValue(
-                                                                        detail.kadar,
-                                                                    )}
-                                                                </td>
-                                                                <td className="spkTableColCenter">
-                                                                    {qcStatus ? (
-                                                                        <SpkQcStatusBadge
-                                                                            status={
-                                                                                qcStatus
-                                                                            }
-                                                                        />
-                                                                    ) : (
-                                                                        displayValue(
-                                                                            detail.statusLabel,
-                                                                        )
-                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         );

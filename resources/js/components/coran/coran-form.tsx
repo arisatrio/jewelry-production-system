@@ -49,8 +49,12 @@ type CoranDetailForm = {
     weight_rosegold: string;
     weight_whitegold: string;
     weight_yellowgold: string;
-    kadar: string;
-    status: string;
+    kadar_rosegold: string;
+    kadar_whitegold: string;
+    kadar_yellowgold: string;
+    status_rosegold: string;
+    status_whitegold: string;
+    status_yellowgold: string;
 };
 
 type CoranFormValues = {
@@ -77,6 +81,18 @@ const SPK_WEIGHT_COLORS = [
     { field: 'weight_rosegold', label: 'Rose Gold' },
     { field: 'weight_whitegold', label: 'White Gold' },
     { field: 'weight_yellowgold', label: 'Yellow Gold' },
+] as const;
+
+const SPK_KADAR_COLORS = [
+    { field: 'kadar_rosegold', label: 'Rose Gold' },
+    { field: 'kadar_whitegold', label: 'White Gold' },
+    { field: 'kadar_yellowgold', label: 'Yellow Gold' },
+] as const;
+
+const SPK_STATUS_COLORS = [
+    { field: 'status_rosegold', label: 'Rose Gold' },
+    { field: 'status_whitegold', label: 'White Gold' },
+    { field: 'status_yellowgold', label: 'Yellow Gold' },
 ] as const;
 
 function fieldState(error?: string): 'None' | 'Negative' {
@@ -204,8 +220,12 @@ export function CoranForm({
                 weight_rosegold: '',
                 weight_whitegold: '',
                 weight_yellowgold: '',
-                kadar: '',
-                status: '',
+                kadar_rosegold: '',
+                kadar_whitegold: '',
+                kadar_yellowgold: '',
+                status_rosegold: '',
+                status_whitegold: '',
+                status_yellowgold: '',
             },
         ]);
     };
@@ -242,8 +262,24 @@ export function CoranForm({
                         weightYellowgold !== null
                             ? formatWeightTotal(total)
                             : normalizeWeightForSubmit(detail.weight ?? ''),
-                    kadar: normalizeWeightForSubmit(detail.kadar),
-                    status: normalizeStatusForSubmit(detail.status),
+                    kadar_rosegold: normalizeWeightForSubmit(
+                        detail.kadar_rosegold,
+                    ),
+                    kadar_whitegold: normalizeWeightForSubmit(
+                        detail.kadar_whitegold,
+                    ),
+                    kadar_yellowgold: normalizeWeightForSubmit(
+                        detail.kadar_yellowgold,
+                    ),
+                    status_rosegold: normalizeStatusForSubmit(
+                        detail.status_rosegold,
+                    ),
+                    status_whitegold: normalizeStatusForSubmit(
+                        detail.status_whitegold,
+                    ),
+                    status_yellowgold: normalizeStatusForSubmit(
+                        detail.status_yellowgold,
+                    ),
                 };
             }),
             materials: formData.materials
@@ -442,9 +478,9 @@ export function CoranForm({
                                                     <br />
                                                     hasil coran (g)
                                                 </th>
-                                                <th>Total Berat (g)</th>
                                                 <th>Kadar</th>
                                                 <th>Status Coran</th>
+                                                <th>Total Berat (g)</th>
                                                 <th className="spkTableActionCol">
                                                     Aksi
                                                 </th>
@@ -575,6 +611,157 @@ export function CoranForm({
                                                                 </div>
                                                             </td>
                                                             <td>
+                                                                <div className="spkFioriFieldStack gap-2">
+                                                                    {SPK_KADAR_COLORS.map(
+                                                                        (
+                                                                            color,
+                                                                        ) => (
+                                                                            <div
+                                                                                key={
+                                                                                    color.field
+                                                                                }
+                                                                                className="spkFioriFieldStack"
+                                                                            >
+                                                                                <Label>
+                                                                                    {
+                                                                                        color.label
+                                                                                    }
+                                                                                </Label>
+                                                                                <Input
+                                                                                    type="Number"
+                                                                                    accessibleName={`Kadar ${color.label}`}
+                                                                                    value={
+                                                                                        detail[
+                                                                                            color
+                                                                                                .field
+                                                                                        ]
+                                                                                    }
+                                                                                    valueState={fieldState(
+                                                                                        detailError(
+                                                                                            errors,
+                                                                                            index,
+                                                                                            color.field,
+                                                                                        ),
+                                                                                    )}
+                                                                                    onInput={(
+                                                                                        event,
+                                                                                    ) =>
+                                                                                        updateDetail(
+                                                                                            index,
+                                                                                            color.field,
+                                                                                            event
+                                                                                                .target
+                                                                                                .value ??
+                                                                                                '',
+                                                                                        )
+                                                                                    }
+                                                                                />
+                                                                                {detailError(
+                                                                                    errors,
+                                                                                    index,
+                                                                                    color.field,
+                                                                                ) ? (
+                                                                                    <Text className="spkFioriError">
+                                                                                        {detailError(
+                                                                                            errors,
+                                                                                            index,
+                                                                                            color.field,
+                                                                                        )}
+                                                                                    </Text>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        ),
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <div className="spkFioriFieldStack gap-2">
+                                                                    {SPK_STATUS_COLORS.map(
+                                                                        (
+                                                                            color,
+                                                                        ) => (
+                                                                            <div
+                                                                                key={
+                                                                                    color.field
+                                                                                }
+                                                                                className="spkFioriFieldStack"
+                                                                            >
+                                                                                <Label>
+                                                                                    {
+                                                                                        color.label
+                                                                                    }
+                                                                                </Label>
+                                                                                <Select
+                                                                                    accessibleName={`Status ${color.label}`}
+                                                                                    onChange={(
+                                                                                        event,
+                                                                                    ) =>
+                                                                                        updateDetail(
+                                                                                            index,
+                                                                                            color.field,
+                                                                                            event
+                                                                                                .detail
+                                                                                                .selectedOption
+                                                                                                .value ??
+                                                                                                '',
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <Option
+                                                                                        value=""
+                                                                                        selected={
+                                                                                            detail[
+                                                                                                color
+                                                                                                    .field
+                                                                                            ].trim() ===
+                                                                                            ''
+                                                                                        }
+                                                                                    >
+                                                                                        —
+                                                                                    </Option>
+                                                                                    {statusOptions.map(
+                                                                                        (
+                                                                                            option,
+                                                                                        ) => (
+                                                                                            <Option
+                                                                                                key={`${color.field}-${option.value}`}
+                                                                                                value={
+                                                                                                    option.value
+                                                                                                }
+                                                                                                selected={
+                                                                                                    detail[
+                                                                                                        color
+                                                                                                            .field
+                                                                                                    ] ===
+                                                                                                    option.value
+                                                                                                }
+                                                                                            >
+                                                                                                {
+                                                                                                    option.label
+                                                                                                }
+                                                                                            </Option>
+                                                                                        ),
+                                                                                    )}
+                                                                                </Select>
+                                                                                {detailError(
+                                                                                    errors,
+                                                                                    index,
+                                                                                    color.field,
+                                                                                ) ? (
+                                                                                    <Text className="spkFioriError">
+                                                                                        {detailError(
+                                                                                            errors,
+                                                                                            index,
+                                                                                            color.field,
+                                                                                        )}
+                                                                                    </Text>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        ),
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td>
                                                                 <strong>
                                                                     {formatWeightTotal(
                                                                         detailTotalWeight(
@@ -582,114 +769,6 @@ export function CoranForm({
                                                                         ),
                                                                     )}
                                                                 </strong>
-                                                            </td>
-                                                            <td>
-                                                                <div className="spkFioriFieldStack">
-                                                                    <Input
-                                                                        type="Number"
-                                                                        accessibleName="Kadar"
-                                                                        value={
-                                                                            detail.kadar
-                                                                        }
-                                                                        valueState={fieldState(
-                                                                            detailError(
-                                                                                errors,
-                                                                                index,
-                                                                                'kadar',
-                                                                            ),
-                                                                        )}
-                                                                        onInput={(
-                                                                            event,
-                                                                        ) =>
-                                                                            updateDetail(
-                                                                                index,
-                                                                                'kadar',
-                                                                                event
-                                                                                    .target
-                                                                                    .value ??
-                                                                                    '',
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                    {detailError(
-                                                                        errors,
-                                                                        index,
-                                                                        'kadar',
-                                                                    ) ? (
-                                                                        <Text className="spkFioriError">
-                                                                            {detailError(
-                                                                                errors,
-                                                                                index,
-                                                                                'kadar',
-                                                                            )}
-                                                                        </Text>
-                                                                    ) : null}
-                                                                </div>
-                                                            </td>
-                                                            <td>
-                                                                <div className="spkFioriFieldStack">
-                                                                    <Select
-                                                                        accessibleName="Status coran"
-                                                                        onChange={(
-                                                                            event,
-                                                                        ) =>
-                                                                            updateDetail(
-                                                                                index,
-                                                                                'status',
-                                                                                event
-                                                                                    .detail
-                                                                                    .selectedOption
-                                                                                    .value ??
-                                                                                    '',
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        <Option
-                                                                            value=""
-                                                                            selected={
-                                                                                detail.status.trim() ===
-                                                                                ''
-                                                                            }
-                                                                        >
-                                                                            —
-                                                                        </Option>
-                                                                        {statusOptions.map(
-                                                                            (
-                                                                                option,
-                                                                            ) => (
-                                                                                <Option
-                                                                                    key={
-                                                                                        option.value
-                                                                                    }
-                                                                                    value={
-                                                                                        option.value
-                                                                                    }
-                                                                                    selected={
-                                                                                        detail.status ===
-                                                                                        option.value
-                                                                                    }
-                                                                                >
-                                                                                    {
-                                                                                        option.label
-                                                                                    }
-                                                                                </Option>
-                                                                            ),
-                                                                        )}
-                                                                    </Select>
-                                                                    {detailError(
-                                                                        errors,
-                                                                        index,
-                                                                        'status',
-                                                                    ) ? (
-                                                                        <Text className="spkFioriError">
-                                                                            {detailError(
-                                                                                errors,
-                                                                                index,
-                                                                                'status',
-                                                                            )}
-                                                                        </Text>
-                                                                    ) : null}
-                                                                </div>
                                                             </td>
                                                             <td className="spkTableActionCol">
                                                                 <Button
@@ -708,7 +787,7 @@ export function CoranForm({
                                                     ),
                                                 )}
                                             <tr>
-                                                <td colSpan={7}>
+                                                <td colSpan={8}>
                                                     {data.details.length === 0
                                                         ? 'Belum ada SPK.'
                                                         : null}

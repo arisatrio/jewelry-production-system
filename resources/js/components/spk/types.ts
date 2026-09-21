@@ -3,6 +3,8 @@ export type SpkStatus =
     | 'Menunggu Approval'
     | 'Draft'
     | 'In Progress'
+    | 'DONE (Rangka)'
+    | 'DONE (Barang Jadi)'
     | 'Done'
     | 'Pengajuan Approval'
     | (string & {});
@@ -28,7 +30,12 @@ export type SpkRow = {
 };
 
 export type SpkWorkflowStatusKey =
-    'draft' | 'confirmed' | 'inProgress' | 'done';
+    | 'draft'
+    | 'confirmed'
+    | 'inProgress'
+    | 'done'
+    | 'doneRangka'
+    | 'doneBarangJadi';
 
 export type SpkWorkflowStatus = {
     key: SpkWorkflowStatusKey;

@@ -34,7 +34,8 @@ type SpkIndexProps = {
         pendingManager: string;
         confirmed: string;
         inProgress: string;
-        done: string;
+        doneRangka: string;
+        doneBarangJadi: string;
     };
     statuses: string[];
     filters: {

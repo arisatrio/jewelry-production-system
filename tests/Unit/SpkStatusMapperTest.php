@@ -99,12 +99,22 @@ test('spk status mapper classifies in progress when process started', function (
     ]);
     $done->row_id = 3;
 
+    $doneRangka = new Production([
+        'status' => SpkApprovalService::STATUS_DONE,
+        'status_order' => 'NO',
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+    ]);
+    $doneRangka->row_id = 4;
+
     $mapper = new SpkStatusMapper;
 
     expect($mapper->resolveKey($byLastProcess, false))->toBe(SpkStatusMapper::KEY_IN_PROGRESS)
         ->and($mapper->resolveKey($byFlag, false))->toBe(SpkStatusMapper::KEY_IN_PROGRESS)
         ->and($mapper->resolveKey($done, false))->toBe(SpkStatusMapper::KEY_IN_PROGRESS)
-        ->and($mapper->resolveKey($done, true))->toBe(SpkStatusMapper::KEY_DONE)
+        ->and($mapper->resolveKey($done, true))->toBe(SpkStatusMapper::KEY_DONE_BARANG_JADI)
+        ->and($mapper->map($done, true)['stages'][3]['label'])->toBe('DONE (Barang Jadi)')
+        ->and($mapper->map($doneRangka, true)['stages'][3]['label'])->toBe('DONE (Rangka)')
         ->and($mapper->stageIndexFor(SpkStatusMapper::KEY_IN_PROGRESS))->toBe(2);
 });
 
@@ -152,7 +162,8 @@ test('spk status mapper maps a real production record from third database', func
             SpkStatusMapper::KEY_DRAFT,
             SpkStatusMapper::KEY_CONFIRMED,
             SpkStatusMapper::KEY_IN_PROGRESS,
-            SpkStatusMapper::KEY_DONE,
+            SpkStatusMapper::KEY_DONE_RANGKA,
+            SpkStatusMapper::KEY_DONE_BARANG_JADI,
         ])
         ->and($mapped['stageIndex'])->toBe((new SpkStatusMapper)->stageIndexFor($mapped['key']))
         ->and($mapped['label'])->toBe((new SpkStatusMapper)->labelFor($mapped['key']));

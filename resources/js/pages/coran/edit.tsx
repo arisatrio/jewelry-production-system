@@ -48,8 +48,12 @@ type CoranEditProps = {
             weightRosegold?: string | null;
             weightWhitegold?: string | null;
             weightYellowgold?: string | null;
-            kadar?: string | null;
-            status: string;
+            kadarRosegold?: string | null;
+            kadarWhitegold?: string | null;
+            kadarYellowgold?: string | null;
+            statusRosegold?: string | null;
+            statusWhitegold?: string | null;
+            statusYellowgold?: string | null;
         }>;
         materials: Array<{
             section: string;
@@ -100,8 +104,12 @@ export default function CoranEdit({
                         weight_rosegold: detail.weightRosegold ?? '',
                         weight_whitegold: detail.weightWhitegold ?? '',
                         weight_yellowgold: detail.weightYellowgold ?? '',
-                        kadar: detail.kadar ?? '',
-                        status: detail.status ?? '',
+                        kadar_rosegold: detail.kadarRosegold ?? '',
+                        kadar_whitegold: detail.kadarWhitegold ?? '',
+                        kadar_yellowgold: detail.kadarYellowgold ?? '',
+                        status_rosegold: detail.statusRosegold ?? '',
+                        status_whitegold: detail.statusWhitegold ?? '',
+                        status_yellowgold: detail.statusYellowgold ?? '',
                     })),
                     materials: (form.materials ?? []).map(
                         (material, index) => ({
