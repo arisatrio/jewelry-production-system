@@ -28,7 +28,7 @@ test('coran spk factory creates a record on the third connection', function () {
     $detail = CoranSpk::factory()->create([
         'row_id' => $coran->row_id,
         'spk_id' => $production->row_id,
-        'weight' => '2.500',
+        'weight' => '2.50',
     ]);
 
     expect($detail->exists)->toBeTrue()

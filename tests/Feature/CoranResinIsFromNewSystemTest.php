@@ -35,7 +35,7 @@ test('coran store sets is_from_new_system to one', function () {
         'details' => [
             [
                 'spk_id' => $production->row_id,
-                'weight' => '1.000',
+                'weight' => '1.00',
                 'status' => null,
             ],
         ],

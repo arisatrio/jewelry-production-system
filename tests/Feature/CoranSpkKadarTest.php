@@ -21,7 +21,7 @@ test('coran store persists kadar for each spk detail', function () {
         'details' => [
             [
                 'spk_id' => $production->row_id,
-                'weight' => '2.500',
+                'weight' => '2.50',
                 'kadar' => '75.00',
                 'status' => 'OK',
             ],
@@ -77,7 +77,7 @@ test('coran update persists kadar changes', function () {
     CoranSpk::factory()->create([
         'row_id' => $coran->row_id,
         'spk_id' => $production->row_id,
-        'weight' => '1.000',
+        'weight' => '1.00',
         'kadar' => '37.50',
     ]);
 
@@ -87,7 +87,7 @@ test('coran update persists kadar changes', function () {
         'details' => [
             [
                 'spk_id' => $production->row_id,
-                'weight' => '1.250',
+                'weight' => '1.25',
                 'kadar' => '91.60',
                 'status' => 'OK',
             ],
@@ -102,7 +102,7 @@ test('coran update persists kadar changes', function () {
 
     expect($detail)->not->toBeNull()
         ->and((string) $detail->kadar)->toBe('91.60')
-        ->and((string) $detail->weight)->toBe('1.250');
+        ->and((string) $detail->weight)->toBe('1.25');
 
     CoranSpk::query()->where('row_id', $coran->row_id)->delete();
     $coran->delete();

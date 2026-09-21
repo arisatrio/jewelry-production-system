@@ -41,10 +41,10 @@ test('spk production control report includes lead idle and yield', function () {
         ]);
 
     if ($production->spk_no === '2024/PRD/00012') {
-        expect($report['yieldPlanning']['planningWeight'])->toBe('2.800')
-            ->and($report['yieldPlanning']['endWeight'])->toBe('2.230')
+        expect($report['yieldPlanning']['planningWeight'])->toBe('2.80')
+            ->and($report['yieldPlanning']['endWeight'])->toBe('2.23')
             ->and($report['yieldPlanning']['yieldPercent'])->toBe('79.64')
-            ->and($report['yieldPlanning']['goldUsed'])->toBe('1.280')
+            ->and($report['yieldPlanning']['goldUsed'])->toBe('1.28')
             ->and($report['idleTimes'])->not->toBeEmpty()
             ->and($report['leadTime']['estimatedDays'])->toBe(121.0);
     }

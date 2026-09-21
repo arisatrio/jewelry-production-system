@@ -21,9 +21,9 @@ test('coran store persists weight per gold color and totals weight', function ()
         'details' => [
             [
                 'spk_id' => $production->row_id,
-                'weight_rosegold' => '1.100',
-                'weight_whitegold' => '0.400',
-                'weight_yellowgold' => '1.000',
+                'weight_rosegold' => '1.10',
+                'weight_whitegold' => '0.40',
+                'weight_yellowgold' => '1.00',
                 'kadar' => '75.00',
                 'status' => 'OK',
             ],
@@ -49,10 +49,10 @@ test('coran store persists weight per gold color and totals weight', function ()
         ->first();
 
     expect($detail)->not->toBeNull()
-        ->and((string) $detail->weight_rosegold)->toBe('1.100')
-        ->and((string) $detail->weight_whitegold)->toBe('0.400')
-        ->and((string) $detail->weight_yellowgold)->toBe('1.000')
-        ->and((string) $detail->weight)->toBe('2.500');
+        ->and((string) $detail->weight_rosegold)->toBe('1.10')
+        ->and((string) $detail->weight_whitegold)->toBe('0.40')
+        ->and((string) $detail->weight_yellowgold)->toBe('1.00')
+        ->and((string) $detail->weight)->toBe('2.50');
 
     $production->refresh();
 
@@ -62,10 +62,10 @@ test('coran store persists weight per gold color and totals weight', function ()
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('coran/show')
-            ->where('coranItem.details.0.weightRosegold', '1.100')
-            ->where('coranItem.details.0.weightWhitegold', '0.400')
-            ->where('coranItem.details.0.weightYellowgold', '1.000')
-            ->where('coranItem.details.0.weight', '2.500')
+            ->where('coranItem.details.0.weightRosegold', '1.10')
+            ->where('coranItem.details.0.weightWhitegold', '0.40')
+            ->where('coranItem.details.0.weightYellowgold', '1.00')
+            ->where('coranItem.details.0.weight', '2.50')
         );
 
     CoranSpk::query()->where('row_id', $coran->row_id)->delete();
@@ -89,8 +89,8 @@ test('coran update persists weight color changes', function () {
     CoranSpk::factory()->create([
         'row_id' => $coran->row_id,
         'spk_id' => $production->row_id,
-        'weight' => '1.000',
-        'weight_rosegold' => '1.000',
+        'weight' => '1.00',
+        'weight_rosegold' => '1.00',
         'weight_whitegold' => null,
         'weight_yellowgold' => null,
     ]);
@@ -101,9 +101,9 @@ test('coran update persists weight color changes', function () {
         'details' => [
             [
                 'spk_id' => $production->row_id,
-                'weight_rosegold' => '0.500',
-                'weight_whitegold' => '0.750',
-                'weight_yellowgold' => '0.250',
+                'weight_rosegold' => '0.50',
+                'weight_whitegold' => '0.75',
+                'weight_yellowgold' => '0.25',
                 'status' => 'OK',
             ],
         ],
@@ -116,10 +116,10 @@ test('coran update persists weight color changes', function () {
         ->first();
 
     expect($detail)->not->toBeNull()
-        ->and((string) $detail->weight_rosegold)->toBe('0.500')
-        ->and((string) $detail->weight_whitegold)->toBe('0.750')
-        ->and((string) $detail->weight_yellowgold)->toBe('0.250')
-        ->and((string) $detail->weight)->toBe('1.500');
+        ->and((string) $detail->weight_rosegold)->toBe('0.50')
+        ->and((string) $detail->weight_whitegold)->toBe('0.75')
+        ->and((string) $detail->weight_yellowgold)->toBe('0.25')
+        ->and((string) $detail->weight)->toBe('1.50');
 
     CoranSpk::query()->where('row_id', $coran->row_id)->delete();
     $coran->delete();

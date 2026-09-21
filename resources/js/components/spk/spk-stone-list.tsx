@@ -22,6 +22,31 @@ function emptyDash(value: string | number | null | undefined): string {
     return text !== '' ? text : '-';
 }
 
+export function formatDecimal2Id(
+    value: string | number | null | undefined,
+): string {
+    if (value === null || value === undefined) {
+        return '-';
+    }
+
+    const text = String(value).trim();
+
+    if (text === '' || text === '-') {
+        return '-';
+    }
+
+    const parsed = Number(text.replace(',', '.'));
+
+    if (!Number.isFinite(parsed)) {
+        return text;
+    }
+
+    return parsed.toLocaleString('id-ID', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+
 export function formatDecimal3Id(
     value: string | number | null | undefined,
 ): string {
@@ -75,8 +100,8 @@ export function formatGoldWeightGramsLabel(
     }
 
     return parsed.toLocaleString('id-ID', {
-        minimumFractionDigits: 3,
-        maximumFractionDigits: 3,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
     });
 }
 
@@ -91,7 +116,7 @@ export function isGoldWeightChangedFromMaster(
         return false;
     }
 
-    return Math.abs(currentWeight - masterWeight) > 0.0005;
+    return Math.abs(currentWeight - masterWeight) > 0.005;
 }
 
 export function GoldWeightRowLabel({
@@ -326,7 +351,7 @@ export function SpkItemDetailCard({
                                     masterWeight={item.masterGoldWeight}
                                 />
                             </th>
-                            <td>{formatDecimal3Id(item.goldWeight)}</td>
+                            <td>{formatDecimal2Id(item.goldWeight)}</td>
                         </tr>
                         <tr>
                             <th scope="row">Warna Emas</th>
@@ -1234,7 +1259,7 @@ export function SpkItemStoneCard({
                                         masterWeight={item.masterGoldWeight}
                                     />
                                 </th>
-                                <td>{formatDecimal3Id(item.goldWeight)}</td>
+                                <td>{formatDecimal2Id(item.goldWeight)}</td>
                             </tr>
                             <tr>
                                 <th scope="row">Warna Emas</th>

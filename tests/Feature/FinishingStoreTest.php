@@ -31,8 +31,8 @@ test('finishing store creates document with spk', function () {
         'process_name' => 'Finishing',
         'craftsman_id' => null,
         'send_craftsman_date' => now()->format('Y-m-d H:i'),
-        'start_weight' => '3.160',
-        'finish_weight' => '2.450',
+        'start_weight' => '3.16',
+        'finish_weight' => '2.45',
         'shrink_tolerance' => '6.90',
         'notes' => 'Catatan store finishing',
         'materials' => [],
@@ -51,8 +51,8 @@ test('finishing store creates document with spk', function () {
     expect($document->doc_no)->toMatch('/^FIN\d{7}$/')
         ->and($document->status)->toBeNull()
         ->and($document->process_name)->toBe('Finishing')
-        ->and((string) $document->start_weight)->toBe('3.160')
-        ->and((string) $document->finish_weight)->toBe('2.450')
+        ->and((string) $document->start_weight)->toBe('3.16')
+        ->and((string) $document->finish_weight)->toBe('2.45')
         ->and($document->notes)->toBe('Catatan store finishing');
 
     $document->delete();
@@ -84,7 +84,7 @@ test('finishing search spks returns json', function () {
         ->assertJsonFragment([
             'rowId' => $production->row_id,
             'spkNo' => $production->spk_no,
-            'lastWeight' => '3.250',
+            'lastWeight' => '3.25',
         ]);
 
     $production->delete();

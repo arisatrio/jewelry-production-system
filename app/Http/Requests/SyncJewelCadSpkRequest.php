@@ -73,7 +73,7 @@ class SyncJewelCadSpkRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'gold_weight' => ['required', 'numeric', 'min:0', 'decimal:0,3'],
+            'gold_weight' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'gold_color' => ['required', 'string', 'max:100'],
             'jwcad_3d' => ['nullable', 'string', 'max:100'],
             'file' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,webp'],

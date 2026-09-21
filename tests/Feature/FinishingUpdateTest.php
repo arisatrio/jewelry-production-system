@@ -14,7 +14,7 @@ test('finishing edit page is accessible for open documents', function () {
         'spk_id' => $production->row_id,
         'status' => null,
         'process_name' => 'Finishing',
-        'start_weight' => '1.250',
+        'start_weight' => '1.25',
     ]);
 
     $this->get(route('finishing.edit', $document))
@@ -24,7 +24,7 @@ test('finishing edit page is accessible for open documents', function () {
             ->where('form.id', $document->row_id)
             ->where('form.docNo', $document->doc_no)
             ->where('form.processName', 'Finishing')
-            ->where('form.startWeight', '1.250')
+            ->where('form.startWeight', '1.25')
             ->where('form.spk.spkId', $production->row_id)
             ->where('form.spk.spkNo', $production->spk_no)
             ->missing('form.details')
@@ -59,8 +59,8 @@ test('finishing update changes document fields', function () {
         'spk_id' => $productionA->row_id,
         'status' => null,
         'process_name' => 'Finishing',
-        'start_weight' => '1.000',
-        'finish_weight' => '0.800',
+        'start_weight' => '1.00',
+        'finish_weight' => '0.80',
         'notes' => 'Sebelum update',
     ]);
 
@@ -69,8 +69,8 @@ test('finishing update changes document fields', function () {
         'process_name' => 'Handmade',
         'craftsman_id' => null,
         'send_craftsman_date' => now()->format('Y-m-d H:i'),
-        'start_weight' => '2.500',
-        'finish_weight' => '2.000',
+        'start_weight' => '2.50',
+        'finish_weight' => '2.00',
         'shrink_tolerance' => '5.00',
         'notes' => 'Sesudah update',
         'item_category' => 'Barang Kecil',
@@ -83,8 +83,8 @@ test('finishing update changes document fields', function () {
 
     expect($document->spk_id)->toBe($productionB->row_id)
         ->and($document->process_name)->toBe('Handmade')
-        ->and((string) $document->start_weight)->toBe('2.500')
-        ->and((string) $document->finish_weight)->toBe('2.000')
+        ->and((string) $document->start_weight)->toBe('2.50')
+        ->and((string) $document->finish_weight)->toBe('2.00')
         ->and($document->notes)->toBe('Sesudah update')
         ->and($document->item_category)->toBe('Barang Kecil');
 

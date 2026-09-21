@@ -49,7 +49,7 @@ test('coran store persists material gold transactions and totals', function () {
         'details' => [
             [
                 'spk_id' => $production->row_id,
-                'weight' => '1.250',
+                'weight' => '1.25',
                 'status' => 'OK',
             ],
         ],
@@ -57,13 +57,13 @@ test('coran store persists material gold transactions and totals', function () {
             [
                 'section' => 'bahan_rosegold',
                 'materialgold_id' => (int) $materialId,
-                'weight' => '12.340',
+                'weight' => '12.34',
                 'notes' => 'Bahan awal rose',
             ],
             [
                 'section' => 'sisa_whitegold',
                 'materialgold_id' => (int) $materialId,
-                'weight' => '4.560',
+                'weight' => '4.56',
                 'notes' => null,
             ],
         ],
@@ -83,8 +83,8 @@ test('coran store persists material gold transactions and totals', function () {
 
     $coran->refresh();
 
-    expect((string) $coran->submit_material_rosegold)->toBe('12.340')
-        ->and((string) $coran->result_material_whitegold)->toBe('4.560');
+    expect((string) $coran->submit_material_rosegold)->toBe('12.34')
+        ->and((string) $coran->result_material_whitegold)->toBe('4.56');
 
     $rows = DB::connection('third')
         ->table('trmaterialgold')
@@ -122,7 +122,7 @@ test('coran store rejects invalid material section', function () {
             'details' => [
                 [
                     'spk_id' => $production->row_id,
-                    'weight' => '1.000',
+                    'weight' => '1.00',
                     'status' => null,
                 ],
             ],
@@ -130,7 +130,7 @@ test('coran store rejects invalid material section', function () {
                 [
                     'section' => 'invalid_section',
                     'materialgold_id' => 1,
-                    'weight' => '1.000',
+                    'weight' => '1.00',
                 ],
             ],
         ])

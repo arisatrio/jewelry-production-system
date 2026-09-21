@@ -30,39 +30,39 @@ test('coran material gold synchronizer updates totals from bahan and sisa lines'
     }
 
     $coran = Coran::factory()->create([
-        'submit_material_rosegold' => '0.000',
-        'submit_material_whitegold' => '0.000',
-        'submit_material_yellowgold' => '0.000',
-        'result_material_rosegold' => '0.000',
-        'result_material_whitegold' => '0.000',
-        'result_material_yellowgold' => '0.000',
+        'submit_material_rosegold' => '0.00',
+        'submit_material_whitegold' => '0.00',
+        'submit_material_yellowgold' => '0.00',
+        'result_material_rosegold' => '0.00',
+        'result_material_whitegold' => '0.00',
+        'result_material_yellowgold' => '0.00',
     ]);
 
     app(CoranMaterialGoldSynchronizer::class)->sync($coran, [
         [
             'section' => 'bahan_rosegold',
             'materialgold_id' => (int) $materialId,
-            'weight' => '10.500',
+            'weight' => '10.50',
             'notes' => 'Catatan bahan rose',
         ],
         [
             'section' => 'bahan_whitegold',
             'materialgold_id' => (int) $materialId,
-            'weight' => '2.250',
+            'weight' => '2.25',
         ],
         [
             'section' => 'sisa_rosegold',
             'materialgold_id' => (int) $materialId,
-            'weight' => '7.100',
+            'weight' => '7.10',
             'notes' => 'Sisa untuk scrap',
         ],
     ], 'tester');
 
     $coran->refresh();
 
-    expect((string) $coran->submit_material_rosegold)->toBe('10.500')
-        ->and((string) $coran->submit_material_whitegold)->toBe('2.250')
-        ->and((string) $coran->result_material_rosegold)->toBe('7.100');
+    expect((string) $coran->submit_material_rosegold)->toBe('10.50')
+        ->and((string) $coran->submit_material_whitegold)->toBe('2.25')
+        ->and((string) $coran->result_material_rosegold)->toBe('7.10');
 
     $rows = DB::connection('third')
         ->table('trmaterialgold')
@@ -139,13 +139,13 @@ test('coran material gold options include remaining stock from in and out transa
             [
                 'transtype_id' => 12,
                 'materialgold_id' => $materialId,
-                'weight' => '10.250',
+                'weight' => '10.25',
                 'is_deleted' => 0,
             ],
             [
                 'transtype_id' => 13,
                 'materialgold_id' => $materialId,
-                'weight' => '2.500',
+                'weight' => '2.50',
                 'is_deleted' => 0,
             ],
         ]);
@@ -154,7 +154,7 @@ test('coran material gold options include remaining stock from in and out transa
             ->firstWhere('value', (string) $materialId);
 
         expect($option)->not->toBeNull()
-            ->and($option['stock'])->toBe('7.750');
+            ->and($option['stock'])->toBe('7.75');
     } finally {
         $connection->table('trmaterialgold')
             ->where('materialgold_id', $materialId)

@@ -172,7 +172,7 @@ test('jewelcad spk selector endpoint returns spk data', function () {
             'rowId' => $production->row_id,
             'spkNo' => $production->spk_no,
             'goldColor' => 'White Gold',
-            'goldWeight' => '12.500',
+            'goldWeight' => '12.50',
             'qty' => 2,
             'notes' => 'Catatan SPK',
         ]);
@@ -192,8 +192,8 @@ test('jewelcad spk detail endpoint returns editable gold and stones payload', fu
         ->assertJsonPath('status', true)
         ->assertJsonPath('data.production.spkNo', $production->spk_no)
         ->assertJsonPath('data.production.goldColor', 'Rose Gold')
-        ->assertJsonPath('data.production.goldWeight', '8.000')
-        ->assertJsonPath('data.item.masterGoldWeight', '8.000')
+        ->assertJsonPath('data.production.goldWeight', '8.00')
+        ->assertJsonPath('data.item.masterGoldWeight', '8.00')
         ->assertJsonStructure([
             'data' => [
                 'item' => [
@@ -229,7 +229,7 @@ test('jewelcad request store updates master spk gold and stones', function () {
             [
                 'spk_id' => $production->row_id,
                 'material' => 'White Gold',
-                'gold_weight' => '9.250',
+                'gold_weight' => '9.25',
                 'jwcad_3d' => 'JWC-TEST-001',
                 'qty' => 2,
                 'estimation_brj' => '18.50',
@@ -261,12 +261,12 @@ test('jewelcad request store updates master spk gold and stones', function () {
         ->and($detail->spk_id)->toBe($production->row_id)
         ->and($detail->material)->toBe('White Gold')
         ->and($detail->qty)->toBe(2)
-        ->and((string) $detail->estimation_brj)->toBe('18.500');
+        ->and((string) $detail->estimation_brj)->toBe('18.50');
 
     $production->refresh();
 
     expect((string) $production->gold_color)->toBe('White Gold')
-        ->and(number_format((float) $production->gold_weight, 3, '.', ''))->toBe('9.250')
+        ->and(number_format((float) $production->gold_weight, 2, '.', ''))->toBe('9.25')
         ->and($production->jwcad_3d)->toBe('JWC-TEST-001')
         ->and($production->last_process)->toBe(JewelCadSpkEligibility::PROCESS_KEY)
         ->and($production->is_inprocess)->toBe(1);
@@ -302,7 +302,7 @@ test('jewelcad store uploads spk image file', function () {
             [
                 'spk_id' => $production->row_id,
                 'material' => 'Rose Gold',
-                'gold_weight' => '4.500',
+                'gold_weight' => '4.50',
                 'jwcad_3d' => 'CAD-UPLOAD-1',
                 'qty' => 1,
                 'estimation_brj' => '10.00',
@@ -348,7 +348,7 @@ test('jewelcad store rejects spk that is not manager approved', function () {
                 [
                     'spk_id' => $production->row_id,
                     'material' => 'White Gold',
-                    'gold_weight' => '5.000',
+                    'gold_weight' => '5.00',
                     'qty' => 1,
                     'estimation_brj' => '10.00',
                     'notes' => 'Catatan',
@@ -409,7 +409,7 @@ test('jewelcad show page is accessible', function () {
         'spk_id' => $production->row_id,
         'material' => 'White Gold',
         'qty' => 1,
-        'estimation_brj' => '12.500',
+        'estimation_brj' => '12.50',
     ]);
 
     $this->get(route('jewelcad.show', $request))
@@ -430,7 +430,7 @@ test('jewelcad show page is accessible', function () {
             ->where('requestItem.details.0.productItemName', $sku->item_original)
             ->where('requestItem.details.0.itemDescription', 'Deskripsi item JewelCAD')
             ->where('requestItem.details.0.satuan', '1 Pcs')
-            ->where('requestItem.details.0.estimationBrj', '12.500')
+            ->where('requestItem.details.0.estimationBrj', '12.50')
             ->has('approvalFooter', 2)
             ->where('approvalFooter.0.title', 'Dibuat Oleh')
             ->where('approvalFooter.1.title', 'Manager Produksi')
@@ -467,7 +467,7 @@ test('jewelcad draft request can be submitted to manager', function () {
     $detail = JewelCadRequestDetail::factory()->create([
         'row_id' => $request->row_id,
         'spk_id' => $production->row_id,
-        'estimation_brj' => '10.000',
+        'estimation_brj' => '10.00',
     ]);
 
     $this->from(route('jewelcad.show', $request))

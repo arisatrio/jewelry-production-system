@@ -123,8 +123,8 @@ class StoreFinishingRequest extends FormRequest
                 Rule::in(FinishingHandmade::itemCategoryOptions()),
             ],
             'notes' => ['nullable', 'string', 'max:1000'],
-            'start_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
-            'finish_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
+            'start_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'finish_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'shrink_tolerance' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'materials' => ['nullable', 'array'],
             'materials.*.section' => [
@@ -133,7 +133,7 @@ class StoreFinishingRequest extends FormRequest
                 Rule::in(FinishingMaterialGoldSynchronizer::sectionKeys()),
             ],
             'materials.*.materialgold_id' => ['required', 'integer', 'min:1'],
-            'materials.*.weight' => ['required', 'numeric', 'min:0', 'decimal:0,3'],
+            'materials.*.weight' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'materials.*.notes' => ['nullable', 'string', 'max:500'],
         ];
     }

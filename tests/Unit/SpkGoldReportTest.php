@@ -28,12 +28,12 @@ test('spk gold report summarizes serah kembali and terpakai', function () {
         ->and($report['materials'])->toBeArray();
 
     if ($production->spk_no === '2024/PRD/00012') {
-        expect($report['issued'])->toBe('1.790')
-            ->and($report['returned'])->toBe('0.510')
-            ->and($report['used'])->toBe('1.280')
-            ->and($report['difference'])->toBe('0.000')
+        expect($report['issued'])->toBe('1.79')
+            ->and($report['returned'])->toBe('0.51')
+            ->and($report['used'])->toBe('1.28')
+            ->and($report['difference'])->toBe('0.00')
             ->and($report['materials'])->toHaveCount(6)
             ->and($report['materials'][0]['type'])->toBe('Serah')
-            ->and($report['totalLabel'])->toBe('1.280 g terpakai');
+            ->and($report['totalLabel'])->toBe('1.28 g terpakai');
     }
 });

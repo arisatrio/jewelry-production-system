@@ -368,7 +368,7 @@ class SpkDashboardAnalytics
 
         $goldRequirement = $this->nullableFloat($spkStats['goldRequirement']) ?? 0.0;
         $goldUsed = $this->nullableFloat($gold['used']) ?? 0.0;
-        $goldVariance = round($goldUsed - $goldRequirement, 3);
+        $goldVariance = round($goldUsed - $goldRequirement, 2);
         $stoneStart = (float) $stone['startCrt'];
         $stoneDifference = (float) $stone['difference'];
         $stoneLossPercent = abs($stoneStart) >= 0.00005
@@ -2727,13 +2727,13 @@ class SpkDashboardAnalytics
 
         return array_map(function (array $row) use ($names): array {
             $avgShrink = $row['jobCount'] > 0
-                ? round($row['totalShrink'] / $row['jobCount'], 3)
+                ? round($row['totalShrink'] / $row['jobCount'], 2)
                 : null;
 
             return [
                 'name' => $names[$row['id']] ?? "Pengrajin {$row['id']}",
                 'jobCount' => $row['jobCount'],
-                'totalShrink' => $this->formatWeight(round($row['totalShrink'], 3)),
+                'totalShrink' => $this->formatWeight(round($row['totalShrink'], 2)),
                 'avgShrink' => $avgShrink !== null ? $this->formatWeight($avgShrink) : null,
             ];
         }, $top);
@@ -2987,8 +2987,8 @@ class SpkDashboardAnalytics
 
         $issued = round((float) (clone $query)->where('transtype_id', 5)->sum('weight'), 3);
         $returned = round((float) (clone $query)->where('transtype_id', 6)->sum('weight'), 3);
-        $used = round($issued - $returned, 3);
-        $difference = round($issued - $used - $returned, 3);
+        $used = round($issued - $returned, 2);
+        $difference = round($issued - $used - $returned, 2);
 
         return [
             'issued' => $this->formatWeight($issued),
@@ -3155,11 +3155,11 @@ class SpkDashboardAnalytics
             return null;
         }
 
-        return round((float) $value, 3);
+        return round((float) $value, 2);
     }
 
     private function formatWeight(float $value): string
     {
-        return number_format($value, 3, '.', '');
+        return number_format($value, 2, '.', '');
     }
 }

@@ -643,7 +643,7 @@ class FinishingController extends Controller
         $shrink = round(($start + $submit) - ($finish + $result), 3);
 
         $document->forceFill([
-            'shrink' => number_format($shrink, 3, '.', ''),
+            'shrink' => number_format($shrink, 2, '.', ''),
         ])->save();
     }
 
@@ -792,7 +792,7 @@ class FinishingController extends Controller
         ];
     }
 
-    private function formatDecimal(mixed $value, int $precision = 3): ?string
+    private function formatDecimal(mixed $value, int $precision = 2): ?string
     {
         $number = $this->toFloat($value);
 

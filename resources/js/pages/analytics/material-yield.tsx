@@ -80,8 +80,8 @@ type MaterialYieldDashboardProps = {
 
 function formatWeight(value: string, unit = 'g'): string {
     return `${Number(value).toLocaleString('id-ID', {
-        minimumFractionDigits: 3,
-        maximumFractionDigits: 3,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
     })} ${unit}`;
 }
 

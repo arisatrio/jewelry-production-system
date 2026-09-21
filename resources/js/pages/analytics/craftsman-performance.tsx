@@ -50,8 +50,8 @@ type CraftsmanPerformanceDashboardProps = {
 
 function formatWeight(value: string): string {
     return `${Number(value).toLocaleString('id-ID', {
-        minimumFractionDigits: 3,
-        maximumFractionDigits: 3,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
     })} g`;
 }
 

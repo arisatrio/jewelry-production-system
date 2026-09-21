@@ -120,7 +120,7 @@ class FinishingMaterialGoldSynchronizer
             ->map(fn (object $row): array => [
                 'value' => (string) $row->row_id,
                 'label' => (string) $row->name,
-                'stock' => number_format((float) ($row->stock ?? 0), 3, '.', ''),
+                'stock' => number_format((float) ($row->stock ?? 0), 2, '.', ''),
             ])
             ->values()
             ->all();
@@ -175,7 +175,7 @@ class FinishingMaterialGoldSynchronizer
                 return [
                     'section' => $section,
                     'materialgoldId' => $materialId,
-                    'weight' => number_format((float) $row->weight, 3, '.', ''),
+                    'weight' => number_format((float) $row->weight, 2, '.', ''),
                     'notes' => $hasNotes
                         ? trim((string) ($row->notes ?? ''))
                         : '',
@@ -208,7 +208,7 @@ class FinishingMaterialGoldSynchronizer
             $normalized[] = [
                 'section' => $section,
                 'materialgold_id' => $materialId,
-                'weight' => round($weight, 3),
+                'weight' => round($weight, 2),
                 'notes' => $notes,
                 'transtype_id' => $map['transtype_id'],
                 'bucket' => $map['bucket'],
@@ -252,7 +252,7 @@ class FinishingMaterialGoldSynchronizer
                 'transtype_id' => $line['transtype_id'],
                 'ref_row_id' => $finishingId,
                 'materialgold_id' => $line['materialgold_id'],
-                'weight' => number_format($line['weight'], 3, '.', ''),
+                'weight' => number_format($line['weight'], 2, '.', ''),
                 'created_date' => $now,
                 'created_by' => $actor,
                 'modified_date' => $now,
@@ -302,8 +302,8 @@ class FinishingMaterialGoldSynchronizer
         }
 
         $document->forceFill([
-            'submit_materialgold' => number_format($submit, 3, '.', ''),
-            'result_materialgold' => number_format($result, 3, '.', ''),
+            'submit_materialgold' => number_format($submit, 2, '.', ''),
+            'result_materialgold' => number_format($result, 2, '.', ''),
         ])->save();
     }
 

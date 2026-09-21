@@ -130,8 +130,8 @@ test('spk form save syncs gold weight to sku master when changed', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
-            ->where('item.goldWeight', '6.900')
-            ->where('item.masterGoldWeight', '6.900')
+            ->where('item.goldWeight', '6.90')
+            ->where('item.masterGoldWeight', '6.90')
         );
 
     $this->get(route('spk.form', $production->row_id))
@@ -139,7 +139,7 @@ test('spk form save syncs gold weight to sku master when changed', function () {
         ->assertInertia(fn ($page) => $page
             ->component('spk/form')
             ->where('production.goldWeight', function ($weight) {
-                return (string) $weight === '6.900';
+                return (string) $weight === '6.90';
             })
             ->where('options.skus', function ($skus) use ($sku) {
                 $match = collect($skus)->firstWhere('value', (string) $sku->id);

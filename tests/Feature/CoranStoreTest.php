@@ -31,7 +31,7 @@ test('coran store creates document with spk details', function () {
         'details' => [
             [
                 'spk_id' => $production->row_id,
-                'weight' => '2.500',
+                'weight' => '2.50',
                 'status' => 'OK',
             ],
         ],
@@ -51,7 +51,7 @@ test('coran store creates document with spk details', function () {
 
     expect($coran->doc_no)->toMatch('/^COR\d{7}$/')
         ->and($coran->status)->toBeNull()
-        ->and((string) $coran->weight)->toBe('2.500');
+        ->and((string) $coran->weight)->toBe('2.50');
 
     $detail = CoranSpk::query()
         ->notDeleted()
@@ -60,7 +60,7 @@ test('coran store creates document with spk details', function () {
         ->first();
 
     expect($detail)->not->toBeNull()
-        ->and((string) $detail->weight)->toBe('2.500')
+        ->and((string) $detail->weight)->toBe('2.50')
         ->and($detail->status)->toBe(CoranSpk::STATUS_OK);
 
     $production->refresh();

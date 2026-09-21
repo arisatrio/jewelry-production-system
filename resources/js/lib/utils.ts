@@ -12,7 +12,7 @@ export function toUrl(url: NonNullable<InertiaLinkProps['href']>): string {
 }
 
 /**
- * Format a gram weight with Indonesian decimal comma (e.g. 1,204 g).
+ * Format a gram weight with Indonesian decimal comma (e.g. 1,20 g).
  */
 export function formatGram(value: number | string | null | undefined): string {
     if (value === null || value === undefined || value === '') {
@@ -25,5 +25,5 @@ export function formatGram(value: number | string | null | undefined): string {
         return `${String(value).replace('.', ',')} g`;
     }
 
-    return `${numeric.toFixed(3).replace('.', ',')} g`;
+    return `${numeric.toFixed(2).replace('.', ',')} g`;
 }

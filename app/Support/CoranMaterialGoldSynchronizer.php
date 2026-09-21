@@ -142,7 +142,7 @@ class CoranMaterialGoldSynchronizer
             ->map(fn (object $row): array => [
                 'value' => (string) $row->row_id,
                 'label' => (string) $row->name,
-                'stock' => number_format((float) ($row->stock ?? 0), 3, '.', ''),
+                'stock' => number_format((float) ($row->stock ?? 0), 2, '.', ''),
             ])
             ->values()
             ->all();
@@ -197,7 +197,7 @@ class CoranMaterialGoldSynchronizer
                 return [
                     'section' => $section,
                     'materialgoldId' => $materialId,
-                    'weight' => number_format((float) $row->weight, 3, '.', ''),
+                    'weight' => number_format((float) $row->weight, 2, '.', ''),
                     'notes' => $hasNotes
                         ? trim((string) ($row->notes ?? ''))
                         : '',
@@ -230,7 +230,7 @@ class CoranMaterialGoldSynchronizer
             $normalized[] = [
                 'section' => $section,
                 'materialgold_id' => $materialId,
-                'weight' => round($weight, 3),
+                'weight' => round($weight, 2),
                 'notes' => $notes,
                 'transtype_id' => $map['transtype_id'],
                 'color_key' => $map['color_key'],
@@ -275,7 +275,7 @@ class CoranMaterialGoldSynchronizer
                 'transtype_id' => $line['transtype_id'],
                 'ref_row_id' => $coranId,
                 'materialgold_id' => $line['materialgold_id'],
-                'weight' => number_format($line['weight'], 3, '.', ''),
+                'weight' => number_format($line['weight'], 2, '.', ''),
                 'created_date' => $now,
                 'created_by' => $actor,
                 'modified_date' => $now,
@@ -335,12 +335,12 @@ class CoranMaterialGoldSynchronizer
         }
 
         $coran->forceFill([
-            'submit_material_rosegold' => number_format($totals['submit_material_rosegold'], 3, '.', ''),
-            'submit_material_whitegold' => number_format($totals['submit_material_whitegold'], 3, '.', ''),
-            'submit_material_yellowgold' => number_format($totals['submit_material_yellowgold'], 3, '.', ''),
-            'result_material_rosegold' => number_format($totals['result_material_rosegold'], 3, '.', ''),
-            'result_material_whitegold' => number_format($totals['result_material_whitegold'], 3, '.', ''),
-            'result_material_yellowgold' => number_format($totals['result_material_yellowgold'], 3, '.', ''),
+            'submit_material_rosegold' => number_format($totals['submit_material_rosegold'], 2, '.', ''),
+            'submit_material_whitegold' => number_format($totals['submit_material_whitegold'], 2, '.', ''),
+            'submit_material_yellowgold' => number_format($totals['submit_material_yellowgold'], 2, '.', ''),
+            'result_material_rosegold' => number_format($totals['result_material_rosegold'], 2, '.', ''),
+            'result_material_whitegold' => number_format($totals['result_material_whitegold'], 2, '.', ''),
+            'result_material_yellowgold' => number_format($totals['result_material_yellowgold'], 2, '.', ''),
         ])->save();
     }
 

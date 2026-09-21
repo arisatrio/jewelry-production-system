@@ -344,7 +344,7 @@ class SkuMaster extends Model
             'stone_shape_prefix_id' => 'integer',
             'stone_type_prefix_id' => 'integer',
             'diamond_type_prefix_id' => 'integer',
-            'gold_weight' => 'decimal:3',
+            'gold_weight' => 'decimal:2',
             'sell_price' => 'decimal:2',
             'is_complete' => 'integer',
             'wildcard_count' => 'integer',

@@ -136,10 +136,10 @@ class StoreCoranRequest extends FormRequest
                     fn ($query) => $query->where('is_deleted', 0),
                 ),
             ],
-            'details.*.weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
-            'details.*.weight_rosegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
-            'details.*.weight_whitegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
-            'details.*.weight_yellowgold' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
+            'details.*.weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'details.*.weight_rosegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'details.*.weight_whitegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'details.*.weight_yellowgold' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'details.*.kadar' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'details.*.status' => [
                 'nullable',
@@ -153,7 +153,7 @@ class StoreCoranRequest extends FormRequest
                 Rule::in(CoranMaterialGoldSynchronizer::sectionKeys()),
             ],
             'materials.*.materialgold_id' => ['required', 'integer', 'min:1'],
-            'materials.*.weight' => ['required', 'numeric', 'min:0', 'decimal:0,3'],
+            'materials.*.weight' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'materials.*.notes' => ['nullable', 'string', 'max:500'],
         ];
     }

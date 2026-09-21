@@ -123,13 +123,13 @@ test('spk print preview accepts form document payload', function () {
         ->assertSee('Status Order', false)
         ->assertSee('Repeat Order 003', false)
         ->assertSee('White Gold', false)
-        ->assertSee('6.900', false)
+        ->assertSee('6.90', false)
         ->assertSee('Panjang (mm)', false)
-        ->assertDontSee('10.000', false)
-        ->assertDontSee('150.000', false)
-        ->assertSee('0.050', false)
-        ->assertSee('2.250', false)
-        ->assertDontSee('2.350', false)
+        ->assertDontSee('10.00', false)
+        ->assertDontSee('150.00', false)
+        ->assertSee('0.05', false)
+        ->assertSee('2.25', false)
+        ->assertDontSee('2.35', false)
         ->assertSee('>Posisi</th>', false)
         ->assertSee('Center', false)
         ->assertSee('Round', false)
@@ -381,7 +381,7 @@ test('spk print formats stone diameter size with two decimal places', function (
                     'size' => '1',
                     'caratPerPcs' => '0.004',
                     'pcs' => '36',
-                    'totalCarat' => '0.160',
+                    'totalCarat' => '0.16',
                 ],
             ],
             'notes' => '',
@@ -454,11 +454,11 @@ test('spk print page excludes soft deleted stones', function () {
             return count($stones) === 1
                 && ($stones[0]['size'] ?? null) === '2.35'
                 && ($stones[0]['pcs'] ?? null) === '45'
-                && ($stones[0]['totalCarat'] ?? null) === '2.250';
+                && ($stones[0]['totalCarat'] ?? null) === '2.25';
         })
         ->assertSee('1 item', false)
         ->assertSee('2.35', false)
-        ->assertSee('2.250', false)
+        ->assertSee('2.25', false)
         ->assertDontSee('0.90', false);
 
     $this->get(route('spk.show', $production))

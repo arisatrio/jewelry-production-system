@@ -21,7 +21,7 @@ test('coran edit page is accessible for open documents', function () {
     CoranSpk::factory()->create([
         'row_id' => $coran->row_id,
         'spk_id' => $production->row_id,
-        'weight' => '1.500',
+        'weight' => '1.50',
     ]);
 
     $this->get(route('coran.edit', $coran))
@@ -52,7 +52,7 @@ test('coran edit page is accessible for done documents', function () {
     CoranSpk::factory()->create([
         'row_id' => $coran->row_id,
         'spk_id' => $production->row_id,
-        'weight' => '1.500',
+        'weight' => '1.50',
     ]);
 
     $this->get(route('coran.edit', $coran))
@@ -113,7 +113,7 @@ test('coran update is allowed for submitted documents', function () {
     CoranSpk::factory()->create([
         'row_id' => $coran->row_id,
         'spk_id' => $production->row_id,
-        'weight' => '1.000',
+        'weight' => '1.00',
     ]);
 
     $this->put(route('coran.update', $coran), [
@@ -122,7 +122,7 @@ test('coran update is allowed for submitted documents', function () {
         'details' => [
             [
                 'spk_id' => $production->row_id,
-                'weight' => '2.000',
+                'weight' => '2.00',
                 'status' => 'OK',
             ],
         ],
@@ -131,7 +131,7 @@ test('coran update is allowed for submitted documents', function () {
     $coran->refresh();
     $production->refresh();
 
-    expect((string) $coran->weight)->toBe('2.000')
+    expect((string) $coran->weight)->toBe('2.00')
         ->and((float) $production->last_weight)->toBe(2.0);
 
     CoranSpk::query()->where('row_id', $coran->row_id)->delete();
@@ -214,14 +214,14 @@ test('coran update replaces details materials and totals', function () {
     $coran = Coran::factory()->create([
         'doc_no' => 'COR'.Str::upper(Str::random(7)),
         'status' => null,
-        'submit_material_rosegold' => '1.000',
-        'result_material_rosegold' => '0.000',
+        'submit_material_rosegold' => '1.00',
+        'result_material_rosegold' => '0.00',
         'shrink' => '0.00',
     ]);
     CoranSpk::factory()->create([
         'row_id' => $coran->row_id,
         'spk_id' => $productionA->row_id,
-        'weight' => '1.000',
+        'weight' => '1.00',
     ]);
 
     $response = $this->put(route('coran.update', $coran), [
@@ -230,7 +230,7 @@ test('coran update replaces details materials and totals', function () {
         'details' => [
             [
                 'spk_id' => $productionB->row_id,
-                'weight' => '2.500',
+                'weight' => '2.50',
                 'status' => 'OK',
             ],
         ],
@@ -238,12 +238,12 @@ test('coran update replaces details materials and totals', function () {
             [
                 'section' => 'bahan_whitegold',
                 'materialgold_id' => (int) $materialId,
-                'weight' => '8.750',
+                'weight' => '8.75',
             ],
             [
                 'section' => 'sisa_whitegold',
                 'materialgold_id' => (int) $materialId,
-                'weight' => '3.250',
+                'weight' => '3.25',
             ],
         ],
     ]);
@@ -252,10 +252,10 @@ test('coran update replaces details materials and totals', function () {
 
     $coran->refresh();
 
-    expect((string) $coran->weight)->toBe('2.500')
-        ->and((string) $coran->submit_material_whitegold)->toBe('8.750')
-        ->and((string) $coran->result_material_whitegold)->toBe('3.250')
-        ->and((string) $coran->submit_material_rosegold)->toBe('0.000');
+    expect((string) $coran->weight)->toBe('2.50')
+        ->and((string) $coran->submit_material_whitegold)->toBe('8.75')
+        ->and((string) $coran->result_material_whitegold)->toBe('3.25')
+        ->and((string) $coran->submit_material_rosegold)->toBe('0.00');
 
     $activeDetails = CoranSpk::query()
         ->notDeleted()

@@ -132,7 +132,7 @@ function detailTotalWeight(detail: CoranDetailForm): number {
 }
 
 function formatWeightTotal(total: number): string {
-    return total.toFixed(3);
+    return total.toFixed(2);
 }
 
 function normalizeStatusForSubmit(value: string): string | null {

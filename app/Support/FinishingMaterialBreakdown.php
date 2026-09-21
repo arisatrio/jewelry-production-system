@@ -75,7 +75,7 @@ class FinishingMaterialBreakdown
 
             $grouped[$finishingId][$bucket][] = [
                 'name' => filled($line->material_name) ? (string) $line->material_name : 'Bahan',
-                'weight' => round((float) $line->weight, 3),
+                'weight' => round((float) $line->weight, 2),
                 'notes' => filled($line->notes ?? null) ? (string) $line->notes : null,
             ];
         }

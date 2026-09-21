@@ -716,7 +716,7 @@ class ProductionController extends Controller
                 ? $production->diameter_length_ringsize
                 : '-',
             'goldWeight' => filled($production->gold_weight)
-                ? number_format((float) $production->gold_weight, 3, '.', '')
+                ? number_format((float) $production->gold_weight, 2, '.', '')
                 : '-',
             'masterGoldWeight' => $this->skuMasterGoldWeight($production->sku),
             'goldColor' => $production->gold_color ?: '-',
@@ -1127,7 +1127,7 @@ class ProductionController extends Controller
             'description' => $production->description ?? '-',
             'qty' => $production->qty ?? '-',
             'goldWeight' => filled($production->gold_weight)
-                ? number_format((float) $production->gold_weight, 3, '.', '')
+                ? number_format((float) $production->gold_weight, 2, '.', '')
                 : '-',
             'goldColor' => $production->gold_color ?? '-',
             'goldContent' => $production->gold_content ?? '-',
@@ -1354,7 +1354,7 @@ class ProductionController extends Controller
             return null;
         }
 
-        return number_format($weight, 3, '.', '');
+        return number_format($weight, 2, '.', '');
     }
 
     /**
@@ -1440,7 +1440,7 @@ class ProductionController extends Controller
             'diameterLengthRingsize' => $production->diameter_length_ringsize ?? '',
             ...$this->ukuranFieldsForForm($production->diameter_length_ringsize),
             'goldWeight' => $production->gold_weight !== null
-                ? number_format((float) $production->gold_weight, 3, '.', '')
+                ? number_format((float) $production->gold_weight, 2, '.', '')
                 : '0',
             'goldColor' => $production->gold_color ?? '',
             'goldContent' => $production->gold_content ?? '',
@@ -1866,7 +1866,7 @@ class ProductionController extends Controller
                 'dimensi' => $ukuran['dimensi'] !== '-' ? $ukuran['dimensi'] : null,
                 'ringSize' => $ukuran['ringSize'] !== '-' ? $ukuran['ringSize'] : null,
                 'goldWeight' => $production->gold_weight !== null
-                    ? number_format((float) $production->gold_weight, 3, '.', '')
+                    ? number_format((float) $production->gold_weight, 2, '.', '')
                     : null,
                 'goldColor' => $production->gold_color,
                 'jwcad3d' => $production->jwcad_3d,

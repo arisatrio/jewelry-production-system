@@ -125,7 +125,7 @@ class StoreJewelCadRequestRequest extends FormRequest
                 ),
             ],
             'details.*.material' => ['required', 'string', 'max:100'],
-            'details.*.gold_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
+            'details.*.gold_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'details.*.jwcad_3d' => ['nullable', 'string', 'max:100'],
             'details.*.file' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,webp'],
             'details.*.qty' => ['required', 'integer', 'min:1'],

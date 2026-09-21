@@ -37,10 +37,10 @@ test('spk craftsman report builds cards with work duration and shrink', function
         expect($cards)->toHaveCount(5)
             ->and($cards[0]['craftsmanName'])->toBe('Dimas')
             ->and($cards[0]['process'])->toBe('Finishing / Handmade')
-            ->and($cards[0]['shrink'])->toBe('0.210')
+            ->and($cards[0]['shrink'])->toBe('0.21')
             ->and($cards[0]['workDurationMinutes'])->toBe(328)
             ->and($cards[0]['workDuration'])->toBe('5 jam 28 menit')
             ->and($cards[1]['process'])->toBe('Poles Rangka')
-            ->and($cards[1]['shrink'])->toBe('0.060');
+            ->and($cards[1]['shrink'])->toBe('0.06');
     }
 });

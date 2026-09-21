@@ -25,7 +25,7 @@ class SpkGoldReport
         $returned = $totals['returned'];
         $used = $totals['used'];
         $difference = $issued !== null && $returned !== null && $used !== null
-            ? round($issued - $used - $returned, 3)
+            ? round($issued - $used - $returned, 2)
             : null;
 
         return [
@@ -154,14 +154,14 @@ class SpkGoldReport
         return [
             'issued' => $issued,
             'returned' => $returned,
-            'used' => round($issued - $returned, 3),
+            'used' => round($issued - $returned, 2),
             'materials' => $materials,
         ];
     }
 
     private function formatWeight(float $value): string
     {
-        return number_format($value, 3, '.', '');
+        return number_format($value, 2, '.', '');
     }
 
     private function formatNullableWeight(?float $value): ?string

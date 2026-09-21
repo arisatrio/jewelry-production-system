@@ -82,7 +82,7 @@ class SpkShrinkSummary
         $endWeight = $this->nullableFloat($production->last_weight);
         $materialGold = $this->goldReport->totalsForSpk($spkId);
         $totalLost = $planningWeight !== null && $endWeight !== null
-            ? round($planningWeight - $endWeight, 3)
+            ? round($planningWeight - $endWeight, 2)
             : null;
 
         return [
@@ -158,7 +158,7 @@ class SpkShrinkSummary
                 'sortDate' => $date?->format('Y-m-d H:i:s') ?? '9999-12-31',
                 'startWeight' => $startWeight,
                 'endWeight' => $endWeight,
-                'shrinkValue' => round($shrink, 3),
+                'shrinkValue' => round($shrink, 2),
                 'shrinkPercent' => $shrinkPercent !== null
                     ? number_format($shrinkPercent, 2, '.', '')
                     : null,
@@ -266,12 +266,12 @@ class SpkShrinkSummary
             return null;
         }
 
-        return round((float) $value, 3);
+        return round((float) $value, 2);
     }
 
     private function formatWeight(float $value): string
     {
-        return number_format($value, 3, '.', '');
+        return number_format($value, 2, '.', '');
     }
 
     private function formatNullableWeight(?float $value): ?string

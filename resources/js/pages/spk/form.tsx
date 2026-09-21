@@ -284,6 +284,26 @@ function countWorkingDaysBetween(startDate: string, endDate: string): number | n
     return count;
 }
 
+function formatDecimal2(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+        return '';
+    }
+
+    const text = String(value).trim();
+
+    if (text === '' || text === '-') {
+        return text;
+    }
+
+    const numeric = Number(text.replace(',', '.'));
+
+    if (!Number.isFinite(numeric)) {
+        return text;
+    }
+
+    return numeric.toFixed(2);
+}
+
 function formatDecimal3(value: string | number | null | undefined): string {
     if (value === null || value === undefined) {
         return '';
@@ -1089,7 +1109,7 @@ export default function SpkFormPage({
                 diameter: formatSize(ukuran.diameter),
                 dimensi: formatSize(ukuran.dimensi),
                 ringSize: ukuran.ringSize,
-                goldWeight: formatDecimal3(data.gold_weight),
+                goldWeight: formatDecimal2(data.gold_weight),
                 goldColor: data.gold_color,
                 jwcad3d: data.jwcad_3d,
                 description: data.description,

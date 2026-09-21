@@ -310,7 +310,7 @@ class SkuMasterSpkSynchronizer
             return null;
         }
 
-        return number_format((float) $value, 3, '.', '');
+        return number_format((float) $value, 2, '.', '');
     }
 
     private function normalizeCarat(mixed $value): string

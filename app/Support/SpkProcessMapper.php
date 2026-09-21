@@ -578,8 +578,8 @@ class SpkProcessMapper
             $resultRose = (float) ($parent->result_material_rosegold ?? 0);
             $resultWhite = (float) ($parent->result_material_whitegold ?? 0);
             $resultYellow = (float) ($parent->result_material_yellowgold ?? 0);
-            $totalSubmit = round($submitRose + $submitWhite + $submitYellow, 3);
-            $totalResult = round($resultRose + $resultWhite + $resultYellow, 3);
+            $totalSubmit = round($submitRose + $submitWhite + $submitYellow, 2);
+            $totalResult = round($resultRose + $resultWhite + $resultYellow, 2);
 
             $submitByColor = [
                 'rosegold' => $submitRose,
@@ -617,7 +617,7 @@ class SpkProcessMapper
             }
 
             $shrink = isset($parent->shrink) && $parent->shrink !== null && $parent->shrink !== ''
-                ? round((float) $parent->shrink, 3)
+                ? round((float) $parent->shrink, 2)
                 : null;
 
             $shrinkPercent = null;
@@ -667,7 +667,7 @@ class SpkProcessMapper
 
             $lines[] = [
                 'name' => $name,
-                'weight' => round($weight, 3),
+                'weight' => round($weight, 2),
                 'notes' => null,
             ];
         }
@@ -825,7 +825,7 @@ class SpkProcessMapper
 
             $mapLine = fn (object $line): array => [
                 'name' => $line->material_name ?: 'Bahan',
-                'weight' => round((float) $line->weight, 3),
+                'weight' => round((float) $line->weight, 2),
                 'notes' => $line->notes !== null && $line->notes !== ''
                     ? (string) $line->notes
                     : null,
@@ -842,7 +842,7 @@ class SpkProcessMapper
                 : null;
 
             $shrink = isset($record['shrink']) && $record['shrink'] !== null && $record['shrink'] !== ''
-                ? round((float) $record['shrink'], 3)
+                ? round((float) $record['shrink'], 2)
                 : null;
 
             $startWeight = isset($record['start_weight']) && $record['start_weight'] !== null && $record['start_weight'] !== ''
@@ -931,7 +931,7 @@ class SpkProcessMapper
             $mountingShrink = isset($record['mounting_shrink'])
                 && $record['mounting_shrink'] !== null
                 && $record['mounting_shrink'] !== ''
-                ? round((float) $record['mounting_shrink'], 3)
+                ? round((float) $record['mounting_shrink'], 2)
                 : null;
 
             if (
@@ -939,7 +939,7 @@ class SpkProcessMapper
                 && $framePlusStone !== null
                 && $finishWeight !== null
             ) {
-                $mountingShrink = round($framePlusStone - $finishWeight, 3);
+                $mountingShrink = round($framePlusStone - $finishWeight, 2);
             }
 
             $tanggal = null;

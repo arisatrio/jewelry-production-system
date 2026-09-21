@@ -218,7 +218,7 @@ class CoranController extends Controller
                 'result_material_whitegold' => '0.000',
                 'result_material_yellowgold' => '0.000',
                 'shrink' => '0.00',
-                'weight' => number_format($totalWeight, 3, '.', ''),
+                'weight' => number_format($totalWeight, 2, '.', ''),
                 'status' => null,
                 'is_from_new_system' => 1,
                 'is_deleted' => 0,
@@ -449,7 +449,7 @@ class CoranController extends Controller
             $coran->update([
                 'trans_date' => $validated['trans_date'],
                 'craftsman_id' => $validated['craftsman_id'] ?? null,
-                'weight' => number_format($totalWeight, 3, '.', ''),
+                'weight' => number_format($totalWeight, 2, '.', ''),
                 'modified_date' => now(),
                 'modified_by' => $actor,
             ]);
@@ -865,7 +865,7 @@ class CoranController extends Controller
 
             $lines[] = [
                 'name' => $name,
-                'weight' => number_format($weight, 3, '.', ''),
+                'weight' => number_format($weight, 2, '.', ''),
             ];
         }
 
@@ -1007,7 +1007,7 @@ class CoranController extends Controller
             return null;
         }
 
-        return number_format((float) $numbers->sum(), 3, '.', '');
+        return number_format((float) $numbers->sum(), 2, '.', '');
     }
 
     private function formatDecimal(mixed $value): ?string
@@ -1018,7 +1018,7 @@ class CoranController extends Controller
             return null;
         }
 
-        return number_format($number, 3, '.', '');
+        return number_format($number, 2, '.', '');
     }
 
     private function formatKadar(mixed $value): ?string

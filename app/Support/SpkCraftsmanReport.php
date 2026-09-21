@@ -257,6 +257,6 @@ class SpkCraftsmanReport
 
     private function formatWeight(float $value): string
     {
-        return number_format($value, 3, '.', '');
+        return number_format($value, 2, '.', '');
     }
 }

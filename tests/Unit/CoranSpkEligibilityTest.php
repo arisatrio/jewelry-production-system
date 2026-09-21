@@ -86,7 +86,7 @@ test('coran sync last weight updates spk last weight from hasil coran', function
         'last_weight' => null,
     ]);
 
-    $updated = app(CoranSpkEligibility::class)->syncLastWeight($production, '3.250', 'Operator Coran');
+    $updated = app(CoranSpkEligibility::class)->syncLastWeight($production, '3.25', 'Operator Coran');
 
     expect((float) $updated->last_weight)->toBe(3.25)
         ->and($updated->modified_by)->toBe('Operator Coran');

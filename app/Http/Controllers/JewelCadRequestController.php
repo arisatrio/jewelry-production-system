@@ -195,7 +195,7 @@ class JewelCadRequestController extends Controller
                         ? (string) $production->gold_color
                         : '',
                     'goldWeight' => $production->gold_weight !== null
-                        ? number_format((float) $production->gold_weight, 3, '.', '')
+                        ? number_format((float) $production->gold_weight, 2, '.', '')
                         : '',
                     'qty' => $production->qty ?? 1,
                     'notes' => filled($production->notes)
@@ -320,11 +320,11 @@ class JewelCadRequestController extends Controller
 
         $skuMasterGoldWeight = $production->sku?->gold_weight !== null
             && (float) $production->sku->gold_weight > 0
-            ? number_format((float) $production->sku->gold_weight, 3, '.', '')
+            ? number_format((float) $production->sku->gold_weight, 2, '.', '')
             : null;
         $productionGoldWeight = $production->gold_weight !== null
             && (float) $production->gold_weight > 0
-            ? number_format((float) $production->gold_weight, 3, '.', '')
+            ? number_format((float) $production->gold_weight, 2, '.', '')
             : null;
 
         $skuDiamondCount = $production->sku !== null
@@ -447,7 +447,7 @@ class JewelCadRequestController extends Controller
                 'spkNo' => (string) $production->spk_no,
                 'material' => (string) $production->gold_color,
                 'goldWeight' => $production->gold_weight !== null
-                    ? number_format((float) $production->gold_weight, 3, '.', '')
+                    ? number_format((float) $production->gold_weight, 2, '.', '')
                     : '',
                 'qty' => $production->qty ?? 1,
                 'notes' => filled($production->notes) ? (string) $production->notes : '',
@@ -960,7 +960,7 @@ class JewelCadRequestController extends Controller
                 ? (string) $detail->production->gold_color
                 : $detail->material,
             'goldWeight' => $detail->production?->gold_weight !== null
-                ? number_format((float) $detail->production->gold_weight, 3, '.', '')
+                ? number_format((float) $detail->production->gold_weight, 2, '.', '')
                 : '',
             'skuCode' => filled($detail->production?->sku?->sku_code)
                 ? (string) $detail->production->sku->sku_code

@@ -55,7 +55,7 @@ class CoranSpkEligibility
         }
 
         $production->update([
-            'last_weight' => number_format((float) $weight, 3, '.', ''),
+            'last_weight' => number_format((float) $weight, 2, '.', ''),
             'modified_date' => now(),
             'modified_by' => $actor,
         ]);
