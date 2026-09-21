@@ -84,7 +84,7 @@ class CoranMaterialGoldSynchronizer
     /**
      * @return list<array{value: string, label: string, stock: string}>
      */
-    public function materialOptions(): array
+    public function materialOptions(?int $excludeRefRowId = null): array
     {
         if (! Schema::connection('third')->hasTable('msmaterialgold')) {
             return [];
@@ -125,6 +125,17 @@ class CoranMaterialGoldSynchronizer
 
             if (Schema::connection('third')->hasColumn('mstranstype', 'is_deleted')) {
                 $stockQuery->where('transaction_type.is_deleted', 0);
+            }
+
+            if (
+                $excludeRefRowId !== null
+                && $excludeRefRowId > 0
+                && Schema::connection('third')->hasColumn('trmaterialgold', 'ref_row_id')
+            ) {
+                $stockQuery->where(function ($builder) use ($excludeRefRowId): void {
+                    $builder->whereNull('transaction.ref_row_id')
+                        ->orWhere('transaction.ref_row_id', '!=', $excludeRefRowId);
+                });
             }
 
             $query->leftJoinSub(

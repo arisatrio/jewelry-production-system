@@ -164,3 +164,57 @@ test('coran material gold options include remaining stock from in and out transa
             ->delete();
     }
 });
+
+test('coran material gold options can exclude stock from a specific coran document', function () {
+    if (
+        ! Schema::connection('third')->hasTable('msmaterialgold')
+        || ! Schema::connection('third')->hasTable('trmaterialgold')
+        || ! Schema::connection('third')->hasTable('mstranstype')
+        || ! Schema::connection('third')->hasColumn('trmaterialgold', 'ref_row_id')
+    ) {
+        $this->markTestSkipped('Material gold stock tables are not available.');
+    }
+
+    $connection = DB::connection('third');
+    $materialId = $connection->table('msmaterialgold')->insertGetId([
+        'name' => 'Material Exclude Ref '.uniqid(),
+        'is_deleted' => 0,
+    ]);
+    $coran = Coran::factory()->create();
+
+    try {
+        $connection->table('trmaterialgold')->insert([
+            [
+                'transtype_id' => 12,
+                'ref_row_id' => null,
+                'materialgold_id' => $materialId,
+                'weight' => '20.00',
+                'is_deleted' => 0,
+            ],
+            [
+                'transtype_id' => 1,
+                'ref_row_id' => $coran->row_id,
+                'materialgold_id' => $materialId,
+                'weight' => '5.00',
+                'is_deleted' => 0,
+            ],
+        ]);
+
+        $withDocument = collect(app(CoranMaterialGoldSynchronizer::class)->materialOptions())
+            ->firstWhere('value', (string) $materialId);
+        $withoutDocument = collect(
+            app(CoranMaterialGoldSynchronizer::class)->materialOptions((int) $coran->row_id),
+        )->firstWhere('value', (string) $materialId);
+
+        expect($withDocument['stock'])->toBe('15.00')
+            ->and($withoutDocument['stock'])->toBe('20.00');
+    } finally {
+        $connection->table('trmaterialgold')
+            ->where('materialgold_id', $materialId)
+            ->delete();
+        $connection->table('msmaterialgold')
+            ->where('row_id', $materialId)
+            ->delete();
+        $coran->delete();
+    }
+});

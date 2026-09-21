@@ -320,7 +320,7 @@ class CoranController extends Controller
             'formDocumentNo' => (string) config('spk.coran_form_document_no'),
             'statusOptions' => $this->detailStatusOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
-            'materialOptions' => $materialSynchronizer->materialOptions(),
+            'materialOptions' => $materialSynchronizer->materialOptions((int) $coran->row_id),
             'approval' => $approvalService->abilitiesFor($coran, $request->user()),
             'form' => [
                 'id' => (int) $coran->row_id,

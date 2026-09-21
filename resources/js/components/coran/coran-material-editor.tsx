@@ -101,6 +101,60 @@ function resolveMaterialLabel(
     return options.find((option) => option.value === materialId)?.label ?? '';
 }
 
+function resolveMaterialStock(
+    options: CoranMaterialOption[],
+    materialId: string,
+): number | null {
+    if (materialId.trim() === '') {
+        return null;
+    }
+
+    const option = options.find((item) => item.value === materialId);
+
+    if (!option) {
+        return null;
+    }
+
+    const stock = Number(option.stock);
+
+    return Number.isFinite(stock) ? stock : null;
+}
+
+/**
+ * Perkiraan sisa stok setelah transaksi form disimpan:
+ * stok saat ini - total bahan (OUT) + total sisa (IN) untuk material yang sama.
+ */
+function estimatedRemainingStock(
+    materials: CoranMaterialFormLine[],
+    materialOptions: CoranMaterialOption[],
+    materialId: string,
+): number | null {
+    const stock = resolveMaterialStock(materialOptions, materialId);
+
+    if (stock === null) {
+        return null;
+    }
+
+    let bahanTotal = 0;
+    let sisaTotal = 0;
+
+    for (const line of materials) {
+        if (line.materialgold_id !== materialId) {
+            continue;
+        }
+
+        const weight = toNumber(line.weight);
+
+        if (line.section.startsWith('bahan_')) {
+            bahanTotal += weight;
+        } else if (line.section.startsWith('sisa_')) {
+            sisaTotal += weight;
+        }
+    }
+
+    return stock - bahanTotal + sisaTotal;
+}
+
 function MaterialGoldComboBox({
     accessibleName,
     value,
@@ -280,6 +334,12 @@ function MaterialBucketTable({
                                                 materialOptions,
                                                 line.materialgold_id,
                                             ) || 'Bahan';
+                                        const remainingStock =
+                                            estimatedRemainingStock(
+                                                materials,
+                                                materialOptions,
+                                                line.materialgold_id,
+                                            );
                                         const materialError =
                                             errors[
                                                 `materials.${line.key}.materialgold_id`
@@ -303,6 +363,16 @@ function MaterialBucketTable({
                                                         '' ? (
                                                             <span className="spkCoranMaterialLineNotes">
                                                                 {line.notes}
+                                                            </span>
+                                                        ) : null}
+                                                        {remainingStock !==
+                                                        null ? (
+                                                            <span className="spkCoranMaterialLineStock">
+                                                                Perkiraan sisa
+                                                                stok:{' '}
+                                                                {formatGram(
+                                                                    remainingStock,
+                                                                )}
                                                             </span>
                                                         ) : null}
                                                         {materialError ? (
