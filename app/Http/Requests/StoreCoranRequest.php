@@ -31,13 +31,43 @@ class StoreCoranRequest extends FormRequest
             ->map(function (mixed $detail): array {
                 $row = is_array($detail) ? $detail : [];
 
+                $weightRosegold = filled($row['weight_rosegold'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['weight_rosegold']))
+                    : null;
+                $weightWhitegold = filled($row['weight_whitegold'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['weight_whitegold']))
+                    : null;
+                $weightYellowgold = filled($row['weight_yellowgold'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['weight_yellowgold']))
+                    : null;
+
+                $hasColorWeight = $weightRosegold !== null
+                    || $weightWhitegold !== null
+                    || $weightYellowgold !== null;
+
+                $weight = filled($row['weight'] ?? null)
+                    ? str_replace(',', '.', trim((string) $row['weight']))
+                    : null;
+
+                if ($hasColorWeight) {
+                    $weight = number_format(
+                        (float) ($weightRosegold ?? 0)
+                        + (float) ($weightWhitegold ?? 0)
+                        + (float) ($weightYellowgold ?? 0),
+                        3,
+                        '.',
+                        '',
+                    );
+                }
+
                 return [
                     'spk_id' => isset($row['spk_id']) && $row['spk_id'] !== ''
                         ? (int) $row['spk_id']
                         : null,
-                    'weight' => filled($row['weight'] ?? null)
-                        ? str_replace(',', '.', trim((string) $row['weight']))
-                        : null,
+                    'weight' => $weight,
+                    'weight_rosegold' => $weightRosegold,
+                    'weight_whitegold' => $weightWhitegold,
+                    'weight_yellowgold' => $weightYellowgold,
                     'kadar' => filled($row['kadar'] ?? null)
                         ? str_replace(',', '.', trim((string) $row['kadar']))
                         : null,
@@ -107,6 +137,9 @@ class StoreCoranRequest extends FormRequest
                 ),
             ],
             'details.*.weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
+            'details.*.weight_rosegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
+            'details.*.weight_whitegold' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
+            'details.*.weight_yellowgold' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
             'details.*.kadar' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'details.*.status' => [
                 'nullable',
@@ -211,6 +244,9 @@ class StoreCoranRequest extends FormRequest
             'details.*.spk_id.distinct' => 'SPK tidak boleh duplikat.',
             'details.*.spk_id.exists' => 'SPK yang dipilih tidak valid.',
             'details.*.weight.numeric' => 'Berat coran harus berupa angka.',
+            'details.*.weight_rosegold.numeric' => 'Berat Rose Gold harus berupa angka.',
+            'details.*.weight_whitegold.numeric' => 'Berat White Gold harus berupa angka.',
+            'details.*.weight_yellowgold.numeric' => 'Berat Yellow Gold harus berupa angka.',
             'details.*.kadar.numeric' => 'Kadar harus berupa angka.',
             'details.*.status.in' => 'Status coran tidak valid.',
             'materials.*.section.required' => 'Kategori bahan emas wajib dipilih.',

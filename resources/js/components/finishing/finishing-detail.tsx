@@ -1,9 +1,17 @@
+import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
+import paperPlaneIcon from '@ui5/webcomponents-icons/dist/paper-plane.js';
 import { router } from '@inertiajs/react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
+import {
+    SpkApprovalTimelinePanel,
+    type SpkApprovalTimelineEvent,
+} from '@/components/spk/spk-approval-timeline-panel';
 import {
     FinishingMaterialTables,
     type FinishingMaterials,
@@ -54,12 +62,43 @@ type FinishingWorkflowStatus = {
     stages: Array<{ key: string; label: string }>;
 };
 
+type ApprovalFooterColumn = {
+    title: string;
+    name: string;
+    date: string;
+};
+
+type ApprovalHistoryEvent = {
+    status: string;
+    statusLabel: string;
+    approve: string;
+    notes: string | null;
+    createdBy: string | null;
+    createdAt: string | null;
+};
+
+type FinishingApprovalAbilities = {
+    canSubmit: boolean;
+    canEdit: boolean;
+    canOpenEdit: boolean;
+    canDelete: boolean;
+    canManagerApprove: boolean;
+    canComplete: boolean;
+    status: string;
+    statusLabel: string;
+};
+
 type FinishingDetailProps = {
     finishingItem: FinishingDetailItem;
     workflowStatus: FinishingWorkflowStatus;
+    approvalHistory: ApprovalHistoryEvent[];
+    approvalFooter: ApprovalFooterColumn[];
+    approval: FinishingApprovalAbilities;
     backHref: string;
-    editHref?: string;
-    canEdit?: boolean;
+    editHref: string;
+    submitUrl: string;
+    managerApproveUrl: string;
+    completeUrl: string;
 };
 
 function displayValue(value: string | null | undefined): string {
@@ -90,15 +129,101 @@ function formatDateTime(value: string | null): string {
     return timePart ? `${dateLabel} ${timePart.slice(0, 5)}` : dateLabel;
 }
 
+function DetailField({
+    label,
+    children,
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="spkDetailField">
+            <span className="spkDetailFieldLabel">{label}</span>
+            <div className="spkDetailValue">{children}</div>
+        </div>
+    );
+}
+
 export function FinishingDetail({
     finishingItem,
     workflowStatus,
+    approvalHistory,
+    approvalFooter,
+    approval,
     backHref,
     editHref,
-    canEdit = false,
+    submitUrl,
+    managerApproveUrl,
+    completeUrl,
 }: FinishingDetailProps) {
+    const [mainSection, setMainSection] = useState<'informasi' | 'riwayat'>(
+        'informasi',
+    );
+    const [submitting, setSubmitting] = useState(false);
     const activeStageIndex = workflowStatus.stageIndex;
     const statusStages = workflowStatus.stages;
+
+    const approvalTimeline = useMemo<SpkApprovalTimelineEvent[]>(
+        () =>
+            approvalHistory.map((event) => ({
+                source: 'Finishing',
+                status: event.status,
+                statusLabel: event.statusLabel,
+                approve: event.approve,
+                notes: event.notes,
+                createdBy: event.createdBy,
+                createdAt: event.createdAt,
+            })),
+        [approvalHistory],
+    );
+
+    const submitToManager = () => {
+        if (!submitUrl || !approval.canSubmit) {
+            return;
+        }
+
+        setSubmitting(true);
+        router.post(
+            submitUrl,
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setSubmitting(false),
+            },
+        );
+    };
+
+    const approveByManager = () => {
+        if (!managerApproveUrl || !approval.canManagerApprove) {
+            return;
+        }
+
+        setSubmitting(true);
+        router.post(
+            managerApproveUrl,
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setSubmitting(false),
+            },
+        );
+    };
+
+    const markComplete = () => {
+        if (!completeUrl || !approval.canComplete) {
+            return;
+        }
+
+        setSubmitting(true);
+        router.post(
+            completeUrl,
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setSubmitting(false),
+            },
+        );
+    };
 
     return (
         <div className="spkDetailShell">
@@ -141,15 +266,62 @@ export function FinishingDetail({
 
                         <div className="spkControlBarRight">
                             <div className="spkHeaderActions">
-                                {canEdit && editHref ? (
+                                {((approval.canSubmit && submitUrl) ||
+                                    (approval.canManagerApprove &&
+                                        managerApproveUrl)) && (
+                                    <div className="spkApprovalActions">
+                                        {approval.canSubmit && submitUrl ? (
+                                            <Button
+                                                design="Emphasized"
+                                                icon={paperPlaneIcon}
+                                                disabled={submitting}
+                                                onClick={submitToManager}
+                                            >
+                                                {submitting
+                                                    ? 'Mengirim...'
+                                                    : 'Kirim ke Manager Produksi'}
+                                            </Button>
+                                        ) : null}
+                                        {approval.canManagerApprove &&
+                                        managerApproveUrl ? (
+                                            <Button
+                                                design="Positive"
+                                                className="spkApprovalApproveBtn"
+                                                icon={paperPlaneIcon}
+                                                disabled={submitting}
+                                                onClick={approveByManager}
+                                            >
+                                                {submitting
+                                                    ? 'Memproses...'
+                                                    : 'Approve'}
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                )}
+                                {approval.canComplete && completeUrl ? (
+                                    <button
+                                        type="button"
+                                        className="spkHeaderActionBtn spkHeaderActionBtn--positive spkHeaderTextActionBtn"
+                                        disabled={submitting}
+                                        onClick={markComplete}
+                                    >
+                                        <Icon
+                                            name={acceptIcon}
+                                            mode="Decorative"
+                                        />
+                                        {submitting
+                                            ? 'Memproses...'
+                                            : 'Selesai'}
+                                    </button>
+                                ) : null}
+                                {approval.canOpenEdit ? (
                                     <button
                                         type="button"
                                         className="spkHeaderActionBtn"
                                         aria-label="Edit"
                                         title="Edit Dokumen Finishing"
-                                        onClick={() =>
-                                            router.visit(editHref)
-                                        }
+                                        disabled={submitting}
+                                        onClick={() => router.visit(editHref)}
                                     >
                                         <Icon
                                             name={editIcon}
@@ -162,6 +334,7 @@ export function FinishingDetail({
                                     className="spkHeaderActionBtn spkHeaderActionBtn--danger"
                                     aria-label="Tutup"
                                     title="Tutup"
+                                    disabled={submitting}
                                     onClick={() => router.visit(backHref)}
                                 >
                                     <Icon
@@ -184,243 +357,306 @@ export function FinishingDetail({
                             <button
                                 type="button"
                                 role="tab"
-                                aria-selected
-                                className="spkSectionTab is-active"
+                                aria-selected={mainSection === 'informasi'}
+                                className={[
+                                    'spkSectionTab',
+                                    mainSection === 'informasi'
+                                        ? 'is-active'
+                                        : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                onClick={() => setMainSection('informasi')}
                             >
                                 <span className="spkSectionTabLabel">
                                     Informasi
                                 </span>
                             </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={mainSection === 'riwayat'}
+                                className={[
+                                    'spkSectionTab',
+                                    mainSection === 'riwayat'
+                                        ? 'is-active'
+                                        : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                onClick={() => setMainSection('riwayat')}
+                            >
+                                <span className="spkSectionTabLabel">
+                                    Riwayat
+                                </span>
+                            </button>
                         </div>
 
-                        <div
-                            role="tabpanel"
-                            aria-label="Informasi"
-                            className="spkInformasiProduksiBody"
-                        >
-                            <section className="spkShowSection">
-                                <h3 className="spkShowSectionTitle">
-                                    Informasi Dokumen
-                                </h3>
-                                <div className="jewelCadDetailInfoLayout coranDetailInfoLayout">
-                                    <table className="spkItemMetaTable spkItemMetaTable--sm jewelCadDetailInfoTable">
-                                        <tbody>
-                                            <tr>
-                                                <th scope="row">Proses</th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.processName,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">Pengrajin</th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.craftsmanName,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">
-                                                    Tanggal serah pengrajin
-                                                </th>
-                                                <td>
-                                                    {formatDateTime(
-                                                        finishingItem.sendCraftsmanDate,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">
-                                                    Tanggal terima pengrajin
-                                                </th>
-                                                <td>
-                                                    {formatDateTime(
-                                                        finishingItem.receivedCraftsmanDate,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">Kategori</th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.itemCategory,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">Catatan</th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.notes,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                    <table className="spkItemMetaTable spkItemMetaTable--sm jewelCadDetailNotesTable">
-                                        <tbody>
-                                            <tr>
-                                                <th scope="row">
-                                                    Berat awal (g)
-                                                </th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.startWeight,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">
-                                                    Berat akhir (g)
-                                                </th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.finishWeight,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">
-                                                    Bahan diserahkan (g)
-                                                </th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.submitMaterial,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">
-                                                    Sisa bahan (g)
-                                                </th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.resultMaterial,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">Susut (g)</th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.shrink,
-                                                    )}
-                                                    {finishingItem.shrinkPercent
-                                                        ? ` (${finishingItem.shrinkPercent})`
-                                                        : ''}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th scope="row">
-                                                    Toleransi susut (%)
-                                                </th>
-                                                <td>
-                                                    {displayValue(
-                                                        finishingItem.shrinkTolerance,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </section>
-
-                            <section className="spkShowSection">
-                                <h3 className="spkShowSectionTitle">
-                                    Detail Bahan Emas
-                                </h3>
-                                <FinishingMaterialTables
-                                    materials={finishingItem.materials}
-                                    submitMaterial={finishingItem.submitMaterial}
-                                    resultMaterial={finishingItem.resultMaterial}
-                                />
-                            </section>
-
-                            <section className="spkShowSection">
-                                <h3 className="spkShowSectionTitle">SPK</h3>
-                                <div className="spkTableScroll">
-                                    <table className="spkTable">
-                                        <thead>
-                                            <tr>
-                                                <th>No SPK</th>
-                                                <th>Tipe</th>
-                                                <th>SKU / Item</th>
-                                                <th>Customer</th>
-                                                <th>Qty</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {finishingItem.spk === null ? (
+                        {mainSection === 'informasi' ? (
+                            <div
+                                role="tabpanel"
+                                aria-label="Informasi"
+                                className="spkInformasiProduksiBody"
+                            >
+                                <section className="spkShowSection">
+                                    <h3 className="spkShowSectionTitle">
+                                        Informasi Dokumen
+                                    </h3>
+                                    <div className="jewelCadDetailInfoLayout coranDetailInfoLayout">
+                                        <table className="spkItemMetaTable spkItemMetaTable--sm jewelCadDetailNotesTable">
+                                            <tbody>
                                                 <tr>
-                                                    <td colSpan={5}>
-                                                        Tidak ada SPK terkait.
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                <tr>
+                                                    <th scope="row">Proses</th>
                                                     <td>
                                                         {displayValue(
-                                                            finishingItem.spk
-                                                                .spkNo,
+                                                            finishingItem.processName,
                                                         )}
-                                                    </td>
-                                                    <td>
-                                                        <SpkOrderTypeColumn
-                                                            spkType={
-                                                                finishingItem
-                                                                    .spk.spkType
-                                                            }
-                                                            orderTypeLabel={
-                                                                finishingItem
-                                                                    .spk
-                                                                    .orderTypeLabel
-                                                            }
-                                                        />
-                                                    </td>
-                                                    <td>
-                                                        <SpkItemSkuColumn
-                                                            skuCode={
-                                                                finishingItem
-                                                                    .spk.skuCode
-                                                            }
-                                                            typeCode={
-                                                                finishingItem
-                                                                    .spk
-                                                                    .typeCode
-                                                            }
-                                                            productItemName={
-                                                                finishingItem
-                                                                    .spk
-                                                                    .productItemName
-                                                            }
-                                                            itemDescription={
-                                                                finishingItem
-                                                                    .spk
-                                                                    .itemDescription
-                                                            }
-                                                        />
-                                                    </td>
-                                                    <td>
-                                                        {displayValue(
-                                                            finishingItem.spk
-                                                                .customerName,
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        {
-                                                            finishingItem.spk
-                                                                .satuan
-                                                        }
                                                     </td>
                                                 </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </section>
-                        </div>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Pengrajin
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.craftsmanName,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Kirim ke Pengrajin
+                                                    </th>
+                                                    <td>
+                                                        {formatDateTime(
+                                                            finishingItem.sendCraftsmanDate,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Terima dari Pengrajin
+                                                    </th>
+                                                    <td>
+                                                        {formatDateTime(
+                                                            finishingItem.receivedCraftsmanDate,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Kategori Item
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.itemCategory,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Catatan</th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.notes,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        <table className="spkItemMetaTable spkItemMetaTable--sm jewelCadDetailNotesTable">
+                                            <tbody>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Berat Awal (g)
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.startWeight,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Berat Akhir (g)
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.finishWeight,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Bahan (g)
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.submitMaterial,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Sisa (g)
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.resultMaterial,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Susut (g)
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.shrink,
+                                                        )}
+                                                        {finishingItem.shrinkPercent
+                                                            ? ` (${finishingItem.shrinkPercent}%)`
+                                                            : ''}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Toleransi Susut
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.shrinkTolerance,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </section>
+
+                                <section className="spkShowSection spkDetailCard spkDetailCard--co6">
+                                    <h3 className="spkShowSectionTitle">
+                                        SPK
+                                    </h3>
+                                    {finishingItem.spk === null ? (
+                                        <p>Belum ada SPK pada dokumen ini.</p>
+                                    ) : (
+                                        <div className="spkDetailGrid">
+                                            <DetailField label="SPK">
+                                                <strong>
+                                                    {displayValue(
+                                                        finishingItem.spk.spkNo,
+                                                    )}
+                                                </strong>
+                                            </DetailField>
+                                            <DetailField label="Tipe Produksi">
+                                                <SpkOrderTypeColumn
+                                                    spkType={
+                                                        finishingItem.spk
+                                                            .spkType
+                                                    }
+                                                    orderTypeLabel={
+                                                        finishingItem.spk
+                                                            .orderTypeLabel
+                                                    }
+                                                />
+                                            </DetailField>
+                                            <DetailField label="SKU">
+                                                <SpkItemSkuColumn
+                                                    typeCode={
+                                                        finishingItem.spk
+                                                            .typeCode
+                                                    }
+                                                    productItemName={
+                                                        finishingItem.spk
+                                                            .productItemName
+                                                    }
+                                                    skuCode={
+                                                        finishingItem.spk
+                                                            .skuCode
+                                                    }
+                                                    itemDescription={
+                                                        finishingItem.spk
+                                                            .itemDescription
+                                                    }
+                                                />
+                                            </DetailField>
+                                            <DetailField label="Customer">
+                                                {displayValue(
+                                                    finishingItem.spk
+                                                        .customerName,
+                                                )}
+                                            </DetailField>
+                                            <DetailField label="Qty">
+                                                {finishingItem.spk.satuan}
+                                            </DetailField>
+                                        </div>
+                                    )}
+                                </section>
+
+                                <section className="spkShowSection">
+                                    <h3 className="spkShowSectionTitle">
+                                        Bahan Emas
+                                    </h3>
+                                    <FinishingMaterialTables
+                                        materials={finishingItem.materials}
+                                        submitMaterial={
+                                            finishingItem.submitMaterial
+                                        }
+                                        resultMaterial={
+                                            finishingItem.resultMaterial
+                                        }
+                                    />
+                                </section>
+
+                                {approvalFooter.length > 0 ? (
+                                    <div className="spkShowBottom">
+                                        <footer
+                                            className="spkApprovalFooter spkApprovalFooter--splitEnds"
+                                            aria-label="Persetujuan"
+                                        >
+                                            {approvalFooter.map((column) => (
+                                                <div
+                                                    key={column.title}
+                                                    className="spkApprovalFooterCol"
+                                                >
+                                                    <div className="spkApprovalFooterTitle">
+                                                        {column.title}
+                                                    </div>
+                                                    <div className="spkApprovalFooterMeta">
+                                                        <div className="spkApprovalFooterMetaRow">
+                                                            <span className="spkApprovalFooterMetaLabel">
+                                                                Nama
+                                                            </span>
+                                                            <span className="spkApprovalFooterMetaValue">
+                                                                {displayValue(
+                                                                    column.name,
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                        <div className="spkApprovalFooterMetaRow">
+                                                            <span className="spkApprovalFooterMetaLabel">
+                                                                Tanggal
+                                                            </span>
+                                                            <span className="spkApprovalFooterMetaValue">
+                                                                {displayValue(
+                                                                    column.date,
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </footer>
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+
+                        {mainSection === 'riwayat' ? (
+                            <SpkApprovalTimelinePanel
+                                events={approvalTimeline}
+                            />
+                        ) : null}
                     </section>
                 </div>
             </div>

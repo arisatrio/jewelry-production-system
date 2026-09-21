@@ -45,7 +45,10 @@ type CoranDetailForm = {
     sku_code: string;
     item_description: string;
     satuan: string;
-    weight: string;
+    weight?: string;
+    weight_rosegold: string;
+    weight_whitegold: string;
+    weight_yellowgold: string;
     kadar: string;
     status: string;
 };
@@ -70,6 +73,12 @@ type CoranFormProps = {
     initialValues: CoranFormValues;
 };
 
+const SPK_WEIGHT_COLORS = [
+    { field: 'weight_rosegold', label: 'Rose Gold' },
+    { field: 'weight_whitegold', label: 'White Gold' },
+    { field: 'weight_yellowgold', label: 'Yellow Gold' },
+] as const;
+
 function fieldState(error?: string): 'None' | 'Negative' {
     return error ? 'Negative' : 'None';
 }
@@ -86,6 +95,44 @@ function normalizeWeightForSubmit(value: string): string | null {
     const trimmed = value.trim().replace(',', '.');
 
     return trimmed !== '' ? trimmed : null;
+}
+
+function toWeightNumber(value: string): number {
+    const normalized = value.trim().replace(',', '.');
+
+    if (normalized === '') {
+        return 0;
+    }
+
+    const parsed = Number(normalized);
+
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sumDetailColorWeights(detail: CoranDetailForm): number {
+    return (
+        toWeightNumber(detail.weight_rosegold) +
+        toWeightNumber(detail.weight_whitegold) +
+        toWeightNumber(detail.weight_yellowgold)
+    );
+}
+
+function detailTotalWeight(detail: CoranDetailForm): number {
+    const colorTotal = sumDetailColorWeights(detail);
+
+    if (
+        detail.weight_rosegold.trim() !== '' ||
+        detail.weight_whitegold.trim() !== '' ||
+        detail.weight_yellowgold.trim() !== ''
+    ) {
+        return colorTotal;
+    }
+
+    return toWeightNumber(detail.weight ?? '');
+}
+
+function formatWeightTotal(total: number): string {
+    return total.toFixed(3);
 }
 
 function normalizeStatusForSubmit(value: string): string | null {
@@ -154,7 +201,9 @@ export function CoranForm({
             ...data.details,
             {
                 ...added,
-                weight: '',
+                weight_rosegold: '',
+                weight_whitegold: '',
+                weight_yellowgold: '',
                 kadar: '',
                 status: '',
             },
@@ -170,12 +219,33 @@ export function CoranForm({
                 formData.craftsman_id.trim() !== ''
                     ? formData.craftsman_id
                     : null,
-            details: formData.details.map((detail) => ({
-                spk_id: Number(detail.spk_id),
-                weight: normalizeWeightForSubmit(detail.weight),
-                kadar: normalizeWeightForSubmit(detail.kadar),
-                status: normalizeStatusForSubmit(detail.status),
-            })),
+            details: formData.details.map((detail) => {
+                const weightRosegold = normalizeWeightForSubmit(
+                    detail.weight_rosegold,
+                );
+                const weightWhitegold = normalizeWeightForSubmit(
+                    detail.weight_whitegold,
+                );
+                const weightYellowgold = normalizeWeightForSubmit(
+                    detail.weight_yellowgold,
+                );
+                const total = sumDetailColorWeights(detail);
+
+                return {
+                    spk_id: Number(detail.spk_id),
+                    weight_rosegold: weightRosegold,
+                    weight_whitegold: weightWhitegold,
+                    weight_yellowgold: weightYellowgold,
+                    weight:
+                        weightRosegold !== null ||
+                        weightWhitegold !== null ||
+                        weightYellowgold !== null
+                            ? formatWeightTotal(total)
+                            : normalizeWeightForSubmit(detail.weight ?? ''),
+                    kadar: normalizeWeightForSubmit(detail.kadar),
+                    status: normalizeStatusForSubmit(detail.status),
+                };
+            }),
             materials: formData.materials
                 .filter(
                     (line) =>
@@ -367,7 +437,12 @@ export function CoranForm({
                                                 </th>
                                                 <th>SKU</th>
                                                 <th>Qty</th>
-                                                <th>Berat Coran</th>
+                                                <th>
+                                                    Berat Keluar
+                                                    <br />
+                                                    hasil coran (g)
+                                                </th>
+                                                <th>Total Berat (g)</th>
                                                 <th>Kadar</th>
                                                 <th>Status Coran</th>
                                                 <th className="spkTableActionCol">
@@ -436,47 +511,77 @@ export function CoranForm({
                                                                     : '—'}
                                                             </td>
                                                             <td>
-                                                                <div className="spkFioriFieldStack">
-                                                                    <Input
-                                                                        type="Number"
-                                                                        accessibleName="Berat coran"
-                                                                        value={
-                                                                            detail.weight
-                                                                        }
-                                                                        valueState={fieldState(
-                                                                            detailError(
-                                                                                errors,
-                                                                                index,
-                                                                                'weight',
-                                                                            ),
-                                                                        )}
-                                                                        onInput={(
-                                                                            event,
-                                                                        ) =>
-                                                                            updateDetail(
-                                                                                index,
-                                                                                'weight',
-                                                                                event
-                                                                                    .target
-                                                                                    .value ??
-                                                                                    '',
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                    {detailError(
-                                                                        errors,
-                                                                        index,
-                                                                        'weight',
-                                                                    ) ? (
-                                                                        <Text className="spkFioriError">
-                                                                            {detailError(
-                                                                                errors,
-                                                                                index,
-                                                                                'weight',
-                                                                            )}
-                                                                        </Text>
-                                                                    ) : null}
+                                                                <div className="spkFioriFieldStack gap-2">
+                                                                    {SPK_WEIGHT_COLORS.map(
+                                                                        (
+                                                                            color,
+                                                                        ) => (
+                                                                            <div
+                                                                                key={
+                                                                                    color.field
+                                                                                }
+                                                                                className="spkFioriFieldStack"
+                                                                            >
+                                                                                <Label>
+                                                                                    {
+                                                                                        color.label
+                                                                                    }
+                                                                                </Label>
+                                                                                <Input
+                                                                                    type="Number"
+                                                                                    accessibleName={`Berat ${color.label}`}
+                                                                                    value={
+                                                                                        detail[
+                                                                                            color
+                                                                                                .field
+                                                                                        ]
+                                                                                    }
+                                                                                    valueState={fieldState(
+                                                                                        detailError(
+                                                                                            errors,
+                                                                                            index,
+                                                                                            color.field,
+                                                                                        ),
+                                                                                    )}
+                                                                                    onInput={(
+                                                                                        event,
+                                                                                    ) =>
+                                                                                        updateDetail(
+                                                                                            index,
+                                                                                            color.field,
+                                                                                            event
+                                                                                                .target
+                                                                                                .value ??
+                                                                                                '',
+                                                                                        )
+                                                                                    }
+                                                                                />
+                                                                                {detailError(
+                                                                                    errors,
+                                                                                    index,
+                                                                                    color.field,
+                                                                                ) ? (
+                                                                                    <Text className="spkFioriError">
+                                                                                        {detailError(
+                                                                                            errors,
+                                                                                            index,
+                                                                                            color.field,
+                                                                                        )}
+                                                                                    </Text>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        ),
+                                                                    )}
                                                                 </div>
+                                                            </td>
+                                                            <td>
+                                                                <strong>
+                                                                    {formatWeightTotal(
+                                                                        detailTotalWeight(
+                                                                            detail,
+                                                                        ),
+                                                                    )}
+                                                                </strong>
                                                             </td>
                                                             <td>
                                                                 <div className="spkFioriFieldStack">

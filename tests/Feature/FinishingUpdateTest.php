@@ -68,7 +68,7 @@ test('finishing update changes document fields', function () {
         'spk_id' => $productionB->row_id,
         'process_name' => 'Handmade',
         'craftsman_id' => null,
-        'send_craftsman_date' => now()->format('Y-m-d'),
+        'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '2.500',
         'finish_weight' => '2.000',
         'shrink_tolerance' => '5.00',

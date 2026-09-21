@@ -150,6 +150,15 @@ Route::middleware(['auth'])->group(function () {
     Route::put('finishing/{finishing}', [FinishingController::class, 'update'])
         ->whereNumber('finishing')
         ->name('finishing.update');
+    Route::post('finishing/{finishing}/submit', [FinishingController::class, 'submit'])
+        ->whereNumber('finishing')
+        ->name('finishing.submit');
+    Route::post('finishing/{finishing}/manager-approve', [FinishingController::class, 'managerApprove'])
+        ->whereNumber('finishing')
+        ->name('finishing.manager-approve');
+    Route::post('finishing/{finishing}/complete', [FinishingController::class, 'complete'])
+        ->whereNumber('finishing')
+        ->name('finishing.complete');
     Route::get('finishing', [FinishingController::class, 'index'])->name('finishing.index');
     Route::get('finishing/{finishing}', [FinishingController::class, 'show'])
         ->whereNumber('finishing')

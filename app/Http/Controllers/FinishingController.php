@@ -6,11 +6,14 @@ use App\Http\Requests\StoreFinishingRequest;
 use App\Http\Requests\UpdateFinishingRequest;
 use App\Models\FinishingHandmade;
 use App\Models\Production;
+use App\Support\FinishingApprovalService;
 use App\Support\FinishingDocNumberGenerator;
 use App\Support\FinishingMaterialBreakdown;
 use App\Support\FinishingMaterialGoldSynchronizer;
+use App\Support\FinishingSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkQtyUnit;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,13 +21,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 
 class FinishingController extends Controller
 {
     /**
      * Display a listing of finishing documents.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, FinishingSpkEligibility $spkEligibility): Response
     {
         $search = $request->string('search')->trim()->toString();
         $perPage = $request->integer('per_page', 10);
@@ -60,6 +64,7 @@ class FinishingController extends Controller
 
         return Inertia::render('finishing/index', [
             'documents' => $documents,
+            'spkStatusCounts' => $this->spkStatusCounts($spkEligibility),
             'filters' => [
                 'search' => $search,
                 'per_page' => $perPage,
@@ -79,7 +84,7 @@ class FinishingController extends Controller
             'craftsmanOptions' => $this->craftsmanOptions(),
             'materialOptions' => $materialSynchronizer->materialOptions(),
             'form' => [
-                'sendCraftsmanDate' => now()->format('Y-m-d'),
+                'sendCraftsmanDate' => now()->format('Y-m-d H:i'),
                 'receivedCraftsmanDate' => '',
                 'processName' => 'Finishing',
                 'craftsmanId' => null,
@@ -87,7 +92,6 @@ class FinishingController extends Controller
                 'notes' => '',
                 'startWeight' => '',
                 'finishWeight' => '',
-                'shrinkTolerance' => '',
                 'spk' => null,
                 'materials' => [],
             ],
@@ -110,15 +114,32 @@ class FinishingController extends Controller
 
         $query = Production::query()
             ->notDeleted()
-            ->whereNotNull('spk_no')
             ->when($exclude !== [], fn ($builder) => $builder->whereNotIn('row_id', $exclude))
-            ->with($this->productionSpkInfoRelations())
+            ->orderByDesc('row_id')
+            ->limit($limit);
+
+        $queue = $request->string('queue')->trim()->toString();
+        $spkEligibility = app(FinishingSpkEligibility::class);
+
+        match ($queue) {
+            'inProgress' => $query->tap(
+                fn (Builder $builder) => $spkEligibility->applyInProgressScope($builder),
+            ),
+            'completed' => $query->tap(
+                fn (Builder $builder) => $spkEligibility->applyCompletedScope($builder),
+            ),
+            'pending' => $query->tap(
+                fn (Builder $builder) => $spkEligibility->applyEligibleScope($builder),
+            ),
+            default => $query->whereNotNull('spk_no'),
+        };
+
+        $query->with($this->productionSpkInfoRelations())
             ->select([
                 ...$this->productionSpkInfoColumns(),
                 'gold_color',
-            ])
-            ->orderByDesc('row_id')
-            ->limit($limit);
+                'last_weight',
+            ]);
 
         if ($search !== '') {
             $like = '%'.$search.'%';
@@ -132,13 +153,23 @@ class FinishingController extends Controller
         }
 
         $productions = $query->get();
+        $finishingRefs = in_array($queue, ['inProgress', 'completed'], true)
+            ? $spkEligibility->finishingRefsBySpkIds(
+                $productions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+            )
+            : [];
 
         return response()->json([
             'status' => true,
-            'data' => $productions->map(function (Production $production): array {
+            'data' => $productions->map(function (Production $production) use ($finishingRefs): array {
+                $spkId = (int) $production->row_id;
+                $finishingRef = $finishingRefs[$spkId] ?? null;
+
                 return [
-                    'rowId' => (int) $production->row_id,
+                    'rowId' => $spkId,
                     'spkNo' => (string) $production->spk_no,
+                    'finishingId' => $finishingRef['finishingId'] ?? null,
+                    'docNo' => $finishingRef['docNo'] ?? null,
                     'customer' => filled($production->customer_name)
                         ? (string) $production->customer_name
                         : '—',
@@ -149,6 +180,7 @@ class FinishingController extends Controller
                         ? (string) $production->gold_color
                         : '',
                     'qty' => $production->qty ?? 1,
+                    'lastWeight' => $this->formatDecimal($production->last_weight),
                     ...$this->productionSpkInfoFields($production),
                 ];
             })->values()->all(),
@@ -184,7 +216,7 @@ class FinishingController extends Controller
                 'submit_materialgold' => '0.000',
                 'result_materialgold' => '0.000',
                 'shrink' => '0.000',
-                'shrink_tolerance' => $validated['shrink_tolerance'] ?? null,
+                'shrink_tolerance' => null,
                 'send_craftsman_date' => $validated['send_craftsman_date'] ?? null,
                 'received_craftsman_date' => $validated['received_craftsman_date'] ?? null,
                 'item_category' => $validated['item_category'] ?? null,
@@ -197,6 +229,15 @@ class FinishingController extends Controller
                 'modified_by' => $actor,
                 'koreksi_qc' => 0,
             ]);
+
+            $production = Production::query()
+                ->notDeleted()
+                ->where('row_id', $validated['spk_id'])
+                ->first();
+
+            if ($production !== null) {
+                app(FinishingSpkEligibility::class)->markProcessStarted($production, $actor);
+            }
 
             $materialSynchronizer->sync($document, $materials, $actor);
             $this->recalculateShrink($document->refresh());
@@ -216,7 +257,9 @@ class FinishingController extends Controller
      * Display the specified finishing document.
      */
     public function show(
+        Request $request,
         FinishingHandmade $finishing,
+        FinishingApprovalService $approvalService,
         FinishingMaterialBreakdown $materialBreakdown,
     ): Response {
         abort_if($finishing->is_deleted === 1, 404);
@@ -230,8 +273,13 @@ class FinishingController extends Controller
 
         return Inertia::render('finishing/show', [
             'finishingItem' => $this->toDetailItem($finishing, $materialBreakdown),
-            'workflowStatus' => $this->workflowStatus($finishing),
-            'canEdit' => $finishing->canEditForm(),
+            'workflowStatus' => $approvalService->map($finishing),
+            'approvalHistory' => $approvalService->history($finishing),
+            'approvalFooter' => $approvalService->footerColumns(
+                $finishing,
+                $this->actorName($request),
+            ),
+            'approval' => $approvalService->abilitiesFor($finishing, $request->user()),
         ]);
     }
 
@@ -239,12 +287,14 @@ class FinishingController extends Controller
      * Show the form for editing the specified finishing document.
      */
     public function edit(
+        Request $request,
         FinishingHandmade $finishing,
+        FinishingApprovalService $approvalService,
         FinishingMaterialGoldSynchronizer $materialSynchronizer,
     ): Response {
         abort_if($finishing->is_deleted === 1, 404);
         abort_unless(
-            $finishing->canEditForm(),
+            $approvalService->abilitiesFor($finishing, $request->user())['canEdit'],
             403,
             'Dokumen finishing tidak dapat diubah pada status saat ini.',
         );
@@ -267,8 +317,8 @@ class FinishingController extends Controller
             'form' => [
                 'id' => (int) $finishing->row_id,
                 'docNo' => $finishing->doc_no,
-                'sendCraftsmanDate' => $finishing->send_craftsman_date?->format('Y-m-d') ?? '',
-                'receivedCraftsmanDate' => $finishing->received_craftsman_date?->format('Y-m-d') ?? '',
+                'sendCraftsmanDate' => $finishing->send_craftsman_date?->format('Y-m-d H:i') ?? '',
+                'receivedCraftsmanDate' => $finishing->received_craftsman_date?->format('Y-m-d H:i') ?? '',
                 'processName' => filled($finishing->process_name)
                     ? (string) $finishing->process_name
                     : 'Finishing',
@@ -281,7 +331,6 @@ class FinishingController extends Controller
                 'notes' => filled($finishing->notes) ? (string) $finishing->notes : '',
                 'startWeight' => $this->formatDecimal($finishing->start_weight) ?? '',
                 'finishWeight' => $this->formatDecimal($finishing->finish_weight) ?? '',
-                'shrinkTolerance' => $this->formatDecimal($finishing->shrink_tolerance, 2) ?? '',
                 'spk' => $production === null ? null : [
                     'spkId' => (int) $production->row_id,
                     'spkNo' => $production->spk_no,
@@ -289,7 +338,92 @@ class FinishingController extends Controller
                 ],
                 'materials' => $materialSynchronizer->formLinesFor($finishing),
             ],
+            'approval' => $approvalService->abilitiesFor($finishing, $request->user()),
         ]);
+    }
+
+    /**
+     * Kirim dokumen Open ke Manager Produksi.
+     */
+    public function submit(
+        Request $request,
+        FinishingHandmade $finishing,
+        FinishingApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($finishing->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($finishing, $request->user())['canSubmit']) {
+            abort(403, 'Dokumen ini tidak dapat dikirim ke Manager Produksi.');
+        }
+
+        try {
+            $approvalService->submit($finishing, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen finishing dikirim ke Manager Produksi.',
+        ]);
+
+        return to_route('finishing.show', $finishing);
+    }
+
+    /**
+     * Manager Produksi meng-approve dokumen.
+     */
+    public function managerApprove(
+        Request $request,
+        FinishingHandmade $finishing,
+        FinishingApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($finishing->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($finishing, $request->user())['canManagerApprove']) {
+            abort(403, 'Dokumen ini tidak dapat di-approve oleh Manager Produksi.');
+        }
+
+        try {
+            $approvalService->managerApprove($finishing, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen finishing di-approve oleh Manager Produksi.',
+        ]);
+
+        return to_route('finishing.show', $finishing);
+    }
+
+    /**
+     * Selesaikan dokumen finishing.
+     */
+    public function complete(
+        Request $request,
+        FinishingHandmade $finishing,
+        FinishingApprovalService $approvalService,
+    ): RedirectResponse {
+        abort_if($finishing->is_deleted === 1, 404);
+
+        if (! $approvalService->abilitiesFor($finishing, $request->user())['canComplete']) {
+            abort(403, 'Dokumen ini tidak dapat diselesaikan.');
+        }
+
+        try {
+            $approvalService->complete($finishing, $this->actorName($request));
+        } catch (InvalidArgumentException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen finishing selesai.',
+        ]);
+
+        return to_route('finishing.show', $finishing);
     }
 
     /**
@@ -298,11 +432,12 @@ class FinishingController extends Controller
     public function update(
         UpdateFinishingRequest $request,
         FinishingHandmade $finishing,
+        FinishingApprovalService $approvalService,
         FinishingMaterialGoldSynchronizer $materialSynchronizer,
     ): RedirectResponse {
         abort_if($finishing->is_deleted === 1, 404);
         abort_unless(
-            $finishing->canEditForm(),
+            $approvalService->abilitiesFor($finishing, $request->user())['canEdit'],
             403,
             'Dokumen finishing tidak dapat diubah pada status saat ini.',
         );
@@ -324,7 +459,6 @@ class FinishingController extends Controller
                 'craftsman_id' => $validated['craftsman_id'] ?? null,
                 'start_weight' => $validated['start_weight'] ?? null,
                 'finish_weight' => $validated['finish_weight'] ?? null,
-                'shrink_tolerance' => $validated['shrink_tolerance'] ?? null,
                 'send_craftsman_date' => $validated['send_craftsman_date'] ?? null,
                 'received_craftsman_date' => $validated['received_craftsman_date'] ?? null,
                 'item_category' => $validated['item_category'] ?? null,
@@ -343,46 +477,6 @@ class FinishingController extends Controller
         ]);
 
         return to_route('finishing.show', $finishing);
-    }
-
-    /**
-     * @return array{
-     *     key: string,
-     *     label: string,
-     *     stageIndex: int,
-     *     stages: list<array{key: string, label: string}>
-     * }
-     */
-    private function workflowStatus(FinishingHandmade $document): array
-    {
-        $stages = [
-            ['key' => 'open', 'label' => 'Open'],
-            ['key' => 'loket', 'label' => 'Serahkan ke Loket'],
-            ['key' => 'craftsman', 'label' => 'Serahkan ke Pengrajin'],
-            ['key' => 'ppic', 'label' => 'Serahkan ke PPIC'],
-            ['key' => 'done', 'label' => 'Done'],
-        ];
-
-        $status = strtoupper(trim((string) ($document->status ?? '')));
-
-        $key = match ($status) {
-            FinishingHandmade::STATUS_DONE, FinishingHandmade::STATUS_REPARATION_DONE => 'done',
-            FinishingHandmade::STATUS_TO_PPIC => 'ppic',
-            FinishingHandmade::STATUS_TO_CRAFTSMAN, FinishingHandmade::STATUS_REPARATION_OPEN => 'craftsman',
-            FinishingHandmade::STATUS_OPEN => 'loket',
-            default => 'open',
-        };
-
-        $stageIndex = collect($stages)->search(
-            fn (array $stage): bool => $stage['key'] === $key,
-        );
-
-        return [
-            'key' => $key,
-            'label' => $document->statusLabel(),
-            'stageIndex' => is_int($stageIndex) ? $stageIndex : 0,
-            'stages' => $stages,
-        ];
     }
 
     /**
@@ -716,5 +810,23 @@ class FinishingController extends Controller
         }
 
         return (float) $value;
+    }
+
+    /**
+     * @return array{pending: int, inProgress: int, completed: int}
+     */
+    private function spkStatusCounts(FinishingSpkEligibility $spkEligibility): array
+    {
+        return [
+            'pending' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyEligibleScope($builder))
+                ->count(),
+            'inProgress' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyInProgressScope($builder))
+                ->count(),
+            'completed' => Production::query()
+                ->tap(fn (Builder $builder) => $spkEligibility->applyCompletedScope($builder))
+                ->count(),
+        ];
     }
 }

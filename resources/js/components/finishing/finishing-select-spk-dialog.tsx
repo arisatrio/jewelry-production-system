@@ -22,6 +22,7 @@ export type FinishingSelectedSpk = {
     sku_code: string;
     item_description: string;
     satuan: string;
+    lastWeight: string | null;
 };
 
 type SpkSelectorOption = {
@@ -31,6 +32,7 @@ type SpkSelectorOption = {
     item: string;
     goldColor: string;
     qty: number;
+    lastWeight: string | null;
     spkType: string | null;
     orderTypeLabel: string | null;
     skuCode: string | null;
@@ -147,6 +149,7 @@ export function FinishingSelectSpkDialog({
             sku_code: selectedRow.skuCode ?? '',
             item_description: selectedRow.itemDescription ?? '',
             satuan: selectedRow.satuan ?? '',
+            lastWeight: selectedRow.lastWeight ?? null,
         });
         onOpenChange(false);
     };

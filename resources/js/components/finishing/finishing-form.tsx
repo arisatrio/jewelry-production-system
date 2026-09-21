@@ -4,7 +4,7 @@ import { router, useForm } from '@inertiajs/react';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import saveIcon from '@ui5/webcomponents-icons/dist/save.js';
 import { Button } from '@ui5/webcomponents-react/Button';
-import { DatePicker } from '@ui5/webcomponents-react/DatePicker';
+import { DateTimePicker } from '@ui5/webcomponents-react/DateTimePicker';
 import { Form } from '@ui5/webcomponents-react/Form';
 import { FormGroup } from '@ui5/webcomponents-react/FormGroup';
 import { FormItem } from '@ui5/webcomponents-react/FormItem';
@@ -52,7 +52,6 @@ type FinishingFormValues = {
     notes: string;
     start_weight: string;
     finish_weight: string;
-    shrink_tolerance: string;
     spk: FinishingSpkForm | null;
     materials: FinishingMaterialFormLine[];
 };
@@ -130,7 +129,13 @@ export function FinishingForm({
         data.spk !== null && data.spk.spk_id.trim() !== '';
 
     const handleSelectedSpk = (selected: FinishingSelectedSpk) => {
-        setData('spk', selected);
+        const { lastWeight, ...spk } = selected;
+
+        setData({
+            ...data,
+            spk,
+            start_weight: lastWeight?.trim() ?? '',
+        });
     };
 
     const submit = (event: FormEvent) => {
@@ -162,9 +167,6 @@ export function FinishingForm({
                 formData.notes.trim() !== '' ? formData.notes.trim() : null,
             start_weight: normalizeWeightForSubmit(formData.start_weight),
             finish_weight: normalizeWeightForSubmit(formData.finish_weight),
-            shrink_tolerance: normalizeWeightForSubmit(
-                formData.shrink_tolerance,
-            ),
             materials: formData.materials
                 .filter(
                     (line) =>
@@ -245,7 +247,10 @@ export function FinishingForm({
                                 labelSpan="S12 M4 L4 XL4"
                                 itemSpacing="Normal"
                             >
-                                <FormGroup headerText="SPK" columnSpan={2}>
+                                <FormGroup
+                                    headerText="Serah ke Pengrajin"
+                                    columnSpan={2}
+                                >
                                     <FormItem
                                         labelContent={
                                             <Label showColon required>
@@ -294,10 +299,12 @@ export function FinishingForm({
                                                         type="Button"
                                                         disabled={processing}
                                                         onClick={() =>
-                                                            setData(
-                                                                'spk',
-                                                                emptySpk(),
-                                                            )
+                                                            setData({
+                                                                ...data,
+                                                                spk: emptySpk(),
+                                                                start_weight:
+                                                                    '',
+                                                            })
                                                         }
                                                     >
                                                         Hapus
@@ -379,52 +386,33 @@ export function FinishingForm({
                                             </FormItem>
                                         </>
                                     ) : null}
-                                </FormGroup>
 
-                                <FormGroup
-                                    headerText="Informasi Dokumen"
-                                    columnSpan={2}
-                                >
                                     <FormItem
                                         labelContent={
-                                            <Label showColon required>
-                                                Proses
+                                            <Label showColon>
+                                                Berat awal (g)
                                             </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
-                                            <Select
-                                                accessibleName="Proses finishing"
+                                            <Input
+                                                type="Number"
+                                                accessibleName="Berat awal"
+                                                value={data.start_weight}
                                                 valueState={fieldState(
-                                                    errors.process_name,
+                                                    errors.start_weight,
                                                 )}
-                                                onChange={(event) =>
+                                                onInput={(event) =>
                                                     setData(
-                                                        'process_name',
-                                                        event.detail
-                                                            .selectedOption
-                                                            .value ?? '',
+                                                        'start_weight',
+                                                        event.target.value ??
+                                                            '',
                                                     )
                                                 }
-                                            >
-                                                {processOptions.map(
-                                                    (option) => (
-                                                        <Option
-                                                            key={option.value}
-                                                            value={option.value}
-                                                            selected={
-                                                                data.process_name ===
-                                                                option.value
-                                                            }
-                                                        >
-                                                            {option.label}
-                                                        </Option>
-                                                    ),
-                                                )}
-                                            </Select>
-                                            {errors.process_name ? (
+                                            />
+                                            {errors.start_weight ? (
                                                 <Text className="spkFioriError">
-                                                    {errors.process_name}
+                                                    {errors.start_weight}
                                                 </Text>
                                             ) : null}
                                         </div>
@@ -490,12 +478,12 @@ export function FinishingForm({
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
-                                            <DatePicker
+                                            <DateTimePicker
                                                 value={
                                                     data.send_craftsman_date
                                                 }
-                                                valueFormat="yyyy-MM-dd"
-                                                displayFormat="dd/MM/yyyy"
+                                                valueFormat="yyyy-MM-dd HH:mm"
+                                                displayFormat="dd/MM/yyyy HH:mm"
                                                 valueState={fieldState(
                                                     errors.send_craftsman_date,
                                                 )}
@@ -519,34 +507,44 @@ export function FinishingForm({
 
                                     <FormItem
                                         labelContent={
-                                            <Label showColon>
-                                                Tanggal terima pengrajin
+                                            <Label showColon required>
+                                                Proses
                                             </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
-                                            <DatePicker
-                                                value={
-                                                    data.received_craftsman_date
-                                                }
-                                                valueFormat="yyyy-MM-dd"
-                                                displayFormat="dd/MM/yyyy"
+                                            <Select
+                                                accessibleName="Proses finishing"
                                                 valueState={fieldState(
-                                                    errors.received_craftsman_date,
+                                                    errors.process_name,
                                                 )}
                                                 onChange={(event) =>
                                                     setData(
-                                                        'received_craftsman_date',
-                                                        event.detail.value ??
-                                                            '',
+                                                        'process_name',
+                                                        event.detail
+                                                            .selectedOption
+                                                            .value ?? '',
                                                     )
                                                 }
-                                            />
-                                            {errors.received_craftsman_date ? (
+                                            >
+                                                {processOptions.map(
+                                                    (option) => (
+                                                        <Option
+                                                            key={option.value}
+                                                            value={option.value}
+                                                            selected={
+                                                                data.process_name ===
+                                                                option.value
+                                                            }
+                                                        >
+                                                            {option.label}
+                                                        </Option>
+                                                    ),
+                                                )}
+                                            </Select>
+                                            {errors.process_name ? (
                                                 <Text className="spkFioriError">
-                                                    {
-                                                        errors.received_craftsman_date
-                                                    }
+                                                    {errors.process_name}
                                                 </Text>
                                             ) : null}
                                         </div>
@@ -635,35 +633,39 @@ export function FinishingForm({
                                 </FormGroup>
 
                                 <FormGroup
-                                    headerText="Berat & Susut"
+                                    headerText="Terima dari Pengrajin"
                                     columnSpan={2}
                                 >
                                     <FormItem
                                         labelContent={
                                             <Label showColon>
-                                                Berat awal (g)
+                                                Tanggal terima pengrajin
                                             </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
-                                            <Input
-                                                type="Number"
-                                                accessibleName="Berat awal"
-                                                value={data.start_weight}
+                                            <DateTimePicker
+                                                value={
+                                                    data.received_craftsman_date
+                                                }
+                                                valueFormat="yyyy-MM-dd HH:mm"
+                                                displayFormat="dd/MM/yyyy HH:mm"
                                                 valueState={fieldState(
-                                                    errors.start_weight,
+                                                    errors.received_craftsman_date,
                                                 )}
-                                                onInput={(event) =>
+                                                onChange={(event) =>
                                                     setData(
-                                                        'start_weight',
-                                                        event.target.value ??
+                                                        'received_craftsman_date',
+                                                        event.detail.value ??
                                                             '',
                                                     )
                                                 }
                                             />
-                                            {errors.start_weight ? (
+                                            {errors.received_craftsman_date ? (
                                                 <Text className="spkFioriError">
-                                                    {errors.start_weight}
+                                                    {
+                                                        errors.received_craftsman_date
+                                                    }
                                                 </Text>
                                             ) : null}
                                         </div>
@@ -695,37 +697,6 @@ export function FinishingForm({
                                             {errors.finish_weight ? (
                                                 <Text className="spkFioriError">
                                                     {errors.finish_weight}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </FormItem>
-
-                                    <FormItem
-                                        labelContent={
-                                            <Label showColon>
-                                                Toleransi susut (%)
-                                            </Label>
-                                        }
-                                    >
-                                        <div className="spkFioriFieldStack">
-                                            <Input
-                                                type="Number"
-                                                accessibleName="Toleransi susut"
-                                                value={data.shrink_tolerance}
-                                                valueState={fieldState(
-                                                    errors.shrink_tolerance,
-                                                )}
-                                                onInput={(event) =>
-                                                    setData(
-                                                        'shrink_tolerance',
-                                                        event.target.value ??
-                                                            '',
-                                                    )
-                                                }
-                                            />
-                                            {errors.shrink_tolerance ? (
-                                                <Text className="spkFioriError">
-                                                    {errors.shrink_tolerance}
                                                 </Text>
                                             ) : null}
                                         </div>

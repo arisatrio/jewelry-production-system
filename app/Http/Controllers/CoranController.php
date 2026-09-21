@@ -309,6 +309,9 @@ class CoranController extends Controller
                 'spkNo' => $detail->production?->spk_no,
                 ...$this->productionSpkInfoFields($detail->production),
                 'weight' => $this->formatDecimal($detail->weight) ?? '',
+                'weightRosegold' => $this->formatDecimal($detail->weight_rosegold) ?? '',
+                'weightWhitegold' => $this->formatDecimal($detail->weight_whitegold) ?? '',
+                'weightYellowgold' => $this->formatDecimal($detail->weight_yellowgold) ?? '',
                 'kadar' => $this->formatKadar($detail->kadar) ?? '',
                 'status' => filled($detail->status) ? (string) $detail->status : '',
             ])
@@ -537,11 +540,20 @@ class CoranController extends Controller
     }
 
     /**
-     * @param  list<array{spk_id: int, weight?: string|null, kadar?: string|null, status?: string|null}>  $details
+     * @param  list<array{
+     *     spk_id: int,
+     *     weight?: string|null,
+     *     weight_rosegold?: string|null,
+     *     weight_whitegold?: string|null,
+     *     weight_yellowgold?: string|null,
+     *     kadar?: string|null,
+     *     status?: string|null
+     * }>  $details
      */
     private function storeDetails(Coran $coran, array $details, string $actor): void
     {
         $spkEligibility = app(CoranSpkEligibility::class);
+        $hasColorColumns = Schema::connection('third')->hasColumn('coranspk', 'weight_rosegold');
 
         foreach ($details as $detail) {
             $production = Production::query()
@@ -553,7 +565,7 @@ class CoranController extends Controller
                 $spkEligibility->syncLastWeight($production, $detail['weight'] ?? null, $actor);
             }
 
-            $coran->details()->create([
+            $payload = [
                 'spk_id' => $detail['spk_id'],
                 'weight' => filled($detail['weight'] ?? null)
                     ? $detail['weight']
@@ -569,7 +581,21 @@ class CoranController extends Controller
                 'created_by' => $actor,
                 'modified_date' => now(),
                 'modified_by' => $actor,
-            ]);
+            ];
+
+            if ($hasColorColumns) {
+                $payload['weight_rosegold'] = filled($detail['weight_rosegold'] ?? null)
+                    ? $detail['weight_rosegold']
+                    : null;
+                $payload['weight_whitegold'] = filled($detail['weight_whitegold'] ?? null)
+                    ? $detail['weight_whitegold']
+                    : null;
+                $payload['weight_yellowgold'] = filled($detail['weight_yellowgold'] ?? null)
+                    ? $detail['weight_yellowgold']
+                    : null;
+            }
+
+            $coran->details()->create($payload);
         }
     }
 
@@ -731,6 +757,9 @@ class CoranController extends Controller
      *         customerName: string|null,
      *         satuan: string,
      *         weight: string|null,
+     *         weightRosegold: string|null,
+     *         weightWhitegold: string|null,
+     *         weightYellowgold: string|null,
      *         kadar: string|null,
      *         status: string|null,
      *         statusLabel: string
@@ -805,6 +834,9 @@ class CoranController extends Controller
                     'spkNo' => $detail->production?->spk_no,
                     ...$this->productionSpkInfoFields($detail->production),
                     'weight' => $this->formatDecimal($detail->weight),
+                    'weightRosegold' => $this->formatDecimal($detail->weight_rosegold),
+                    'weightWhitegold' => $this->formatDecimal($detail->weight_whitegold),
+                    'weightYellowgold' => $this->formatDecimal($detail->weight_yellowgold),
                     'kadar' => $this->formatKadar($detail->kadar),
                     'status' => filled($detail->status) ? (string) $detail->status : null,
                     'statusLabel' => $this->spkStatusLabel(

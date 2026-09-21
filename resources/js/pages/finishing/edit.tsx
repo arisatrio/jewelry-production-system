@@ -30,7 +30,6 @@ type FinishingEditProps = {
         notes: string;
         startWeight: string;
         finishWeight: string;
-        shrinkTolerance: string;
         spk: {
             spkId: number;
             spkNo: string | null;
@@ -87,7 +86,6 @@ export default function FinishingEdit({
                     notes: form.notes ?? '',
                     start_weight: form.startWeight ?? '',
                     finish_weight: form.finishWeight ?? '',
-                    shrink_tolerance: form.shrinkTolerance ?? '',
                     spk: form.spk
                         ? {
                               spk_id: String(form.spk.spkId),

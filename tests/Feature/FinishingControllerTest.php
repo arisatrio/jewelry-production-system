@@ -11,6 +11,9 @@ test('finishing index page is accessible', function () {
             ->component('finishing/index')
             ->has('documents.data')
             ->has('documents.total')
+            ->has('spkStatusCounts.pending')
+            ->has('spkStatusCounts.inProgress')
+            ->has('spkStatusCounts.completed')
             ->has('filters.search')
             ->has('filters.per_page')
         );
@@ -114,7 +117,9 @@ test('finishing show page is accessible', function () {
             ->where('finishingItem.spk.spkNo', '2026/PRD/FINSHOW')
             ->where('workflowStatus.key', 'done')
             ->has('workflowStatus.stages')
-            ->where('canEdit', false)
+            ->has('approvalFooter')
+            ->has('approvalHistory')
+            ->where('approval.canOpenEdit', false)
             ->has('finishingItem.materials.bahan')
             ->has('finishingItem.materials.sisa')
         );

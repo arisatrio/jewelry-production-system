@@ -30,7 +30,7 @@ test('finishing store creates document with spk', function () {
         'spk_id' => $production->row_id,
         'process_name' => 'Finishing',
         'craftsman_id' => null,
-        'send_craftsman_date' => now()->format('Y-m-d'),
+        'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '3.160',
         'finish_weight' => '2.450',
         'shrink_tolerance' => '6.90',
@@ -72,6 +72,7 @@ test('finishing store requires spk', function () {
 test('finishing search spks returns json', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/FINSEL'.Str::upper(Str::random(3)),
+        'last_weight' => 3.25,
     ]);
 
     $this->getJson(route('finishing.select.spks', [
@@ -83,6 +84,7 @@ test('finishing search spks returns json', function () {
         ->assertJsonFragment([
             'rowId' => $production->row_id,
             'spkNo' => $production->spk_no,
+            'lastWeight' => '3.250',
         ]);
 
     $production->delete();

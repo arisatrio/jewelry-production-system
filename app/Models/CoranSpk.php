@@ -15,6 +15,9 @@ use Illuminate\Support\Carbon;
  * @property int $row_id
  * @property int $spk_id
  * @property string|null $weight
+ * @property string|null $weight_rosegold
+ * @property string|null $weight_whitegold
+ * @property string|null $weight_yellowgold
  * @property string|null $kadar
  * @property string|null $status
  * @property int $is_deleted
@@ -29,6 +32,9 @@ use Illuminate\Support\Carbon;
     'row_id',
     'spk_id',
     'weight',
+    'weight_rosegold',
+    'weight_whitegold',
+    'weight_yellowgold',
     'kadar',
     'status',
     'is_deleted',
@@ -116,6 +122,9 @@ class CoranSpk extends Model
             'row_id' => 'integer',
             'spk_id' => 'integer',
             'weight' => 'decimal:3',
+            'weight_rosegold' => 'decimal:3',
+            'weight_whitegold' => 'decimal:3',
+            'weight_yellowgold' => 'decimal:3',
             'kadar' => 'decimal:2',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',

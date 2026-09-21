@@ -45,6 +45,9 @@ type CoranEditProps = {
             itemDescription: string | null;
             satuan: string;
             weight: string;
+            weightRosegold?: string | null;
+            weightWhitegold?: string | null;
+            weightYellowgold?: string | null;
             kadar?: string | null;
             status: string;
         }>;
@@ -94,6 +97,9 @@ export default function CoranEdit({
                         item_description: detail.itemDescription ?? '',
                         satuan: detail.satuan ?? '',
                         weight: detail.weight ?? '',
+                        weight_rosegold: detail.weightRosegold ?? '',
+                        weight_whitegold: detail.weightWhitegold ?? '',
+                        weight_yellowgold: detail.weightYellowgold ?? '',
                         kadar: detail.kadar ?? '',
                         status: detail.status ?? '',
                     })),

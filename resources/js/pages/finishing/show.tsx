@@ -1,7 +1,13 @@
 import { Head } from '@inertiajs/react';
 import { FinishingDetail } from '@/components/finishing/finishing-detail';
 import type { FinishingMaterials } from '@/components/finishing/finishing-material-tables';
-import { edit, index } from '@/routes/finishing';
+import {
+    complete,
+    edit,
+    index,
+    managerApprove,
+    submit,
+} from '@/routes/finishing';
 
 type FinishingWorkflowStatus = {
     key: string;
@@ -10,9 +16,37 @@ type FinishingWorkflowStatus = {
     stages: Array<{ key: string; label: string }>;
 };
 
+type ApprovalFooterColumn = {
+    title: string;
+    name: string;
+    date: string;
+};
+
+type ApprovalHistoryEvent = {
+    status: string;
+    statusLabel: string;
+    approve: string;
+    notes: string | null;
+    createdBy: string | null;
+    createdAt: string | null;
+};
+
+type FinishingApprovalAbilities = {
+    canSubmit: boolean;
+    canEdit: boolean;
+    canOpenEdit: boolean;
+    canDelete: boolean;
+    canManagerApprove: boolean;
+    canComplete: boolean;
+    status: string;
+    statusLabel: string;
+};
+
 type FinishingShowProps = {
     workflowStatus: FinishingWorkflowStatus;
-    canEdit: boolean;
+    approvalHistory: ApprovalHistoryEvent[];
+    approvalFooter: ApprovalFooterColumn[];
+    approval: FinishingApprovalAbilities;
     finishingItem: {
         id: number;
         docNo: string | null;
@@ -53,7 +87,9 @@ type FinishingShowProps = {
 export default function FinishingShow({
     finishingItem,
     workflowStatus,
-    canEdit,
+    approvalHistory,
+    approvalFooter,
+    approval,
 }: FinishingShowProps) {
     return (
         <>
@@ -63,9 +99,14 @@ export default function FinishingShow({
             <FinishingDetail
                 finishingItem={finishingItem}
                 workflowStatus={workflowStatus}
+                approvalHistory={approvalHistory}
+                approvalFooter={approvalFooter}
+                approval={approval}
                 backHref={index.url()}
                 editHref={edit.url(finishingItem.id)}
-                canEdit={canEdit}
+                submitUrl={submit.url(finishingItem.id)}
+                managerApproveUrl={managerApprove.url(finishingItem.id)}
+                completeUrl={complete.url(finishingItem.id)}
             />
         </>
     );

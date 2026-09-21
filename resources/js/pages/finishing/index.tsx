@@ -7,6 +7,7 @@ import { Input } from '@ui5/webcomponents-react/Input';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import { create, index as finishingIndex, show } from '@/routes/finishing';
+import { FinishingSpkStatusCards } from '@/components/finishing/finishing-spk-status-cards';
 
 type FinishingRow = {
     id: number;
@@ -34,6 +35,11 @@ type DocumentsPaginator = {
 
 type FinishingIndexProps = {
     documents: DocumentsPaginator;
+    spkStatusCounts: {
+        pending: number;
+        inProgress: number;
+        completed: number;
+    };
     filters: {
         search: string;
         per_page: number;
@@ -83,6 +89,7 @@ function formatNotes(notes: string | null): string {
 
 export default function FinishingIndex({
     documents,
+    spkStatusCounts,
     filters,
 }: FinishingIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
@@ -161,6 +168,8 @@ export default function FinishingIndex({
                             <span>Tambah</span>
                         </button>
                     </div>
+
+                    <FinishingSpkStatusCards counts={spkStatusCounts} />
 
                     <div className="spkTableToolbar">
                         <div className="spkTableToolbarLeft">

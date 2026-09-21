@@ -115,8 +115,8 @@ class StoreFinishingRequest extends FormRequest
                 Rule::in(FinishingHandmade::processNameOptions()),
             ],
             'craftsman_id' => ['nullable', 'integer'],
-            'send_craftsman_date' => ['nullable', 'date'],
-            'received_craftsman_date' => ['nullable', 'date'],
+            'send_craftsman_date' => ['nullable', 'date_format:Y-m-d H:i'],
+            'received_craftsman_date' => ['nullable', 'date_format:Y-m-d H:i'],
             'item_category' => [
                 'nullable',
                 'string',

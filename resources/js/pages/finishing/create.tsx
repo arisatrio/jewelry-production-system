@@ -28,7 +28,6 @@ type FinishingCreateProps = {
         notes: string;
         startWeight: string;
         finishWeight: string;
-        shrinkTolerance: string;
         spk: null;
         materials: Array<{
             section: string;
@@ -72,7 +71,6 @@ export default function FinishingCreate({
                     notes: form.notes ?? '',
                     start_weight: form.startWeight ?? '',
                     finish_weight: form.finishWeight ?? '',
-                    shrink_tolerance: form.shrinkTolerance ?? '',
                     spk: null,
                     materials: (form.materials ?? []).map(
                         (material, index) => ({

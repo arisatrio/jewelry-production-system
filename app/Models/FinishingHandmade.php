@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\FinishingApprovalService;
 use Database\Factories\FinishingHandmadeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -107,7 +108,7 @@ class FinishingHandmade extends Model
 
     public function canEditForm(): bool
     {
-        return ! $this->isDone();
+        return app(FinishingApprovalService::class)->canEditForm($this);
     }
 
     protected $connection = 'third';
@@ -137,26 +138,12 @@ class FinishingHandmade extends Model
 
     public function isDone(): bool
     {
-        $status = strtoupper(trim((string) ($this->status ?? '')));
-
-        return in_array($status, [self::STATUS_DONE, self::STATUS_REPARATION_DONE], true);
+        return app(FinishingApprovalService::class)->isDone($this);
     }
 
     public function statusLabel(): string
     {
-        $status = strtoupper(trim((string) ($this->status ?? '')));
-
-        if ($status === '' || $status === '-' || $status === 'OPEN' || $status === 'DRAFT') {
-            return 'Open';
-        }
-
-        return match ($status) {
-            self::STATUS_OPEN => 'Serahkan ke Loket',
-            self::STATUS_TO_CRAFTSMAN, self::STATUS_REPARATION_OPEN => 'Serahkan ke Pengrajin',
-            self::STATUS_TO_PPIC => 'Serahkan ke PPIC',
-            self::STATUS_DONE, self::STATUS_REPARATION_DONE => 'Completed',
-            default => filled($this->status) ? trim((string) $this->status) : 'Open',
-        };
+        return app(FinishingApprovalService::class)->statusLabelFor($this);
     }
 
     /**

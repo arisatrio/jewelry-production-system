@@ -48,6 +48,9 @@ type CoranDetailRow = {
     customerName: string | null;
     satuan: string;
     weight: string | null;
+    weightRosegold?: string | null;
+    weightWhitegold?: string | null;
+    weightYellowgold?: string | null;
     kadar: string | null;
     status: string | null;
     statusLabel: string;
@@ -571,9 +574,14 @@ export function CoranDetail({
                                                 <th>SKU</th>
                                                 <th>Qty</th>
                                                 <th>
-                                                    Berat Hasil
+                                                    Berat Keluar
                                                     <br />
-                                                    Coran (g)
+                                                    hasil coran (g)
+                                                </th>
+                                                <th>
+                                                    Total
+                                                    <br />
+                                                    Berat (g)
                                                 </th>
                                                 <th>Kadar</th>
                                                 <th className="spkTableColCenter">
@@ -584,7 +592,7 @@ export function CoranDetail({
                                         <tbody>
                                             {coranItem.details.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={7}>
+                                                    <td colSpan={8}>
                                                         Belum ada SPK pada
                                                         dokumen ini.
                                                     </td>
@@ -640,9 +648,36 @@ export function CoranDetail({
                                                                     )}
                                                                 </td>
                                                                 <td>
-                                                                    {displayValue(
-                                                                        detail.weight,
-                                                                    )}
+                                                                    <div className="spkFioriFieldStack">
+                                                                        <span>
+                                                                            Rose
+                                                                            Gold:{' '}
+                                                                            {displayValue(
+                                                                                detail.weightRosegold,
+                                                                            )}
+                                                                        </span>
+                                                                        <span>
+                                                                            White
+                                                                            Gold:{' '}
+                                                                            {displayValue(
+                                                                                detail.weightWhitegold,
+                                                                            )}
+                                                                        </span>
+                                                                        <span>
+                                                                            Yellow
+                                                                            Gold:{' '}
+                                                                            {displayValue(
+                                                                                detail.weightYellowgold,
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <strong>
+                                                                        {displayValue(
+                                                                            detail.weight,
+                                                                        )}
+                                                                    </strong>
                                                                 </td>
                                                                 <td>
                                                                     {displayValue(
