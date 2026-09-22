@@ -372,8 +372,18 @@ export function FinishingMaterialEditor({
     };
 
     return (
-        <>
-            <div className="spkCoranMaterialEditor">
+        <div className="spkFioriDetailBlock">
+            <div className="spkStoneCardHeader">
+                <div className="spkFioriDetailBlockTitle">
+                    Detail Transaksi Bahan
+                </div>
+            </div>
+
+            {errors.materials ? (
+                <Text className="spkFioriError">{errors.materials}</Text>
+            ) : null}
+
+            <div className="spkCoranMaterialEditorSplit">
                 <MaterialBucketTable
                     title="Bahan"
                     section="bahan"
@@ -506,6 +516,6 @@ export function FinishingMaterialEditor({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </>
+        </div>
     );
 }

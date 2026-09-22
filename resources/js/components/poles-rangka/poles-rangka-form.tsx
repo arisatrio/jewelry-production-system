@@ -15,14 +15,9 @@ import { Select } from '@ui5/webcomponents-react/Select';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { TextArea } from '@ui5/webcomponents-react/TextArea';
 import {
-    FinishingMaterialEditor,
-    type FinishingMaterialFormLine,
-    type FinishingMaterialOption,
-} from '@/components/finishing/finishing-material-editor';
-import {
-    FinishingSelectSpkDialog,
-    type FinishingSelectedSpk,
-} from '@/components/finishing/finishing-select-spk-dialog';
+    PolesRangkaSelectSpkDialog,
+    type PolesRangkaSelectedSpk,
+} from '@/components/poles-rangka/poles-rangka-select-spk-dialog';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 
@@ -31,7 +26,7 @@ type OptionItem = {
     label: string;
 };
 
-type FinishingSpkForm = {
+type PolesRangkaSpkForm = {
     spk_id: string;
     spk_no: string;
     spk_type: string;
@@ -43,31 +38,27 @@ type FinishingSpkForm = {
     satuan: string;
 };
 
-type FinishingFormValues = {
-    process_name: string;
+type PolesRangkaFormValues = {
     craftsman_id: string;
     send_craftsman_date: string;
     received_craftsman_date: string;
-    item_category: string;
     notes: string;
+    status_item: string;
     start_weight: string;
     finish_weight: string;
-    spk: FinishingSpkForm | null;
-    materials: FinishingMaterialFormLine[];
+    spk: PolesRangkaSpkForm | null;
 };
 
-type FinishingFormProps = {
+type PolesRangkaFormProps = {
     title: string;
     formDocumentNo: string;
     submitLabel: string;
     cancelHref: string;
     submitUrl: string;
     method?: 'post' | 'put';
-    processOptions: OptionItem[];
-    itemCategoryOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
-    materialOptions: FinishingMaterialOption[];
-    initialValues: FinishingFormValues;
+    statusItemOptions: OptionItem[];
+    initialValues: PolesRangkaFormValues;
 };
 
 function fieldState(error?: string): 'None' | 'Negative' {
@@ -80,7 +71,18 @@ function normalizeWeightForSubmit(value: string): string | null {
     return trimmed !== '' ? trimmed : null;
 }
 
-function emptySpk(): FinishingSpkForm {
+function computeShrink(startWeight: string, finishWeight: string): string | null {
+    const start = Number.parseFloat(startWeight.trim().replace(',', '.'));
+    const finish = Number.parseFloat(finishWeight.trim().replace(',', '.'));
+
+    if (Number.isNaN(start) || Number.isNaN(finish)) {
+        return null;
+    }
+
+    return (start - finish).toFixed(2);
+}
+
+function emptySpk(): PolesRangkaSpkForm {
     return {
         spk_id: '',
         spk_no: '',
@@ -94,7 +96,7 @@ function emptySpk(): FinishingSpkForm {
     };
 }
 
-function selectedSpkItemSummary(spk: FinishingSpkForm | null): string {
+function selectedSpkItemSummary(spk: PolesRangkaSpkForm | null): string {
     if (spk === null) {
         return '—';
     }
@@ -109,26 +111,25 @@ function selectedSpkItemSummary(spk: FinishingSpkForm | null): string {
     return parts.length > 0 ? parts.join(' · ') : '—';
 }
 
-export function FinishingForm({
+export function PolesRangkaForm({
     title,
     formDocumentNo,
     submitLabel,
     cancelHref,
     submitUrl,
     method = 'post',
-    processOptions,
-    itemCategoryOptions,
     craftsmanOptions,
-    materialOptions,
+    statusItemOptions,
     initialValues,
-}: FinishingFormProps) {
+}: PolesRangkaFormProps) {
     const { data, setData, post, put, processing, errors, transform } =
-        useForm<FinishingFormValues>(initialValues);
+        useForm<PolesRangkaFormValues>(initialValues);
     const [spkDialogOpen, setSpkDialogOpen] = useState(false);
     const hasSelectedSpk =
         data.spk !== null && data.spk.spk_id.trim() !== '';
+    const shrinkPreview = computeShrink(data.start_weight, data.finish_weight);
 
-    const handleSelectedSpk = (selected: FinishingSelectedSpk) => {
+    const handleSelectedSpk = (selected: PolesRangkaSelectedSpk) => {
         const { lastWeight, ...spk } = selected;
 
         setData({
@@ -146,7 +147,6 @@ export function FinishingForm({
                 formData.spk?.spk_id && formData.spk.spk_id.trim() !== ''
                     ? Number(formData.spk.spk_id)
                     : null,
-            process_name: formData.process_name || null,
             craftsman_id:
                 formData.craftsman_id.trim() !== ''
                     ? formData.craftsman_id
@@ -159,30 +159,14 @@ export function FinishingForm({
                 formData.received_craftsman_date.trim() !== ''
                     ? formData.received_craftsman_date
                     : null,
-            item_category:
-                formData.item_category.trim() !== ''
-                    ? formData.item_category
-                    : null,
             notes:
                 formData.notes.trim() !== '' ? formData.notes.trim() : null,
+            status_item:
+                formData.status_item.trim() !== ''
+                    ? formData.status_item
+                    : null,
             start_weight: normalizeWeightForSubmit(formData.start_weight),
             finish_weight: normalizeWeightForSubmit(formData.finish_weight),
-            materials: formData.materials
-                .filter(
-                    (line) =>
-                        line.materialgold_id.trim() !== '' ||
-                        line.weight.trim() !== '',
-                )
-                .map((line) => ({
-                    section: line.section,
-                    materialgold_id:
-                        line.materialgold_id.trim() !== ''
-                            ? Number(line.materialgold_id)
-                            : null,
-                    weight: normalizeWeightForSubmit(line.weight),
-                    notes:
-                        line.notes.trim() !== '' ? line.notes.trim() : null,
-                })),
         }));
 
         const options = {
@@ -201,7 +185,7 @@ export function FinishingForm({
             <div className="spkDetailShell">
                 <div className="spkDetailStack">
                     <form
-                        id="finishing-form"
+                        id="poles-rangka-form"
                         onSubmit={submit}
                         className="spkFioriForm"
                     >
@@ -311,9 +295,10 @@ export function FinishingForm({
                                                     </Button>
                                                 ) : null}
                                             </div>
-                                            {errors.spk_id ? (
+                                            {'spk_id' in errors &&
+                                            errors.spk_id ? (
                                                 <Text className="spkFioriError">
-                                                    {errors.spk_id}
+                                                    {String(errors.spk_id)}
                                                 </Text>
                                             ) : null}
                                         </div>
@@ -425,7 +410,7 @@ export function FinishingForm({
                                     >
                                         <div className="spkFioriFieldStack">
                                             <Select
-                                                accessibleName="Pengrajin finishing"
+                                                accessibleName="Pengrajin poles rangka"
                                                 valueState={fieldState(
                                                     errors.craftsman_id,
                                                 )}
@@ -505,65 +490,23 @@ export function FinishingForm({
                                         </div>
                                     </FormItem>
 
-                                    <FormItem
-                                        labelContent={
-                                            <Label showColon required>
-                                                Proses
-                                            </Label>
-                                        }
-                                    >
-                                        <div className="spkFioriFieldStack">
-                                            <Select
-                                                accessibleName="Proses finishing"
-                                                valueState={fieldState(
-                                                    errors.process_name,
-                                                )}
-                                                onChange={(event) =>
-                                                    setData(
-                                                        'process_name',
-                                                        event.detail
-                                                            .selectedOption
-                                                            .value ?? '',
-                                                    )
-                                                }
-                                            >
-                                                {processOptions.map(
-                                                    (option) => (
-                                                        <Option
-                                                            key={option.value}
-                                                            value={option.value}
-                                                            selected={
-                                                                data.process_name ===
-                                                                option.value
-                                                            }
-                                                        >
-                                                            {option.label}
-                                                        </Option>
-                                                    ),
-                                                )}
-                                            </Select>
-                                            {errors.process_name ? (
-                                                <Text className="spkFioriError">
-                                                    {errors.process_name}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </FormItem>
+
+
 
                                     <FormItem
                                         labelContent={
-                                            <Label showColon>Kategori</Label>
+                                            <Label showColon>Status QC</Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
                                             <Select
-                                                accessibleName="Kategori item finishing"
+                                                accessibleName="Status QC poles rangka"
                                                 valueState={fieldState(
-                                                    errors.item_category,
+                                                    errors.status_item,
                                                 )}
                                                 onChange={(event) =>
                                                     setData(
-                                                        'item_category',
+                                                        'status_item',
                                                         event.detail
                                                             .selectedOption
                                                             .value ?? '',
@@ -573,19 +516,19 @@ export function FinishingForm({
                                                 <Option
                                                     value=""
                                                     selected={
-                                                        data.item_category ===
+                                                        data.status_item ===
                                                         ''
                                                     }
                                                 >
                                                     —
                                                 </Option>
-                                                {itemCategoryOptions.map(
+                                                {statusItemOptions.map(
                                                     (option) => (
                                                         <Option
                                                             key={option.value}
                                                             value={option.value}
                                                             selected={
-                                                                data.item_category ===
+                                                                data.status_item ===
                                                                 option.value
                                                             }
                                                         >
@@ -594,9 +537,9 @@ export function FinishingForm({
                                                     ),
                                                 )}
                                             </Select>
-                                            {errors.item_category ? (
+                                            {errors.status_item ? (
                                                 <Text className="spkFioriError">
-                                                    {errors.item_category}
+                                                    {errors.status_item}
                                                 </Text>
                                             ) : null}
                                         </div>
@@ -609,7 +552,7 @@ export function FinishingForm({
                                     >
                                         <div className="spkFioriFieldStack">
                                             <TextArea
-                                                accessibleName="Catatan finishing"
+                                                accessibleName="Catatan poles rangka"
                                                 value={data.notes}
                                                 rows={3}
                                                 valueState={fieldState(
@@ -701,24 +644,27 @@ export function FinishingForm({
                                             ) : null}
                                         </div>
                                     </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon>Susut (g)</Label>
+                                        }
+                                    >
+                                        <Input
+                                            value={shrinkPreview ?? '—'}
+                                            readonly
+                                            accessibleName="Susut"
+                                        />
+                                    </FormItem>
                                 </FormGroup>
                             </Form>
 
-                            <FinishingMaterialEditor
-                                materials={data.materials}
-                                materialOptions={materialOptions}
-                                errors={errors}
-                                disabled={processing}
-                                onChange={(materials) =>
-                                    setData('materials', materials)
-                                }
-                            />
                         </section>
                     </form>
                 </div>
             </div>
 
-            <FinishingSelectSpkDialog
+            <PolesRangkaSelectSpkDialog
                 open={spkDialogOpen}
                 onOpenChange={setSpkDialogOpen}
                 excludeSpkIds={

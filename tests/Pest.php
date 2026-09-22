@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /*
@@ -28,6 +30,8 @@ $authenticatedFeatureTests = array_map(
 );
 
 pest()->beforeEach(function (): void {
+    ensureTestingAuthSchema();
+
     $this->actingAs(User::factory()->adminSpk()->create([
         'name' => 'system',
     ]));
@@ -59,7 +63,61 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Bootstrap auth tables for sqlite :memory: feature tests.
+ * Production auth tables live outside Laravel migrations.
+ */
+function ensureTestingAuthSchema(): void
 {
-    // ..
+    if (! Schema::hasTable('role')) {
+        Schema::create('role', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name');
+            $table->boolean('is_deleted')->default(0);
+            $table->string('created_by')->nullable();
+            $table->string('modified_by')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    if (! Schema::hasTable('permissions')) {
+        Schema::create('permissions', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name')->unique();
+            $table->string('display_name');
+            $table->text('description')->nullable();
+            $table->string('module');
+            $table->string('category')->nullable();
+            $table->boolean('is_active')->default(1);
+            $table->timestamps();
+        });
+    }
+
+    if (! Schema::hasTable('role_permissions')) {
+        Schema::create('role_permissions', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('role_id');
+            $table->unsignedBigInteger('permission_id');
+            $table->timestamps();
+        });
+    }
+
+    if (! Schema::hasTable('users')) {
+        Schema::create('users', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name');
+            $table->string('user_id')->unique();
+            $table->string('email');
+            $table->string('password')->nullable();
+            $table->string('legacy_password')->nullable();
+            $table->unsignedBigInteger('role_id')->nullable();
+            $table->string('spk_role')->nullable();
+            $table->timestamp('email_verified_at')->nullable();
+            $table->text('two_factor_secret')->nullable();
+            $table->text('two_factor_recovery_codes')->nullable();
+            $table->timestamp('two_factor_confirmed_at')->nullable();
+            $table->rememberToken();
+            $table->timestamps();
+        });
+    }
 }

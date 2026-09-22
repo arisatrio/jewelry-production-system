@@ -435,6 +435,48 @@ test('spk index marks status done when poles rangka is completed or handed to jb
     'serahkan jb poles rangka' => ['PRK040'],
 ]);
 
+test('spk index keeps in progress when poles rangka done but pasang batu or poles chrome exists', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $rangkaId = DB::connection('third')->table('polishframe')->insertGetId([
+        'doc_no' => 'TEST-PRK-GAP-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => 'PRKDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $chromeId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-PFG-GAP-'.$production->row_id,
+        'process_name' => 'Poles Chrome',
+        'spk_id' => $production->row_id,
+        'status' => 'OPEN',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'In Progress')
+            ->where('productions.data.0.prosesTerakhir', 'Poles Rangka')
+        );
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $chromeId)->delete();
+    DB::connection('third')->table('polishframe')->where('row_id', $rangkaId)->delete();
+    $production->delete();
+});
+
 test('spk index marks status done when reference type poles barang jadi is rpfdone', function (string $spkType) {
     $production = Production::factory()->create([
         'spk_type' => $spkType,

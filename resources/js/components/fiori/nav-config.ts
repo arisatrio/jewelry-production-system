@@ -8,6 +8,7 @@ import {
 } from '@/routes/analytics';
 import { index as coranIndex } from '@/routes/coran';
 import { index as finishingIndex } from '@/routes/finishing';
+import { index as polesRangkaIndex } from '@/routes/poles-rangka';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
@@ -57,7 +58,7 @@ export const defaultProduksiSubmenus: ShellNavItem[] = [
     { text: 'Resin', href: resinIndex.url() },
     { text: 'Coran', href: coranIndex.url() },
     { text: 'Finishing', href: finishingIndex.url() },
-    { text: 'Poles Rangka' },
+    { text: 'Poles Rangka', href: polesRangkaIndex.url() },
     { text: 'Pasang Batu' },
     { text: 'Poles Chrome' },
 ];

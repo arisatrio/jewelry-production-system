@@ -57,12 +57,25 @@ class SpkDashboardAnalytics
     public const FINISHING_REF_DONE_STATUSES = ['RFHDONE'];
 
     /**
-     * Poles Rangka (polishframe) statuses that mean DONE RANGKA:
+     * Poles Rangka (polishframe) statuses that mean DONE RANGKA
+     * (hanya bila SPK tidak punya proses Pasang Batu / Poles Chrome):
      * PRKDONE = Completed, PRK040 = Serahkan ke JB.
      *
      * @var list<string>
      */
     public const POLES_RANGKA_DONE_STATUSES = ['PRKDONE', 'PRK040'];
+
+    /**
+     * Tabel proses yang menandai SPK punya Pasang Batu atau Poles Chrome
+     * (bukan kandidat DONE RANGKA).
+     *
+     * @var list<string>
+     */
+    public const PASANG_BATU_OR_POLES_CHROME_TABLES = [
+        'diamondmounting',
+        'diamondunload',
+        'polishfinishedgood',
+    ];
 
     private CarbonInterface $periodStart;
 
@@ -72,6 +85,11 @@ class SpkDashboardAnalytics
      * @var Collection<int, object>|null
      */
     private ?Collection $bottleneckSpkRows = null;
+
+    /**
+     * @var list<int>|null
+     */
+    private ?array $needsAttentionSpkIds = null;
 
     public function __construct(?CarbonInterface $month = null)
     {
@@ -159,9 +177,7 @@ class SpkDashboardAnalytics
             ...self::completedReferencePolesBarangJadiSpkIds($spkIds),
             ...self::completedReferenceFinishingSpkIds($spkIds),
         ]);
-        $rangkaIds = array_flip(
-            self::completedSpkIdsFromTable('polishframe', self::POLES_RANGKA_DONE_STATUSES, $spkIds),
-        );
+        $rangkaIds = array_flip(self::completedTerminalPolesRangkaSpkIds($spkIds));
 
         $kinds = [];
 
@@ -198,6 +214,71 @@ class SpkDashboardAnalytics
     public static function completedPolesRangkaSpkIds(array $spkIds): array
     {
         return self::completedSpkIdsFromTable('polishframe', self::POLES_RANGKA_DONE_STATUSES, $spkIds);
+    }
+
+    /**
+     * DONE RANGKA: Poles Rangka selesai dan SPK tidak punya proses Pasang Batu / Poles Chrome.
+     *
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    public static function completedTerminalPolesRangkaSpkIds(array $spkIds): array
+    {
+        $rangkaIds = self::completedPolesRangkaSpkIds($spkIds);
+
+        if ($rangkaIds === []) {
+            return [];
+        }
+
+        $withLaterProcesses = array_flip(self::spkIdsWithPasangBatuOrPolesChrome($rangkaIds));
+
+        return array_values(array_filter(
+            $rangkaIds,
+            fn (int $id): bool => ! isset($withLaterProcesses[$id]),
+        ));
+    }
+
+    /**
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    public static function spkIdsWithPasangBatuOrPolesChrome(array $spkIds): array
+    {
+        $spkIds = collect($spkIds)
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($spkIds === []) {
+            return [];
+        }
+
+        $found = [];
+
+        foreach (self::PASANG_BATU_OR_POLES_CHROME_TABLES as $table) {
+            if (! Schema::connection('third')->hasTable($table)) {
+                continue;
+            }
+
+            $query = DB::connection('third')
+                ->table($table)
+                ->whereIn('spk_id', $spkIds);
+
+            if (Schema::connection('third')->hasColumn($table, 'is_deleted')) {
+                $query->where(function ($builder): void {
+                    $builder->whereNull('is_deleted')
+                        ->orWhere('is_deleted', 0);
+                });
+            }
+
+            foreach ($query->distinct()->pluck('spk_id') as $spkId) {
+                $found[(int) $spkId] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($found));
     }
 
     /**
@@ -392,6 +473,7 @@ class SpkDashboardAnalytics
         $planningDaily = $this->resolvePlanningDaily();
         $today = $this->resolveTodayMetrics();
         $weekTarget = $this->resolveWeekTargetMetrics();
+        $needsAttentionSpk = count($this->resolveNeedsAttentionSpkIds());
         $statusLists = $this->resolveStatusLists();
         $todayLists = $this->resolveTodayLists();
         $inProgressByProcess = $this->resolveInProgressByProcess();
@@ -434,10 +516,14 @@ class SpkDashboardAnalytics
                 'weekTargetDoneSpk' => $weekTarget['targetDoneSpk'],
                 'weekTargetPendingSpk' => $weekTarget['targetPendingSpk'],
                 'weekTargetLabel' => $weekTarget['label'],
+                'needsAttentionSpk' => $needsAttentionSpk,
                 'monthOverdueSpk' => $today['overdueSpk'],
             ],
             'today' => $today,
             'weekTarget' => $weekTarget,
+            'needsAttention' => [
+                'count' => $needsAttentionSpk,
+            ],
             'statusLists' => $statusLists,
             'todayLists' => $todayLists,
             'chartLists' => $chartLists,
@@ -683,6 +769,7 @@ class SpkDashboardAnalytics
                 'createdSpk' => 0,
                 'inProcessSpk' => 0,
                 'overdueSpk' => 0,
+                'needsAttentionSpk' => 0,
             ];
         }
 
@@ -725,6 +812,7 @@ class SpkDashboardAnalytics
         )->count();
 
         $overdueSpk = $this->resolveOverdueCount($this->monthScopedSpkBase());
+        $needsAttentionSpk = count($this->resolveNeedsAttentionSpkIds());
 
         return [
             'date' => $dayStart->toDateString(),
@@ -736,6 +824,7 @@ class SpkDashboardAnalytics
             'createdSpk' => $createdSpk,
             'inProcessSpk' => $inProcessSpk,
             'overdueSpk' => $overdueSpk,
+            'needsAttentionSpk' => $needsAttentionSpk,
         ];
     }
 
@@ -1133,6 +1222,7 @@ class SpkDashboardAnalytics
      *     todayInProcess: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     todayTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     weekTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
+     *     needsAttention: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     monthTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     monthOverdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
      * }
@@ -1144,6 +1234,7 @@ class SpkDashboardAnalytics
             'todayInProcess' => [],
             'todayTarget' => [],
             'weekTarget' => [],
+            'needsAttention' => [],
             'monthTarget' => [],
             'monthOverdue' => [],
         ];
@@ -1157,6 +1248,7 @@ class SpkDashboardAnalytics
             'todayInProcess' => $this->todayListFor('todayInProcess'),
             'todayTarget' => $this->todayListFor('todayTarget'),
             'weekTarget' => $this->todayListFor('weekTarget'),
+            'needsAttention' => $this->todayListFor('needsAttention'),
             'monthTarget' => $this->todayListFor('monthTarget'),
             'monthOverdue' => $this->todayListFor('monthOverdue'),
         ];
@@ -1172,6 +1264,22 @@ class SpkDashboardAnalytics
         $weekStart = now()->startOfWeek(Carbon::MONDAY)->startOfDay();
         $weekEnd = now()->endOfWeek(Carbon::SUNDAY)->endOfDay();
         $query = $this->monthScopedSpkBase();
+
+        if ($key === 'needsAttention') {
+            $spkIds = $this->resolveNeedsAttentionSpkIds();
+
+            if ($spkIds === []) {
+                return [];
+            }
+
+            $rows = $this->spkBase()
+                ->whereIn('row_id', $spkIds)
+                ->orderByDesc('row_id')
+                ->limit(200)
+                ->get($this->spkListSelectColumns());
+
+            return $this->mapSpkListRows($rows);
+        }
 
         $query = match ($key) {
             'monthTarget' => $this->spkBase()
@@ -1764,7 +1872,7 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * DONE RANGKA: Poles Rangka (PRKDONE/PRK040).
+     * DONE RANGKA: Poles Rangka (PRKDONE/PRK040) tanpa proses Pasang Batu / Poles Chrome.
      */
     private function doneRangkaExpression(): string
     {
@@ -1780,13 +1888,54 @@ class SpkDashboardAnalytics
             ? 'AND COALESCE(pf.is_deleted, 0) = 0'
             : '';
 
+        $withoutLaterProcesses = $this->withoutPasangBatuOrPolesChromeExpression('spk.row_id');
+
         return "(EXISTS (
             SELECT 1
             FROM polishframe pf
             WHERE pf.spk_id = spk.row_id
               AND pf.status IN ({$statuses})
               {$deleted}
-        ))";
+        ) AND {$withoutLaterProcesses})";
+    }
+
+    /**
+     * SPK belum punya dokumen Pasang Batu (diamondmounting/diamondunload)
+     * maupun Poles Chrome (polishfinishedgood).
+     */
+    private function withoutPasangBatuOrPolesChromeExpression(string $spkIdColumn): string
+    {
+        $parts = [];
+
+        foreach (self::PASANG_BATU_OR_POLES_CHROME_TABLES as $table) {
+            if (! Schema::connection('third')->hasTable($table)) {
+                continue;
+            }
+
+            $alias = match ($table) {
+                'diamondmounting' => 'dm',
+                'diamondunload' => 'du',
+                'polishfinishedgood' => 'pfg_any',
+                default => 'proc',
+            };
+
+            $deleted = Schema::connection('third')->hasColumn($table, 'is_deleted')
+                ? "AND COALESCE({$alias}.is_deleted, 0) = 0"
+                : '';
+
+            $parts[] = "NOT EXISTS (
+                SELECT 1
+                FROM {$table} {$alias}
+                WHERE {$alias}.spk_id = {$spkIdColumn}
+                  {$deleted}
+            )";
+        }
+
+        if ($parts === []) {
+            return '1';
+        }
+
+        return '('.implode(' AND ', $parts).')';
     }
 
     /**
@@ -2371,6 +2520,83 @@ class SpkDashboardAnalytics
         }
 
         return $this->bottleneckSpkRows = $matched;
+    }
+
+    /**
+     * SPK in progress (backlog tahun berjalan) dengan sisa hari SLA proses = 0 atau > 0
+     * (sudah H-1, belum lewat deadline).
+     *
+     * @return list<int>
+     */
+    private function resolveNeedsAttentionSpkIds(): array
+    {
+        if ($this->needsAttentionSpkIds !== null) {
+            return $this->needsAttentionSpkIds;
+        }
+
+        if (
+            ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'last_process')
+        ) {
+            return $this->needsAttentionSpkIds = [];
+        }
+
+        ['inProgress' => $inProgressExpr, 'confirmed' => $confirmedExpr] = $this->statusExpressions();
+
+        $rows = $this->yearScopedSpkBase()
+            ->whereRaw('NOT ('.$this->doneExpression().')')
+            ->whereRaw("NOT ({$confirmedExpr})")
+            ->whereRaw("({$inProgressExpr})")
+            ->whereNotNull('last_process')
+            ->whereRaw("TRIM(last_process) <> ''")
+            ->get(['row_id', 'last_process']);
+
+        if ($rows->isEmpty()) {
+            return $this->needsAttentionSpkIds = [];
+        }
+
+        $processDates = $this->resolveLastProcessDates($rows, 'Y-m-d H:i:s');
+        $mapper = new SpkProcessMapper;
+        $slaResolver = new SpkProcessSlaResolver($mapper);
+        $today = now()->startOfDay();
+        $ids = [];
+
+        foreach ($rows as $row) {
+            $spkId = (int) $row->row_id;
+            $processDate = $processDates[$spkId] ?? null;
+
+            if ($processDate === null) {
+                continue;
+            }
+
+            $processKey = $mapper->processKeyForLastProcess((string) $row->last_process);
+
+            if ($processKey === null) {
+                continue;
+            }
+
+            $workingDays = $slaResolver->targetFor($processKey);
+
+            if ($workingDays === null || $workingDays <= 0) {
+                continue;
+            }
+
+            $started = Carbon::parse($processDate);
+
+            if (! $slaResolver->isAtOrPastH1($started, $workingDays, $today)) {
+                continue;
+            }
+
+            $deadline = $slaResolver->slaDeadlineDate($started, $workingDays)->startOfDay();
+            $remainingDays = (int) $today->diffInDays($deadline, false);
+
+            // Hanya sisa hari = 0 (hari terakhir) atau > 0 (masih ada sisa); lewat (< 0) masuk bottleneck.
+            if ($remainingDays >= 0) {
+                $ids[] = $spkId;
+            }
+        }
+
+        return $this->needsAttentionSpkIds = $ids;
     }
 
     /**

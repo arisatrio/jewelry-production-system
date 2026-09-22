@@ -1027,6 +1027,52 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     color: #1d4ed8;
 }
 
+.dashHeaderActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.dashNeedsAttentionChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid #fecaca;
+    border-radius: 0.75rem;
+    background: #fff;
+    color: #dc2626;
+    cursor: pointer;
+    line-height: 1.2;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.dashNeedsAttentionChip:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+}
+
+.dashNeedsAttentionChipIcon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+.dashNeedsAttentionChipText {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.dashNeedsAttentionChipValue {
+    font-weight: 700;
+}
+
 .dashKpiCard,
 .dashPanel {
     background: #fff;

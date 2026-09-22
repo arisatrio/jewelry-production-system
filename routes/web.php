@@ -10,6 +10,7 @@ use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
+use App\Http\Controllers\PolishFrameController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\QuickLoginController;
 use App\Http\Controllers\ResinController;
@@ -163,6 +164,30 @@ Route::middleware(['auth'])->group(function () {
     Route::get('finishing/{finishing}', [FinishingController::class, 'show'])
         ->whereNumber('finishing')
         ->name('finishing.show');
+
+    Route::get('poles-rangka/select/spks', [PolishFrameController::class, 'searchSpks'])
+        ->name('poles-rangka.select.spks');
+    Route::get('poles-rangka/create', [PolishFrameController::class, 'create'])->name('poles-rangka.create');
+    Route::post('poles-rangka', [PolishFrameController::class, 'store'])->name('poles-rangka.store');
+    Route::get('poles-rangka/{polesRangka}/edit', [PolishFrameController::class, 'edit'])
+        ->whereNumber('polesRangka')
+        ->name('poles-rangka.edit');
+    Route::put('poles-rangka/{polesRangka}', [PolishFrameController::class, 'update'])
+        ->whereNumber('polesRangka')
+        ->name('poles-rangka.update');
+    Route::post('poles-rangka/{polesRangka}/submit', [PolishFrameController::class, 'submit'])
+        ->whereNumber('polesRangka')
+        ->name('poles-rangka.submit');
+    Route::post('poles-rangka/{polesRangka}/manager-approve', [PolishFrameController::class, 'managerApprove'])
+        ->whereNumber('polesRangka')
+        ->name('poles-rangka.manager-approve');
+    Route::post('poles-rangka/{polesRangka}/complete', [PolishFrameController::class, 'complete'])
+        ->whereNumber('polesRangka')
+        ->name('poles-rangka.complete');
+    Route::get('poles-rangka', [PolishFrameController::class, 'index'])->name('poles-rangka.index');
+    Route::get('poles-rangka/{polesRangka}', [PolishFrameController::class, 'show'])
+        ->whereNumber('polesRangka')
+        ->name('poles-rangka.show');
 
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])

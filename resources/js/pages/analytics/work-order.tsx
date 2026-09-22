@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Eye } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, AlertTriangle, Eye } from 'lucide-react';
 import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-arrow.js';
 import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
 import { Button } from '@ui5/webcomponents-react/Button';
@@ -64,6 +64,7 @@ export type DashboardTodayKey =
     | 'todayInProcess'
     | 'todayTarget'
     | 'weekTarget'
+    | 'needsAttention'
     | 'monthTarget'
     | 'monthOverdue';
 
@@ -115,6 +116,7 @@ export type DashboardAnalytics = {
         weekTargetDoneSpk: number;
         weekTargetPendingSpk: number;
         weekTargetLabel: string;
+        needsAttentionSpk: number;
         monthOverdueSpk: number;
     };
     today: {
@@ -127,6 +129,7 @@ export type DashboardAnalytics = {
         createdSpk: number;
         inProcessSpk: number;
         overdueSpk: number;
+        needsAttentionSpk: number;
     };
     weekTarget?: {
         start: string;
@@ -241,6 +244,8 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
     const weekTargetSpk = weekTarget?.targetSpk ?? 0;
     const weekTargetDoneSpk = weekTarget?.targetDoneSpk ?? 0;
     const weekTargetLabel = weekTarget?.label ?? 'Minggu ini';
+    const needsAttentionCount =
+        today.needsAttentionSpk ?? summary.needsAttentionSpk ?? 0;
     const todayTargetCompletionPercent =
         today.targetSpk > 0
             ? ((today.targetDoneSpk / today.targetSpk) * 100).toFixed(1)
@@ -315,7 +320,7 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         {
             key: 'doneRangka',
             label: 'DONE (Rangka)',
-            hint: 'Poles Rangka completed / Serahkan ke JB',
+            hint: 'Poles Rangka selesai, tanpa Pasang Batu / Poles Chrome',
             count: summary.doneRangkaSpk ?? 0,
             className: 'is-done',
         },
@@ -425,7 +430,14 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         statusCards.find((card) => card.key === openList) ??
         todayCards.find((card) => card.key === openList) ??
         chartCards.find((card) => card.key === openList) ??
-        null;
+        (openList === 'needsAttention'
+            ? {
+                  key: 'needsAttention' as const,
+                  label: 'SPK Perlu Perhatian',
+                  hint: 'In progress · H-1 SLA, sisa hari = 0 atau > 0',
+                  count: needsAttentionCount,
+              }
+            : null);
     const openListRows =
         openList === null
             ? []
@@ -444,11 +456,13 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         openList in todayLists &&
         openList !== 'monthOverdue' &&
         openList !== 'monthTarget' &&
-        openList !== 'weekTarget'
+        openList !== 'weekTarget' &&
+        openList !== 'needsAttention'
             ? today.label
             : openList === 'weekTarget'
               ? weekTargetLabel
-              : openList !== null && openList in statusLists
+              : openList === 'needsAttention' ||
+                  (openList !== null && openList in statusLists)
                 ? `Tahun ${backlogYear}`
                 : period.label;
 
@@ -498,36 +512,55 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                     <div>
                         <h1 className="dashPageTitle">Dashboard</h1>
                     </div>
-                    <div className="dashPeriodPager" aria-label="Navigasi bulan">
-                        <Button
-                            design="Transparent"
-                            icon={navigationLeftIcon}
-                            tooltip="Bulan sebelumnya"
-                            onClick={() =>
-                                goToMonth(navigation.previousMonth)
-                            }
-                        />
-                        <div className="dashPeriodBadge" aria-label="Periode">
-                            {period.label}
-                        </div>
-                        <Button
-                            design="Transparent"
-                            icon={navigationRightIcon}
-                            tooltip="Bulan berikutnya"
-                            disabled={navigation.nextMonth === null}
-                            onClick={() => goToMonth(navigation.nextMonth)}
-                        />
-                        {!navigation.isCurrentMonth ? (
+                    <div className="dashHeaderActions">
+                        <button
+                            type="button"
+                            className="dashNeedsAttentionChip"
+                            title="In progress · H-1 SLA, sisa hari = 0 atau > 0"
+                            onClick={() => setOpenList('needsAttention')}
+                        >
+                            <AlertTriangle
+                                aria-hidden="true"
+                                className="dashNeedsAttentionChipIcon"
+                            />
+                            <span className="dashNeedsAttentionChipText">
+                                <strong className="dashNeedsAttentionChipValue">
+                                    {needsAttentionCount.toLocaleString('id-ID')}
+                                </strong>{' '}
+                                SPK perlu perhatian
+                            </span>
+                        </button>
+                        <div className="dashPeriodPager" aria-label="Navigasi bulan">
                             <Button
                                 design="Transparent"
-                                className="dashPeriodTodayBtn"
+                                icon={navigationLeftIcon}
+                                tooltip="Bulan sebelumnya"
                                 onClick={() =>
-                                    goToMonth(navigation.currentMonth)
+                                    goToMonth(navigation.previousMonth)
                                 }
-                            >
-                                Bulan ini
-                            </Button>
-                        ) : null}
+                            />
+                            <div className="dashPeriodBadge" aria-label="Periode">
+                                {period.label}
+                            </div>
+                            <Button
+                                design="Transparent"
+                                icon={navigationRightIcon}
+                                tooltip="Bulan berikutnya"
+                                disabled={navigation.nextMonth === null}
+                                onClick={() => goToMonth(navigation.nextMonth)}
+                            />
+                            {!navigation.isCurrentMonth ? (
+                                <Button
+                                    design="Transparent"
+                                    className="dashPeriodTodayBtn"
+                                    onClick={() =>
+                                        goToMonth(navigation.currentMonth)
+                                    }
+                                >
+                                    Bulan ini
+                                </Button>
+                            ) : null}
+                        </div>
                     </div>
                 </header>
 

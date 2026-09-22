@@ -22,6 +22,8 @@ return [
 
     'finishing_form_document_no' => 'WHOJ-PRD-FRM-005',
 
+    'poles_rangka_form_document_no' => 'WHOJ-PRD-FRM-006',
+
     'resin_detail_statuses' => [
         ['value' => 'OK', 'label' => 'OK'],
         ['value' => 'NOT OK', 'label' => 'NOT OK'],
