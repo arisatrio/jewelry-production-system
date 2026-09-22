@@ -1,1 +1,0 @@
-import{vn as e}from"./app-BKl1GTD4.js";import"./Text-WBeMibvp.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};
