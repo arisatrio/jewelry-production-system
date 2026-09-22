@@ -33,6 +33,7 @@ class FinishingHandmadeFactory extends Factory
             'item_category' => null,
             'notes' => fake()->optional()->sentence(),
             'status' => null,
+            'is_from_new_system' => 0,
             'is_deleted' => 0,
             'created_date' => now(),
             'created_by' => 'system',

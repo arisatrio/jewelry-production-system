@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $item_category
  * @property string|null $notes
  * @property string|null $status
+ * @property int $is_from_new_system
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -54,6 +55,7 @@ use Illuminate\Support\Carbon;
     'item_category',
     'notes',
     'status',
+    'is_from_new_system',
     'is_deleted',
     'created_date',
     'created_by',
@@ -120,6 +122,13 @@ class FinishingHandmade extends Model
     public $timestamps = false;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_from_new_system' => 0,
+    ];
+
+    /**
      * @param  Builder<FinishingHandmade>  $query
      * @return Builder<FinishingHandmade>
      */
@@ -162,6 +171,7 @@ class FinishingHandmade extends Model
             'shrink_tolerance' => 'decimal:2',
             'send_craftsman_date' => 'datetime',
             'received_craftsman_date' => 'datetime',
+            'is_from_new_system' => 'integer',
             'is_deleted' => 'integer',
             'koreksi_qc' => 'integer',
             'created_date' => 'datetime',

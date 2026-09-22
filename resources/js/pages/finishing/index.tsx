@@ -7,7 +7,9 @@ import { Input } from '@ui5/webcomponents-react/Input';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import { create, index as finishingIndex, show } from '@/routes/finishing';
+import { show as spkShow } from '@/routes/spk';
 import { FinishingSpkStatusCards } from '@/components/finishing/finishing-spk-status-cards';
+import { NotesCell } from '@/components/notes-cell';
 
 type FinishingRow = {
     id: number;
@@ -79,12 +81,6 @@ function statusBadgeClass(status: string | null, statusLabel: string | null): st
     }
 
     return 'spkTableBadge--default';
-}
-
-function formatNotes(notes: string | null): string {
-    const trimmed = notes?.trim() ?? '';
-
-    return trimmed !== '' ? trimmed : '—';
 }
 
 export default function FinishingIndex({
@@ -226,7 +222,7 @@ export default function FinishingIndex({
                                     <th>Bahan (g)</th>
                                     <th>Sisa (g)</th>
                                     <th>Susut (g)</th>
-                                    <th>Catatan</th>
+                                    <th className="spkTableColNotes">Catatan</th>
                                     <th className="spkTableColStatus">Status</th>
                                 </tr>
                             </thead>
@@ -255,13 +251,37 @@ export default function FinishingIndex({
                                             </td>
                                             <td>{item.transDate ?? '—'}</td>
                                             <td>{item.processName ?? '—'}</td>
-                                            <td>{item.spkNo ?? '—'}</td>
+                                            <td>
+                                                {item.spkNo ? (
+                                                    <button
+                                                        type="button"
+                                                        className="spkProduksiLink"
+                                                        onClick={() =>
+                                                            router.visit(
+                                                                spkShow.url(
+                                                                    item.spkNo!,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        {item.spkNo}
+                                                    </button>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </td>
                                             <td>{item.startWeight ?? '—'}</td>
                                             <td>{item.finishWeight ?? '—'}</td>
                                             <td>{item.submitMaterial ?? '—'}</td>
                                             <td>{item.resultMaterial ?? '—'}</td>
                                             <td>{item.shrink ?? '—'}</td>
-                                            <td>{formatNotes(item.notes)}</td>
+                                            <td className="spkTableColNotes">
+                                                <NotesCell
+                                                    notes={item.notes}
+                                                    docNo={item.docNo}
+                                                    spkNo={item.spkNo}
+                                                />
+                                            </td>
                                             <td className="spkTableColStatus">
                                                 {item.status ||
                                                 item.statusLabel ? (

@@ -50,6 +50,7 @@ test('finishing store creates document with spk', function () {
 
     expect($document->doc_no)->toMatch('/^FIN\d{7}$/')
         ->and($document->status)->toBeNull()
+        ->and($document->is_from_new_system)->toBe(1)
         ->and($document->process_name)->toBe('Finishing')
         ->and((string) $document->start_weight)->toBe('3.16')
         ->and((string) $document->finish_weight)->toBe('2.45')
