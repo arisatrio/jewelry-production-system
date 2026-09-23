@@ -3,6 +3,7 @@
 use App\Http\Controllers\CoranController;
 use App\Http\Controllers\CraftsmanPerformanceDashboardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DiamondMountingController;
 use App\Http\Controllers\FinishingController;
 use App\Http\Controllers\GoldMaterialTransactionController;
 use App\Http\Controllers\JewelCadRequestController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
+use App\Http\Controllers\PolishFinishedGoodController;
 use App\Http\Controllers\PolishFrameController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\QuickLoginController;
@@ -18,6 +20,7 @@ use App\Http\Controllers\ShopFloorDashboardController;
 use App\Http\Controllers\SkuMasterController;
 use App\Http\Controllers\SkuOutputDashboardController;
 use App\Http\Controllers\SpkProcessSlaController;
+use App\Http\Controllers\StoneTransactionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
@@ -79,6 +82,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('spk.select.reference-spks');
     Route::get('spk/select/frames', [ProductionController::class, 'searchFrames'])
         ->name('spk.select.frames');
+    Route::get('spk/select/suggestions', [ProductionController::class, 'searchSuggestions'])
+        ->name('spk.select.suggestions');
     Route::get('spk/status/{statusKey}', [ProductionController::class, 'showByStatus'])
         ->name('spk.show-status');
     Route::get('spk/{production}', [ProductionController::class, 'show'])
@@ -189,11 +194,64 @@ Route::middleware(['auth'])->group(function () {
         ->whereNumber('polesRangka')
         ->name('poles-rangka.show');
 
+    Route::get('pasang-batu/select/spks', [DiamondMountingController::class, 'searchSpks'])
+        ->name('pasang-batu.select.spks');
+    Route::get('pasang-batu/create', [DiamondMountingController::class, 'create'])->name('pasang-batu.create');
+    Route::post('pasang-batu', [DiamondMountingController::class, 'store'])->name('pasang-batu.store');
+    Route::get('pasang-batu/{pasangBatu}/edit', [DiamondMountingController::class, 'edit'])
+        ->whereNumber('pasangBatu')
+        ->name('pasang-batu.edit');
+    Route::put('pasang-batu/{pasangBatu}', [DiamondMountingController::class, 'update'])
+        ->whereNumber('pasangBatu')
+        ->name('pasang-batu.update');
+    Route::post('pasang-batu/{pasangBatu}/submit', [DiamondMountingController::class, 'submit'])
+        ->whereNumber('pasangBatu')
+        ->name('pasang-batu.submit');
+    Route::post('pasang-batu/{pasangBatu}/manager-approve', [DiamondMountingController::class, 'managerApprove'])
+        ->whereNumber('pasangBatu')
+        ->name('pasang-batu.manager-approve');
+    Route::post('pasang-batu/{pasangBatu}/complete', [DiamondMountingController::class, 'complete'])
+        ->whereNumber('pasangBatu')
+        ->name('pasang-batu.complete');
+    Route::get('pasang-batu', [DiamondMountingController::class, 'index'])->name('pasang-batu.index');
+    Route::get('pasang-batu/{pasangBatu}', [DiamondMountingController::class, 'show'])
+        ->whereNumber('pasangBatu')
+        ->name('pasang-batu.show');
+
+    Route::get('poles-chrome/select/spks', [PolishFinishedGoodController::class, 'searchSpks'])
+        ->name('poles-chrome.select.spks');
+    Route::get('poles-chrome/create', [PolishFinishedGoodController::class, 'create'])->name('poles-chrome.create');
+    Route::post('poles-chrome', [PolishFinishedGoodController::class, 'store'])->name('poles-chrome.store');
+    Route::get('poles-chrome/{polesChrome}/edit', [PolishFinishedGoodController::class, 'edit'])
+        ->whereNumber('polesChrome')
+        ->name('poles-chrome.edit');
+    Route::put('poles-chrome/{polesChrome}', [PolishFinishedGoodController::class, 'update'])
+        ->whereNumber('polesChrome')
+        ->name('poles-chrome.update');
+    Route::post('poles-chrome/{polesChrome}/submit', [PolishFinishedGoodController::class, 'submit'])
+        ->whereNumber('polesChrome')
+        ->name('poles-chrome.submit');
+    Route::post('poles-chrome/{polesChrome}/manager-approve', [PolishFinishedGoodController::class, 'managerApprove'])
+        ->whereNumber('polesChrome')
+        ->name('poles-chrome.manager-approve');
+    Route::post('poles-chrome/{polesChrome}/complete', [PolishFinishedGoodController::class, 'complete'])
+        ->whereNumber('polesChrome')
+        ->name('poles-chrome.complete');
+    Route::get('poles-chrome', [PolishFinishedGoodController::class, 'index'])->name('poles-chrome.index');
+    Route::get('poles-chrome/{polesChrome}', [PolishFinishedGoodController::class, 'show'])
+        ->whereNumber('polesChrome')
+        ->name('poles-chrome.show');
+
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])
             ->name('gold-material-transactions.index');
         Route::post('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'store'])
             ->name('gold-material-transactions.store');
+
+        Route::get('transaksi-batu', [StoneTransactionController::class, 'index'])
+            ->name('stone-transactions.index');
+        Route::post('transaksi-batu', [StoneTransactionController::class, 'store'])
+            ->name('stone-transactions.store');
     });
 
     Route::prefix('master-data')->name('master-data.')->group(function () {

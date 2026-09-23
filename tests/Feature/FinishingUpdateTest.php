@@ -88,6 +88,10 @@ test('finishing update changes document fields', function () {
         ->and($document->notes)->toBe('Sesudah update')
         ->and($document->item_category)->toBe('Barang Kecil');
 
+    $productionB->refresh();
+
+    expect((float) $productionB->last_weight)->toBe(2.0);
+
     $document->delete();
     $productionA->delete();
     $productionB->delete();

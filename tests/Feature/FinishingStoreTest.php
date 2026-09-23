@@ -56,6 +56,10 @@ test('finishing store creates document with spk', function () {
         ->and((string) $document->finish_weight)->toBe('2.45')
         ->and($document->notes)->toBe('Catatan store finishing');
 
+    $production->refresh();
+
+    expect((float) $production->last_weight)->toBe(2.45);
+
     $document->delete();
     $production->delete();
 });

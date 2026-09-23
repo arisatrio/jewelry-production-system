@@ -24,6 +24,10 @@ return [
 
     'poles_rangka_form_document_no' => 'WHOJ-PRD-FRM-006',
 
+    'poles_chrome_form_document_no' => 'WHOJ-PRD-FRM-007',
+
+    'pasang_batu_form_document_no' => 'WHOJ-PRD-FRM-008',
+
     'resin_detail_statuses' => [
         ['value' => 'OK', 'label' => 'OK'],
         ['value' => 'NOT OK', 'label' => 'NOT OK'],

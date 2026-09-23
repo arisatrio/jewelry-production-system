@@ -237,7 +237,13 @@ class FinishingController extends Controller
                 ->first();
 
             if ($production !== null) {
-                app(FinishingSpkEligibility::class)->markProcessStarted($production, $actor);
+                $eligibility = app(FinishingSpkEligibility::class);
+                $eligibility->markProcessStarted($production, $actor);
+                $eligibility->syncLastWeight(
+                    $production,
+                    $validated['finish_weight'] ?? null,
+                    $actor,
+                );
             }
 
             $materialSynchronizer->sync($document, $materials, $actor);
@@ -467,6 +473,19 @@ class FinishingController extends Controller
                 'modified_date' => now(),
                 'modified_by' => $actor,
             ]);
+
+            $production = Production::query()
+                ->notDeleted()
+                ->where('row_id', $validated['spk_id'])
+                ->first();
+
+            if ($production !== null) {
+                app(FinishingSpkEligibility::class)->syncLastWeight(
+                    $production,
+                    $validated['finish_weight'] ?? null,
+                    $actor,
+                );
+            }
 
             $materialSynchronizer->sync($finishing->refresh(), $materials, $actor);
             $this->recalculateShrink($finishing->refresh());

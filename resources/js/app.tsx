@@ -25,6 +25,8 @@ createInertiaApp({
             case name.startsWith('coran/'):
             case name.startsWith('finishing/'):
             case name.startsWith('poles-rangka/'):
+            case name.startsWith('pasang-batu/'):
+            case name.startsWith('poles-chrome/'):
             case name.startsWith('inventory/'):
             case name.startsWith('master-data/'):
                 return FioriLayout;

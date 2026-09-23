@@ -618,6 +618,69 @@ class ProductionController extends Controller
     }
 
     /**
+     * Global shell search suggestions for SPK.
+     */
+    public function searchSuggestions(Request $request): JsonResponse
+    {
+        $search = $request->string('search')->trim()->toString();
+        $limit = max(1, min($request->integer('limit', 8), 20));
+
+        if ($search === '') {
+            return response()->json([
+                'status' => true,
+                'data' => [],
+            ]);
+        }
+
+        $like = '%'.$search.'%';
+
+        $productions = Production::query()
+            ->notDeleted()
+            ->whereNotNull('spk_no')
+            ->where('spk_no', '!=', '')
+            ->where(function ($query) use ($like): void {
+                $query->where('spk_no', 'like', $like)
+                    ->orWhere('spk_type', 'like', $like)
+                    ->orWhere('request_order_no', 'like', $like)
+                    ->orWhere('customer_name', 'like', $like)
+                    ->orWhere('item_name', 'like', $like)
+                    ->orWhere('description', 'like', $like)
+                    ->orWhere('last_process', 'like', $like);
+            })
+            ->orderByDesc('row_id')
+            ->limit($limit)
+            ->get([
+                'row_id',
+                'spk_no',
+                'spk_type',
+                'customer_name',
+                'item_name',
+                'last_process',
+                'status',
+            ]);
+
+        return response()->json([
+            'status' => true,
+            'data' => $productions->map(fn (Production $production): array => [
+                'rowId' => (int) $production->row_id,
+                'spkNo' => (string) $production->spk_no,
+                'spkType' => filled($production->spk_type)
+                    ? (string) $production->spk_type
+                    : null,
+                'customer' => filled($production->customer_name)
+                    ? (string) $production->customer_name
+                    : null,
+                'item' => filled($production->item_name)
+                    ? (string) $production->item_name
+                    : null,
+                'lastProcess' => filled($production->last_process)
+                    ? (string) $production->last_process
+                    : null,
+            ])->values()->all(),
+        ]);
+    }
+
+    /**
      * Display the specified SPK production.
      */
     public function show(

@@ -215,7 +215,13 @@ class PolishFrameController extends Controller
                 ->first();
 
             if ($production !== null) {
-                app(PolishFrameSpkEligibility::class)->markProcessStarted($production, $actor);
+                $eligibility = app(PolishFrameSpkEligibility::class);
+                $eligibility->markProcessStarted($production, $actor);
+                $eligibility->syncLastWeight(
+                    $production,
+                    $validated['finish_weight'] ?? null,
+                    $actor,
+                );
             }
 
             $this->recalculateShrink($document->refresh());
@@ -415,6 +421,19 @@ class PolishFrameController extends Controller
                 'modified_by' => $actor,
             ]);
 
+            $production = Production::query()
+                ->notDeleted()
+                ->where('row_id', $validated['spk_id'])
+                ->first();
+
+            if ($production !== null) {
+                app(PolishFrameSpkEligibility::class)->syncLastWeight(
+                    $production,
+                    $validated['finish_weight'] ?? null,
+                    $actor,
+                );
+            }
+
             $this->recalculateShrink($polesRangka->refresh());
         });
 
@@ -510,8 +529,17 @@ class PolishFrameController extends Controller
 
     private function recalculateShrink(PolishFrame $document): void
     {
+        $finish = $this->toFloat($document->finish_weight);
+
+        if ($finish === null) {
+            $document->forceFill([
+                'shrink' => '0.00',
+            ])->save();
+
+            return;
+        }
+
         $start = $this->toFloat($document->start_weight) ?? 0.0;
-        $finish = $this->toFloat($document->finish_weight) ?? 0.0;
         $shrink = round($start - $finish, 2);
 
         $document->forceFill([

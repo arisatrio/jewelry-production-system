@@ -63,6 +63,29 @@ test('polish frame mark process started updates last process to poles rangka', f
         ->and($updated->modified_by)->toBe('Operator Poles Rangka');
 });
 
+test('polish frame sync last weight copies finish weight to spk', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/PRKLW'.Str::upper(Str::random(4)),
+        'last_weight' => null,
+    ]);
+
+    $updated = app(PolishFrameSpkEligibility::class)->syncLastWeight($production, '3.25', 'Operator Poles Rangka');
+
+    expect((float) $updated->last_weight)->toBe(3.25)
+        ->and($updated->modified_by)->toBe('Operator Poles Rangka');
+});
+
+test('polish frame sync last weight ignores empty weight', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/PRKLWE'.Str::upper(Str::random(4)),
+        'last_weight' => 1.5,
+    ]);
+
+    $updated = app(PolishFrameSpkEligibility::class)->syncLastWeight($production, null, 'Operator Poles Rangka');
+
+    expect((float) $updated->last_weight)->toBe(1.5);
+});
+
 test('polish frame in progress scope counts spk with open polish frame document', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/PRKIP'.Str::upper(Str::random(4)),

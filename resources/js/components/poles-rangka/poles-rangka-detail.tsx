@@ -41,6 +41,7 @@ type PolesRangkaDetailItem = {
     finishWeight: string | null;
     shrink: string | null;
     shrinkPercent: string | null;
+    shrinkTolerance?: string | null;
     spk: PolesRangkaSpk | null;
 };
 
@@ -94,6 +95,46 @@ function displayValue(value: string | null | undefined): string {
     const trimmed = value?.trim() ?? '';
 
     return trimmed !== '' ? trimmed : '—';
+}
+
+function parseNumeric(value: string | null | undefined): number | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    const normalized = value.replace('%', '').trim().replace(',', '.');
+
+    if (normalized === '') {
+        return null;
+    }
+
+    const parsed = Number.parseFloat(normalized);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatShrinkPercentDisplay(value: string): string {
+    const trimmed = value.trim();
+
+    if (trimmed === '') {
+        return '';
+    }
+
+    return trimmed.endsWith('%') ? trimmed : `${trimmed}%`;
+}
+
+function shrinkPercentTone(
+    shrinkPercent: string | null,
+    shrinkTolerance: string | null,
+): 'ok' | 'nok' | null {
+    const percent = parseNumeric(shrinkPercent);
+    const tolerance = parseNumeric(shrinkTolerance);
+
+    if (percent === null || tolerance === null) {
+        return null;
+    }
+
+    return Math.abs(percent) <= Math.abs(tolerance) + 0.005 ? 'ok' : 'nok';
 }
 
 function formatDateTime(value: string | null): string {
@@ -164,6 +205,11 @@ export function PolesRangkaDetail({
                 createdAt: event.createdAt,
             })),
         [approvalHistory],
+    );
+
+    const shrinkTone = shrinkPercentTone(
+        polishFrameItem.shrinkPercent,
+        polishFrameItem.shrinkTolerance ?? null,
     );
 
     const submitToManager = () => {
@@ -472,9 +518,39 @@ export function PolesRangkaDetail({
                                                         {displayValue(
                                                             polishFrameItem.shrink,
                                                         )}
-                                                        {polishFrameItem.shrinkPercent
-                                                            ? ` (${polishFrameItem.shrinkPercent})`
-                                                            : ''}
+                                                        {polishFrameItem.shrinkPercent ? (
+                                                            <>
+                                                                {' '}
+                                                                (
+                                                                <span
+                                                                    className={[
+                                                                        'spkShrinkPercent',
+                                                                        shrinkTone
+                                                                            ? `is-${shrinkTone}`
+                                                                            : '',
+                                                                    ]
+                                                                        .filter(Boolean)
+                                                                        .join(' ')}
+                                                                >
+                                                                    {formatShrinkPercentDisplay(
+                                                                        polishFrameItem.shrinkPercent,
+                                                                    )}
+                                                                </span>
+                                                                )
+                                                            </>
+                                                        ) : null}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Toleransi Susut
+                                                    </th>
+                                                    <td>
+                                                        {polishFrameItem.shrinkTolerance
+                                                            ? formatShrinkPercentDisplay(
+                                                                  polishFrameItem.shrinkTolerance,
+                                                              )
+                                                            : '—'}
                                                     </td>
                                                 </tr>
                                             </tbody>

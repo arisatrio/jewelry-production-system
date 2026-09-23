@@ -490,61 +490,6 @@ export function PolesRangkaForm({
                                         </div>
                                     </FormItem>
 
-
-
-
-                                    <FormItem
-                                        labelContent={
-                                            <Label showColon>Status QC</Label>
-                                        }
-                                    >
-                                        <div className="spkFioriFieldStack">
-                                            <Select
-                                                accessibleName="Status QC poles rangka"
-                                                valueState={fieldState(
-                                                    errors.status_item,
-                                                )}
-                                                onChange={(event) =>
-                                                    setData(
-                                                        'status_item',
-                                                        event.detail
-                                                            .selectedOption
-                                                            .value ?? '',
-                                                    )
-                                                }
-                                            >
-                                                <Option
-                                                    value=""
-                                                    selected={
-                                                        data.status_item ===
-                                                        ''
-                                                    }
-                                                >
-                                                    —
-                                                </Option>
-                                                {statusItemOptions.map(
-                                                    (option) => (
-                                                        <Option
-                                                            key={option.value}
-                                                            value={option.value}
-                                                            selected={
-                                                                data.status_item ===
-                                                                option.value
-                                                            }
-                                                        >
-                                                            {option.label}
-                                                        </Option>
-                                                    ),
-                                                )}
-                                            </Select>
-                                            {errors.status_item ? (
-                                                <Text className="spkFioriError">
-                                                    {errors.status_item}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </FormItem>
-
                                     <FormItem
                                         labelContent={
                                             <Label showColon>Catatan</Label>
@@ -640,6 +585,58 @@ export function PolesRangkaForm({
                                             {errors.finish_weight ? (
                                                 <Text className="spkFioriError">
                                                     {errors.finish_weight}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon>Status QC</Label>
+                                        }
+                                    >
+                                        <div className="spkFioriFieldStack">
+                                            <Select
+                                                accessibleName="Status QC poles rangka"
+                                                valueState={fieldState(
+                                                    errors.status_item,
+                                                )}
+                                                onChange={(event) =>
+                                                    setData(
+                                                        'status_item',
+                                                        event.detail
+                                                            .selectedOption
+                                                            .value ?? '',
+                                                    )
+                                                }
+                                            >
+                                                <Option
+                                                    value=""
+                                                    selected={
+                                                        data.status_item ===
+                                                        ''
+                                                    }
+                                                >
+                                                    —
+                                                </Option>
+                                                {statusItemOptions.map(
+                                                    (option) => (
+                                                        <Option
+                                                            key={option.value}
+                                                            value={option.value}
+                                                            selected={
+                                                                data.status_item ===
+                                                                option.value
+                                                            }
+                                                        >
+                                                            {option.label}
+                                                        </Option>
+                                                    ),
+                                                )}
+                                            </Select>
+                                            {errors.status_item ? (
+                                                <Text className="spkFioriError">
+                                                    {errors.status_item}
                                                 </Text>
                                             ) : null}
                                         </div>

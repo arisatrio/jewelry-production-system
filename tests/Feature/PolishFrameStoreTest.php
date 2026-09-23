@@ -56,7 +56,8 @@ test('poles rangka store creates document with spk and marks process started', f
         ->and($document->status_item)->toBe('OK')
         ->and($document->notes)->toBe('Catatan store poles rangka')
         ->and($production->last_process)->toBe(PolishFrameSpkEligibility::PROCESS_KEY)
-        ->and($production->is_inprocess)->toBe(1);
+        ->and($production->is_inprocess)->toBe(1)
+        ->and((float) $production->last_weight)->toBe(2.45);
 
     $document->delete();
     $production->delete();
@@ -130,6 +131,10 @@ test('poles rangka update changes document fields and recalculates shrink', func
         ->and((string) $document->shrink)->toBe('0.50')
         ->and($document->notes)->toBe('Sesudah update')
         ->and($document->status_item)->toBe('NOK');
+
+    $productionB->refresh();
+
+    expect((float) $productionB->last_weight)->toBe(2.0);
 
     $document->delete();
     $productionA->delete();

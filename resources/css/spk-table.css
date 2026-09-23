@@ -1491,6 +1491,19 @@
     color: #b91c1c;
 }
 
+.spkShrinkPercent {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.spkShrinkPercent.is-ok {
+    color: #047857;
+}
+
+.spkShrinkPercent.is-nok {
+    color: #b91c1c;
+}
+
 .spkGoldTypeBadge {
     display: inline-flex;
     align-items: center;

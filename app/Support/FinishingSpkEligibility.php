@@ -45,6 +45,24 @@ class FinishingSpkEligibility
         return $production->refresh();
     }
 
+    /**
+     * Salin berat akhir finishing ke last_weight SPK.
+     */
+    public function syncLastWeight(Production $production, mixed $weight, string $actor): Production
+    {
+        if (! filled($weight) || ! is_numeric($weight)) {
+            return $production;
+        }
+
+        $production->update([
+            'last_weight' => number_format((float) $weight, 2, '.', ''),
+            'modified_date' => now(),
+            'modified_by' => $actor,
+        ]);
+
+        return $production->refresh();
+    }
+
     private function alreadyInFinishingProcess(Production $production): bool
     {
         return strcasecmp(trim((string) $production->last_process), self::PROCESS_KEY) === 0

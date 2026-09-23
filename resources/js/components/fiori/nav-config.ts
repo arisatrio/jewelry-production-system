@@ -9,7 +9,10 @@ import {
 import { index as coranIndex } from '@/routes/coran';
 import { index as finishingIndex } from '@/routes/finishing';
 import { index as polesRangkaIndex } from '@/routes/poles-rangka';
+import { index as pasangBatuIndex } from '@/routes/pasang-batu';
+import { index as polesChromeIndex } from '@/routes/poles-chrome';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
+import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
@@ -59,8 +62,8 @@ export const defaultProduksiSubmenus: ShellNavItem[] = [
     { text: 'Coran', href: coranIndex.url() },
     { text: 'Finishing', href: finishingIndex.url() },
     { text: 'Poles Rangka', href: polesRangkaIndex.url() },
-    { text: 'Pasang Batu' },
-    { text: 'Poles Chrome' },
+    { text: 'Pasang Batu', href: pasangBatuIndex.url() },
+    { text: 'Poles Chrome', href: polesChromeIndex.url() },
 ];
 
 export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
@@ -74,6 +77,10 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
     {
         text: 'Transaksi Bahan Emas',
         href: goldMaterialTransactionsIndex.url(),
+    },
+    {
+        text: 'Transaksi Batu',
+        href: stoneTransactionsIndex.url(),
     },
 ];
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import employeeIcon from '@ui5/webcomponents-icons/dist/employee.js';
 import exitFullScreenIcon from '@ui5/webcomponents-icons/dist/exit-full-screen.js';
@@ -17,6 +17,8 @@ import { ShellBarItem } from '@ui5/webcomponents-react/ShellBarItem';
 import { ShellBarSpacer } from '@ui5/webcomponents-react/ShellBarSpacer';
 import { logout } from '@/routes';
 import { edit as editProfile } from '@/routes/profile';
+import { index as spkIndex, show as spkShow } from '@/routes/spk';
+import { suggestions as searchSpkSuggestions } from '@/routes/spk/select';
 import { cn } from '@/lib/utils';
 import {
     defaultMidDropdowns,
@@ -29,6 +31,15 @@ import {
 } from '@/components/fiori/nav-config';
 
 const PROFILE_SETTINGS_LINKS_ENABLED = false;
+
+type SpkSearchSuggestion = {
+    rowId: number;
+    spkNo: string;
+    spkType: string | null;
+    customer: string | null;
+    item: string | null;
+    lastProcess: string | null;
+};
 
 export type AppShellHeaderProps = {
     activeMenu?: string;
@@ -97,7 +108,7 @@ export default function AppShellHeader({
     logoSrc = '/images/logo.jpg',
     logoAlt = 'Wanda',
     pageTitle,
-    searchPlaceholder = 'Cari SPK, produk, modul...',
+    searchPlaceholder = 'Cari SPK...',
     searchQuery: controlledSearchQuery,
     defaultSearchQuery = '',
     onSearchChange,
@@ -114,8 +125,8 @@ export default function AppShellHeader({
     trailingDropdowns = defaultTrailingDropdowns,
     userName: userNameProp,
 }: AppShellHeaderProps) {
-    const { auth } = usePage().props;
-    const userName = userNameProp ?? auth.user?.name ?? 'Guest';
+    const page = usePage();
+    const userName = userNameProp ?? page.props.auth.user?.name ?? 'Guest';
     const resolvedSettingsHref = settingsHref ?? editProfile.url();
 
     const isActiveMenuControlled = controlledActiveMenu !== undefined;
@@ -131,6 +142,113 @@ export default function AppShellHeader({
     const searchQuery = isSearchControlled
         ? controlledSearchQuery
         : uncontrolledSearchQuery;
+    const [suggestions, setSuggestions] = useState<SpkSearchSuggestion[]>([]);
+    const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+    const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const searchWrapRef = useRef<HTMLDivElement | null>(null);
+    const suggestionRequestIdRef = useRef(0);
+
+    useEffect(() => {
+        if (isSearchControlled) {
+            return;
+        }
+
+        const [pathOnly, queryString = ''] = page.url.split('?');
+
+        if (pathOnly !== '/spk') {
+            return;
+        }
+
+        const params = new URLSearchParams(queryString);
+        setUncontrolledSearchQuery(params.get('search') ?? '');
+    }, [page.url, isSearchControlled]);
+
+    useEffect(() => {
+        const query = searchQuery.trim();
+
+        if (query.length < 2) {
+            setSuggestions([]);
+            setSuggestionsOpen(false);
+            setSuggestionsLoading(false);
+            setHighlightedIndex(-1);
+
+            return;
+        }
+
+        const requestId = ++suggestionRequestIdRef.current;
+        const timeout = window.setTimeout(async () => {
+            setSuggestionsLoading(true);
+
+            try {
+                const response = await fetch(
+                    searchSpkSuggestions.url({
+                        query: {
+                            search: query,
+                            limit: 8,
+                        },
+                    }),
+                    {
+                        headers: {
+                            Accept: 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin',
+                    },
+                );
+
+                if (!response.ok) {
+                    throw new Error('Gagal memuat saran SPK.');
+                }
+
+                const payload = (await response.json()) as {
+                    data?: SpkSearchSuggestion[];
+                };
+
+                if (requestId !== suggestionRequestIdRef.current) {
+                    return;
+                }
+
+                const nextSuggestions = Array.isArray(payload.data)
+                    ? payload.data
+                    : [];
+
+                setSuggestions(nextSuggestions);
+                setSuggestionsOpen(true);
+                setHighlightedIndex(nextSuggestions.length > 0 ? 0 : -1);
+            } catch {
+                if (requestId !== suggestionRequestIdRef.current) {
+                    return;
+                }
+
+                setSuggestions([]);
+                setSuggestionsOpen(false);
+                setHighlightedIndex(-1);
+            } finally {
+                if (requestId === suggestionRequestIdRef.current) {
+                    setSuggestionsLoading(false);
+                }
+            }
+        }, 250);
+
+        return () => window.clearTimeout(timeout);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        const handlePointerDown = (event: MouseEvent) => {
+            if (
+                searchWrapRef.current &&
+                !searchWrapRef.current.contains(event.target as Node)
+            ) {
+                setSuggestionsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+
+        return () =>
+            document.removeEventListener('mousedown', handlePointerDown);
+    }, []);
 
     const allDropdowns = useMemo(
         () => [...midDropdowns, ...postSpkDropdowns, ...trailingDropdowns],
@@ -212,9 +330,76 @@ export default function AppShellHeader({
         onSearchChange?.(query);
     };
 
+    const visitSpkIndexSearch = (query: string) => {
+        setSuggestionsOpen(false);
+
+        router.get(
+            spkIndex.url({
+                query: {
+                    search: query !== '' ? query : undefined,
+                },
+            }),
+            {},
+            {
+                preserveState: false,
+            },
+        );
+    };
+
+    const visitSpkSuggestion = (suggestion: SpkSearchSuggestion) => {
+        setSuggestionsOpen(false);
+        updateSearchQuery(suggestion.spkNo);
+        router.visit(spkShow.url(suggestion.spkNo));
+    };
+
     const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        onSearchSubmit?.(searchQuery);
+
+        if (onSearchSubmit) {
+            onSearchSubmit(searchQuery);
+
+            return;
+        }
+
+        if (
+            highlightedIndex >= 0 &&
+            suggestions[highlightedIndex] !== undefined
+        ) {
+            visitSpkSuggestion(suggestions[highlightedIndex]);
+
+            return;
+        }
+
+        visitSpkIndexSearch(searchQuery.trim());
+    };
+
+    const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (!suggestionsOpen || suggestions.length === 0) {
+            return;
+        }
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setHighlightedIndex((current) =>
+                current < suggestions.length - 1 ? current + 1 : 0,
+            );
+
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setHighlightedIndex((current) =>
+                current <= 0 ? suggestions.length - 1 : current - 1,
+            );
+
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            setSuggestionsOpen(false);
+        }
     };
 
     const runProfileMenuAction = (text: string) => {
@@ -321,40 +506,144 @@ export default function AppShellHeader({
                     content={
                         <>
                             {showSearch ? (
-                                <form
-                                    className="shellSearchForm"
-                                    role="search"
-                                    onSubmit={handleSearchSubmit}
+                                <div
+                                    className="shellSearchWrap"
+                                    ref={searchWrapRef}
                                 >
-                                    <Icon
-                                        className="shellSearchIcon"
-                                        name={searchIcon}
-                                    />
-                                    <input
-                                        className="shellSearchInput"
-                                        type="search"
-                                        placeholder={searchPlaceholder}
-                                        value={searchQuery}
-                                        onChange={(event) =>
-                                            updateSearchQuery(
-                                                event.target.value,
-                                            )
-                                        }
-                                        aria-label="Pencarian"
-                                    />
-                                    {searchQuery ? (
-                                        <button
-                                            type="button"
-                                            className="shellSearchClear"
-                                            aria-label="Hapus pencarian"
-                                            onClick={() =>
-                                                updateSearchQuery('')
+                                    <form
+                                        className="shellSearchForm"
+                                        role="search"
+                                        onSubmit={handleSearchSubmit}
+                                    >
+                                        <Icon
+                                            className="shellSearchIcon"
+                                            name={searchIcon}
+                                        />
+                                        <input
+                                            className="shellSearchInput"
+                                            type="search"
+                                            placeholder={searchPlaceholder}
+                                            value={searchQuery}
+                                            autoComplete="off"
+                                            aria-autocomplete="list"
+                                            aria-expanded={suggestionsOpen}
+                                            aria-controls="shell-spk-suggestions"
+                                            onChange={(event) =>
+                                                updateSearchQuery(
+                                                    event.target.value,
+                                                )
                                             }
+                                            onFocus={() => {
+                                                if (
+                                                    searchQuery.trim().length >=
+                                                        2 &&
+                                                    suggestions.length > 0
+                                                ) {
+                                                    setSuggestionsOpen(true);
+                                                }
+                                            }}
+                                            onKeyDown={handleSearchKeyDown}
+                                            aria-label="Cari SPK"
+                                        />
+                                        {searchQuery ? (
+                                            <button
+                                                type="button"
+                                                className="shellSearchClear"
+                                                aria-label="Hapus pencarian"
+                                                onClick={() => {
+                                                    updateSearchQuery('');
+                                                    setSuggestions([]);
+                                                    setSuggestionsOpen(false);
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        ) : null}
+                                    </form>
+
+                                    {suggestionsOpen &&
+                                    searchQuery.trim().length >= 2 ? (
+                                        <div
+                                            id="shell-spk-suggestions"
+                                            className="shellSearchSuggestions"
+                                            role="listbox"
+                                            aria-label="Saran SPK"
                                         >
-                                            ×
-                                        </button>
+                                            {suggestionsLoading ? (
+                                                <div className="shellSearchSuggestionEmpty">
+                                                    Mencari SPK...
+                                                </div>
+                                            ) : suggestions.length === 0 ? (
+                                                <div className="shellSearchSuggestionEmpty">
+                                                    Tidak ada SPK yang cocok.
+                                                </div>
+                                            ) : (
+                                                suggestions.map(
+                                                    (suggestion, index) => (
+                                                        <button
+                                                            key={
+                                                                suggestion.rowId
+                                                            }
+                                                            type="button"
+                                                            role="option"
+                                                            aria-selected={
+                                                                index ===
+                                                                highlightedIndex
+                                                            }
+                                                            className={cn(
+                                                                'shellSearchSuggestionItem',
+                                                                index ===
+                                                                    highlightedIndex &&
+                                                                    'is-active',
+                                                            )}
+                                                            onMouseEnter={() =>
+                                                                setHighlightedIndex(
+                                                                    index,
+                                                                )
+                                                            }
+                                                            onClick={() =>
+                                                                visitSpkSuggestion(
+                                                                    suggestion,
+                                                                )
+                                                            }
+                                                        >
+                                                            <span className="shellSearchSuggestionPrimary">
+                                                                {
+                                                                    suggestion.spkNo
+                                                                }
+                                                            </span>
+                                                            <span className="shellSearchSuggestionSecondary">
+                                                                {[
+                                                                    suggestion.item,
+                                                                    suggestion.customer,
+                                                                    suggestion.lastProcess,
+                                                                ]
+                                                                    .filter(
+                                                                        Boolean,
+                                                                    )
+                                                                    .join(
+                                                                        ' · ',
+                                                                    ) || '—'}
+                                                            </span>
+                                                        </button>
+                                                    ),
+                                                )
+                                            )}
+
+                                            <button
+                                                type="button"
+                                                className="shellSearchSuggestionFooter"
+                                                onClick={() =>
+                                                    visitSpkIndexSearch(
+                                                        searchQuery.trim(),
+                                                    )
+                                                }
+                                            >
+                                                Lihat semua hasil pencarian
+                                            </button>
+                                        </div>
                                     ) : null}
-                                </form>
+                                </div>
                             ) : null}
                             <ShellBarSpacer />
                             <div className="shellUserMeta">

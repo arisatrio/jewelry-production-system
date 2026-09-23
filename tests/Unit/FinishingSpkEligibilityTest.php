@@ -73,6 +73,29 @@ test('finishing mark process started updates last process to finishing', functio
         ->and($updated->modified_by)->toBe('Operator Finishing');
 });
 
+test('finishing sync last weight copies finish weight to spk', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FLW'.Str::upper(Str::random(4)),
+        'last_weight' => null,
+    ]);
+
+    $updated = app(FinishingSpkEligibility::class)->syncLastWeight($production, '3.25', 'Operator Finishing');
+
+    expect((float) $updated->last_weight)->toBe(3.25)
+        ->and($updated->modified_by)->toBe('Operator Finishing');
+});
+
+test('finishing sync last weight ignores empty weight', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FLWE'.Str::upper(Str::random(4)),
+        'last_weight' => 1.5,
+    ]);
+
+    $updated = app(FinishingSpkEligibility::class)->syncLastWeight($production, null, 'Operator Finishing');
+
+    expect((float) $updated->last_weight)->toBe(1.5);
+});
+
 test('finishing in progress scope counts spk with open finishing document', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/FIP'.Str::upper(Str::random(4)),
