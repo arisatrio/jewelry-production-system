@@ -1320,6 +1320,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     padding: 0;
     color: #1d4ed8;
     font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
 }
 

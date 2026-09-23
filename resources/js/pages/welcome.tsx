@@ -896,19 +896,16 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
                                         <tr key={row.spkNo}>
                                             <td>
                                                 {row.spkNo !== '-' ? (
-                                                    <button
-                                                        type="button"
+                                                    <a
+                                                        href={spkShow.url(
+                                                            row.spkNo,
+                                                        )}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
                                                         className="dashStatusSpkLink"
-                                                        onClick={() =>
-                                                            router.visit(
-                                                                spkShow.url(
-                                                                    row.spkNo,
-                                                                ),
-                                                            )
-                                                        }
                                                     >
                                                         {row.spkNo}
-                                                    </button>
+                                                    </a>
                                                 ) : (
                                                     '—'
                                                 )}
