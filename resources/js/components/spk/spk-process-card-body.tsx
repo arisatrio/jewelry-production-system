@@ -19,6 +19,7 @@ import {
     type ProcessCardGroup,
     type ProcessMaterialLine,
 } from '@/components/spk/spk-process-display';
+import { SpkCompletionBadge } from '@/components/spk/spk-completion-badge';
 import {
     resolveProcessQcStatus,
     SpkQcStatusBadge,
@@ -964,6 +965,18 @@ export function SpkProcessCardBody({
                             </div>
 
                             <div className="spkProcessCardHeaderMeta">
+                                <div className="spkProcessCardHeaderMetaItem">
+                                    <span className="spkProcessCardHeaderMetaLabel">
+                                        Status
+                                    </span>
+                                    <span className="spkProcessCardHeaderMetaValue">
+                                        <SpkCompletionBadge
+                                            completed={Boolean(
+                                                record.completed,
+                                            )}
+                                        />
+                                    </span>
+                                </div>
                                 <div className="spkProcessCardHeaderMetaItem">
                                     <span className="spkProcessCardHeaderMetaLabel">
                                         Tanggal

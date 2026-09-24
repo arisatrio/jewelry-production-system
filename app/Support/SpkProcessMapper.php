@@ -307,8 +307,81 @@ class SpkProcessMapper
         $records = $this->enrichWithMaterialBreakdown($table, $records);
         $records = $this->enrichWithDiamondMountingDetails($table, $records, $spkId);
         $records = $this->enrichWithApprovals($table, $records);
+        $records = $this->enrichWithCompletionFlag($table, $records);
 
         return $this->enrichWithDetailUrls($table, $records);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $records
+     * @return list<array<string, mixed>>
+     */
+    private function enrichWithCompletionFlag(string $table, array $records): array
+    {
+        return array_map(
+            fn (array $record): array => [
+                ...$record,
+                'completed' => $this->isProcessRecordCompleted($table, $record),
+            ],
+            $records,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    private function isProcessRecordCompleted(string $table, array $record): bool
+    {
+        foreach ($this->workflowStatusCandidates($table, $record) as $status) {
+            if ($this->statusMeansCompleted($status)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     * @return list<string>
+     */
+    private function workflowStatusCandidates(string $table, array $record): array
+    {
+        $candidates = [];
+
+        if (filled($record['doc_status'] ?? null)) {
+            $candidates[] = (string) $record['doc_status'];
+        }
+
+        // coranspk.status is QC (OK/NOK), not document workflow.
+        if ($table !== 'coranspk' && filled($record['status'] ?? null)) {
+            $candidates[] = (string) $record['status'];
+        }
+
+        foreach ($record['approvals'] ?? [] as $approval) {
+            if (! is_array($approval)) {
+                continue;
+            }
+
+            if (filled($approval['status'] ?? null)) {
+                $candidates[] = (string) $approval['status'];
+            }
+        }
+
+        return $candidates;
+    }
+
+    private function statusMeansCompleted(string $status): bool
+    {
+        $normalized = strtoupper(trim($status));
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        return str_ends_with($normalized, 'DONE')
+            || $normalized === 'COMPLETED'
+            || str_contains($normalized, 'COMPLETED');
     }
 
     /**

@@ -527,7 +527,11 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
                     <div className="dashHeaderActions">
                         <button
                             type="button"
-                            className="dashNeedsAttentionChip"
+                            className={
+                                needsAttentionCount > 0
+                                    ? 'dashNeedsAttentionChip dashNeedsAttentionChip--active'
+                                    : 'dashNeedsAttentionChip'
+                            }
                             title="In progress · H-1 SLA, sisa hari = 0 atau > 0"
                             onClick={() => setOpenList('needsAttention')}
                         >

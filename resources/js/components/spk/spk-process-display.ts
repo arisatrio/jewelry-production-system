@@ -21,6 +21,8 @@ export const HIDDEN_COLUMNS = new Set([
     'stone_mounted',
     'approvals',
     'detail_url',
+    'doc_status',
+    'completed',
     'spk_usage_gold_color',
     'spk_usage_percent',
     'shrink_percent',

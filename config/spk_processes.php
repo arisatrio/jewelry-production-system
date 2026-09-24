@@ -46,6 +46,7 @@ return [
                         'doc_no' => 'doc_no',
                         'tanggal' => 'trans_date',
                         'operator' => 'operator',
+                        'doc_status' => 'status',
                     ],
                 ],
             ],
@@ -62,6 +63,7 @@ return [
                     'fields' => [
                         'doc_no' => 'doc_no',
                         'tanggal' => 'trans_date',
+                        'doc_status' => 'status',
                     ],
                 ],
             ],
@@ -78,6 +80,7 @@ return [
                     'fields' => [
                         'doc_no' => 'doc_no',
                         'tanggal' => 'trans_date',
+                        'doc_status' => 'status',
                     ],
                 ],
             ],

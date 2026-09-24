@@ -28,6 +28,7 @@ test('spk process mapper exposes expected process to table mapping', function ()
             'doc_no' => 'doc_no',
             'tanggal' => 'trans_date',
             'operator' => 'operator',
+            'doc_status' => 'status',
         ]);
 });
 
@@ -94,12 +95,14 @@ test('spk process mapper enriches jewelcad rows from requestjwcad parent', funct
     if ($production->spk_no === '2024/PRD/00012' && $jewelCad['recordCount'] > 0) {
         $row = $jewelCad['sources'][0]['records'][0];
 
-        expect($row)->toHaveKeys(['doc_no', 'tanggal', 'operator', 'material'])
+        expect($row)->toHaveKeys(['doc_no', 'tanggal', 'doc_status', 'operator', 'material', 'completed'])
             ->and($row['doc_no'])->toBe('JWC0000053')
             ->and($row['tanggal'])->toBe('23-Jul-2024')
+            ->and($row)->toHaveKey('completed')
             ->and(array_key_first($row))->toBe('doc_no')
             ->and(array_keys($row)[1] ?? null)->toBe('tanggal')
-            ->and(array_keys($row)[2] ?? null)->toBe('operator');
+            ->and(array_keys($row)[2] ?? null)->toBe('operator')
+            ->and(array_keys($row)[3] ?? null)->toBe('doc_status');
     }
 });
 
@@ -124,8 +127,10 @@ test('spk process mapper enriches coran rows from coran parent', function () {
         expect($row)->toHaveKeys([
             'doc_no',
             'tanggal',
+            'doc_status',
             'weight',
             'status',
+            'completed',
             'total_submit_material',
             'total_result_material',
             'submit_materials',
@@ -142,6 +147,7 @@ test('spk process mapper enriches coran rows from coran parent', function () {
             ->and($row['doc_no'])->toBe('COR0000015')
             ->and($row['tanggal'])->toBe('07-Aug-2024')
             ->and($row['status'])->toBe('OK')
+            ->and($row['completed'])->toBeBool()
             ->and($row['pengrajin'])->toBeNull()
             ->and($row['craftsman_id'])->toBeNull()
             ->and($row['spk_no'])->toBe('2024/PRD/00012')
@@ -248,7 +254,8 @@ test('spk process mapper resolves craftsman name from craftman_id for diamond mo
         ->and($row['approvals'][0]['approve'])->toBe('OK')
         ->and($row['approvals'][0]['createdBy'])->toBe('Dila')
         ->and($row['approvals'][3]['status'])->toBe('DMTDONE')
-        ->and($row['approvals'][3]['statusLabel'])->toBe('Completed');
+        ->and($row['approvals'][3]['statusLabel'])->toBe('Completed')
+        ->and($row['completed'])->toBeTrue();
 });
 
 test('spk process mapper attaches finishing material breakdown lines', function () {
@@ -369,7 +376,9 @@ test('spk process mapper attaches resin approval timeline from parent resin doc'
             ])
             ->and($row['approvals'][0]['approve'])->toBe(ResinApprovalService::APPROVE_OK)
             ->and($row['approvals'][0]['createdBy'])->toBe('Operator Resin')
-            ->and($row['approvals'][1]['createdBy'])->toBe('Manager Production');
+            ->and($row['approvals'][1]['createdBy'])->toBe('Manager Production')
+            ->and($row['doc_status'])->toBe(ResinApprovalService::STATUS_DONE)
+            ->and($row['completed'])->toBeTrue();
     } finally {
         DB::connection('third')
             ->table('sysapproval')
