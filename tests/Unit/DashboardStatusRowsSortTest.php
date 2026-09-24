@@ -7,7 +7,12 @@ uses(TestCase::class);
 
 test('dashboard status rows sort helper orders text and date columns', function () {
     $script = <<<'JS'
-import { sortDashboardStatusRows } from './resources/js/components/dashboard/sort-status-rows.ts';
+import {
+    countDashboardStatusRowsByTab,
+    filterDashboardStatusRowsByTab,
+    isDashboardStatusDone,
+    sortDashboardStatusRows,
+} from './resources/js/components/dashboard/sort-status-rows.ts';
 
 const rows = [
     {
@@ -84,6 +89,34 @@ assert(unchanged.join(',') === '2026/PRD/01632,2026/PRD/01631,2026/PRD/01633', '
 // Default modal sort: estimated delivery descending (empty values last)
 const defaultModalSort = sortDashboardStatusRows(rows, 'estimatedDelivery', 'desc').map((row) => row.spkNo);
 assert(defaultModalSort.join(',') === '2026/PRD/01632,2026/PRD/01631,2026/PRD/01633', 'default modal sort failed');
+
+const statusRows = [
+    ...rows,
+    {
+        ...rows[0],
+        spkNo: '2026/PRD/01634',
+        status: 'DONE (Barang Jadi)',
+    },
+    {
+        ...rows[0],
+        spkNo: '2026/PRD/01635',
+        status: 'DONE (Rangka)',
+    },
+];
+
+assert(isDashboardStatusDone('DONE (Barang Jadi)') === true, 'done barang jadi failed');
+assert(isDashboardStatusDone('DONE (Rangka)') === true, 'done rangka failed');
+assert(isDashboardStatusDone('In Progress') === false, 'in progress done check failed');
+assert(isDashboardStatusDone('Approved') === false, 'approved done check failed');
+
+const inProgress = filterDashboardStatusRowsByTab(statusRows, 'inProgress').map((row) => row.spkNo);
+const done = filterDashboardStatusRowsByTab(statusRows, 'done').map((row) => row.spkNo);
+const counts = countDashboardStatusRowsByTab(statusRows);
+
+assert(inProgress.join(',') === '2026/PRD/01632,2026/PRD/01631', 'in progress filter failed');
+assert(done.join(',') === '2026/PRD/01633,2026/PRD/01634,2026/PRD/01635', 'done filter failed');
+assert(counts.inProgress === 2, 'in progress count failed');
+assert(counts.done === 3, 'done count failed');
 
 console.log('OK');
 JS;

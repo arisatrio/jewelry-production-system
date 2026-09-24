@@ -1,5 +1,5 @@
 import { formatGram } from '@/lib/utils';
-import { Fragment } from 'react';
+import { Link } from '@inertiajs/react';
 import { ArrowLeft, Check } from 'lucide-react';
 import { CoranMaterialBreakdownTables } from '@/components/coran/coran-material-breakdown';
 import {
@@ -9,6 +9,7 @@ import {
     processColumnLabel,
     processMaterialLines,
     processRecordCategory,
+    processRecordDetailUrl,
     processRecordSubtitle,
     processRecordTitle,
     processRecordWorkDate,
@@ -925,6 +926,7 @@ export function SpkProcessCardBody({
         <div className="spkProcessCardList">
             {records.map((record, index) => {
                 const subtitle = processRecordSubtitle(record);
+                const detailUrl = processRecordDetailUrl(record);
                 const headerPerson = resolveHeaderPerson(record, table);
                 const workDate = processRecordWorkDate(record);
 
@@ -944,9 +946,19 @@ export function SpkProcessCardBody({
                                         {title}
                                     </span>
                                     {subtitle ? (
-                                        <span className="spkProcessCardSubtitle">
-                                            {subtitle}
-                                        </span>
+                                        detailUrl ? (
+                                            <Link
+                                                href={detailUrl}
+                                                className="spkProcessCardSubtitle is-link"
+                                                prefetch
+                                            >
+                                                {subtitle}
+                                            </Link>
+                                        ) : (
+                                            <span className="spkProcessCardSubtitle">
+                                                {subtitle}
+                                            </span>
+                                        )
                                     ) : null}
                                 </div>
                             </div>

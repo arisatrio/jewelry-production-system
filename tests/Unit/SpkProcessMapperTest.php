@@ -383,6 +383,51 @@ test('spk process mapper attaches resin approval timeline from parent resin doc'
     }
 });
 
+test('spk process mapper resolves detail urls for process documents', function (string $table, string $routeName) {
+    $mapper = new SpkProcessMapper;
+
+    expect($mapper->detailUrlForTable($table, 42))->toBe(route($routeName, 42, absolute: false))
+        ->and($mapper->detailUrlForTable($table, 0))->toBeNull();
+})->with([
+    ['requestjwcaddetails', 'jewelcad.show'],
+    ['resindetails', 'resin.show'],
+    ['coranspk', 'coran.show'],
+    ['finishinghandmade', 'finishing.show'],
+    ['polishframe', 'poles-rangka.show'],
+    ['diamondmounting', 'pasang-batu.show'],
+    ['polishfinishedgood', 'poles-chrome.show'],
+]);
+
+test('spk process mapper returns null detail url for unmapped process tables', function () {
+    expect((new SpkProcessMapper)->detailUrlForTable('diamondunload', 42))->toBeNull();
+});
+
+test('spk process mapper attaches detail_url on process records', function () {
+    $production = Production::factory()->create();
+    $resin = Resin::factory()->create([
+        'spk_id' => $production->row_id,
+        'status' => ResinApprovalService::STATUS_DONE,
+    ]);
+    $detail = ResinDetail::factory()->create([
+        'row_id' => $resin->row_id,
+        'spk_id' => $production->row_id,
+    ]);
+
+    try {
+        $processes = (new SpkProcessMapper)->forProduction((int) $production->row_id);
+        $resinTab = collect($processes)->firstWhere('key', 'Resin');
+        $row = $resinTab['sources'][0]['records'][0] ?? null;
+
+        expect($row)->not->toBeNull()
+            ->and($row['detail_url'])->toBe(route('resin.show', $resin->row_id, absolute: false))
+            ->and($row['doc_no'])->toBe($resin->doc_no);
+    } finally {
+        $detail->delete();
+        $resin->delete();
+        $production->delete();
+    }
+});
+
 test('spk process mapper orders process records by created_date ascending', function () {
     $production = Production::query()
         ->notDeleted()

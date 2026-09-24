@@ -10,6 +10,8 @@ import { InProgressProcessBarChart } from '@/components/dashboard/in-progress-pr
 import {
     DASHBOARD_CENTERED_COLUMNS,
     DASHBOARD_SORT_COLUMNS,
+    countDashboardStatusRowsByTab,
+    filterDashboardStatusRowsByTab,
     formatEstimatedDeliveryRemainingLabel,
     formatProcessSlaRemainingLabel,
     isDashboardDateOverdue,
@@ -17,6 +19,7 @@ import {
     type DashboardSortDirection,
     type DashboardSortKey,
     type DashboardStatusSpkItem,
+    type DashboardStatusTab,
 } from '@/components/dashboard/sort-status-rows';
 
 import {
@@ -239,6 +242,8 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
     );
     const [listSortDirection, setListSortDirection] =
         useState<DashboardSortDirection>('asc');
+    const [listStatusTab, setListStatusTab] =
+        useState<DashboardStatusTab>('inProgress');
     const monthTargetSpk =
         summary.planningDoneSpk + summary.planningPendingSpk;
     const weekTargetSpk = weekTarget?.targetSpk ?? 0;
@@ -446,8 +451,14 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
               : openList in todayLists
                 ? (todayLists[openList as DashboardTodayKey] ?? [])
                 : (chartLists[openList as DashboardChartKey] ?? []);
+    const showStatusTabs =
+        openList !== null && targetCardKeys.has(openList as DashboardTodayKey);
+    const statusTabCounts = countDashboardStatusRowsByTab(openListRows);
+    const statusFilteredRows = showStatusTabs
+        ? filterDashboardStatusRowsByTab(openListRows, listStatusTab)
+        : openListRows;
     const sortedOpenListRows = sortDashboardStatusRows(
-        openListRows,
+        statusFilteredRows,
         listSortKey,
         listSortDirection,
     );
@@ -469,6 +480,7 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
     useEffect(() => {
         setListSortKey('estimatedDelivery');
         setListSortDirection('asc');
+        setListStatusTab('inProgress');
     }, [openList]);
 
     const toggleListSort = (key: DashboardSortKey): void => {
@@ -813,17 +825,56 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                         </DialogTitle>
                         <DialogDescription>
                             {openListPeriodLabel} ·{' '}
-                            {(openListMeta?.count ?? 0).toLocaleString(
-                                'id-ID',
-                            )}{' '}
+                            {(showStatusTabs
+                                ? statusFilteredRows.length
+                                : (openListMeta?.count ?? 0)
+                            ).toLocaleString('id-ID')}{' '}
                             SPK
-                            {openListRows.length < (openListMeta?.count ?? 0)
+                            {!showStatusTabs &&
+                            openListRows.length < (openListMeta?.count ?? 0)
                                 ? ` · menampilkan ${openListRows.length.toLocaleString('id-ID')} terbaru`
                                 : ''}
                         </DialogDescription>
                     </DialogHeader>
 
-                    {openListRows.length === 0 ? (
+                    {showStatusTabs ? (
+                        <div
+                            className="dashStatusModalTabs"
+                            role="tablist"
+                            aria-label="Filter status SPK"
+                        >
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={listStatusTab === 'inProgress'}
+                                className={`dashStatusModalTab${listStatusTab === 'inProgress' ? ' is-active' : ''}`}
+                                onClick={() => setListStatusTab('inProgress')}
+                            >
+                                <span>In Progress</span>
+                                <span className="dashStatusModalTabBadge">
+                                    {statusTabCounts.inProgress.toLocaleString(
+                                        'id-ID',
+                                    )}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={listStatusTab === 'done'}
+                                className={`dashStatusModalTab${listStatusTab === 'done' ? ' is-active' : ''}`}
+                                onClick={() => setListStatusTab('done')}
+                            >
+                                <span>Done</span>
+                                <span className="dashStatusModalTabBadge">
+                                    {statusTabCounts.done.toLocaleString(
+                                        'id-ID',
+                                    )}
+                                </span>
+                            </button>
+                        </div>
+                    ) : null}
+
+                    {statusFilteredRows.length === 0 ? (
                         <p className="dashEmpty">
                             Tidak ada SPK untuk kategori ini.
                         </p>

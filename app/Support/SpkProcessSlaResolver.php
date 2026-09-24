@@ -215,7 +215,7 @@ class SpkProcessSlaResolver
      */
     private function storedByProcessKey(): array
     {
-        if (! Schema::hasTable('spk_process_sla_targets')) {
+        if (! Schema::connection('third')->hasTable('spk_process_sla_targets')) {
             return [];
         }
 

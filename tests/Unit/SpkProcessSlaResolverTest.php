@@ -11,6 +11,12 @@ uses(TestCase::class, RefreshDatabase::class);
 
 beforeEach(function (): void {
     Cache::forget(SpkProcessSlaResolver::CACHE_KEY);
+    SpkProcessSlaTarget::query()->delete();
+});
+
+afterEach(function (): void {
+    SpkProcessSlaTarget::query()->delete();
+    Cache::forget(SpkProcessSlaResolver::CACHE_KEY);
 });
 
 test('resolver returns config defaults when database is empty', function () {

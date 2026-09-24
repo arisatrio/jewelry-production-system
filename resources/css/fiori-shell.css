@@ -1212,6 +1212,58 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     overflow: hidden;
 }
 
+.dashStatusModalTabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.125rem;
+    margin: 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.dashStatusModalTab {
+    appearance: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #6b7280;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.85rem 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.dashStatusModalTab:hover {
+    color: #0f62fe;
+}
+
+.dashStatusModalTab.is-active {
+    color: #0f62fe;
+    border-bottom-color: #0f62fe;
+}
+
+.dashStatusModalTabBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: #e5e7eb;
+    color: #374151;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.dashStatusModalTab.is-active .dashStatusModalTabBadge {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
 .dashStatusTableWrap {
     min-height: 0;
     overflow: auto;

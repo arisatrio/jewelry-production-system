@@ -129,6 +129,45 @@ export function sortDashboardStatusRows(
     );
 }
 
+export type DashboardStatusTab = 'inProgress' | 'done';
+
+/** True when status is a DONE label (Rangka / Barang Jadi). */
+export function isDashboardStatusDone(status: string | null | undefined): boolean {
+    const value = String(status ?? '')
+        .trim()
+        .toUpperCase();
+
+    return value.startsWith('DONE');
+}
+
+export function filterDashboardStatusRowsByTab(
+    rows: DashboardStatusSpkItem[],
+    tab: DashboardStatusTab,
+): DashboardStatusSpkItem[] {
+    return rows.filter((row) => {
+        const isDone = isDashboardStatusDone(row.status);
+
+        return tab === 'done' ? isDone : !isDone;
+    });
+}
+
+export function countDashboardStatusRowsByTab(
+    rows: DashboardStatusSpkItem[],
+): Record<DashboardStatusTab, number> {
+    let inProgress = 0;
+    let done = 0;
+
+    for (const row of rows) {
+        if (isDashboardStatusDone(row.status)) {
+            done += 1;
+        } else {
+            inProgress += 1;
+        }
+    }
+
+    return { inProgress, done };
+}
+
 const DASHBOARD_MONTHS: Record<string, number> = {
     Jan: 0,
     Feb: 1,

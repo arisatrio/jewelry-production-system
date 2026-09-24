@@ -11,7 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('spk_process_sla_targets', function (Blueprint $table) {
+        $schema = Schema::connection('third');
+
+        if ($schema->hasTable('spk_process_sla_targets')) {
+            return;
+        }
+
+        $schema->create('spk_process_sla_targets', function (Blueprint $table): void {
             $table->id();
             $table->string('process_key', 64)->unique();
             $table->unsignedSmallInteger('working_days');
@@ -25,6 +31,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('spk_process_sla_targets');
+        Schema::connection('third')->dropIfExists('spk_process_sla_targets');
     }
 };

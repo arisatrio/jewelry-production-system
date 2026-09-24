@@ -38,7 +38,6 @@ export const defaultPrimaryNavItems: ShellNavItem[] = [
 
 export const defaultModuleNavItems: ShellNavItem[] = [
     { text: 'SPK', href: spkIndex.url() },
-    { text: 'Modifikasi Barang Jadi' },
 ];
 
 export const defaultLaporanSubmenus: ShellNavItem[] = [
@@ -69,6 +68,7 @@ export const defaultProduksiSubmenus: ShellNavItem[] = [
 export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
     { text: 'Reparasi' },
     { text: 'Penambahan Chain' },
+    { text: 'Modifikasi Barang Jadi' },
 ];
 
 export const defaultInventorySubmenus: ShellNavItem[] = [
@@ -121,7 +121,5 @@ export const defaultTrailingDropdowns: ShellNavDropdown[] = [
 export const spkProcessTabs = [
     ...defaultProduksiSubmenus.map((item) => item.text),
     'Pengerjaan Lanjutan',
-    ...defaultModuleNavItems
-        .filter((item) => item.text !== 'SPK')
-        .map((item) => item.text),
+    'Modifikasi Barang Jadi',
 ];

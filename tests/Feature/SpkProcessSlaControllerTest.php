@@ -7,6 +7,12 @@ use Illuminate\Support\Facades\Cache;
 
 beforeEach(function (): void {
     Cache::forget(SpkProcessSlaResolver::CACHE_KEY);
+    SpkProcessSlaTarget::query()->delete();
+});
+
+afterEach(function (): void {
+    SpkProcessSlaTarget::query()->delete();
+    Cache::forget(SpkProcessSlaResolver::CACHE_KEY);
 });
 
 test('spk process sla edit page is accessible', function () {

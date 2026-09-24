@@ -20,6 +20,7 @@ export const HIDDEN_COLUMNS = new Set([
     'stone_diamonds',
     'stone_mounted',
     'approvals',
+    'detail_url',
     'spk_usage_gold_color',
     'spk_usage_percent',
     'shrink_percent',
@@ -505,6 +506,19 @@ export function processRecordSubtitle(record: Record<string, unknown>): string {
     }
 
     return String(record.doc_no);
+}
+
+/**
+ * Resolve the detail page URL for a process report card document number.
+ */
+export function processRecordDetailUrl(
+    record: Record<string, unknown>,
+): string | null {
+    if (!hasProcessValue(record.detail_url)) {
+        return null;
+    }
+
+    return String(record.detail_url);
 }
 
 /**

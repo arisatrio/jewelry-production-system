@@ -306,8 +306,59 @@ class SpkProcessMapper
         $records = $this->enrichWithCoranMetrics($table, $records, $spkId);
         $records = $this->enrichWithMaterialBreakdown($table, $records);
         $records = $this->enrichWithDiamondMountingDetails($table, $records, $spkId);
+        $records = $this->enrichWithApprovals($table, $records);
 
-        return $this->enrichWithApprovals($table, $records);
+        return $this->enrichWithDetailUrls($table, $records);
+    }
+
+    /**
+     * Attach show-page URLs for process document numbers.
+     *
+     * @param  list<array<string, mixed>>  $records
+     * @return list<array<string, mixed>>
+     */
+    private function enrichWithDetailUrls(string $table, array $records): array
+    {
+        return array_map(
+            function (array $record) use ($table): array {
+                $rowId = (int) ($record['row_id'] ?? 0);
+
+                return [
+                    ...$record,
+                    'detail_url' => $rowId > 0
+                        ? $this->detailUrlForTable($table, $rowId)
+                        : null,
+                ];
+            },
+            $records,
+        );
+    }
+
+    /**
+     * Resolve the detail page URL for a process table row.
+     */
+    public function detailUrlForTable(string $table, int $rowId): ?string
+    {
+        if ($rowId <= 0) {
+            return null;
+        }
+
+        $routeName = match ($table) {
+            'requestjwcaddetails', 'requestjwcad' => 'jewelcad.show',
+            'resindetails', 'resin' => 'resin.show',
+            'coranspk', 'coran' => 'coran.show',
+            'finishinghandmade' => 'finishing.show',
+            'polishframe' => 'poles-rangka.show',
+            'diamondmounting' => 'pasang-batu.show',
+            'polishfinishedgood' => 'poles-chrome.show',
+            default => null,
+        };
+
+        if ($routeName === null) {
+            return null;
+        }
+
+        return route($routeName, $rowId, absolute: false);
     }
 
     /**

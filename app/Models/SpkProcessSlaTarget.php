@@ -21,6 +21,13 @@ class SpkProcessSlaTarget extends Model
     use HasFactory;
 
     /**
+     * The connection name for the model.
+     *
+     * @var string|null
+     */
+    protected $connection = 'third';
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
