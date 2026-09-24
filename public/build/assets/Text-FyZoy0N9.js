@@ -1,1 +1,0 @@
-import{zn as e}from"./app-x9_3N_Xq.js";import"./Text-WBeMibvp.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};
