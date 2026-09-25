@@ -113,7 +113,7 @@ class FinishingApprovalService
 
     public function canDelete(FinishingHandmade $document): bool
     {
-        return $this->isOpen($document) || $this->isDone($document);
+        return $this->isOpen($document);
     }
 
     /**

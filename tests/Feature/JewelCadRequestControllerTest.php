@@ -27,8 +27,19 @@ test('jewelcad index page is accessible', function () {
             ->has('spkStatusCounts.pending')
             ->has('spkStatusCounts.inProgress')
             ->has('spkStatusCounts.completed')
-            ->has('filters.search')
-            ->has('filters.per_page')
+            ->where('filters.search', '')
+            ->where('filters.sort', 'id')
+            ->where('filters.direction', 'desc')
+            ->where('filters.status', [])
+            ->where('filters.date_from', null)
+            ->where('filters.date_to', null)
+            ->where('filters.operator', null)
+            ->where('filters.per_page', 50)
+            ->has('filterOptions.status')
+            ->has('filterOptions.operator')
+            ->has('filterOptions.per_page')
+            ->has('filterOptions.sort')
+            ->has('filterOptions.direction')
         );
 });
 
@@ -98,6 +109,330 @@ test('jewelcad index includes spk status counts', function () {
             'requestId' => $completedRequest->row_id,
             'docNo' => $completedRequest->doc_no,
         ]);
+});
+
+test('jewelcad index can filter by status', function () {
+    $unique = 'jwfilter'.Str::lower(Str::random(6));
+
+    $draft = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-DRAFT",
+        'status' => 'DRAFT',
+    ]);
+    $done = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-DONE",
+        'status' => JewelCadApprovalService::STATUS_DONE,
+    ]);
+
+    $draftSpk = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-DRAFT",
+    ]);
+    $doneSpk = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-DONE",
+    ]);
+
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $draft->row_id,
+        'spk_id' => $draftSpk->row_id,
+    ]);
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $done->row_id,
+        'spk_id' => $doneSpk->row_id,
+    ]);
+
+    $this->get(route('jewelcad.index', [
+        'status' => ['done'],
+        'search' => $unique,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('jewelcad/index')
+            ->where('filters.status', ['done'])
+            ->where('requests.total', 1)
+            ->where('requests.data.0.requestId', $done->row_id)
+            ->where('requests.data.0.docNo', $done->doc_no)
+            ->where('requests.data.0.spkNo', $doneSpk->spk_no)
+        );
+
+    $this->get(route('jewelcad.index', [
+        'status' => ['draft'],
+        'search' => $unique,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.status', ['draft'])
+            ->where('requests.total', 1)
+            ->where('requests.data.0.requestId', $draft->row_id)
+        );
+});
+
+test('jewelcad index can filter by trans date range', function () {
+    $unique = 'jwdate'.Str::lower(Str::random(6));
+
+    $inside = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-IN",
+        'trans_date' => '2026-09-15',
+        'status' => 'DRAFT',
+    ]);
+    $outside = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-OUT",
+        'trans_date' => '2026-08-01',
+        'status' => 'DRAFT',
+    ]);
+
+    $insideSpk = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-IN",
+    ]);
+    $outsideSpk = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-OUT",
+    ]);
+
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $inside->row_id,
+        'spk_id' => $insideSpk->row_id,
+    ]);
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $outside->row_id,
+        'spk_id' => $outsideSpk->row_id,
+    ]);
+
+    $this->get(route('jewelcad.index', [
+        'search' => $unique,
+        'date_from' => '2026-09-01',
+        'date_to' => '2026-09-30',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.date_from', '2026-09-01')
+            ->where('filters.date_to', '2026-09-30')
+            ->where('requests.total', 1)
+            ->where('requests.data.0.requestId', $inside->row_id)
+        );
+});
+
+test('jewelcad index can filter by operator', function () {
+    $unique = 'jwop'.Str::lower(Str::random(6));
+    $operator = "Operator {$unique}";
+
+    $match = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-A",
+        'operator' => $operator,
+        'status' => 'DRAFT',
+    ]);
+    $other = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-B",
+        'operator' => "Other {$unique}",
+        'status' => 'DRAFT',
+    ]);
+
+    $matchSpk = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-A",
+    ]);
+    $otherSpk = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-B",
+    ]);
+
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $match->row_id,
+        'spk_id' => $matchSpk->row_id,
+    ]);
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $other->row_id,
+        'spk_id' => $otherSpk->row_id,
+    ]);
+
+    $this->get(route('jewelcad.index', [
+        'search' => $unique,
+        'operator' => $operator,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.operator', $operator)
+            ->where('requests.total', 1)
+            ->where('requests.data.0.requestId', $match->row_id)
+        );
+});
+
+test('jewelcad index can sort by document number', function () {
+    $unique = 'jwsort'.Str::lower(Str::random(6));
+
+    $first = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-A",
+        'status' => 'DRAFT',
+    ]);
+    $second = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-B",
+        'status' => 'DRAFT',
+    ]);
+
+    $spkFirst = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-A",
+    ]);
+    $spkSecond = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-B",
+    ]);
+
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $first->row_id,
+        'spk_id' => $spkFirst->row_id,
+    ]);
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $second->row_id,
+        'spk_id' => $spkSecond->row_id,
+    ]);
+
+    $this->get(route('jewelcad.index', [
+        'search' => $unique,
+        'sort' => 'id',
+        'direction' => 'asc',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.sort', 'id')
+            ->where('filters.direction', 'asc')
+            ->where('requests.data.0.requestId', $first->row_id)
+            ->where('requests.data.1.requestId', $second->row_id)
+        );
+
+    $this->get(route('jewelcad.index', [
+        'search' => $unique,
+        'sort' => 'id',
+        'direction' => 'desc',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.sort', 'id')
+            ->where('filters.direction', 'desc')
+            ->where('requests.data.0.requestId', $second->row_id)
+            ->where('requests.data.1.requestId', $first->row_id)
+        );
+});
+
+test('jewelcad index can sort by spk number', function () {
+    $unique = 'jwspk'.Str::lower(Str::random(6));
+
+    $spkA = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-A",
+    ]);
+    $spkB = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-B",
+    ]);
+
+    $requestA = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-A",
+        'status' => 'DRAFT',
+    ]);
+    $requestB = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}-B",
+        'status' => 'DRAFT',
+    ]);
+
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $requestA->row_id,
+        'spk_id' => $spkA->row_id,
+    ]);
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $requestB->row_id,
+        'spk_id' => $spkB->row_id,
+    ]);
+
+    $this->get(route('jewelcad.index', [
+        'search' => $unique,
+        'sort' => 'spk',
+        'direction' => 'asc',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.sort', 'spk')
+            ->where('filters.direction', 'asc')
+            ->where('requests.data.0.requestId', $requestA->row_id)
+            ->where('requests.data.0.spkNo', $spkA->spk_no)
+            ->where('requests.data.1.requestId', $requestB->row_id)
+            ->where('requests.data.1.spkNo', $spkB->spk_no)
+        );
+});
+
+test('jewelcad index lists one row per spk detail', function () {
+    $unique = 'jwflat'.Str::lower(Str::random(6));
+
+    $request = JewelCadRequest::factory()->create([
+        'doc_no' => "2026/JWC/{$unique}",
+        'status' => 'DRAFT',
+    ]);
+
+    $skuA = SkuMaster::factory()->create([
+        'sku_code' => "SKU-{$unique}-A",
+        'item_original' => 'LR ELECTA OVAL 0.3 WG',
+    ]);
+    $skuB = SkuMaster::factory()->create([
+        'sku_code' => "SKU-{$unique}-B",
+        'item_original' => 'ER EMERALD CUT WG',
+    ]);
+
+    $spkA = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-A",
+        'gold_weight' => 12.5,
+        'satuan' => 'Pcs',
+        'sku_id' => $skuA->id,
+        'description' => 'White Gold Ladies Ring Electa',
+        'jwcad_3d' => "FILE-{$unique}-A.3dm",
+    ]);
+    $spkB = Production::factory()->create([
+        'spk_no' => "2026/PRD/{$unique}-B",
+        'gold_weight' => 8.25,
+        'satuan' => 'Pcs',
+        'sku_id' => $skuB->id,
+        'description' => 'White Gold Ear Ring Emerald',
+        'jwcad_3d' => null,
+    ]);
+
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $request->row_id,
+        'spk_id' => $spkA->row_id,
+        'material' => 'Yellow Gold',
+        'qty' => 2,
+        'estimation_brj' => '18.125',
+    ]);
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $request->row_id,
+        'spk_id' => $spkB->row_id,
+        'material' => 'White Gold',
+        'qty' => 1,
+        'estimation_brj' => '9.500',
+    ]);
+
+    $this->get(route('jewelcad.index', [
+        'search' => $unique,
+        'sort' => 'spk',
+        'direction' => 'asc',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('requests.total', 2)
+            ->where('requests.data.0.requestId', $request->row_id)
+            ->where('requests.data.0.docNo', $request->doc_no)
+            ->where('requests.data.0.spkNo', $spkA->spk_no)
+            ->where('requests.data.0.skuCode', $skuA->sku_code)
+            ->where('requests.data.0.productItemName', 'LR ELECTA OVAL 0.3 WG')
+            ->where('requests.data.0.itemDescription', 'White Gold Ladies Ring Electa')
+            ->where('requests.data.0.material', 'Yellow Gold')
+            ->where('requests.data.0.qty', 2)
+            ->where('requests.data.0.qtyLabel', '2 Pcs')
+            ->where('requests.data.0.jwcad3d', "FILE-{$unique}-A.3dm")
+            ->where('requests.data.0.goldWeight', '12.50')
+            ->where('requests.data.0.estimationBrj', '18.13')
+            ->where('requests.data.1.requestId', $request->row_id)
+            ->where('requests.data.1.docNo', $request->doc_no)
+            ->where('requests.data.1.spkNo', $spkB->spk_no)
+            ->where('requests.data.1.skuCode', $skuB->sku_code)
+            ->where('requests.data.1.productItemName', 'ER EMERALD CUT WG')
+            ->where('requests.data.1.itemDescription', 'White Gold Ear Ring Emerald')
+            ->where('requests.data.1.material', 'White Gold')
+            ->where('requests.data.1.qty', 1)
+            ->where('requests.data.1.qtyLabel', '1 Pcs')
+            ->where('requests.data.1.jwcad3d', null)
+            ->where('requests.data.1.goldWeight', '8.25')
+            ->where('requests.data.1.estimationBrj', '9.50')
+        );
 });
 
 test('jewelcad create page is accessible', function () {

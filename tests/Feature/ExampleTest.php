@@ -6,11 +6,12 @@ test('returns a successful response', function () {
     $response->assertOk();
 });
 
-test('home page renders the welcome inertia component with analytics', function () {
+test('home page renders the kanban inertia component with analytics', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('welcome')
+            ->component('analytics/work-order-kanban')
             ->has('analytics')
+            ->has('processTabs')
         );
 });

@@ -15,8 +15,21 @@ test('coran index page is accessible', function () {
             ->has('spkStatusCounts.pending')
             ->has('spkStatusCounts.inProgress')
             ->has('spkStatusCounts.completed')
-            ->has('filters.search')
-            ->has('filters.per_page')
+            ->where('filters.search', '')
+            ->where('filters.sort', 'id')
+            ->where('filters.direction', 'desc')
+            ->where('filters.status', [])
+            ->where('filters.date_from', null)
+            ->where('filters.date_to', null)
+            ->where('filters.per_page', 50)
+            ->has('filterOptions.status')
+            ->has('filterOptions.per_page')
+            ->has('filterOptions.sort')
+            ->has('filterOptions.direction')
+            ->where('bulkActions.canSubmit', true)
+            ->where('bulkActions.canManagerApprove', true)
+            ->where('bulkActions.canComplete', true)
+            ->where('bulkActions.canDelete', true)
         );
 });
 
@@ -43,22 +56,44 @@ test('coran index lists spk weights and material totals', function () {
         'row_id' => $coran->row_id,
         'spk_id' => $productionA->row_id,
         'weight' => '1.50',
+        'weight_rosegold' => '1.00',
+        'weight_whitegold' => '0.50',
+        'weight_yellowgold' => '0.00',
     ]);
     CoranSpk::factory()->create([
         'row_id' => $coran->row_id,
         'spk_id' => $productionB->row_id,
         'weight' => '2.75',
+        'weight_rosegold' => '1.75',
+        'weight_whitegold' => '1.00',
+        'weight_yellowgold' => '0.00',
     ]);
 
     $this->get(route('coran.index', ['search' => 'COR9999911']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('coran/index')
+            ->has('corans.data', 1)
             ->where('corans.data.0.id', $coran->row_id)
             ->where('corans.data.0.docNo', 'COR9999911')
+            ->where('corans.data.0.spkCount', 2)
             ->where('corans.data.0.totalSpkWeight', '4.25')
+            ->has('corans.data.0.craftsmanName')
             ->where('corans.data.0.totalSubmitMaterial', '15.50')
             ->where('corans.data.0.totalResultMaterial', '12.25')
+            ->where('corans.data.0.materialsByColor.roseGold.bahan', '10.00')
+            ->where('corans.data.0.materialsByColor.roseGold.hasil', '2.75')
+            ->where('corans.data.0.materialsByColor.roseGold.sisa', '8.00')
+            ->where('corans.data.0.materialsByColor.whiteGold.bahan', '5.50')
+            ->where('corans.data.0.materialsByColor.whiteGold.hasil', '1.50')
+            ->where('corans.data.0.materialsByColor.whiteGold.sisa', '4.25')
+            ->where('corans.data.0.materialsByColor.yellowGold.bahan', '0.00')
+            ->where('corans.data.0.materialsByColor.yellowGold.hasil', '0.00')
+            ->where('corans.data.0.materialsByColor.yellowGold.sisa', '0.00')
+            ->where('corans.data.0.hasilCoranPercents.hasil', '27.42%')
+            ->where('corans.data.0.hasilCoranPercents.sisa', '79.03%')
+            ->where('corans.data.0.hasilCoranPercents.susut', '2.26%')
+            ->missing('corans.data.0.hasilCoranPercents.bahan')
             ->where('corans.data.0.shrink', '0.35')
             ->where('corans.data.0.statusLabel', 'Completed')
             ->where('corans.data.0.spkNos', ['2026/PRD/CORTOTA', '2026/PRD/CORTOTB'])

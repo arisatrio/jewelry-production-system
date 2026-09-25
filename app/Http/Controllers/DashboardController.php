@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\SpkDashboardAnalytics;
+use App\Support\SpkProcessMapper;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
@@ -12,9 +13,17 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     /**
-     * Display the production analytics dashboard (home).
+     * Display the default production dashboard (kanban).
      */
     public function index(Request $request): Response
+    {
+        return $this->workOrderKanban($request);
+    }
+
+    /**
+     * Display the card/summary dashboard view.
+     */
+    public function cards(Request $request): Response
     {
         return $this->renderDashboard($request, 'welcome');
     }
@@ -27,7 +36,15 @@ class DashboardController extends Controller
         return $this->renderDashboard($request, 'analytics/work-order');
     }
 
-    private function renderDashboard(Request $request, string $component): Response
+    /**
+     * Display the work order backlog as a kanban board.
+     */
+    public function workOrderKanban(Request $request): Response
+    {
+        return $this->renderDashboard($request, 'analytics/work-order-kanban', withProcessTabs: true);
+    }
+
+    private function renderDashboard(Request $request, string $component, bool $withProcessTabs = false): Response
     {
         $month = $this->resolveMonth($request->string('month')->toString());
         $analytics = (new SpkDashboardAnalytics($month))->summarize();
@@ -37,7 +54,7 @@ class DashboardController extends Controller
         $currentMonth = Carbon::parse(now()->toDateTimeString())->startOfMonth();
         $canGoNext = $nextMonth->lte($currentMonth);
 
-        return Inertia::render($component, [
+        $props = [
             'analytics' => $analytics,
             'filters' => [
                 'month' => $month->format('Y-m'),
@@ -48,7 +65,20 @@ class DashboardController extends Controller
                 'currentMonth' => $currentMonth->format('Y-m'),
                 'isCurrentMonth' => $month->isSameMonth($currentMonth),
             ],
-        ]);
+        ];
+
+        if ($withProcessTabs) {
+            $props['processTabs'] = collect((new SpkProcessMapper)->tabs())
+                ->filter(fn (array $tab): bool => ($tab['placement'] ?? 'proses-produksi') === 'proses-produksi')
+                ->map(fn (array $tab): array => [
+                    'key' => $tab['key'],
+                    'label' => $tab['label'],
+                ])
+                ->values()
+                ->all();
+        }
+
+        return Inertia::render($component, $props);
     }
 
     private function resolveMonth(string $month): CarbonInterface

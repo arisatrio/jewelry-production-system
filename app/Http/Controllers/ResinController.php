@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BulkUpdateResinStatusRequest;
 use App\Http\Requests\StoreResinRequest;
 use App\Http\Requests\UpdateResinProgressRequest;
 use App\Http\Requests\UpdateResinRequest;
@@ -14,13 +15,14 @@ use App\Support\ResinApprovalService;
 use App\Support\ResinDocNumberGenerator;
 use App\Support\ResinSpkEligibility;
 use App\Support\ResinStatusMapper;
+use App\Support\SpkApprovalRoles;
 use App\Support\SpkQtyUnit;
 use Carbon\Carbon;
+use DateTimeImmutable;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,68 +31,156 @@ use InvalidArgumentException;
 class ResinController extends Controller
 {
     /**
-     * Display a listing of resin documents.
+     * Display a listing of resin documents (one row per SPK detail).
      */
-    public function index(Request $request): Response
+    public function index(Request $request, ResinSpkEligibility $spkEligibility): Response
     {
         $search = $request->string('search')->trim()->toString();
-        $perPage = $request->integer('per_page', 10);
-        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
+        $sort = $this->resolveIndexSort($request->string('sort')->toString());
+        $direction = $this->resolveIndexDirection($request->string('direction')->toString());
+        $statusFilters = $this->resolveStatusFilters($request->input('status'));
+        $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString());
+        $dateTo = $this->resolveIndexDate($request->string('date_to')->toString());
+        $operator = $this->resolveOperatorFilter($request->string('operator')->toString());
+        $perPage = $this->resolveIndexPerPage($request->integer('per_page', 50));
 
-        $resins = Resin::query()
+        $rows = ResinDetail::query()
             ->notDeleted()
-            ->with([
-                'production' => fn ($query) => $query
-                    ->notDeleted()
-                    ->select(['row_id', 'spk_no']),
-                'details' => fn ($query) => $query
-                    ->notDeleted()
-                    ->with([
-                        'production' => fn ($productionQuery) => $productionQuery
-                            ->notDeleted()
-                            ->select(['row_id', 'spk_no', 'item_name', 'customer_name']),
-                    ])
-                    ->orderBy('line_id'),
-            ])
+            ->whereHas('resin', function ($query) use (
+                $statusFilters,
+                $dateFrom,
+                $dateTo,
+                $operator,
+            ): void {
+                $query->notDeleted()
+                    ->when($statusFilters !== [], function ($statusScope) use ($statusFilters): void {
+                        $statusCodes = collect($statusFilters)
+                            ->flatMap(fn (string $statusKey): array => $this->statusFilterCodes()[$statusKey] ?? [])
+                            ->unique()
+                            ->values()
+                            ->all();
+                        $includeDraftUnset = in_array('draft', $statusFilters, true);
+
+                        if ($statusCodes === [] && ! $includeDraftUnset) {
+                            return;
+                        }
+
+                        $statusScope->where(function ($statusQuery) use ($statusCodes, $includeDraftUnset): void {
+                            if ($statusCodes !== []) {
+                                $statusQuery->whereIn('status', $statusCodes);
+                            }
+
+                            if ($includeDraftUnset) {
+                                $statusQuery->orWhereNull('status')
+                                    ->orWhere('status', '')
+                                    ->orWhereRaw("UPPER(TRIM(status)) IN ('DRAFT', 'OPEN', '-', '".Resin::STATUS_OPEN."')");
+                            }
+                        });
+                    })
+                    ->when($dateFrom !== null, function ($dateScope) use ($dateFrom): void {
+                        $dateScope->whereDate('trans_date', '>=', $dateFrom);
+                    })
+                    ->when($dateTo !== null, function ($dateScope) use ($dateTo): void {
+                        $dateScope->whereDate('trans_date', '<=', $dateTo);
+                    })
+                    ->when($operator !== null, function ($operatorScope) use ($operator): void {
+                        $operatorScope->where('operator', $operator);
+                    });
+            })
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($innerQuery) use ($search): void {
-                    $innerQuery->where('doc_no', 'like', "%{$search}%")
-                        ->orWhere('operator', 'like', "%{$search}%")
-                        ->orWhere('status', 'like', "%{$search}%")
+                    $innerQuery->where('catatan', 'like', "%{$search}%")
+                        ->orWhere('berat_resin', 'like', "%{$search}%")
                         ->orWhereHas('production', function ($productionQuery) use ($search): void {
                             $productionQuery->notDeleted()
                                 ->where(function ($productionInner) use ($search): void {
                                     $productionInner->where('spk_no', 'like', "%{$search}%")
                                         ->orWhere('item_name', 'like', "%{$search}%")
-                                        ->orWhere('customer_name', 'like', "%{$search}%");
+                                        ->orWhere('customer_name', 'like', "%{$search}%")
+                                        ->orWhere('gold_color', 'like', "%{$search}%");
                                 });
                         })
-                        ->orWhereHas('details', function ($detailQuery) use ($search): void {
-                            $detailQuery->notDeleted()
-                                ->whereHas('production', function ($productionQuery) use ($search): void {
-                                    $productionQuery->notDeleted()
-                                        ->where(function ($productionInner) use ($search): void {
-                                            $productionInner->where('spk_no', 'like', "%{$search}%")
-                                                ->orWhere('item_name', 'like', "%{$search}%")
-                                                ->orWhere('customer_name', 'like', "%{$search}%");
-                                        });
+                        ->orWhereHas('resin', function ($resinQuery) use ($search): void {
+                            $resinQuery->notDeleted()
+                                ->where(function ($resinInner) use ($search): void {
+                                    $resinInner->where('doc_no', 'like', "%{$search}%")
+                                        ->orWhere('notes', 'like', "%{$search}%")
+                                        ->orWhere('operator', 'like', "%{$search}%")
+                                        ->orWhere('status', 'like', "%{$search}%");
                                 });
                         });
                 });
             })
-            ->orderByDesc('row_id')
+            ->with([
+                'resin',
+                'production' => fn ($productionQuery) => $productionQuery
+                    ->notDeleted()
+                    ->select([
+                        'row_id',
+                        'spk_no',
+                        'item_name',
+                        'customer_name',
+                        'qty',
+                        'satuan',
+                        'sku_id',
+                        'category_prefix_id',
+                        'description',
+                    ])
+                    ->with([
+                        'sku' => fn ($skuQuery) => $skuQuery
+                            ->select(['id', 'sku_code', 'item_original']),
+                        'categoryPrefix' => fn ($prefixQuery) => $prefixQuery
+                            ->select(['id', 'prefix', 'category']),
+                    ]),
+            ])
+            ->tap(fn ($query) => $this->applyIndexSort($query, $sort, $direction))
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (Resin $resin): array => $this->toListItem($resin));
-
-        $spkEligibility = app(ResinSpkEligibility::class);
+            ->through(fn (ResinDetail $detail): array => $this->toListItem($detail));
 
         return Inertia::render('resin/index', [
-            'resins' => $resins,
+            'resins' => $rows,
             'spkStatusCounts' => $this->spkStatusCounts($spkEligibility),
             'filters' => [
                 'search' => $search,
+                'sort' => $sort,
+                'direction' => $direction,
+                'status' => $statusFilters,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'operator' => $operator,
                 'per_page' => $perPage,
+            ],
+            'filterOptions' => [
+                'status' => [
+                    ['value' => 'draft', 'label' => 'Draft'],
+                    ['value' => 'submitted', 'label' => 'Pengajuan Approval'],
+                    ['value' => 'manager', 'label' => 'Serahkan ke Resin'],
+                    ['value' => 'done', 'label' => 'Done'],
+                ],
+                'operator' => $this->indexOperatorOptions(),
+                'per_page' => [
+                    ['value' => '10', 'label' => '10'],
+                    ['value' => '25', 'label' => '25'],
+                    ['value' => '50', 'label' => '50'],
+                    ['value' => '100', 'label' => '100'],
+                ],
+                'sort' => [
+                    ['value' => 'id', 'label' => 'ID'],
+                    ['value' => 'date', 'label' => 'Tanggal'],
+                    ['value' => 'spk', 'label' => 'No SPK'],
+                    ['value' => 'operator', 'label' => 'Operator'],
+                ],
+                'direction' => [
+                    ['value' => 'asc', 'label' => 'A–Z'],
+                    ['value' => 'desc', 'label' => 'Z–A'],
+                ],
+            ],
+            'bulkActions' => [
+                'canSubmit' => SpkApprovalRoles::canEditDraft($request->user()),
+                'canManagerApprove' => SpkApprovalRoles::canManagerApprove($request->user()),
+                'canComplete' => SpkApprovalRoles::canEditDraft($request->user()),
+                'canDelete' => SpkApprovalRoles::canEditDraft($request->user()),
             ],
         ]);
     }
@@ -491,6 +581,91 @@ class ResinController extends Controller
     }
 
     /**
+     * Bulk update / soft-delete selected resin documents.
+     */
+    public function bulkUpdateStatus(
+        BulkUpdateResinStatusRequest $request,
+        ResinApprovalService $approvalService,
+    ): RedirectResponse {
+        $validated = $request->validated();
+        /** @var list<int> $ids */
+        $ids = array_values(array_unique(array_map(intval(...), $validated['ids'])));
+        /** @var 'submit'|'manager_approve'|'complete'|'delete' $action */
+        $action = $validated['action'];
+        $actor = $this->actorName($request);
+        $user = $request->user();
+
+        $documents = Resin::query()
+            ->notDeleted()
+            ->whereIn('row_id', $ids)
+            ->get()
+            ->keyBy('row_id');
+
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($ids as $id) {
+            $document = $documents->get($id);
+
+            if ($document === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $abilities = $approvalService->abilitiesFor($document, $user);
+            $allowed = match ($action) {
+                'submit' => $abilities['canSubmit'],
+                'manager_approve' => $abilities['canManagerApprove'],
+                'complete' => $abilities['canComplete'],
+                'delete' => $abilities['canDelete'],
+            };
+
+            if (! $allowed) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                match ($action) {
+                    'submit' => $approvalService->submit($document, $actor),
+                    'manager_approve' => $approvalService->managerApprove($document, $actor),
+                    'complete' => $approvalService->complete($document, $actor),
+                    'delete' => $this->softDeleteResin($document, $actor),
+                };
+                $updated++;
+            } catch (InvalidArgumentException) {
+                $skipped++;
+            }
+        }
+
+        $actionLabel = match ($action) {
+            'submit' => 'Kirim ke Manager Produksi',
+            'manager_approve' => 'Approve',
+            'complete' => 'Selesai',
+            'delete' => 'Hapus',
+        };
+
+        $verb = $action === 'delete' ? 'dihapus' : 'diperbarui';
+
+        $message = $updated > 0
+            ? "{$updated} request berhasil {$verb} ({$actionLabel})."
+            : "Tidak ada request yang dapat {$verb} ({$actionLabel}).";
+
+        if ($skipped > 0) {
+            $message .= " {$skipped} dilewati.";
+        }
+
+        Inertia::flash('toast', [
+            'type' => $updated > 0 ? 'success' : 'warning',
+            'message' => $message,
+        ]);
+
+        return back();
+    }
+
+    /**
      * Soft-delete the specified resin document.
      */
     public function destroy(
@@ -504,8 +679,18 @@ class ResinController extends Controller
             abort(403, 'Request ini tidak dapat dihapus.');
         }
 
-        $actor = $this->actorName($request);
+        $this->softDeleteResin($resin, $this->actorName($request));
 
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen resin berhasil dihapus.',
+        ]);
+
+        return to_route('resin.index');
+    }
+
+    private function softDeleteResin(Resin $resin, string $actor): void
+    {
         DB::connection('third')->transaction(function () use ($resin, $actor): void {
             $resin->update([
                 'is_deleted' => 1,
@@ -525,13 +710,6 @@ class ResinController extends Controller
                     'modified_by' => $actor,
                 ]);
         });
-
-        Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => 'Dokumen resin berhasil dihapus.',
-        ]);
-
-        return to_route('resin.index');
     }
 
     /**
@@ -579,71 +757,202 @@ class ResinController extends Controller
     /**
      * @return array{
      *     id: int,
+     *     resinId: int,
      *     docNo: string|null,
      *     transDate: string|null,
+     *     operator: string|null,
      *     status: string|null,
-     *     statusLabel: string,
+     *     statusLabel: string|null,
      *     notes: string|null,
-     *     spkNos: list<string>,
-     *     totalBeratResin: string|null
+     *     spkNo: string|null,
+     *     spkId: int|null,
+     *     skuCode: string|null,
+     *     typeCode: string|null,
+     *     productItemName: string|null,
+     *     itemDescription: string|null,
+     *     beratResin: string|null,
+     *     statusResin: string|null,
+     *     statusResinLabel: string
      * }
      */
-    private function toListItem(Resin $resin): array
+    private function toListItem(ResinDetail $detail): array
     {
-        $detailRows = $resin->details
-            ->filter(fn (ResinDetail $detail): bool => $detail->is_deleted === 0)
-            ->values();
+        $resin = $detail->resin;
+        $production = $detail->production;
+        $typeCode = trim((string) ($production?->categoryPrefix?->category ?? ''));
+        $productItemName = trim((string) ($production?->sku?->item_original ?? ''));
 
-        $notes = filled($resin->notes) ? (string) $resin->notes : null;
-
-        if ($detailRows->isEmpty() && filled($resin->spk_id)) {
-            return [
-                'id' => (int) $resin->row_id,
-                'docNo' => $resin->doc_no,
-                'transDate' => $resin->trans_date?->format('Y-m-d'),
-                'status' => $resin->status,
-                'statusLabel' => app(ResinApprovalService::class)->statusLabelFor($resin),
-                'notes' => $notes,
-                'spkNos' => filled($resin->production?->spk_no)
-                    ? [(string) $resin->production->spk_no]
-                    : [],
-                'totalBeratResin' => null,
-            ];
+        if ($productItemName === '') {
+            $productItemName = trim((string) ($production?->item_name ?? ''));
         }
 
+        $itemDescription = trim((string) ($production?->description ?? ''));
+        $statusResin = filled($detail->status_resin)
+            ? (string) $detail->status_resin
+            : null;
+
         return [
-            'id' => (int) $resin->row_id,
-            'docNo' => $resin->doc_no,
-            'transDate' => $resin->trans_date?->format('Y-m-d'),
-            'status' => $resin->status,
-            'statusLabel' => app(ResinApprovalService::class)->statusLabelFor($resin),
-            'notes' => $notes,
-            'spkNos' => $detailRows
-                ->map(fn (ResinDetail $detail): ?string => $detail->production?->spk_no)
-                ->filter()
-                ->map(fn (mixed $spkNo): string => (string) $spkNo)
-                ->values()
-                ->all(),
-            'totalBeratResin' => $this->totalBeratResin($detailRows),
+            'id' => (int) $detail->line_id,
+            'resinId' => (int) $detail->row_id,
+            'docNo' => $resin?->doc_no,
+            'transDate' => $resin?->trans_date?->format('Y-m-d'),
+            'operator' => filled($resin?->operator) ? (string) $resin->operator : null,
+            'status' => $resin?->status,
+            'statusLabel' => $resin !== null
+                ? app(ResinApprovalService::class)->statusLabelFor($resin)
+                : null,
+            'notes' => filled($resin?->notes) ? (string) $resin->notes : null,
+            'spkNo' => filled($production?->spk_no) ? (string) $production->spk_no : null,
+            'spkId' => filled($detail->spk_id) ? (int) $detail->spk_id : null,
+            'skuCode' => filled($production?->sku?->sku_code)
+                ? (string) $production->sku->sku_code
+                : null,
+            'typeCode' => $typeCode !== '' ? $typeCode : null,
+            'productItemName' => $productItemName !== '' ? $productItemName : null,
+            'itemDescription' => $itemDescription !== '' ? $itemDescription : null,
+            'beratResin' => $detail->berat_resin !== null
+                ? number_format((float) $detail->berat_resin, 2, '.', '')
+                : null,
+            'statusResin' => $statusResin,
+            'statusResinLabel' => $this->detailStatusLabel($statusResin),
+        ];
+    }
+
+    private function resolveIndexSort(string $sort): string
+    {
+        $allowed = ['id', 'date', 'spk', 'operator'];
+
+        return in_array($sort, $allowed, true) ? $sort : 'id';
+    }
+
+    private function resolveIndexDirection(string $direction): string
+    {
+        return in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+    }
+
+    private function resolveIndexDate(string $date): ?string
+    {
+        $trimmed = trim($date);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $trimmed);
+
+        if ($parsed === false || $parsed->format('Y-m-d') !== $trimmed) {
+            return null;
+        }
+
+        return $trimmed;
+    }
+
+    private function resolveOperatorFilter(string $operator): ?string
+    {
+        $trimmed = trim($operator);
+
+        return $trimmed !== '' ? $trimmed : null;
+    }
+
+    private function resolveIndexPerPage(int $perPage): int
+    {
+        return in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveStatusFilters(mixed $status): array
+    {
+        $allowed = array_keys($this->statusFilterCodes());
+
+        return collect(is_array($status) ? $status : (filled($status) ? [$status] : []))
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter(fn (string $value): bool => in_array($value, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function statusFilterCodes(): array
+    {
+        return [
+            'draft' => [],
+            'submitted' => [ResinApprovalService::STATUS_SUBMITTED],
+            'manager' => [ResinApprovalService::STATUS_MANAGER],
+            'done' => [ResinApprovalService::STATUS_DONE, Resin::STATUS_DONE],
         ];
     }
 
     /**
-     * @param  Collection<int, ResinDetail>  $detailRows
+     * @param  Builder<ResinDetail>  $query
      */
-    private function totalBeratResin(Collection $detailRows): ?string
+    private function applyIndexSort(Builder $query, string $sort, string $direction): void
     {
-        $weights = $detailRows
-            ->map(fn (ResinDetail $detail): ?float => $detail->berat_resin !== null
-                ? (float) $detail->berat_resin
-                : null)
-            ->filter(fn (?float $weight): bool => $weight !== null);
+        $ascending = $direction === 'asc';
+        $order = $ascending ? 'asc' : 'desc';
 
-        if ($weights->isEmpty()) {
-            return null;
-        }
+        match ($sort) {
+            'date' => $query
+                ->orderBy(
+                    Resin::query()
+                        ->select('trans_date')
+                        ->whereColumn('resin.row_id', 'resindetails.row_id')
+                        ->limit(1),
+                    $order,
+                )
+                ->orderBy('line_id', $order),
+            'spk' => $query
+                ->orderBy(
+                    Production::query()
+                        ->select('spk_no')
+                        ->whereColumn('spk.row_id', 'resindetails.spk_id')
+                        ->limit(1),
+                    $order,
+                )
+                ->orderBy('line_id', $order),
+            'operator' => $query
+                ->orderBy(
+                    Resin::query()
+                        ->select('operator')
+                        ->whereColumn('resin.row_id', 'resindetails.row_id')
+                        ->limit(1),
+                    $order,
+                )
+                ->orderBy('line_id', $order),
+            default => $query
+                ->orderBy(
+                    Resin::query()
+                        ->select('doc_no')
+                        ->whereColumn('resin.row_id', 'resindetails.row_id')
+                        ->limit(1),
+                    $order,
+                )
+                ->orderBy('line_id', $order),
+        };
+    }
 
-        return number_format((float) $weights->sum(), 3, '.', '');
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function indexOperatorOptions(): array
+    {
+        return Resin::query()
+            ->notDeleted()
+            ->whereNotNull('operator')
+            ->where('operator', '!=', '')
+            ->distinct()
+            ->orderBy('operator')
+            ->pluck('operator')
+            ->map(fn (mixed $operator): array => [
+                'value' => (string) $operator,
+                'label' => (string) $operator,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

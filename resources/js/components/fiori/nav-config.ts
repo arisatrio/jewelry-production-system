@@ -40,15 +40,9 @@ export const defaultModuleNavItems: ShellNavItem[] = [
     { text: 'SPK', href: spkIndex.url() },
 ];
 
-export const defaultLaporanSubmenus: ShellNavItem[] = [
-    { text: 'Laporan Produksi' },
-    { text: 'Laporan SPK' },
-    { text: 'Laporan Susut' },
-    { text: 'Laporan KPI' },
-];
-
 export const defaultAnalyticsSubmenus: ShellNavItem[] = [
     { text: 'Work Order', href: workOrder.url() },
+    { text: 'Dashboard Kanban', href: home.url() },
     { text: 'Shop Floor', href: shopFloor.url() },
     { text: 'Material & Yield', href: materialYield.url() },
     { text: 'Performance Pengrajin', href: craftsmanPerformance.url() },
@@ -93,7 +87,6 @@ export const defaultMasterDataSubmenus: ShellNavItem[] = [
 
 /** Dropdown menus rendered after primary items, before module links. */
 export const defaultMidDropdowns: ShellNavDropdown[] = [
-    { id: 'laporan', text: 'Laporan', items: defaultLaporanSubmenus },
     { id: 'analytics', text: 'Analytics', items: defaultAnalyticsSubmenus },
 ];
 

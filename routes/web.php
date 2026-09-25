@@ -30,10 +30,14 @@ Route::post('login/quick', [QuickLoginController::class, 'store'])
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('home');
     Route::redirect('dashboard', '/')->name('dashboard');
+    Route::get('dashboard/cards', [DashboardController::class, 'cards'])
+        ->name('dashboard.cards');
     Route::redirect('dashboard/work-order', '/analytics/work-order');
     Route::redirect('dashboard/material-yield', '/analytics/material-yield');
     Route::get('analytics/work-order', [DashboardController::class, 'workOrder'])
         ->name('analytics.work-order');
+    Route::get('analytics/work-order/kanban', [DashboardController::class, 'workOrderKanban'])
+        ->name('analytics.work-order-kanban');
     Route::get('analytics/shop-floor', [ShopFloorDashboardController::class, 'index'])
         ->name('analytics.shop-floor');
     Route::get('analytics/material-yield', [MaterialYieldDashboardController::class, 'index'])
@@ -103,6 +107,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('jewelcad.manager-approve');
     Route::post('jewelcad/{jewelcad}/complete', [JewelCadRequestController::class, 'complete'])
         ->name('jewelcad.complete');
+    Route::post('jewelcad/bulk-status', [JewelCadRequestController::class, 'bulkUpdateStatus'])
+        ->name('jewelcad.bulk-status');
     Route::resource('jewelcad', JewelCadRequestController::class)
         ->parameters(['jewelcad' => 'jewelcad']);
 
@@ -116,6 +122,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('resin.complete');
     Route::put('resin/{resin}/progress', [ResinController::class, 'updateProgress'])
         ->name('resin.update-progress');
+    Route::post('resin/bulk-status', [ResinController::class, 'bulkUpdateStatus'])
+        ->name('resin.bulk-status');
     Route::resource('resin', ResinController::class)
         ->parameters(['resin' => 'resin']);
 
@@ -141,6 +149,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('coran/{coran}/complete', [CoranController::class, 'complete'])
         ->whereNumber('coran')
         ->name('coran.complete');
+    Route::get('coran/{coran}/spks', [CoranController::class, 'documentSpks'])
+        ->whereNumber('coran')
+        ->name('coran.spks');
+    Route::post('coran/bulk-status', [CoranController::class, 'bulkUpdateStatus'])
+        ->name('coran.bulk-status');
     Route::get('coran', [CoranController::class, 'index'])->name('coran.index');
     Route::get('coran/{coran}', [CoranController::class, 'show'])
         ->whereNumber('coran')
@@ -165,6 +178,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('finishing/{finishing}/complete', [FinishingController::class, 'complete'])
         ->whereNumber('finishing')
         ->name('finishing.complete');
+    Route::post('finishing/bulk-status', [FinishingController::class, 'bulkUpdateStatus'])
+        ->name('finishing.bulk-status');
     Route::get('finishing', [FinishingController::class, 'index'])->name('finishing.index');
     Route::get('finishing/{finishing}', [FinishingController::class, 'show'])
         ->whereNumber('finishing')

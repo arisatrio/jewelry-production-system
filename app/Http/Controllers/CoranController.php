@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BulkUpdateCoranStatusRequest;
 use App\Http\Requests\StoreCoranRequest;
 use App\Http\Requests\UpdateCoranRequest;
 use App\Models\Coran;
@@ -13,7 +14,9 @@ use App\Support\CoranMaterialBreakdown;
 use App\Support\CoranMaterialGoldSynchronizer;
 use App\Support\CoranSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
+use App\Support\SpkApprovalRoles;
 use App\Support\SpkQtyUnit;
+use DateTimeImmutable;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -30,11 +33,15 @@ class CoranController extends Controller
     /**
      * Display a listing of coran documents.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, CoranSpkEligibility $spkEligibility): Response
     {
         $search = $request->string('search')->trim()->toString();
-        $perPage = $request->integer('per_page', 10);
-        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
+        $sort = $this->resolveIndexSort($request->string('sort')->toString());
+        $direction = $this->resolveIndexDirection($request->string('direction')->toString());
+        $statusFilters = $this->resolveStatusFilters($request->input('status'));
+        $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString());
+        $dateTo = $this->resolveIndexDate($request->string('date_to')->toString());
+        $perPage = $this->resolveIndexPerPage($request->integer('per_page', 50));
 
         $corans = Coran::query()
             ->notDeleted()
@@ -65,19 +72,91 @@ class CoranController extends Controller
                         });
                 });
             })
-            ->orderByDesc('row_id')
-            ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (Coran $coran): array => $this->toListItem($coran));
+            ->when($statusFilters !== [], function ($query) use ($statusFilters): void {
+                $statusCodes = collect($statusFilters)
+                    ->flatMap(fn (string $statusKey): array => $this->statusFilterCodes()[$statusKey] ?? [])
+                    ->unique()
+                    ->values()
+                    ->all();
+                $includeDraftUnset = in_array('draft', $statusFilters, true);
 
-        $spkEligibility = app(CoranSpkEligibility::class);
+                if ($statusCodes === [] && ! $includeDraftUnset) {
+                    return;
+                }
+
+                $query->where(function ($statusQuery) use ($statusCodes, $includeDraftUnset): void {
+                    if ($statusCodes !== []) {
+                        $statusQuery->whereIn('status', $statusCodes);
+                    }
+
+                    if ($includeDraftUnset) {
+                        $statusQuery->orWhereNull('status')
+                            ->orWhere('status', '')
+                            ->orWhereRaw("UPPER(TRIM(status)) IN ('DRAFT', 'OPEN', '-')");
+                    }
+                });
+            })
+            ->when($dateFrom !== null, function ($query) use ($dateFrom): void {
+                $query->whereDate('trans_date', '>=', $dateFrom);
+            })
+            ->when($dateTo !== null, function ($query) use ($dateTo): void {
+                $query->whereDate('trans_date', '<=', $dateTo);
+            })
+            ->tap(fn ($query) => $this->applyIndexSort($query, $sort, $direction))
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $craftsmanNames = $this->resolveCraftsmanNames(
+            $corans->getCollection()
+                ->pluck('craftsman_id')
+                ->all(),
+        );
+
+        $corans->setCollection(
+            $corans->getCollection()
+                ->map(fn (Coran $coran): array => $this->toListItem($coran, $craftsmanNames))
+                ->values(),
+        );
 
         return Inertia::render('coran/index', [
             'corans' => $corans,
             'spkStatusCounts' => $this->spkStatusCounts($spkEligibility),
             'filters' => [
                 'search' => $search,
+                'sort' => $sort,
+                'direction' => $direction,
+                'status' => $statusFilters,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
                 'per_page' => $perPage,
+            ],
+            'filterOptions' => [
+                'status' => [
+                    ['value' => 'draft', 'label' => 'Draft'],
+                    ['value' => 'submitted', 'label' => 'Pengajuan Approval'],
+                    ['value' => 'manager', 'label' => 'Serahkan ke PPIC'],
+                    ['value' => 'done', 'label' => 'Done'],
+                ],
+                'per_page' => [
+                    ['value' => '10', 'label' => '10'],
+                    ['value' => '25', 'label' => '25'],
+                    ['value' => '50', 'label' => '50'],
+                    ['value' => '100', 'label' => '100'],
+                ],
+                'sort' => [
+                    ['value' => 'id', 'label' => 'ID'],
+                    ['value' => 'date', 'label' => 'Tanggal'],
+                ],
+                'direction' => [
+                    ['value' => 'asc', 'label' => 'A–Z'],
+                    ['value' => 'desc', 'label' => 'Z–A'],
+                ],
+            ],
+            'bulkActions' => [
+                'canSubmit' => SpkApprovalRoles::canEditDraft($request->user()),
+                'canManagerApprove' => SpkApprovalRoles::canManagerApprove($request->user()),
+                'canComplete' => SpkApprovalRoles::canEditDraft($request->user()),
+                'canDelete' => SpkApprovalRoles::canEditDraft($request->user()),
             ],
         ]);
     }
@@ -477,6 +556,135 @@ class CoranController extends Controller
     }
 
     /**
+     * Return SPK rows for a coran document (modal / lazy load).
+     */
+    public function documentSpks(Coran $coran): JsonResponse
+    {
+        abort_if($coran->is_deleted === 1, 404);
+
+        $details = $coran->details()
+            ->notDeleted()
+            ->with([
+                'production' => fn ($productionQuery) => $productionQuery
+                    ->notDeleted()
+                    ->select(['row_id', 'spk_no', 'item_name', 'customer_name']),
+            ])
+            ->orderBy('line_id')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'data' => $details
+                ->map(function (CoranSpk $detail): array {
+                    $status = filled($detail->status) ? (string) $detail->status : null;
+
+                    return [
+                        'spkNo' => filled($detail->production?->spk_no)
+                            ? (string) $detail->production->spk_no
+                            : null,
+                        'spkId' => filled($detail->spk_id) ? (int) $detail->spk_id : null,
+                        'item' => filled($detail->production?->item_name)
+                            ? (string) $detail->production->item_name
+                            : null,
+                        'customer' => filled($detail->production?->customer_name)
+                            ? (string) $detail->production->customer_name
+                            : null,
+                        'weight' => $this->formatDecimal($detail->weight),
+                        'status' => $status,
+                        'statusLabel' => $this->spkStatusLabel($status),
+                    ];
+                })
+                ->values()
+                ->all(),
+        ]);
+    }
+
+    /**
+     * Bulk update coran document statuses via workflow actions.
+     */
+    public function bulkUpdateStatus(
+        BulkUpdateCoranStatusRequest $request,
+        CoranApprovalService $approvalService,
+    ): RedirectResponse {
+        $validated = $request->validated();
+        /** @var list<int> $ids */
+        $ids = array_values(array_unique(array_map(intval(...), $validated['ids'])));
+        /** @var 'submit'|'manager_approve'|'complete'|'delete' $action */
+        $action = $validated['action'];
+        $actor = $this->actorName($request);
+        $user = $request->user();
+
+        $documents = Coran::query()
+            ->notDeleted()
+            ->whereIn('row_id', $ids)
+            ->get()
+            ->keyBy('row_id');
+
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($ids as $id) {
+            $document = $documents->get($id);
+
+            if ($document === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $abilities = $approvalService->abilitiesFor($document, $user);
+            $allowed = match ($action) {
+                'submit' => $abilities['canSubmit'],
+                'manager_approve' => $abilities['canManagerApprove'],
+                'complete' => $abilities['canComplete'],
+                'delete' => $abilities['canDelete'],
+            };
+
+            if (! $allowed) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                match ($action) {
+                    'submit' => $approvalService->submit($document, $actor),
+                    'manager_approve' => $approvalService->managerApprove($document, $actor),
+                    'complete' => $approvalService->complete($document, $actor),
+                    'delete' => $this->softDeleteCoran($document, $actor),
+                };
+                $updated++;
+            } catch (InvalidArgumentException) {
+                $skipped++;
+            }
+        }
+
+        $actionLabel = match ($action) {
+            'submit' => 'Kirim ke Manager Produksi',
+            'manager_approve' => 'Approve',
+            'complete' => 'Selesai',
+            'delete' => 'Hapus',
+        };
+
+        $verb = $action === 'delete' ? 'dihapus' : 'diperbarui';
+
+        $message = $updated > 0
+            ? "{$updated} dokumen berhasil {$verb} ({$actionLabel})."
+            : "Tidak ada dokumen yang dapat {$verb} ({$actionLabel}).";
+
+        if ($skipped > 0) {
+            $message .= " {$skipped} dilewati.";
+        }
+
+        Inertia::flash('toast', [
+            'type' => $updated > 0 ? 'success' : 'warning',
+            'message' => $message,
+        ]);
+
+        return back();
+    }
+
+    /**
      * Soft-delete the specified coran document.
      */
     public function destroy(
@@ -490,8 +698,18 @@ class CoranController extends Controller
             abort(403, 'Dokumen coran tidak dapat dihapus pada status saat ini.');
         }
 
-        $actor = $this->actorName($request);
+        $this->softDeleteCoran($coran, $this->actorName($request));
 
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Dokumen coran berhasil dihapus.',
+        ]);
+
+        return to_route('coran.index');
+    }
+
+    private function softDeleteCoran(Coran $coran, string $actor): void
+    {
         DB::connection('third')->transaction(function () use ($coran, $actor): void {
             $coran->update([
                 'is_deleted' => 1,
@@ -529,13 +747,6 @@ class CoranController extends Controller
                     ]);
             }
         });
-
-        Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => 'Dokumen coran berhasil dihapus.',
-        ]);
-
-        return to_route('coran.index');
     }
 
     /**
@@ -705,24 +916,49 @@ class CoranController extends Controller
     }
 
     /**
+     * @param  array<int, string>  $craftsmanNames
      * @return array{
      *     id: int,
      *     docNo: string|null,
      *     transDate: string|null,
      *     status: string|null,
      *     statusLabel: string,
+     *     craftsmanName: string|null,
+     *     spkCount: int,
      *     spkNos: list<string>,
      *     totalSpkWeight: string|null,
      *     totalSubmitMaterial: string|null,
      *     totalResultMaterial: string|null,
+     *     materialsByColor: array{
+     *         roseGold: array{bahan: string|null, hasil: string|null, sisa: string|null},
+     *         whiteGold: array{bahan: string|null, hasil: string|null, sisa: string|null},
+     *         yellowGold: array{bahan: string|null, hasil: string|null, sisa: string|null}
+     *     },
+     *     hasilCoranPercents: array{hasil: string|null, sisa: string|null, susut: string|null},
      *     shrink: string|null
      * }
      */
-    private function toListItem(Coran $coran): array
+    private function toListItem(Coran $coran, array $craftsmanNames = []): array
     {
         $detailRows = $coran->details
             ->filter(fn (CoranSpk $detail): bool => $detail->is_deleted === 0)
             ->values();
+
+        $craftsmanId = filled($coran->craftsman_id) ? (int) $coran->craftsman_id : 0;
+        $totalSpkWeight = $this->sumDecimal(
+            $detailRows->map(fn (CoranSpk $detail): mixed => $detail->weight),
+        );
+        $totalSubmitMaterial = $this->sumDecimal(collect([
+            $coran->submit_material_rosegold,
+            $coran->submit_material_whitegold,
+            $coran->submit_material_yellowgold,
+        ]));
+        $totalResultMaterial = $this->sumDecimal(collect([
+            $coran->result_material_rosegold,
+            $coran->result_material_whitegold,
+            $coran->result_material_yellowgold,
+        ]));
+        $shrink = $this->formatDecimal($coran->shrink);
 
         return [
             'id' => (int) $coran->row_id,
@@ -730,6 +966,10 @@ class CoranController extends Controller
             'transDate' => $coran->trans_date?->format('Y-m-d'),
             'status' => $coran->status,
             'statusLabel' => app(CoranApprovalService::class)->statusLabelFor($coran),
+            'craftsmanName' => $craftsmanId > 0
+                ? ($craftsmanNames[$craftsmanId] ?? "Pengrajin {$craftsmanId}")
+                : null,
+            'spkCount' => $detailRows->count(),
             'spkNos' => $detailRows
                 ->map(fn (CoranSpk $detail): ?string => $detail->production?->spk_no)
                 ->filter()
@@ -737,21 +977,135 @@ class CoranController extends Controller
                 ->unique()
                 ->values()
                 ->all(),
-            'totalSpkWeight' => $this->sumDecimal(
-                $detailRows->map(fn (CoranSpk $detail): mixed => $detail->weight),
-            ),
-            'totalSubmitMaterial' => $this->sumDecimal(collect([
-                $coran->submit_material_rosegold,
-                $coran->submit_material_whitegold,
-                $coran->submit_material_yellowgold,
-            ])),
-            'totalResultMaterial' => $this->sumDecimal(collect([
-                $coran->result_material_rosegold,
-                $coran->result_material_whitegold,
-                $coran->result_material_yellowgold,
-            ])),
-            'shrink' => $this->formatDecimal($coran->shrink),
+            'totalSpkWeight' => $totalSpkWeight,
+            'totalSubmitMaterial' => $totalSubmitMaterial,
+            'totalResultMaterial' => $totalResultMaterial,
+            'materialsByColor' => [
+                'roseGold' => $this->materialColorBreakdown(
+                    $detailRows,
+                    $coran->submit_material_rosegold,
+                    $coran->result_material_rosegold,
+                    'weight_rosegold',
+                ),
+                'whiteGold' => $this->materialColorBreakdown(
+                    $detailRows,
+                    $coran->submit_material_whitegold,
+                    $coran->result_material_whitegold,
+                    'weight_whitegold',
+                ),
+                'yellowGold' => $this->materialColorBreakdown(
+                    $detailRows,
+                    $coran->submit_material_yellowgold,
+                    $coran->result_material_yellowgold,
+                    'weight_yellowgold',
+                ),
+            ],
+            'hasilCoranPercents' => [
+                'hasil' => $this->formatPercentOf($totalSpkWeight, $totalSubmitMaterial),
+                'sisa' => $this->formatPercentOf($totalResultMaterial, $totalSubmitMaterial),
+                'susut' => $this->formatPercentOf($shrink, $totalSubmitMaterial),
+            ],
+            'shrink' => $shrink,
         ];
+    }
+
+    /**
+     * @param  Collection<int, CoranSpk>  $detailRows
+     * @return array{bahan: string|null, hasil: string|null, sisa: string|null}
+     */
+    private function materialColorBreakdown(
+        Collection $detailRows,
+        mixed $submitMaterial,
+        mixed $resultMaterial,
+        string $weightColumn,
+    ): array {
+        return [
+            'bahan' => $this->formatDecimal($submitMaterial),
+            'hasil' => $this->sumDecimal(
+                $detailRows->map(fn (CoranSpk $detail): mixed => $detail->{$weightColumn}),
+            ),
+            'sisa' => $this->formatDecimal($resultMaterial),
+        ];
+    }
+
+    private function resolveIndexSort(string $sort): string
+    {
+        $allowed = ['id', 'date'];
+
+        return in_array($sort, $allowed, true) ? $sort : 'id';
+    }
+
+    private function resolveIndexDirection(string $direction): string
+    {
+        return in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+    }
+
+    private function resolveIndexDate(string $date): ?string
+    {
+        $trimmed = trim($date);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $trimmed);
+
+        if ($parsed === false || $parsed->format('Y-m-d') !== $trimmed) {
+            return null;
+        }
+
+        return $trimmed;
+    }
+
+    private function resolveIndexPerPage(int $perPage): int
+    {
+        return in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveStatusFilters(mixed $status): array
+    {
+        $allowed = array_keys($this->statusFilterCodes());
+
+        return collect(is_array($status) ? $status : (filled($status) ? [$status] : []))
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter(fn (string $value): bool => in_array($value, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function statusFilterCodes(): array
+    {
+        return [
+            'draft' => [],
+            'submitted' => [CoranApprovalService::STATUS_SUBMITTED],
+            'manager' => [CoranApprovalService::STATUS_MANAGER],
+            'done' => [CoranApprovalService::STATUS_DONE, Coran::STATUS_DONE],
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<Coran>  $query
+     */
+    private function applyIndexSort($query, string $sort, string $direction): void
+    {
+        $ascending = $direction === 'asc';
+        $order = $ascending ? 'asc' : 'desc';
+
+        match ($sort) {
+            'date' => $query
+                ->orderBy('trans_date', $order)
+                ->orderBy('row_id', $order),
+            default => $query
+                ->orderBy('doc_no', $order)
+                ->orderBy('row_id', $order),
+        };
     }
 
     /**
@@ -905,20 +1259,43 @@ class CoranController extends Controller
     {
         $id = filled($craftsmanId) ? (int) $craftsmanId : 0;
 
-        if ($id <= 0 || ! Schema::connection('third')->hasTable('mscraftsman')) {
+        if ($id <= 0) {
             return null;
         }
 
-        $name = DB::connection('third')
-            ->table('mscraftsman')
-            ->where('row_id', $id)
-            ->value('name');
+        return $this->resolveCraftsmanNames([$id])[$id] ?? null;
+    }
 
-        if (! filled($name)) {
-            return "Pengrajin {$id}";
+    /**
+     * @param  list<mixed>  $craftsmanIds
+     * @return array<int, string>
+     */
+    private function resolveCraftsmanNames(array $craftsmanIds): array
+    {
+        $ids = collect($craftsmanIds)
+            ->map(fn (mixed $id): int => filled($id) ? (int) $id : 0)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($ids === [] || ! Schema::connection('third')->hasTable('mscraftsman')) {
+            return [];
         }
 
-        return (string) $name;
+        $names = DB::connection('third')
+            ->table('mscraftsman')
+            ->whereIn('row_id', $ids)
+            ->pluck('name', 'row_id');
+
+        $resolved = [];
+
+        foreach ($ids as $id) {
+            $name = $names[$id] ?? null;
+            $resolved[$id] = filled($name) ? (string) $name : "Pengrajin {$id}";
+        }
+
+        return $resolved;
     }
 
     private function spkStatusLabel(?string $status): string
@@ -1173,6 +1550,18 @@ class CoranController extends Controller
         }
 
         return number_format($number, 2, '.', '');
+    }
+
+    private function formatPercentOf(?string $amount, ?string $total): ?string
+    {
+        $amountNumber = $this->toFloat($amount);
+        $totalNumber = $this->toFloat($total);
+
+        if ($amountNumber === null || $totalNumber === null || abs($totalNumber) < 0.0005) {
+            return null;
+        }
+
+        return number_format(($amountNumber / $totalNumber) * 100, 2, '.', '').'%';
     }
 
     private function formatKadar(mixed $value): ?string

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { router } from '@inertiajs/react';
+import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
 import {
     Dialog,
     DialogContent,
@@ -27,6 +28,7 @@ type SpkApiRow = {
 
 type FinishingSpkStatusCardsProps = {
     counts: SpkStatusCounts;
+    variant?: 'cards' | 'alerts';
 };
 
 type ActiveModal = {
@@ -42,6 +44,7 @@ const CARD_CONFIG: Array<{
     hint: string;
     className: string;
     modalTitle: string;
+    alertDesign: 'Information' | 'Critical' | 'Positive';
 }> = [
     {
         key: 'pending',
@@ -50,6 +53,7 @@ const CARD_CONFIG: Array<{
         hint: 'SPK belum masuk proses Finishing',
         className: 'jewelcadPending',
         modalTitle: 'SPK Belum Proses Finishing',
+        alertDesign: 'Information',
     },
     {
         key: 'inProgress',
@@ -58,6 +62,7 @@ const CARD_CONFIG: Array<{
         hint: 'SPK sedang dalam proses Finishing',
         className: 'inProgress',
         modalTitle: 'SPK Sedang Proses Finishing',
+        alertDesign: 'Critical',
     },
     {
         key: 'completed',
@@ -66,6 +71,7 @@ const CARD_CONFIG: Array<{
         hint: 'SPK sudah selesai proses Finishing',
         className: 'jewelcadDone',
         modalTitle: 'SPK Selesai Proses Finishing',
+        alertDesign: 'Positive',
     },
 ];
 
@@ -77,6 +83,7 @@ function displayValue(value: string | null | undefined): string {
 
 export function FinishingSpkStatusCards({
     counts,
+    variant = 'cards',
 }: FinishingSpkStatusCardsProps) {
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     const [loading, setLoading] = useState(false);
@@ -123,29 +130,63 @@ export function FinishingSpkStatusCards({
 
     return (
         <>
-            <div
-                className="spkStatusCards spkStatusCards--3"
-                role="status"
-                aria-live="polite"
-            >
-                {CARD_CONFIG.map((config) => (
-                    <button
-                        key={config.key}
-                        type="button"
-                        className={`spkStatusCard spkStatusCard--${config.className}`}
-                        onClick={() => openModal(config)}
-                        aria-label={`${counts[config.key].toLocaleString('id-ID')} ${config.hint}. Klik untuk lihat daftar.`}
-                    >
-                        <span className="spkStatusCardLabel">
-                            {config.label}
-                        </span>
-                        <strong className="spkStatusCardCount">
-                            {counts[config.key].toLocaleString('id-ID')}
-                        </strong>
-                        <span className="spkStatusCardHint">{config.hint}</span>
-                    </button>
-                ))}
-            </div>
+            {variant === 'alerts' ? (
+                <div
+                    className="spkTableStatusAlerts--finishing"
+                    role="group"
+                    aria-label="Ringkasan status SPK finishing"
+                >
+                    {CARD_CONFIG.map((config) => (
+                        <button
+                            key={config.key}
+                            type="button"
+                            className="spkTableStatusAlertBtn--finishing"
+                            onClick={() => openModal(config)}
+                            aria-label={`${counts[config.key].toLocaleString('id-ID')} ${config.hint}. Klik untuk lihat daftar.`}
+                            title={config.hint}
+                        >
+                            <MessageStrip
+                                design={config.alertDesign}
+                                hideCloseButton
+                                className="spkTableStatusAlertStrip--finishing"
+                            >
+                                <span className="spkTableStatusAlertLabel--finishing">
+                                    {config.label}
+                                </span>
+                                <strong className="spkTableStatusAlertCount--finishing">
+                                    {counts[config.key].toLocaleString('id-ID')}
+                                </strong>
+                            </MessageStrip>
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <div
+                    className="spkStatusCards spkStatusCards--3"
+                    role="status"
+                    aria-live="polite"
+                >
+                    {CARD_CONFIG.map((config) => (
+                        <button
+                            key={config.key}
+                            type="button"
+                            className={`spkStatusCard spkStatusCard--${config.className}`}
+                            onClick={() => openModal(config)}
+                            aria-label={`${counts[config.key].toLocaleString('id-ID')} ${config.hint}. Klik untuk lihat daftar.`}
+                        >
+                            <span className="spkStatusCardLabel">
+                                {config.label}
+                            </span>
+                            <strong className="spkStatusCardCount">
+                                {counts[config.key].toLocaleString('id-ID')}
+                            </strong>
+                            <span className="spkStatusCardHint">
+                                {config.hint}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <Dialog
                 open={activeModal !== null}
@@ -226,18 +267,23 @@ export function FinishingSpkStatusCards({
                                             <td>
                                                 {displayValue(row.goldColor)}
                                             </td>
-                                            <td>{row.qty}</td>
+                                            <td>
+                                                {row.qty.toLocaleString(
+                                                    'id-ID',
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         )}
-                        {activeModal &&
-                        !loading &&
+                        {!loading &&
+                        rows.length > 0 &&
+                        activeModal !== null &&
                         activeModal.total > rows.length ? (
                             <p className="spkAlertModalFootnote">
-                                Menampilkan {rows.length} dari{' '}
-                                {activeModal.total.toLocaleString('id-ID')}{' '}
+                                Menampilkan {rows.length.toLocaleString('id-ID')}{' '}
+                                dari {activeModal.total.toLocaleString('id-ID')}{' '}
                                 SPK.
                             </p>
                         ) : null}

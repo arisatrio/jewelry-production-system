@@ -1,6 +1,14 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, AlertTriangle, Eye } from 'lucide-react';
+import {
+    ArrowDown,
+    ArrowUp,
+    ArrowUpDown,
+    AlertTriangle,
+    ChartColumn,
+    Eye,
+    LayoutGrid,
+} from 'lucide-react';
 import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-arrow.js';
 import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
 import { Button } from '@ui5/webcomponents-react/Button';
@@ -28,6 +36,7 @@ import {
     SpkTableStatusCell,
     SpkTableTipeProduksiCell,
 } from '@/components/spk/spk-list-cells';
+import { cards as dashboardCards } from '@/routes/dashboard';
 import { home } from '@/routes';
 import { show as spkShow } from '@/routes/spk';
 import {
@@ -223,7 +232,7 @@ type WelcomeProps = {
     };
 };
 
-export default function Welcome({ analytics, navigation }: WelcomeProps) {
+export default function Welcome({ analytics, filters, navigation }: WelcomeProps) {
     const {
         summary,
         statusLists,
@@ -502,7 +511,7 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
         }
 
         router.get(
-            home.url({
+            dashboardCards.url({
                 query: {
                     month,
                 },
@@ -520,11 +529,44 @@ export default function Welcome({ analytics, navigation }: WelcomeProps) {
             <Head title="Dashboard" />
 
             <div className="dashShell">
-                <header className="dashPageHeader">
-                    <div>
+                <header className="dashPageHeader woKanbanPageHeader">
+                    <div className="woKanbanPageHeaderStart">
                         <h1 className="dashPageTitle">Dashboard</h1>
                     </div>
-                    <div className="dashHeaderActions">
+                    <div className="woKanbanPageHeaderCenter">
+                        <div
+                            className="woKanbanViewSwitch"
+                            role="group"
+                            aria-label="Tampilan Dashboard"
+                        >
+                            <span
+                                className="woKanbanViewSwitchLink is-active"
+                                aria-current="page"
+                            >
+                                <ChartColumn
+                                    aria-hidden="true"
+                                    className="woKanbanViewSwitchIcon"
+                                />
+                                Dashboard
+                            </span>
+                            <Link
+                                href={home.url({
+                                    query: {
+                                        month: filters.month,
+                                    },
+                                })}
+                                className="woKanbanViewSwitchLink"
+                                prefetch
+                            >
+                                <LayoutGrid
+                                    aria-hidden="true"
+                                    className="woKanbanViewSwitchIcon"
+                                />
+                                Kanban
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="dashHeaderActions woKanbanPageHeaderEnd">
                         <button
                             type="button"
                             className={

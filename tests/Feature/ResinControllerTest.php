@@ -39,12 +39,27 @@ test('resin index page is accessible', function () {
             ->has('spkStatusCounts.pending')
             ->has('spkStatusCounts.inProgress')
             ->has('spkStatusCounts.completed')
-            ->has('filters.search')
-            ->has('filters.per_page')
+            ->where('filters.search', '')
+            ->where('filters.sort', 'id')
+            ->where('filters.direction', 'desc')
+            ->where('filters.status', [])
+            ->where('filters.date_from', null)
+            ->where('filters.date_to', null)
+            ->where('filters.operator', null)
+            ->where('filters.per_page', 50)
+            ->has('filterOptions.status')
+            ->has('filterOptions.operator')
+            ->has('filterOptions.per_page')
+            ->has('filterOptions.sort')
+            ->has('filterOptions.direction')
+            ->where('bulkActions.canSubmit', true)
+            ->where('bulkActions.canManagerApprove', true)
+            ->where('bulkActions.canComplete', true)
+            ->where('bulkActions.canDelete', true)
         );
 });
 
-test('resin index lists total berat resin from detail rows', function () {
+test('resin index lists one row per spk detail', function () {
     $productionA = Production::factory()->create([
         'spk_no' => '2026/PRD/RSNTOTA',
     ]);
@@ -56,25 +71,41 @@ test('resin index lists total berat resin from detail rows', function () {
         'spk_id' => $productionA->row_id,
         'doc_no' => '2026/RSN/RSNTOT',
         'notes' => 'Catatan list resin',
+        'operator' => 'Operator Resin',
+        'status' => 'DRAFT',
     ]);
-    ResinDetail::factory()->create([
+    $detailA = ResinDetail::factory()->create([
         'row_id' => $resin->row_id,
         'spk_id' => $productionA->row_id,
         'berat_resin' => '1.500',
+        'status_resin' => 'OK',
     ]);
-    ResinDetail::factory()->create([
+    $detailB = ResinDetail::factory()->create([
         'row_id' => $resin->row_id,
         'spk_id' => $productionB->row_id,
         'berat_resin' => '2.750',
+        'status_resin' => 'NOT OK',
     ]);
 
-    $this->get(route('resin.index', ['search' => '2026/RSN/RSNTOT']))
+    $this->get(route('resin.index', [
+        'search' => '2026/RSN/RSNTOT',
+        'direction' => 'asc',
+    ]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('resin/index')
-            ->where('resins.data.0.id', $resin->row_id)
-            ->where('resins.data.0.totalBeratResin', '4.250')
+            ->has('resins.data', 2)
+            ->where('resins.data.0.resinId', $resin->row_id)
+            ->where('resins.data.0.id', $detailA->line_id)
+            ->where('resins.data.0.spkNo', '2026/PRD/RSNTOTA')
+            ->where('resins.data.0.beratResin', '1.50')
+            ->where('resins.data.0.statusResin', 'OK')
             ->where('resins.data.0.notes', 'Catatan list resin')
+            ->where('resins.data.0.operator', 'Operator Resin')
+            ->where('resins.data.1.id', $detailB->line_id)
+            ->where('resins.data.1.spkNo', '2026/PRD/RSNTOTB')
+            ->where('resins.data.1.beratResin', '2.75')
+            ->where('resins.data.1.statusResin', 'NOT OK')
         );
 
     ResinDetail::query()->where('row_id', $resin->row_id)->delete();

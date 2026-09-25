@@ -1,4 +1,4 @@
-import { NotebookText } from 'lucide-react';
+import { FileText, NotebookText, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import {
     Dialog,
@@ -12,6 +12,7 @@ type NotesCellProps = {
     title?: string;
     docNo?: string | null;
     spkNo?: string | null;
+    icon?: LucideIcon;
 };
 
 function buildNotesTitle(
@@ -39,6 +40,7 @@ export function NotesCell({
     title = 'Catatan',
     docNo,
     spkNo,
+    icon: Icon = NotebookText,
 }: NotesCellProps) {
     const [open, setOpen] = useState(false);
     const trimmed = notes?.trim() ?? '';
@@ -57,7 +59,7 @@ export function NotesCell({
                 title={modalTitle}
                 onClick={() => setOpen(true)}
             >
-                <NotebookText aria-hidden className="spkNotesBtnIcon" />
+                <Icon aria-hidden className="spkNotesBtnIcon" />
             </button>
 
             <Dialog open={open} onOpenChange={setOpen}>
@@ -73,3 +75,5 @@ export function NotesCell({
         </>
     );
 }
+
+export { FileText as JewelCadFileIcon };

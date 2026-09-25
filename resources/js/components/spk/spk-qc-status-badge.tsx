@@ -1,3 +1,7 @@
+import sysEnter2Icon from '@ui5/webcomponents-icons/dist/sys-enter-2.js';
+import errorIcon from '@ui5/webcomponents-icons/dist/error.js';
+import { Icon } from '@ui5/webcomponents-react/Icon';
+
 export type QcStatusVariant = 'ok' | 'not-ok';
 
 export type QcStatus = {
@@ -87,7 +91,14 @@ export function SpkQcStatusBadge({
                 .filter(Boolean)
                 .join(' ')}
         >
-            {status.label}
+            <Icon
+                name={
+                    status.variant === 'ok' ? sysEnter2Icon : errorIcon
+                }
+                mode="Decorative"
+                className="spkQcStatusBadgeIcon"
+            />
+            <span>{status.label}</span>
         </span>
     );
 }

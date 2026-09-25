@@ -4,7 +4,7 @@ test('home dashboard includes analytics payload', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('welcome')
+            ->component('analytics/work-order-kanban')
             ->has('analytics.period.label')
             ->where('analytics.backlogYear', (int) now()->year)
             ->has('analytics.summary.totalSpk')
@@ -45,7 +45,8 @@ test('home dashboard includes analytics payload', function () {
             ->has('analytics.statusLists.confirmed')
             ->has('analytics.statusLists.inProgress')
             ->has('analytics.statusLists.overdue')
-            ->has('analytics.statusLists.done')
+            ->has('analytics.statusLists.doneRangka')
+            ->has('analytics.statusLists.doneBarangJadi')
             ->has('analytics.productionTypes')
             ->has('analytics.inProgressByProcess')
             ->has('analytics.itemDistribution')
@@ -58,6 +59,8 @@ test('home dashboard includes analytics payload', function () {
             ->has('analytics.forecast.byType')
             ->has('analytics.forecast.types')
             ->has('analytics.forecast.byItemType')
+            ->has('processTabs')
+            ->where('processTabs.0.key', 'JewelCAD')
             ->has('filters.month')
             ->has('navigation.previousMonth')
             ->has('navigation.currentMonth')
@@ -70,7 +73,7 @@ test('home dashboard can paginate to a previous month', function () {
     $this->get(route('home', ['month' => '2026-03']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('welcome')
+            ->component('analytics/work-order-kanban')
             ->where('filters.month', '2026-03')
             ->where('analytics.period.start', '2026-03-01')
             ->where('navigation.previousMonth', '2026-02')
@@ -87,9 +90,22 @@ test('home dashboard rejects future month and clamps to current', function () {
     $this->get(route('home', ['month' => $future]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('welcome')
+            ->component('analytics/work-order-kanban')
             ->where('filters.month', now()->format('Y-m'))
             ->where('navigation.isCurrentMonth', true)
             ->where('navigation.nextMonth', null)
+        );
+});
+
+test('dashboard cards view includes analytics payload', function () {
+    $this->get(route('dashboard.cards'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('welcome')
+            ->has('analytics.period.label')
+            ->has('analytics.summary.totalSpk')
+            ->has('filters.month')
+            ->has('navigation.previousMonth')
+            ->where('navigation.isCurrentMonth', true)
         );
 });

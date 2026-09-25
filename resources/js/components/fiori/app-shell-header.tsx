@@ -515,10 +515,6 @@ export default function AppShellHeader({
                                         role="search"
                                         onSubmit={handleSearchSubmit}
                                     >
-                                        <Icon
-                                            className="shellSearchIcon"
-                                            name={searchIcon}
-                                        />
                                         <input
                                             className="shellSearchInput"
                                             type="search"
@@ -559,6 +555,10 @@ export default function AppShellHeader({
                                                 ×
                                             </button>
                                         ) : null}
+                                        <Icon
+                                            className="shellSearchIcon"
+                                            name={searchIcon}
+                                        />
                                     </form>
 
                                     {suggestionsOpen &&
