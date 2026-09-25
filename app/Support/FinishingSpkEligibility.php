@@ -150,6 +150,8 @@ class FinishingSpkEligibility
                         ->orWhereRaw("UPPER(TRIM(status)) = 'OPEN'")
                         ->orWhere('status', FinishingApprovalService::STATUS_SUBMITTED)
                         ->orWhere('status', FinishingApprovalService::STATUS_MANAGER)
+                        ->orWhere('status', FinishingApprovalService::LEGACY_NEW_STATUS_SUBMITTED)
+                        ->orWhere('status', FinishingApprovalService::LEGACY_NEW_STATUS_MANAGER)
                         ->orWhere('status', FinishingHandmade::STATUS_OPEN)
                         ->orWhere('status', FinishingHandmade::STATUS_TO_CRAFTSMAN)
                         ->orWhere('status', FinishingHandmade::STATUS_TO_PPIC)
@@ -160,6 +162,7 @@ class FinishingSpkEligibility
             if ($scope === 'completed') {
                 $query->whereIn('status', [
                     FinishingApprovalService::STATUS_DONE,
+                    FinishingApprovalService::LEGACY_NEW_STATUS_DONE,
                     FinishingHandmade::STATUS_DONE,
                     FinishingHandmade::STATUS_REPARATION_DONE,
                 ]);

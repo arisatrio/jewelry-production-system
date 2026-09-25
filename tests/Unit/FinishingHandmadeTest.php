@@ -21,9 +21,12 @@ test('finishing handmade status labels follow coran-like approval flow', functio
         ->and($document->isDone())->toBe($done);
 })->with([
     'open null' => ['', 'Open', false],
-    'submitted new' => [FinishingApprovalService::STATUS_SUBMITTED, 'Pengajuan', false],
-    'manager new' => [FinishingApprovalService::STATUS_MANAGER, 'Serahkan ke PPIC', false],
-    'done new' => [FinishingApprovalService::STATUS_DONE, 'Completed', true],
+    'submitted' => [FinishingApprovalService::STATUS_SUBMITTED, 'Pengajuan', false],
+    'manager' => [FinishingApprovalService::STATUS_MANAGER, 'Serahkan ke PPIC', false],
+    'done' => [FinishingApprovalService::STATUS_DONE, 'Completed', true],
+    'legacy fin submitted' => [FinishingApprovalService::LEGACY_NEW_STATUS_SUBMITTED, 'Pengajuan', false],
+    'legacy fin manager' => [FinishingApprovalService::LEGACY_NEW_STATUS_MANAGER, 'Serahkan ke PPIC', false],
+    'legacy fin done' => [FinishingApprovalService::LEGACY_NEW_STATUS_DONE, 'Completed', true],
     'legacy loket' => [FinishingHandmade::STATUS_OPEN, 'Pengajuan', false],
     'legacy pengrajin' => [FinishingHandmade::STATUS_TO_CRAFTSMAN, 'Pengajuan', false],
     'legacy ppic' => [FinishingHandmade::STATUS_TO_PPIC, 'Serahkan ke PPIC', false],

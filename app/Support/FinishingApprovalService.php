@@ -13,11 +13,23 @@ class FinishingApprovalService
 {
     public const DOC_NAME = 'finishinghandmade';
 
-    public const STATUS_SUBMITTED = 'FIN010';
+    /**
+     * Kode status yang dikenali sistem lama (sysstatus / UI legacy).
+     */
+    public const STATUS_SUBMITTED = FinishingHandmade::STATUS_OPEN;
 
-    public const STATUS_MANAGER = 'FIN020';
+    public const STATUS_MANAGER = FinishingHandmade::STATUS_TO_PPIC;
 
-    public const STATUS_DONE = 'FINDONE';
+    public const STATUS_DONE = FinishingHandmade::STATUS_DONE;
+
+    /**
+     * Kode sementara yang pernah ditulis sistem baru (sebelum diselaraskan ke FHM*).
+     */
+    public const LEGACY_NEW_STATUS_SUBMITTED = 'FIN010';
+
+    public const LEGACY_NEW_STATUS_MANAGER = 'FIN020';
+
+    public const LEGACY_NEW_STATUS_DONE = 'FINDONE';
 
     public const APPROVE_OK = 'OK';
 
@@ -64,6 +76,7 @@ class FinishingApprovalService
 
         return in_array($status, [
             self::STATUS_SUBMITTED,
+            self::LEGACY_NEW_STATUS_SUBMITTED,
             FinishingHandmade::STATUS_OPEN,
             FinishingHandmade::STATUS_TO_CRAFTSMAN,
             FinishingHandmade::STATUS_REPARATION_OPEN,
@@ -76,6 +89,7 @@ class FinishingApprovalService
 
         return in_array($status, [
             self::STATUS_MANAGER,
+            self::LEGACY_NEW_STATUS_MANAGER,
             FinishingHandmade::STATUS_TO_PPIC,
         ], true);
     }
@@ -86,6 +100,7 @@ class FinishingApprovalService
 
         return in_array($status, [
             self::STATUS_DONE,
+            self::LEGACY_NEW_STATUS_DONE,
             FinishingHandmade::STATUS_DONE,
             FinishingHandmade::STATUS_REPARATION_DONE,
         ], true);
@@ -227,7 +242,7 @@ class FinishingApprovalService
 
         $submitted = collect($history)->last(
             fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_OK
-                && strtoupper($row['status']) === self::STATUS_SUBMITTED,
+                && $this->isSubmittedStatus($row['status']),
         );
 
         if ($createdBy === '-' || $createdBy === '') {
@@ -237,7 +252,7 @@ class FinishingApprovalService
 
         $managerApprove = collect($history)->last(
             fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_OK
-                && strtoupper($row['status']) === self::STATUS_MANAGER,
+                && $this->isManagerStatus($row['status']),
         );
 
         return [
@@ -360,6 +375,9 @@ class FinishingApprovalService
             self::STATUS_SUBMITTED => 'Pengajuan',
             self::STATUS_MANAGER => 'Serahkan ke PPIC',
             self::STATUS_DONE => 'Completed',
+            self::LEGACY_NEW_STATUS_SUBMITTED => 'Pengajuan',
+            self::LEGACY_NEW_STATUS_MANAGER => 'Serahkan ke PPIC',
+            self::LEGACY_NEW_STATUS_DONE => 'Completed',
             FinishingHandmade::STATUS_OPEN => 'Pengajuan',
             FinishingHandmade::STATUS_TO_CRAFTSMAN => 'Pengajuan',
             FinishingHandmade::STATUS_REPARATION_OPEN => 'Pengajuan',
@@ -390,6 +408,9 @@ class FinishingApprovalService
             self::STATUS_SUBMITTED => 'Pengajuan',
             self::STATUS_MANAGER => 'Serahkan ke PPIC',
             self::STATUS_DONE => 'Completed',
+            self::LEGACY_NEW_STATUS_SUBMITTED => 'Pengajuan',
+            self::LEGACY_NEW_STATUS_MANAGER => 'Serahkan ke PPIC',
+            self::LEGACY_NEW_STATUS_DONE => 'Completed',
             FinishingHandmade::STATUS_OPEN => 'Pengajuan',
             FinishingHandmade::STATUS_TO_CRAFTSMAN => 'Pengajuan',
             FinishingHandmade::STATUS_REPARATION_OPEN => 'Pengajuan',
@@ -397,6 +418,25 @@ class FinishingApprovalService
             FinishingHandmade::STATUS_DONE => 'Completed',
             FinishingHandmade::STATUS_REPARATION_DONE => 'Completed',
         ]);
+    }
+
+    private function isSubmittedStatus(string $status): bool
+    {
+        return in_array(strtoupper(trim($status)), [
+            self::STATUS_SUBMITTED,
+            self::LEGACY_NEW_STATUS_SUBMITTED,
+            FinishingHandmade::STATUS_OPEN,
+            FinishingHandmade::STATUS_TO_CRAFTSMAN,
+        ], true);
+    }
+
+    private function isManagerStatus(string $status): bool
+    {
+        return in_array(strtoupper(trim($status)), [
+            self::STATUS_MANAGER,
+            self::LEGACY_NEW_STATUS_MANAGER,
+            FinishingHandmade::STATUS_TO_PPIC,
+        ], true);
     }
 
     private function writeApprovalLog(
