@@ -61,7 +61,6 @@ type PolesChromeShowProps = {
         finishWeight: string | null;
         shrink: string | null;
         shrinkPercent: string | null;
-        shrinkTolerance?: string | null;
         spk: {
             spkId: number | null;
             spkNo: string | null;

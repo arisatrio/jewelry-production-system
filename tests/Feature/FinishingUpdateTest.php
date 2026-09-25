@@ -71,7 +71,6 @@ test('finishing update changes document fields', function () {
         'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '2.50',
         'finish_weight' => '2.00',
-        'shrink_tolerance' => '5.00',
         'notes' => 'Sesudah update',
         'item_category' => 'Barang Kecil',
         'materials' => [],
@@ -85,6 +84,8 @@ test('finishing update changes document fields', function () {
         ->and($document->process_name)->toBe('Handmade')
         ->and((string) $document->start_weight)->toBe('2.50')
         ->and((string) $document->finish_weight)->toBe('2.00')
+        ->and((string) $document->shrink)->toBe('0.50')
+        ->and((string) $document->shrink_tolerance)->toBe('20.00')
         ->and($document->notes)->toBe('Sesudah update')
         ->and($document->item_category)->toBe('Barang Kecil');
 

@@ -59,8 +59,22 @@ class FinishingController extends Controller
             })
             ->orderByDesc('row_id')
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (FinishingHandmade $document): array => $this->toListItem($document));
+            ->withQueryString();
+
+        $craftsmanNames = $this->resolveCraftsmanNames(
+            $documents->getCollection()
+                ->pluck('craftsman_id')
+                ->all(),
+        );
+
+        $documents->setCollection(
+            $documents->getCollection()
+                ->map(fn (FinishingHandmade $document): array => $this->toListItem(
+                    $document,
+                    $craftsmanNames,
+                ))
+                ->values(),
+        );
 
         return Inertia::render('finishing/index', [
             'documents' => $documents,
@@ -500,6 +514,7 @@ class FinishingController extends Controller
     }
 
     /**
+     * @param  array<int, string>  $craftsmanNames
      * @return array{
      *     id: int,
      *     docNo: string|null,
@@ -508,16 +523,22 @@ class FinishingController extends Controller
      *     status: string|null,
      *     statusLabel: string,
      *     spkNo: string|null,
+     *     craftsmanName: string|null,
+     *     sendCraftsmanDate: string|null,
+     *     receivedCraftsmanDate: string|null,
      *     startWeight: string|null,
      *     finishWeight: string|null,
      *     submitMaterial: string|null,
      *     resultMaterial: string|null,
      *     shrink: string|null,
+     *     shrinkTolerance: string|null,
      *     notes: string|null
      * }
      */
-    private function toListItem(FinishingHandmade $document): array
+    private function toListItem(FinishingHandmade $document, array $craftsmanNames = []): array
     {
+        $craftsmanId = filled($document->craftsman_id) ? (int) $document->craftsman_id : 0;
+
         return [
             'id' => (int) $document->row_id,
             'docNo' => $document->doc_no,
@@ -528,11 +549,17 @@ class FinishingController extends Controller
             'status' => filled($document->status) ? (string) $document->status : null,
             'statusLabel' => $document->statusLabel(),
             'spkNo' => $document->production?->spk_no,
+            'craftsmanName' => $craftsmanId > 0
+                ? ($craftsmanNames[$craftsmanId] ?? "Pengrajin {$craftsmanId}")
+                : null,
+            'sendCraftsmanDate' => $document->send_craftsman_date?->format('Y-m-d H:i'),
+            'receivedCraftsmanDate' => $document->received_craftsman_date?->format('Y-m-d H:i'),
             'startWeight' => $this->formatDecimal($document->start_weight),
             'finishWeight' => $this->formatDecimal($document->finish_weight),
             'submitMaterial' => $this->formatDecimal($document->submit_materialgold),
             'resultMaterial' => $this->formatDecimal($document->result_materialgold),
             'shrink' => $this->formatDecimal($document->shrink),
+            'shrinkTolerance' => $this->formatDecimal($document->shrink_tolerance, 2),
             'notes' => filled($document->notes) ? (string) $document->notes : null,
         ];
     }
@@ -637,20 +664,43 @@ class FinishingController extends Controller
     {
         $id = filled($craftsmanId) ? (int) $craftsmanId : 0;
 
-        if ($id <= 0 || ! Schema::connection('third')->hasTable('mscraftsman')) {
+        if ($id <= 0) {
             return null;
         }
 
-        $name = DB::connection('third')
-            ->table('mscraftsman')
-            ->where('row_id', $id)
-            ->value('name');
+        return $this->resolveCraftsmanNames([$id])[$id] ?? null;
+    }
 
-        if (! filled($name)) {
-            return "Pengrajin {$id}";
+    /**
+     * @param  list<mixed>  $craftsmanIds
+     * @return array<int, string>
+     */
+    private function resolveCraftsmanNames(array $craftsmanIds): array
+    {
+        $ids = collect($craftsmanIds)
+            ->map(fn (mixed $id): int => filled($id) ? (int) $id : 0)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($ids === [] || ! Schema::connection('third')->hasTable('mscraftsman')) {
+            return [];
         }
 
-        return (string) $name;
+        $names = DB::connection('third')
+            ->table('mscraftsman')
+            ->whereIn('row_id', $ids)
+            ->pluck('name', 'row_id');
+
+        $resolved = [];
+
+        foreach ($ids as $id) {
+            $name = $names[$id] ?? null;
+            $resolved[$id] = filled($name) ? (string) $name : "Pengrajin {$id}";
+        }
+
+        return $resolved;
     }
 
     private function recalculateShrink(FinishingHandmade $document): void
@@ -660,10 +710,16 @@ class FinishingController extends Controller
         $submit = $this->toFloat($document->submit_materialgold) ?? 0.0;
         $result = $this->toFloat($document->result_materialgold) ?? 0.0;
 
-        $shrink = round(($start + $submit) - ($finish + $result), 3);
+        $inputWeight = $start + $submit;
+        $shrink = round($inputWeight - ($finish + $result), 3);
+
+        $shrinkTolerance = abs($inputWeight) >= 0.0005
+            ? round(($shrink / $inputWeight) * 100, 2)
+            : 0.0;
 
         $document->forceFill([
             'shrink' => number_format($shrink, 2, '.', ''),
+            'shrink_tolerance' => number_format($shrinkTolerance, 2, '.', ''),
         ])->save();
     }
 

@@ -268,7 +268,10 @@
     word-break: break-word;
 }
 
+.spkTable th.spkTableColNotes,
 .spkTable td.spkTableColNotes {
+    text-align: center;
+    vertical-align: middle;
     white-space: normal;
     min-width: 8rem;
     max-width: 16rem;
@@ -281,6 +284,71 @@
     white-space: nowrap;
     text-align: center;
     vertical-align: middle;
+}
+
+.spkTable th.spkTableColWeight,
+.spkTable td.spkTableColWeight {
+    width: 8.5rem;
+    min-width: 7.5rem;
+    max-width: 10rem;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.spkTable th.spkTableColCraftsmanDate,
+.spkTable td.spkTableColCraftsmanDate {
+    width: 1%;
+    min-width: 12.5rem;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.spkTableWeightStack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.spkTableWeightRow {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.spkTableWeightRow--date {
+    grid-template-columns: 3.25rem max-content;
+    justify-content: start;
+    gap: 0.5rem;
+}
+
+.spkTableWeightRow--material {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+}
+
+.spkTableWeightRow dt {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.spkTableWeightRow dd {
+    margin: 0;
+    color: #1f2937;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: right;
+}
+
+.spkTableWeightRow--date dd {
+    white-space: nowrap;
+    text-align: left;
 }
 
 .masterDataActions--center {
@@ -1494,6 +1562,14 @@
 .spkShrinkPercent {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+}
+
+.spkTableShrinkCell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    line-height: 1.3;
 }
 
 .spkShrinkPercent.is-ok {

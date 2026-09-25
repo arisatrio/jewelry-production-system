@@ -1,7 +1,7 @@
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Head, router } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Input } from '@ui5/webcomponents-react/Input';
 import { Option } from '@ui5/webcomponents-react/Option';
@@ -19,11 +19,15 @@ type FinishingRow = {
     status: string | null;
     statusLabel: string | null;
     spkNo: string | null;
+    craftsmanName: string | null;
+    sendCraftsmanDate: string | null;
+    receivedCraftsmanDate: string | null;
     startWeight: string | null;
     finishWeight: string | null;
     submitMaterial: string | null;
     resultMaterial: string | null;
     shrink: string | null;
+    shrinkTolerance: string | null;
     notes: string | null;
 };
 
@@ -82,6 +86,181 @@ function statusBadgeClass(status: string | null, statusLabel: string | null): st
 
     return 'spkTableBadge--default';
 }
+
+function processBadgeClass(processName: string | null): string {
+    const label = processName?.trim().toLowerCase() ?? '';
+
+    if (label.includes('repar')) {
+        return 'spkTableBadge--reparasi';
+    }
+
+    if (label.includes('handmade')) {
+        return 'spkTableBadge--inProgress';
+    }
+
+    if (label.includes('finishing')) {
+        return 'spkTableBadge--approved';
+    }
+
+    return 'spkTableBadge--default';
+}
+
+function formatWeightValue(value: string | null): string {
+    const trimmed = value?.trim() ?? '';
+
+    return trimmed !== '' ? trimmed : '—';
+}
+
+const MONTH_LABELS = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+] as const;
+
+function formatDateDisplay(value: string | null): string {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed === '') {
+        return '—';
+    }
+
+    const [datePart, timePart] = trimmed.split(/\s+/u);
+    const [year, month, day] = (datePart ?? '').split('-');
+
+    if (!year || !month || !day) {
+        return trimmed;
+    }
+
+    const monthLabel = MONTH_LABELS[Number(month) - 1];
+
+    if (!monthLabel) {
+        return trimmed;
+    }
+
+    const dateLabel = `${day.padStart(2, '0')}-${monthLabel}-${year}`;
+
+    if (!timePart) {
+        return dateLabel;
+    }
+
+    return `${dateLabel} ${timePart.slice(0, 5)}`;
+}
+
+function parseNumericValue(value: string | null | undefined): number | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    const normalized = value.replace('%', '').trim().replace(',', '.');
+
+    if (normalized === '') {
+        return null;
+    }
+
+    const parsed = Number.parseFloat(normalized);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatTolerancePercent(value: string | null): string {
+    const trimmed = (value?.trim() ?? '').replace(/%$/u, '');
+
+    if (trimmed === '') {
+        return '—';
+    }
+
+    return `${trimmed}%`;
+}
+
+function shrinkPercentTone(
+    shrinkPercent: number | null,
+    shrinkTolerance: string | null,
+): 'ok' | 'nok' | null {
+    const tolerance = parseNumericValue(shrinkTolerance);
+
+    if (shrinkPercent === null || tolerance === null) {
+        return null;
+    }
+
+    return Math.abs(shrinkPercent) <= Math.abs(tolerance) + 0.005 ? 'ok' : 'nok';
+}
+
+function formatShrinkCell(
+    shrink: string | null,
+    startWeight: string | null,
+    shrinkTolerance: string | null,
+): ReactNode {
+    const grams = formatWeightValue(shrink);
+
+    if (grams === '—') {
+        return '—';
+    }
+
+    const shrinkValue = parseNumericValue(shrink);
+    const startValue = parseNumericValue(startWeight);
+
+    if (
+        shrinkValue === null ||
+        startValue === null ||
+        Math.abs(startValue) < 0.0005
+    ) {
+        return grams;
+    }
+
+    const percentValue =
+        Math.round(((shrinkValue / startValue) * 100) * 100) / 100;
+    const percentLabel = `${percentValue.toFixed(2)}%`;
+    const tone = shrinkPercentTone(percentValue, shrinkTolerance);
+
+    return (
+        <div className="spkTableShrinkCell">
+            <span>{grams}</span>
+            <span
+                className={[
+                    'spkShrinkPercent',
+                    tone ? `is-${tone}` : '',
+                ]
+                    .filter(Boolean)
+                    .join(' ')}
+            >
+                ({percentLabel})
+            </span>
+        </div>
+    );
+}
+
+const CRAFTSMAN_DATE_ROWS = [
+    { key: 'sendCraftsmanDate', label: 'Serah' },
+    { key: 'receivedCraftsmanDate', label: 'Terima' },
+] as const satisfies ReadonlyArray<{
+    key: keyof Pick<FinishingRow, 'sendCraftsmanDate' | 'receivedCraftsmanDate'>;
+    label: string;
+}>;
+
+const WEIGHT_ROWS = [
+    { key: 'startWeight', label: 'Awal' },
+    { key: 'finishWeight', label: 'Akhir' },
+] as const satisfies ReadonlyArray<{
+    key: keyof Pick<FinishingRow, 'startWeight' | 'finishWeight'>;
+    label: string;
+}>;
+
+const MATERIAL_WEIGHT_ROWS = [
+    { key: 'submitMaterial', label: 'Bahan Serah' },
+    { key: 'resultMaterial', label: 'Bahan Sisa' },
+] as const satisfies ReadonlyArray<{
+    key: keyof Pick<FinishingRow, 'submitMaterial' | 'resultMaterial'>;
+    label: string;
+}>;
 
 export default function FinishingIndex({
     documents,
@@ -213,23 +392,34 @@ export default function FinishingIndex({
                         <table className="spkTable">
                             <thead>
                                 <tr>
-                                    <th>No Dokumen</th>
+                                    <th>ID</th>
                                     <th>Tanggal</th>
-                                    <th>Proses</th>
+                                    <th className="spkTableColCenter">Proses</th>
                                     <th>SPK</th>
-                                    <th>Berat Awal (g)</th>
-                                    <th>Berat Akhir (g)</th>
-                                    <th>Bahan (g)</th>
-                                    <th>Sisa (g)</th>
-                                    <th>Susut (g)</th>
-                                    <th className="spkTableColNotes">Catatan</th>
-                                    <th className="spkTableColStatus">Status</th>
+                                    <th>Pengrajin</th>
+                                    <th className="spkTableColCraftsmanDate">
+                                        Tanggal Serah Terima
+                                    </th>
+                                    <th className="spkTableColWeight">Berat (g)</th>
+                                    <th className="spkTableColWeight">
+                                        Berat Bahan (g)
+                                    </th>
+                                    <th className="spkTableColCenter">
+                                        Toleransi Susut (%)
+                                    </th>
+                                    <th className="spkTableColCenter">Susut (g)</th>
+                                    <th className="spkTableColNotes spkTableColCenter">
+                                        Catatan
+                                    </th>
+                                    <th className="spkTableColStatus spkTableColCenter">
+                                        Status
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {documents.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={11}>
+                                        <td colSpan={12}>
                                             Tidak ada data dokumen finishing.
                                         </td>
                                     </tr>
@@ -249,8 +439,18 @@ export default function FinishingIndex({
                                                     {item.docNo ?? '—'}
                                                 </button>
                                             </td>
-                                            <td>{item.transDate ?? '—'}</td>
-                                            <td>{item.processName ?? '—'}</td>
+                                            <td>{formatDateDisplay(item.transDate)}</td>
+                                            <td className="spkTableColCenter">
+                                                {item.processName ? (
+                                                    <span
+                                                        className={`spkTableBadge ${processBadgeClass(item.processName)}`}
+                                                    >
+                                                        {item.processName}
+                                                    </span>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </td>
                                             <td>
                                                 {item.spkNo ? (
                                                     <button
@@ -270,19 +470,86 @@ export default function FinishingIndex({
                                                     '—'
                                                 )}
                                             </td>
-                                            <td>{item.startWeight ?? '—'}</td>
-                                            <td>{item.finishWeight ?? '—'}</td>
-                                            <td>{item.submitMaterial ?? '—'}</td>
-                                            <td>{item.resultMaterial ?? '—'}</td>
-                                            <td>{item.shrink ?? '—'}</td>
-                                            <td className="spkTableColNotes">
+                                            <td>{item.craftsmanName ?? '—'}</td>
+                                            <td className="spkTableColCraftsmanDate">
+                                                <dl className="spkTableWeightStack">
+                                                    {CRAFTSMAN_DATE_ROWS.map(
+                                                        (row) => (
+                                                            <div
+                                                                key={row.key}
+                                                                className="spkTableWeightRow spkTableWeightRow--date"
+                                                            >
+                                                                <dt>
+                                                                    {row.label}
+                                                                </dt>
+                                                                <dd>
+                                                                    {formatDateDisplay(
+                                                                        item[row.key],
+                                                                    )}
+                                                                </dd>
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                </dl>
+                                            </td>
+                                            <td className="spkTableColWeight">
+                                                <dl className="spkTableWeightStack">
+                                                    {WEIGHT_ROWS.map((row) => (
+                                                        <div
+                                                            key={row.key}
+                                                            className="spkTableWeightRow"
+                                                        >
+                                                            <dt>{row.label}</dt>
+                                                            <dd>
+                                                                {formatWeightValue(
+                                                                    item[row.key],
+                                                                )}
+                                                            </dd>
+                                                        </div>
+                                                    ))}
+                                                </dl>
+                                            </td>
+                                            <td className="spkTableColWeight">
+                                                <dl className="spkTableWeightStack">
+                                                    {MATERIAL_WEIGHT_ROWS.map(
+                                                        (row) => (
+                                                            <div
+                                                                key={row.key}
+                                                                className="spkTableWeightRow spkTableWeightRow--material"
+                                                            >
+                                                                <dt>
+                                                                    {row.label}
+                                                                </dt>
+                                                                <dd>
+                                                                    {formatWeightValue(
+                                                                        item[row.key],
+                                                                    )}
+                                                                </dd>
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                </dl>
+                                            </td>
+                                            <td className="spkTableColCenter">
+                                                {formatTolerancePercent(
+                                                    item.shrinkTolerance,
+                                                )}
+                                            </td>
+                                            <td className="spkTableColCenter">
+                                                {formatShrinkCell(
+                                                    item.shrink,
+                                                    item.startWeight,
+                                                    item.shrinkTolerance,
+                                                )}
+                                            </td>
+                                            <td className="spkTableColNotes spkTableColCenter">
                                                 <NotesCell
                                                     notes={item.notes}
                                                     docNo={item.docNo}
                                                     spkNo={item.spkNo}
                                                 />
                                             </td>
-                                            <td className="spkTableColStatus">
+                                            <td className="spkTableColStatus spkTableColCenter">
                                                 {item.status ||
                                                 item.statusLabel ? (
                                                     <div className="spkTableStatus">
