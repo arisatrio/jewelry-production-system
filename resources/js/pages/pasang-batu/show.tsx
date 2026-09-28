@@ -63,7 +63,6 @@ type PasangBatuShowProps = {
         weightFinishGoods: string | null;
         shrink: string | null;
         shrinkPercent: string | null;
-        shrinkTolerance?: string | null;
         stones: PasangBatuStones;
         spk: {
             spkId: number | null;

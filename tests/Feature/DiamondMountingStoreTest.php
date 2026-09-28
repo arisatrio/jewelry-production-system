@@ -31,7 +31,7 @@ test('pasang batu store creates document with spk and marks process started', fu
         'craftsman_id' => null,
         'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'weight_frame' => '3.16',
-        'weight_diamond' => '0.023',
+        'weight_diamond' => '0.02',
         'weight_finish_goods' => '3.10',
         'notes' => 'Catatan store pasang batu',
     ]);
@@ -53,7 +53,7 @@ test('pasang batu store creates document with spk and marks process started', fu
         ->and($document->is_from_new_system)->toBe(1)
         ->and($document->process_name)->toBe('Pasang Batu')
         ->and((string) $document->weight_frame)->toBe('3.16')
-        ->and((float) $document->weight_diamond)->toBe(0.023)
+        ->and((float) $document->weight_diamond)->toBe(0.02)
         ->and((string) $document->total_weigth_frame_diamond)->toBe('3.18')
         ->and((string) $document->weight_finish_goods)->toBe('3.10')
         ->and((string) $document->mounting_shrink)->toBe('0.08')
@@ -98,6 +98,103 @@ test('pasang batu store allows null weight_finish_goods', function () {
     $response->assertRedirect(route('pasang-batu.show', $document));
     expect($document->weight_finish_goods)->toBeNull()
         ->and((string) $document->mounting_shrink)->toBe('0.00');
+
+    $document->delete();
+    $production->delete();
+});
+
+test('pasang batu store rejects diamond weight with more than two decimals', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/DMTDEC'.Str::upper(Str::random(3)),
+    ]);
+
+    $this->from(route('pasang-batu.create'))
+        ->post(route('pasang-batu.store'), [
+            'spk_id' => $production->row_id,
+            'weight_frame' => '3.16',
+            'weight_diamond' => '0.023',
+        ])
+        ->assertRedirect(route('pasang-batu.create'))
+        ->assertSessionHasErrors(['weight_diamond']);
+
+    $production->delete();
+});
+
+test('pasang batu show and index calculate shrink when legacy document has no stored shrink', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/DMTSHR'.Str::upper(Str::random(3)),
+    ]);
+    $document = DiamondMounting::factory()->create([
+        'doc_no' => 'DMD'.Str::upper(Str::random(7)),
+        'spk_id' => $production->row_id,
+        'weight_frame' => '19.83',
+        'weight_diamond' => '0.833',
+        'total_weigth_frame_diamond' => null,
+        'weight_finish_goods' => '20.46',
+        'mounting_shrink' => null,
+    ]);
+
+    $this->get(route('pasang-batu.show', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('diamondMountingItem.totalWeight', '20.66')
+            ->where('diamondMountingItem.shrink', '0.20')
+            ->where('diamondMountingItem.shrinkPercent', '0.97%')
+        );
+
+    $this->get(route('pasang-batu.index', ['search' => $document->doc_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('documents.data.0.id', $document->row_id)
+            ->where('documents.data.0.shrink', '0.20')
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
+test('pasang batu show leaves shrink empty when finish weight is missing', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/DMTSHN'.Str::upper(Str::random(3)),
+    ]);
+    $document = DiamondMounting::factory()->create([
+        'spk_id' => $production->row_id,
+        'weight_frame' => '19.83',
+        'weight_finish_goods' => null,
+        'mounting_shrink' => null,
+    ]);
+
+    $this->get(route('pasang-batu.show', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('diamondMountingItem.shrink', null)
+            ->where('diamondMountingItem.shrinkPercent', null)
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
+test('pasang batu show and edit display diamond weight with two decimals', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/DMTDSP'.Str::upper(Str::random(3)),
+    ]);
+    $document = DiamondMounting::factory()->create([
+        'spk_id' => $production->row_id,
+        'weight_diamond' => '0.833',
+    ]);
+
+    $this->get(route('pasang-batu.show', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('diamondMountingItem.weightDiamond', '0.83')
+        );
+
+    $this->get(route('pasang-batu.edit', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('form.weightDiamond', '0.83')
+        );
 
     $document->delete();
     $production->delete();

@@ -1,13 +1,14 @@
-import { useCallback, useState } from 'react';
 import { router } from '@inertiajs/react';
+import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
+import { useCallback, useState } from 'react';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { spks as searchPasangBatuSpks } from '@/routes/pasang-batu/select';
 import { edit as pasangBatuEdit } from '@/routes/pasang-batu';
+import { spks as searchPasangBatuSpks } from '@/routes/pasang-batu/select';
 import { show as spkShow } from '@/routes/spk';
 
 type SpkQueueKey = 'pending' | 'inProgress' | 'completed';
@@ -27,6 +28,7 @@ type SpkApiRow = {
 
 type PasangBatuSpkStatusCardsProps = {
     counts: SpkStatusCounts;
+    variant?: 'cards' | 'alerts';
 };
 
 type ActiveModal = {
@@ -42,6 +44,7 @@ const CARD_CONFIG: Array<{
     hint: string;
     className: string;
     modalTitle: string;
+    alertDesign: 'Information' | 'Critical' | 'Positive';
 }> = [
     {
         key: 'pending',
@@ -50,6 +53,7 @@ const CARD_CONFIG: Array<{
         hint: 'SPK belum masuk proses Pasang Batu',
         className: 'jewelcadPending',
         modalTitle: 'SPK Belum Proses Pasang Batu',
+        alertDesign: 'Information',
     },
     {
         key: 'inProgress',
@@ -58,6 +62,7 @@ const CARD_CONFIG: Array<{
         hint: 'SPK sedang dalam proses Pasang Batu',
         className: 'inProgress',
         modalTitle: 'SPK Sedang Proses Pasang Batu',
+        alertDesign: 'Critical',
     },
     {
         key: 'completed',
@@ -66,6 +71,7 @@ const CARD_CONFIG: Array<{
         hint: 'SPK sudah selesai proses Pasang Batu',
         className: 'jewelcadDone',
         modalTitle: 'SPK Selesai Proses Pasang Batu',
+        alertDesign: 'Positive',
     },
 ];
 
@@ -77,6 +83,7 @@ function displayValue(value: string | null | undefined): string {
 
 export function PasangBatuSpkStatusCards({
     counts,
+    variant = 'cards',
 }: PasangBatuSpkStatusCardsProps) {
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     const [loading, setLoading] = useState(false);
@@ -123,29 +130,63 @@ export function PasangBatuSpkStatusCards({
 
     return (
         <>
-            <div
-                className="spkStatusCards spkStatusCards--3"
-                role="status"
-                aria-live="polite"
-            >
-                {CARD_CONFIG.map((config) => (
-                    <button
-                        key={config.key}
-                        type="button"
-                        className={`spkStatusCard spkStatusCard--${config.className}`}
-                        onClick={() => openModal(config)}
-                        aria-label={`${counts[config.key].toLocaleString('id-ID')} ${config.hint}. Klik untuk lihat daftar.`}
-                    >
-                        <span className="spkStatusCardLabel">
-                            {config.label}
-                        </span>
-                        <strong className="spkStatusCardCount">
-                            {counts[config.key].toLocaleString('id-ID')}
-                        </strong>
-                        <span className="spkStatusCardHint">{config.hint}</span>
-                    </button>
-                ))}
-            </div>
+            {variant === 'alerts' ? (
+                <div
+                    className="spkTableStatusAlerts--finishing"
+                    role="group"
+                    aria-label="Ringkasan status SPK pasang batu"
+                >
+                    {CARD_CONFIG.map((config) => (
+                        <button
+                            key={config.key}
+                            type="button"
+                            className="spkTableStatusAlertBtn--finishing"
+                            onClick={() => openModal(config)}
+                            aria-label={`${counts[config.key].toLocaleString('id-ID')} ${config.hint}. Klik untuk lihat daftar.`}
+                            title={config.hint}
+                        >
+                            <MessageStrip
+                                design={config.alertDesign}
+                                hideCloseButton
+                                className="spkTableStatusAlertStrip--finishing"
+                            >
+                                <span className="spkTableStatusAlertLabel--finishing">
+                                    {config.label}
+                                </span>
+                                <strong className="spkTableStatusAlertCount--finishing">
+                                    {counts[config.key].toLocaleString('id-ID')}
+                                </strong>
+                            </MessageStrip>
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <div
+                    className="spkStatusCards spkStatusCards--3"
+                    role="status"
+                    aria-live="polite"
+                >
+                    {CARD_CONFIG.map((config) => (
+                        <button
+                            key={config.key}
+                            type="button"
+                            className={`spkStatusCard spkStatusCard--${config.className}`}
+                            onClick={() => openModal(config)}
+                            aria-label={`${counts[config.key].toLocaleString('id-ID')} ${config.hint}. Klik untuk lihat daftar.`}
+                        >
+                            <span className="spkStatusCardLabel">
+                                {config.label}
+                            </span>
+                            <strong className="spkStatusCardCount">
+                                {counts[config.key].toLocaleString('id-ID')}
+                            </strong>
+                            <span className="spkStatusCardHint">
+                                {config.hint}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <Dialog
                 open={activeModal !== null}
@@ -193,7 +234,8 @@ export function PasangBatuSpkStatusCards({
                                         >
                                             <td>{index + 1}</td>
                                             <td>
-                                                {row.diamondMountingId !== null &&
+                                                {row.diamondMountingId !==
+                                                    null &&
                                                 row.docNo !== null ? (
                                                     <button
                                                         type="button"
@@ -237,8 +279,7 @@ export function PasangBatuSpkStatusCards({
                         activeModal.total > rows.length ? (
                             <p className="spkAlertModalFootnote">
                                 Menampilkan {rows.length} dari{' '}
-                                {activeModal.total.toLocaleString('id-ID')}{' '}
-                                SPK.
+                                {activeModal.total.toLocaleString('id-ID')} SPK.
                             </p>
                         ) : null}
                     </div>

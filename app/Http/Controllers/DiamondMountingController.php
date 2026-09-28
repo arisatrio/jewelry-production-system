@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BulkUpdateDiamondMountingStatusRequest;
 use App\Http\Requests\StoreDiamondMountingRequest;
 use App\Http\Requests\UpdateDiamondMountingRequest;
 use App\Models\DiamondMounting;
@@ -11,7 +12,9 @@ use App\Support\DiamondMountingDocNumberGenerator;
 use App\Support\DiamondMountingSpkEligibility;
 use App\Support\DiamondMountingStoneSynchronizer;
 use App\Support\ProductionOrderTypeLabel;
+use App\Support\SpkApprovalRoles;
 use App\Support\SpkQtyUnit;
+use DateTimeImmutable;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -27,8 +30,18 @@ class DiamondMountingController extends Controller
     public function index(Request $request, DiamondMountingSpkEligibility $spkEligibility): Response
     {
         $search = $request->string('search')->trim()->toString();
-        $perPage = $request->integer('per_page', 10);
-        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
+        $sort = $this->resolveIndexSort($request->string('sort')->toString());
+        $direction = $this->resolveIndexDirection($request->string('direction')->toString());
+        $processFilters = $this->resolveProcessFilters($request->input('process'));
+        $statusFilters = $this->resolveStatusFilters($request->input('status'));
+        $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString());
+        $dateTo = $this->resolveIndexDate($request->string('date_to')->toString());
+        $craftsmanId = $this->resolveCraftsmanFilter($request->input('craftsman'));
+        $perPage = $this->resolveIndexPerPage($request->integer('per_page', 50));
+
+        if ($dateFrom !== null && $dateTo !== null && $dateTo < $dateFrom) {
+            $dateTo = $dateFrom;
+        }
 
         $documents = DiamondMounting::query()
             ->notDeleted()
@@ -41,6 +54,7 @@ class DiamondMountingController extends Controller
                 $query->where(function ($innerQuery) use ($search): void {
                     $innerQuery->where('doc_no', 'like', "%{$search}%")
                         ->orWhere('status', 'like', "%{$search}%")
+                        ->orWhere('process_name', 'like', "%{$search}%")
                         ->orWhere('notes', 'like', "%{$search}%")
                         ->orWhereHas('production', function ($productionQuery) use ($search): void {
                             $productionQuery->notDeleted()
@@ -52,19 +66,194 @@ class DiamondMountingController extends Controller
                         });
                 });
             })
-            ->orderByDesc('row_id')
+            ->when($processFilters !== [], function ($query) use ($processFilters): void {
+                $query->whereIn('process_name', $processFilters);
+            })
+            ->when($statusFilters !== [], function ($query) use ($statusFilters): void {
+                $statusCodes = collect($statusFilters)
+                    ->flatMap(fn (string $statusKey): array => $this->statusFilterCodes()[$statusKey] ?? [])
+                    ->unique()
+                    ->values()
+                    ->all();
+                $includeOpenUnset = in_array('open', $statusFilters, true);
+
+                $query->where(function ($statusQuery) use ($statusCodes, $includeOpenUnset): void {
+                    if ($statusCodes !== []) {
+                        $statusQuery->whereIn('status', $statusCodes);
+                    }
+
+                    if ($includeOpenUnset) {
+                        $statusQuery->orWhereNull('status')
+                            ->orWhere('status', '')
+                            ->orWhereRaw("UPPER(TRIM(status)) IN ('DRAFT', 'OPEN', '-')");
+                    }
+                });
+            })
+            ->when($dateFrom !== null, function ($query) use ($dateFrom): void {
+                $query->whereDate('send_craftsman_date', '>=', $dateFrom);
+            })
+            ->when($dateTo !== null, function ($query) use ($dateTo): void {
+                $query->whereDate('send_craftsman_date', '<=', $dateTo);
+            })
+            ->when($craftsmanId !== null, function ($query) use ($craftsmanId): void {
+                $query->where('craftman_id', $craftsmanId);
+            })
+            ->tap(fn ($query) => $this->applyIndexSort($query, $sort, $direction))
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (DiamondMounting $document): array => $this->toListItem($document));
+            ->withQueryString();
+
+        $craftsmanNames = $this->resolveCraftsmanNames(
+            $documents->getCollection()
+                ->pluck('craftman_id')
+                ->all(),
+        );
+
+        $documents->setCollection(
+            $documents->getCollection()
+                ->map(fn (DiamondMounting $document): array => $this->toListItem(
+                    $document,
+                    $craftsmanNames,
+                ))
+                ->values(),
+        );
 
         return Inertia::render('pasang-batu/index', [
             'documents' => $documents,
             'spkStatusCounts' => $this->spkStatusCounts($spkEligibility),
             'filters' => [
                 'search' => $search,
+                'sort' => $sort,
+                'direction' => $direction,
+                'process' => $processFilters,
+                'status' => $statusFilters,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'craftsman' => $craftsmanId,
                 'per_page' => $perPage,
             ],
+            'filterOptions' => [
+                'process' => $this->processOptions(),
+                'status' => [
+                    ['value' => 'open', 'label' => 'Open / Pengajuan'],
+                    ['value' => 'ppic', 'label' => 'Serahkan ke PPIC'],
+                    ['value' => 'done', 'label' => 'Completed'],
+                ],
+                'craftsman' => $this->craftsmanOptions(),
+                'per_page' => [
+                    ['value' => '10', 'label' => '10'],
+                    ['value' => '25', 'label' => '25'],
+                    ['value' => '50', 'label' => '50'],
+                    ['value' => '100', 'label' => '100'],
+                ],
+                'sort' => [
+                    ['value' => 'id', 'label' => 'ID'],
+                    ['value' => 'date', 'label' => 'Tanggal'],
+                    ['value' => 'spk', 'label' => 'No SPK'],
+                    ['value' => 'craftsman', 'label' => 'Nama Pengrajin'],
+                ],
+                'direction' => [
+                    ['value' => 'asc', 'label' => 'A–Z'],
+                    ['value' => 'desc', 'label' => 'Z–A'],
+                ],
+            ],
+            'bulkActions' => [
+                'canSubmit' => SpkApprovalRoles::canEditDraft($request->user()),
+                'canManagerApprove' => SpkApprovalRoles::canManagerApprove($request->user()),
+                'canComplete' => SpkApprovalRoles::canEditDraft($request->user()),
+                'canDelete' => SpkApprovalRoles::canEditDraft($request->user()),
+            ],
         ]);
+    }
+
+    /**
+     * Bulk update Pasang Batu document statuses via workflow actions.
+     */
+    public function bulkUpdateStatus(
+        BulkUpdateDiamondMountingStatusRequest $request,
+        DiamondMountingApprovalService $approvalService,
+    ): RedirectResponse {
+        $validated = $request->validated();
+        /** @var list<int> $ids */
+        $ids = array_map(intval(...), $validated['ids']);
+        /** @var 'submit'|'manager_approve'|'complete'|'delete' $action */
+        $action = $validated['action'];
+        $actor = $this->actorName($request);
+        $user = $request->user();
+
+        $documents = DiamondMounting::query()
+            ->notDeleted()
+            ->whereIn('row_id', $ids)
+            ->get()
+            ->keyBy('row_id');
+
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($ids as $id) {
+            $document = $documents->get($id);
+
+            if ($document === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $abilities = $approvalService->abilitiesFor($document, $user);
+            $allowed = match ($action) {
+                'submit' => $abilities['canSubmit'],
+                'manager_approve' => $abilities['canManagerApprove'],
+                'complete' => $abilities['canComplete'],
+                'delete' => $abilities['canDelete'],
+            };
+
+            if (! $allowed) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                match ($action) {
+                    'submit' => $approvalService->submit($document, $actor),
+                    'manager_approve' => $approvalService->managerApprove($document, $actor),
+                    'complete' => $approvalService->complete($document, $actor),
+                    'delete' => $document->update([
+                        'is_deleted' => 1,
+                        'deleted_date' => now(),
+                        'deleted_by' => $actor,
+                        'modified_date' => now(),
+                        'modified_by' => $actor,
+                    ]),
+                };
+                $updated++;
+            } catch (InvalidArgumentException) {
+                $skipped++;
+            }
+        }
+
+        $actionLabel = match ($action) {
+            'submit' => 'Kirim ke Manager Produksi',
+            'manager_approve' => 'Approve',
+            'complete' => 'Selesai',
+            'delete' => 'Hapus',
+        };
+
+        $verb = $action === 'delete' ? 'dihapus' : 'diperbarui';
+
+        $message = $updated > 0
+            ? "{$updated} dokumen berhasil {$verb} ({$actionLabel})."
+            : "Tidak ada dokumen yang dapat {$verb} ({$actionLabel}).";
+
+        if ($skipped > 0) {
+            $message .= " {$skipped} dilewati.";
+        }
+
+        Inertia::flash('toast', [
+            'type' => $updated > 0 ? 'success' : 'warning',
+            'message' => $message,
+        ]);
+
+        return back();
     }
 
     public function create(DiamondMountingStoneSynchronizer $stoneSynchronizer): Response
@@ -320,7 +509,7 @@ class DiamondMountingController extends Controller
                     : null,
                 'notes' => filled($pasangBatu->notes) ? (string) $pasangBatu->notes : '',
                 'weightFrame' => $this->formatDecimal($pasangBatu->weight_frame) ?? '',
-                'weightDiamond' => $this->formatDecimal($pasangBatu->weight_diamond, 3) ?? '',
+                'weightDiamond' => $this->formatDecimal($pasangBatu->weight_diamond) ?? '',
                 'weightFinishGoods' => $this->formatDecimal($pasangBatu->weight_finish_goods) ?? '',
                 'settingStones' => $stoneForm['setting'],
                 'returnStones' => $stoneForm['return'],
@@ -482,23 +671,313 @@ class DiamondMountingController extends Controller
     }
 
     /**
-     * @return array<string, mixed>
+     * @param  array<int, string>  $craftsmanNames
+     * @return array{
+     *     id: int,
+     *     docNo: string|null,
+     *     transDate: string|null,
+     *     processName: string|null,
+     *     status: string|null,
+     *     statusLabel: string,
+     *     spkNo: string|null,
+     *     craftsmanName: string|null,
+     *     sendCraftsmanDate: string|null,
+     *     receivedCraftsmanDate: string|null,
+     *     weightFrame: string|null,
+     *     weightDiamond: string|null,
+     *     totalWeight: string|null,
+     *     weightFinishGoods: string|null,
+     *     shrink: string|null,
+     *     hasWeightGain: bool,
+     *     notes: string|null
+     * }
      */
-    private function toListItem(DiamondMounting $document): array
+    private function toListItem(DiamondMounting $document, array $craftsmanNames = []): array
     {
+        $craftsmanId = filled($document->craftman_id) ? (int) $document->craftman_id : 0;
+
         return [
             'id' => (int) $document->row_id,
             'docNo' => $document->doc_no,
             'transDate' => $document->send_craftsman_date?->format('Y-m-d')
                 ?? $document->trans_date?->format('Y-m-d'),
+            'processName' => filled($document->process_name)
+                ? (string) $document->process_name
+                : null,
             'status' => filled($document->status) ? (string) $document->status : null,
             'statusLabel' => $document->statusLabel(),
             'spkNo' => $document->production?->spk_no,
+            'craftsmanName' => $craftsmanId > 0
+                ? ($craftsmanNames[$craftsmanId] ?? "Pengrajin {$craftsmanId}")
+                : null,
+            'sendCraftsmanDate' => $document->send_craftsman_date?->format('Y-m-d H:i'),
+            'receivedCraftsmanDate' => $document->received_craftsman_date?->format('Y-m-d H:i'),
             'weightFrame' => $this->formatDecimal($document->weight_frame),
-            'weightDiamond' => $this->formatDecimal($document->weight_diamond, 3),
+            'weightDiamond' => $this->formatDecimal($document->weight_diamond),
+            'totalWeight' => $this->formatDecimal($this->startWeight($document)),
             'weightFinishGoods' => $this->formatDecimal($document->weight_finish_goods),
-            'shrink' => $this->formatDecimal($document->mounting_shrink),
+            'shrink' => $this->hasMissingWeight($document)
+                ? '0.00'
+                : $this->formatGainAwareDecimal($this->shrinkValue($document)),
+            'hasWeightGain' => $this->hasWeightGain($document),
             'notes' => filled($document->notes) ? (string) $document->notes : null,
+        ];
+    }
+
+    /**
+     * Berat awal = total rangka + batu, dengan fallback ke penjumlahan komponen.
+     */
+    private function startWeight(DiamondMounting $document): ?float
+    {
+        $total = $this->toFloat($document->total_weigth_frame_diamond);
+
+        if ($total !== null) {
+            return $total;
+        }
+
+        $frame = $this->toFloat($document->weight_frame);
+
+        if ($frame === null) {
+            return null;
+        }
+
+        return round($frame + ($this->toFloat($document->weight_diamond) ?? 0.0), 2);
+    }
+
+    /**
+     * Dokumen dari sistem lama tidak menyimpan mounting_shrink, sehingga susut dihitung dari berat awal − berat barang jadi.
+     */
+    private function shrinkValue(DiamondMounting $document): ?float
+    {
+        $stored = $this->toFloat($document->mounting_shrink);
+
+        if ($stored !== null) {
+            return $stored;
+        }
+
+        $start = $this->startWeight($document);
+        $finish = $this->toFloat($document->weight_finish_goods);
+
+        if ($start === null || $finish === null) {
+            return null;
+        }
+
+        return round($start - $finish, 2);
+    }
+
+    /**
+     * Shrink is meaningless when the start or finish weight has not been filled in.
+     */
+    private function hasMissingWeight(DiamondMounting $document): bool
+    {
+        return abs($this->startWeight($document) ?? 0.0) < 0.0005
+            || abs($this->toFloat($document->weight_finish_goods) ?? 0.0) < 0.0005;
+    }
+
+    private function hasWeightGain(DiamondMounting $document): bool
+    {
+        if ($this->hasMissingWeight($document)) {
+            return false;
+        }
+
+        $start = $this->startWeight($document) ?? 0.0;
+        $finish = $this->toFloat($document->weight_finish_goods) ?? 0.0;
+
+        return ($finish - $start) > 0.0005;
+    }
+
+    /**
+     * Nilai negatif (penambahan berat) ditampilkan sebagai magnitudo bertanda plus.
+     */
+    private function formatGainAwareDecimal(mixed $value, int $precision = 2): ?string
+    {
+        $number = $this->toFloat($value);
+
+        if ($number === null) {
+            return null;
+        }
+
+        if ($number < -0.0005) {
+            return '+'.number_format(abs($number), $precision, '.', '');
+        }
+
+        return number_format($number, $precision, '.', '');
+    }
+
+    /**
+     * @param  list<mixed>  $craftsmanIds
+     * @return array<int, string>
+     */
+    private function resolveCraftsmanNames(array $craftsmanIds): array
+    {
+        $ids = collect($craftsmanIds)
+            ->map(fn (mixed $id): int => filled($id) ? (int) $id : 0)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($ids === [] || ! Schema::connection('third')->hasTable('mscraftsman')) {
+            return [];
+        }
+
+        $names = DB::connection('third')
+            ->table('mscraftsman')
+            ->whereIn('row_id', $ids)
+            ->pluck('name', 'row_id');
+
+        $resolved = [];
+
+        foreach ($ids as $id) {
+            $name = $names[$id] ?? null;
+            $resolved[$id] = filled($name) ? (string) $name : "Pengrajin {$id}";
+        }
+
+        return $resolved;
+    }
+
+    private function resolveIndexSort(string $sort): string
+    {
+        return in_array($sort, ['id', 'date', 'spk', 'craftsman'], true) ? $sort : 'id';
+    }
+
+    private function resolveIndexDirection(string $direction): string
+    {
+        return in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+    }
+
+    private function resolveIndexDate(string $date): ?string
+    {
+        $trimmed = trim($date);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $trimmed);
+
+        if ($parsed === false || $parsed->format('Y-m-d') !== $trimmed) {
+            return null;
+        }
+
+        return $trimmed;
+    }
+
+    private function resolveCraftsmanFilter(mixed $craftsman): ?int
+    {
+        if (! filled($craftsman) || ! is_numeric($craftsman)) {
+            return null;
+        }
+
+        $id = (int) $craftsman;
+
+        return $id > 0 ? $id : null;
+    }
+
+    private function resolveIndexPerPage(int $perPage): int
+    {
+        return in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<DiamondMounting>  $query
+     */
+    private function applyIndexSort($query, string $sort, string $direction): void
+    {
+        $ascending = $direction === 'asc';
+
+        match ($sort) {
+            'date' => $ascending
+                ? $query->orderBy('send_craftsman_date')->orderBy('row_id')
+                : $query->orderByDesc('send_craftsman_date')->orderByDesc('row_id'),
+            'spk' => $query
+                ->orderBy(
+                    Production::query()
+                        ->select('spk_no')
+                        ->whereColumn('spk.row_id', 'diamondmounting.spk_id')
+                        ->limit(1),
+                    $ascending ? 'asc' : 'desc',
+                )
+                ->orderBy('row_id', $ascending ? 'asc' : 'desc'),
+            'craftsman' => $query
+                ->orderBy(
+                    DB::connection('third')
+                        ->table('mscraftsman')
+                        ->select('name')
+                        ->whereColumn('mscraftsman.row_id', 'diamondmounting.craftman_id')
+                        ->limit(1),
+                    $ascending ? 'asc' : 'desc',
+                )
+                ->orderBy('row_id', $ascending ? 'asc' : 'desc'),
+            default => $ascending
+                ? $query->orderBy('doc_no')->orderBy('row_id')
+                : $query->orderByDesc('doc_no')->orderByDesc('row_id'),
+        };
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function processOptions(): array
+    {
+        return collect(DiamondMounting::processNameOptions())
+            ->map(fn (string $value): array => [
+                'value' => $value,
+                'label' => $value,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveProcessFilters(mixed $process): array
+    {
+        $allowed = DiamondMounting::processNameOptions();
+
+        return collect(is_array($process) ? $process : (filled($process) ? [$process] : []))
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter(fn (string $value): bool => in_array($value, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveStatusFilters(mixed $status): array
+    {
+        $allowed = array_keys($this->statusFilterCodes());
+
+        return collect(is_array($status) ? $status : (filled($status) ? [$status] : []))
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter(fn (string $value): bool => in_array($value, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function statusFilterCodes(): array
+    {
+        return [
+            'open' => [
+                DiamondMountingApprovalService::STATUS_SUBMITTED,
+                DiamondMounting::STATUS_TO_CRAFTSMAN,
+                DiamondMounting::STATUS_FROM_CRAFTSMAN,
+            ],
+            'ppic' => [
+                DiamondMountingApprovalService::STATUS_MANAGER,
+                DiamondMounting::STATUS_TO_PPIC,
+            ],
+            'done' => [
+                DiamondMountingApprovalService::STATUS_DONE,
+                DiamondMounting::STATUS_DONE,
+            ],
         ];
     }
 
@@ -509,9 +988,8 @@ class DiamondMountingController extends Controller
         DiamondMounting $document,
         DiamondMountingStoneSynchronizer $stoneSynchronizer,
     ): array {
-        $baseWeight = $this->toFloat($document->total_weigth_frame_diamond)
-            ?? $this->toFloat($document->weight_frame);
-        $shrink = $this->toFloat($document->mounting_shrink);
+        $baseWeight = $this->startWeight($document);
+        $shrink = $this->shrinkValue($document);
         $shrinkPercent = null;
 
         if ($shrink !== null && $baseWeight !== null && abs($baseWeight) >= 0.0005) {
@@ -534,10 +1012,10 @@ class DiamondMountingController extends Controller
             'receivedCraftsmanDate' => $document->received_craftsman_date?->format('Y-m-d H:i:s'),
             'notes' => filled($document->notes) ? (string) $document->notes : null,
             'weightFrame' => $this->formatDecimal($document->weight_frame),
-            'weightDiamond' => $this->formatDecimal($document->weight_diamond, 3),
-            'totalWeight' => $this->formatDecimal($document->total_weigth_frame_diamond),
+            'weightDiamond' => $this->formatDecimal($document->weight_diamond),
+            'totalWeight' => $this->formatDecimal($baseWeight),
             'weightFinishGoods' => $this->formatDecimal($document->weight_finish_goods),
-            'shrink' => $this->formatDecimal($document->mounting_shrink),
+            'shrink' => $this->formatDecimal($shrink),
             'shrinkPercent' => $shrinkPercent,
             'stones' => $stones,
             'spk' => $production === null && ! filled($document->spk_id)

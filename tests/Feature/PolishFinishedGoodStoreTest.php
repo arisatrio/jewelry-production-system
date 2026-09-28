@@ -48,7 +48,7 @@ test('poles chrome store creates document with spk and marks process started', f
 
     $production->refresh();
 
-    expect($document->doc_no)->toMatch('/^PFG\d{7}$/')
+    expect($document->doc_no)->toMatch('/^COR\d{7}$/')
         ->and($document->status)->toBeNull()
         ->and($document->is_from_new_system)->toBe(1)
         ->and((string) $document->start_weight)->toBe('3.16')

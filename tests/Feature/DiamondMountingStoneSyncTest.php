@@ -42,7 +42,7 @@ test('pasang batu store syncs setting and mounted stone details', function () {
     $response = $this->post(route('pasang-batu.store'), [
         'spk_id' => $production->row_id,
         'weight_frame' => '2.70',
-        'weight_diamond' => '0.050',
+        'weight_diamond' => '0.05',
         'weight_finish_goods' => '2.60',
         'setting_stones' => [
             [

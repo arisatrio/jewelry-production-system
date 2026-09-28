@@ -46,7 +46,6 @@ type PasangBatuDetailItem = {
     weightFinishGoods: string | null;
     shrink: string | null;
     shrinkPercent: string | null;
-    shrinkTolerance?: string | null;
     stones: PasangBatuStones;
     spk: PasangBatuSpk | null;
 };
@@ -103,22 +102,6 @@ function displayValue(value: string | null | undefined): string {
     return trimmed !== '' ? trimmed : '—';
 }
 
-function parseNumeric(value: string | null | undefined): number | null {
-    if (value === null || value === undefined) {
-        return null;
-    }
-
-    const normalized = value.replace('%', '').trim().replace(',', '.');
-
-    if (normalized === '') {
-        return null;
-    }
-
-    const parsed = Number.parseFloat(normalized);
-
-    return Number.isFinite(parsed) ? parsed : null;
-}
-
 function formatShrinkPercentDisplay(value: string): string {
     const trimmed = value.trim();
 
@@ -127,20 +110,6 @@ function formatShrinkPercentDisplay(value: string): string {
     }
 
     return trimmed.endsWith('%') ? trimmed : `${trimmed}%`;
-}
-
-function shrinkPercentTone(
-    shrinkPercent: string | null,
-    shrinkTolerance: string | null,
-): 'ok' | 'nok' | null {
-    const percent = parseNumeric(shrinkPercent);
-    const tolerance = parseNumeric(shrinkTolerance);
-
-    if (percent === null || tolerance === null) {
-        return null;
-    }
-
-    return Math.abs(percent) <= Math.abs(tolerance) + 0.005 ? 'ok' : 'nok';
 }
 
 function formatDateTime(value: string | null): string {
@@ -213,11 +182,6 @@ export function PasangBatuDetail({
         [approvalHistory],
     );
 
-    const shrinkTone = shrinkPercentTone(
-        diamondMountingItem.shrinkPercent,
-        diamondMountingItem.shrinkTolerance ?? null,
-    );
-
     const submitToManager = () => {
         if (!submitUrl || !approval.canSubmit) {
             return;
@@ -275,7 +239,9 @@ export function PasangBatuDetail({
                             <div className="spkDocTitleBlock">
                                 <div className="spkDocTitleRow">
                                     <h1 className="spkDocTitle">
-                                        {displayValue(diamondMountingItem.docNo)}
+                                        {displayValue(
+                                            diamondMountingItem.docNo,
+                                        )}
                                     </h1>
                                 </div>
                             </div>
@@ -540,16 +506,7 @@ export function PasangBatuDetail({
                                                             <>
                                                                 {' '}
                                                                 (
-                                                                <span
-                                                                    className={[
-                                                                        'spkShrinkPercent',
-                                                                        shrinkTone
-                                                                            ? `is-${shrinkTone}`
-                                                                            : '',
-                                                                    ]
-                                                                        .filter(Boolean)
-                                                                        .join(' ')}
-                                                                >
+                                                                <span className="spkShrinkPercent">
                                                                     {formatShrinkPercentDisplay(
                                                                         diamondMountingItem.shrinkPercent,
                                                                     )}
@@ -559,27 +516,13 @@ export function PasangBatuDetail({
                                                         ) : null}
                                                     </td>
                                                 </tr>
-                                                <tr>
-                                                    <th scope="row">
-                                                        Toleransi Susut
-                                                    </th>
-                                                    <td>
-                                                        {diamondMountingItem.shrinkTolerance
-                                                            ? formatShrinkPercentDisplay(
-                                                                  diamondMountingItem.shrinkTolerance,
-                                                              )
-                                                            : '—'}
-                                                    </td>
-                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 </section>
 
                                 <section className="spkShowSection spkDetailCard spkDetailCard--co6">
-                                    <h3 className="spkShowSectionTitle">
-                                        SPK
-                                    </h3>
+                                    <h3 className="spkShowSectionTitle">SPK</h3>
                                     {diamondMountingItem.spk === null ? (
                                         <p>Belum ada SPK pada dokumen ini.</p>
                                     ) : (
@@ -587,7 +530,8 @@ export function PasangBatuDetail({
                                             <DetailField label="SPK">
                                                 <strong>
                                                     {displayValue(
-                                                        diamondMountingItem.spk.spkNo,
+                                                        diamondMountingItem.spk
+                                                            .spkNo,
                                                     )}
                                                 </strong>
                                             </DetailField>

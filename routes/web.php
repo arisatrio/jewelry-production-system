@@ -190,6 +190,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('poles-rangka.select.spks');
     Route::get('poles-rangka/create', [PolishFrameController::class, 'create'])->name('poles-rangka.create');
     Route::post('poles-rangka', [PolishFrameController::class, 'store'])->name('poles-rangka.store');
+    Route::post('poles-rangka/bulk-status', [PolishFrameController::class, 'bulkUpdateStatus'])
+        ->name('poles-rangka.bulk-status');
     Route::get('poles-rangka/{polesRangka}/edit', [PolishFrameController::class, 'edit'])
         ->whereNumber('polesRangka')
         ->name('poles-rangka.edit');
@@ -214,6 +216,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('pasang-batu.select.spks');
     Route::get('pasang-batu/create', [DiamondMountingController::class, 'create'])->name('pasang-batu.create');
     Route::post('pasang-batu', [DiamondMountingController::class, 'store'])->name('pasang-batu.store');
+    Route::post('pasang-batu/bulk-status', [DiamondMountingController::class, 'bulkUpdateStatus'])
+        ->name('pasang-batu.bulk-status');
     Route::get('pasang-batu/{pasangBatu}/edit', [DiamondMountingController::class, 'edit'])
         ->whereNumber('pasangBatu')
         ->name('pasang-batu.edit');
@@ -238,6 +242,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('poles-chrome.select.spks');
     Route::get('poles-chrome/create', [PolishFinishedGoodController::class, 'create'])->name('poles-chrome.create');
     Route::post('poles-chrome', [PolishFinishedGoodController::class, 'store'])->name('poles-chrome.store');
+    Route::post('poles-chrome/bulk-status', [PolishFinishedGoodController::class, 'bulkUpdateStatus'])
+        ->name('poles-chrome.bulk-status');
     Route::get('poles-chrome/{polesChrome}/edit', [PolishFinishedGoodController::class, 'edit'])
         ->whereNumber('polesChrome')
         ->name('poles-chrome.edit');

@@ -7,13 +7,18 @@ use App\Models\PolishFinishedGood;
 class PolishFinishedGoodDocNumberGenerator
 {
     /**
-     * Generate next Poles Chrome doc number in format PFG0000213.
+     * Legacy prefix shared with the old system; planned to move to PFG.
+     */
+    public const PREFIX = 'COR';
+
+    /**
+     * Generate next Poles Chrome doc number in format COR0007880.
      */
     public function generate(): string
     {
         $candidates = PolishFinishedGood::query()
             ->notDeleted()
-            ->where('doc_no', 'like', 'PFG%')
+            ->where('doc_no', 'like', self::PREFIX.'%')
             ->lockForUpdate()
             ->orderByDesc('doc_no')
             ->limit(50)
@@ -26,13 +31,13 @@ class PolishFinishedGoodDocNumberGenerator
                 continue;
             }
 
-            if (preg_match('/^PFG(\d+)$/', $docNo, $matches) !== 1) {
+            if (preg_match('/^'.self::PREFIX.'(\d+)$/', $docNo, $matches) !== 1) {
                 continue;
             }
 
             $max = max($max, (int) $matches[1]);
         }
 
-        return sprintf('PFG%07d', $max + 1);
+        return sprintf('%s%07d', self::PREFIX, $max + 1);
     }
 }
