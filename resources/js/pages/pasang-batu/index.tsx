@@ -11,10 +11,10 @@ import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { NotesCell } from '@/components/notes-cell';
-import { PasangBatuSpkStatusCards } from '@/components/pasang-batu/pasang-batu-spk-status-cards';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
+import { SpkProcessStatusCards } from '@/components/spk/spk-process-status-cards';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
@@ -24,9 +24,11 @@ import {
 import {
     create,
     index as pasangBatuIndex,
+    edit,
     show,
     bulkStatus,
 } from '@/routes/pasang-batu';
+import { spks as searchPasangBatuSpks } from '@/routes/pasang-batu/select';
 type PasangBatuRow = {
     id: number;
     docNo: string | null;
@@ -717,9 +719,13 @@ export default function PasangBatuIndex({
                             </div>
                         </div>
                         <div className="spkTableToolbarRight">
-                            <PasangBatuSpkStatusCards
+                            <SpkProcessStatusCards
                                 counts={spkStatusCounts}
                                 variant="alerts"
+                                processLabel="Pasang Batu"
+                                searchUrl={searchPasangBatuSpks.url}
+                                documentIdKey="diamondMountingId"
+                                documentUrl={edit.url}
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"

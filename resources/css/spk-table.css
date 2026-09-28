@@ -759,7 +759,7 @@
 }
 
 .spkTable td.spkTableColWeight.spkTableColWeight--finishing .spkTableWeightRow {
-    grid-template-columns: 2.75rem minmax(0, 1fr);
+    grid-template-columns: 2.75rem minmax(max-content, 1fr);
     gap: 0.35rem;
 }
 
@@ -781,7 +781,7 @@
 
 .spkTableWeightRow {
     display: grid;
-    grid-template-columns: 2.75rem minmax(0, 1fr);
+    grid-template-columns: 2.75rem minmax(max-content, 1fr);
     align-items: baseline;
     gap: 0.35rem;
     min-width: 0;
@@ -794,7 +794,8 @@
 }
 
 .spkTableWeightRow--material {
-    grid-template-columns: 5.5rem minmax(0, 1fr);
+    grid-template-columns: max-content minmax(max-content, 1fr);
+    gap: 0.75rem;
 }
 
 .spkTableWeightRow dt {

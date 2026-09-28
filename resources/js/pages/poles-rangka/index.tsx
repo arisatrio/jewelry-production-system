@@ -11,10 +11,10 @@ import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { NotesCell } from '@/components/notes-cell';
-import { PolesRangkaSpkStatusCards } from '@/components/poles-rangka/poles-rangka-spk-status-cards';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
+import { SpkProcessStatusCards } from '@/components/spk/spk-process-status-cards';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
@@ -24,9 +24,11 @@ import {
 import {
     create,
     index as polesRangkaIndex,
+    edit,
     show,
     bulkStatus,
 } from '@/routes/poles-rangka';
+import { spks as searchPolesRangkaSpks } from '@/routes/poles-rangka/select';
 type PolesRangkaRow = {
     id: number;
     docNo: string | null;
@@ -664,9 +666,13 @@ export default function PolesRangkaIndex({
                             </div>
                         </div>
                         <div className="spkTableToolbarRight">
-                            <PolesRangkaSpkStatusCards
+                            <SpkProcessStatusCards
                                 counts={spkStatusCounts}
                                 variant="alerts"
+                                processLabel="Poles Rangka"
+                                searchUrl={searchPolesRangkaSpks.url}
+                                documentIdKey="polishFrameId"
+                                documentUrl={edit.url}
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"

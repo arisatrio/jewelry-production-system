@@ -1,3 +1,4 @@
+import { Head, router } from '@inertiajs/react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
@@ -5,23 +6,24 @@ import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
-import { Head, router } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
-import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Button } from '@ui5/webcomponents-react/Button';
-import {
-    bulkStatus,
-    create,
-    index as coranIndex,
-    show,
-} from '@/routes/coran';
-import { CoranSpkStatusCards } from '@/components/coran/coran-spk-status-cards';
+import { Icon } from '@ui5/webcomponents-react/Icon';
+import { useEffect, useMemo, useState } from 'react';
+import { SpkProcessStatusCards } from '@/components/spk/spk-process-status-cards';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    bulkStatus,
+    create,
+    edit,
+    index as coranIndex,
+    show,
+} from '@/routes/coran';
+import { spks as searchCoranSpks } from '@/routes/coran/select';
 
 type MaterialColorBreakdown = {
     bahan: string | null;
@@ -112,7 +114,10 @@ function formatStatusLabel(
     return code !== '' ? code : '—';
 }
 
-function statusBadgeClass(status: string | null, statusLabel: string | null): string {
+function statusBadgeClass(
+    status: string | null,
+    statusLabel: string | null,
+): string {
     const label = formatStatusLabel(statusLabel, status).toLowerCase();
 
     if (label.includes('done') || label.includes('completed')) {
@@ -123,7 +128,11 @@ function statusBadgeClass(status: string | null, statusLabel: string | null): st
         return 'spkTableBadge--default';
     }
 
-    if (label.includes('approval') || label.includes('pengajuan') || label.includes('serahkan')) {
+    if (
+        label.includes('approval') ||
+        label.includes('pengajuan') ||
+        label.includes('serahkan')
+    ) {
         return 'spkTableBadge--approved';
     }
 
@@ -281,11 +290,8 @@ export default function CoranIndex({
         [corans.data],
     );
     const allPageSelected =
-        pageIds.length > 0 &&
-        pageIds.every((id) => selectedIds.includes(id));
-    const somePageSelected = pageIds.some((id) =>
-        selectedIds.includes(id),
-    );
+        pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    const somePageSelected = pageIds.some((id) => selectedIds.includes(id));
 
     const toggleSelectAll = (checked: boolean | 'indeterminate') => {
         if (checked === true) {
@@ -297,7 +303,10 @@ export default function CoranIndex({
         setSelectedIds([]);
     };
 
-    const toggleSelectRow = (id: number, checked: boolean | 'indeterminate') => {
+    const toggleSelectRow = (
+        id: number,
+        checked: boolean | 'indeterminate',
+    ) => {
         setSelectedIds((current) => {
             if (checked === true) {
                 return current.includes(id) ? current : [...current, id];
@@ -402,8 +411,7 @@ export default function CoranIndex({
         [corans.last_page],
     );
 
-    const hasCustomSort =
-        filters.sort !== 'id' || filters.direction !== 'desc';
+    const hasCustomSort = filters.sort !== 'id' || filters.direction !== 'desc';
     const hasSortDraftChanges =
         sortDraft.sort !== filters.sort ||
         sortDraft.direction !== filters.direction;
@@ -424,8 +432,7 @@ export default function CoranIndex({
         filterDraft.date_to !== '';
 
     const hasCustomEntries = filters.per_page !== 50;
-    const hasEntriesDraftChanges =
-        Number(entriesDraft) !== filters.per_page;
+    const hasEntriesDraftChanges = Number(entriesDraft) !== filters.per_page;
     const hasEntriesDraftCustom = entriesDraft !== '50';
 
     const applySort = () => {
@@ -548,9 +555,13 @@ export default function CoranIndex({
                             </div>
                         </div>
                         <div className="spkTableToolbarRight">
-                            <CoranSpkStatusCards
+                            <SpkProcessStatusCards
                                 counts={spkStatusCounts}
                                 variant="alerts"
+                                processLabel="Coran"
+                                searchUrl={searchCoranSpks.url}
+                                documentIdKey="coranId"
+                                documentUrl={edit.url}
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"
@@ -600,7 +611,9 @@ export default function CoranIndex({
                                             className={[
                                                 'spkTableHeaderIconBtn--finishing',
                                                 'spkTableHeaderIconTrigger--finishing',
-                                                hasCustomSort ? 'is-active' : '',
+                                                hasCustomSort
+                                                    ? 'is-active'
+                                                    : '',
                                             ]
                                                 .filter(Boolean)
                                                 .join(' ')}
@@ -733,12 +746,10 @@ export default function CoranIndex({
 
                                         if (open) {
                                             setFilterDraft({
-                                                status:
-                                                    filters.status[0] ?? '',
+                                                status: filters.status[0] ?? '',
                                                 date_from:
                                                     filters.date_from ?? '',
-                                                date_to:
-                                                    filters.date_to ?? '',
+                                                date_to: filters.date_to ?? '',
                                             });
                                         }
                                     }}
@@ -1079,9 +1090,7 @@ export default function CoranIndex({
                                         design="Negative"
                                         disabled={bulkSubmitting}
                                         className="spkTableBulkDeleteBtn--finishing"
-                                        onClick={() =>
-                                            runBulkStatus('delete')
-                                        }
+                                        onClick={() => runBulkStatus('delete')}
                                     >
                                         {bulkSubmitting
                                             ? 'Memproses...'
@@ -1157,19 +1166,23 @@ export default function CoranIndex({
                                     corans.data.map((item) => (
                                         <tr
                                             key={item.id}
-                                            className={[
-                                                selectedIds.includes(item.id)
-                                                    ? 'is-selected'
-                                                    : '',
-                                                isStatusIncomplete(
-                                                    item.status,
-                                                    item.statusLabel,
-                                                )
-                                                    ? 'is-incomplete'
-                                                    : '',
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' ') || undefined}
+                                            className={
+                                                [
+                                                    selectedIds.includes(
+                                                        item.id,
+                                                    )
+                                                        ? 'is-selected'
+                                                        : '',
+                                                    isStatusIncomplete(
+                                                        item.status,
+                                                        item.statusLabel,
+                                                    )
+                                                        ? 'is-incomplete'
+                                                        : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ') || undefined
+                                            }
                                         >
                                             <td className="spkTableColCheck--finishing">
                                                 <Checkbox

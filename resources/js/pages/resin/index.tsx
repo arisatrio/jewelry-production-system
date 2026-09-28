@@ -10,10 +10,10 @@ import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
 import { NotesCell } from '@/components/notes-cell';
-import { ResinSpkStatusCards } from '@/components/resin/resin-spk-status-cards';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
+import { SpkProcessStatusCards } from '@/components/spk/spk-process-status-cards';
 import {
     resolveQcStatusFromCoranStatus,
     SpkQcStatusBadge,
@@ -24,7 +24,14 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { create, index as resinIndex, show, bulkStatus } from '@/routes/resin';
+import {
+    create,
+    edit,
+    index as resinIndex,
+    show,
+    bulkStatus,
+} from '@/routes/resin';
+import { spks as searchResinSpks } from '@/routes/resin/select';
 type ResinRow = {
     id: number;
     resinId: number;
@@ -532,9 +539,13 @@ export default function ResinIndex({
                             </div>
                         </div>
                         <div className="spkTableToolbarRight">
-                            <ResinSpkStatusCards
+                            <SpkProcessStatusCards
                                 counts={spkStatusCounts}
                                 variant="alerts"
+                                processLabel="Resin"
+                                searchUrl={searchResinSpks.url}
+                                documentIdKey="resinId"
+                                documentUrl={edit.url}
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"

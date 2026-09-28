@@ -10,11 +10,11 @@ import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { FinishingSpkStatusCards } from '@/components/finishing/finishing-spk-status-cards';
 import { NotesCell } from '@/components/notes-cell';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
+import { SpkProcessStatusCards } from '@/components/spk/spk-process-status-cards';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
@@ -24,9 +24,11 @@ import {
 import {
     create,
     index as finishingIndex,
+    edit,
     show,
     bulkStatus,
 } from '@/routes/finishing';
+import { spks as searchFinishingSpks } from '@/routes/finishing/select';
 type FinishingRow = {
     id: number;
     docNo: string | null;
@@ -725,9 +727,13 @@ export default function FinishingIndex({
                             </div>
                         </div>
                         <div className="spkTableToolbarRight">
-                            <FinishingSpkStatusCards
+                            <SpkProcessStatusCards
                                 counts={spkStatusCounts}
                                 variant="alerts"
+                                processLabel="Finishing"
+                                searchUrl={searchFinishingSpks.url}
+                                documentIdKey="finishingId"
+                                documentUrl={edit.url}
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"

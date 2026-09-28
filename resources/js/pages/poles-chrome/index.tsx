@@ -11,10 +11,10 @@ import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { NotesCell } from '@/components/notes-cell';
-import { PolesChromeSpkStatusCards } from '@/components/poles-chrome/poles-chrome-spk-status-cards';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
+import { SpkProcessStatusCards } from '@/components/spk/spk-process-status-cards';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
@@ -24,9 +24,11 @@ import {
 import {
     create,
     index as polesChromeIndex,
+    edit,
     show,
     bulkStatus,
 } from '@/routes/poles-chrome';
+import { spks as searchPolesChromeSpks } from '@/routes/poles-chrome/select';
 type PolesChromeRow = {
     id: number;
     docNo: string | null;
@@ -679,9 +681,13 @@ export default function PolesChromeIndex({
                             </div>
                         </div>
                         <div className="spkTableToolbarRight">
-                            <PolesChromeSpkStatusCards
+                            <SpkProcessStatusCards
                                 counts={spkStatusCounts}
                                 variant="alerts"
+                                processLabel="Poles Chrome"
+                                searchUrl={searchPolesChromeSpks.url}
+                                documentIdKey="polishFinishedGoodId"
+                                documentUrl={edit.url}
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"

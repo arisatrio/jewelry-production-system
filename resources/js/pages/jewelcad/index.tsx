@@ -9,11 +9,11 @@ import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
-import { JewelCadSpkStatusCards } from '@/components/jewelcad/jewelcad-spk-status-cards';
 import { NotesCell, JewelCadFileIcon } from '@/components/notes-cell';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
+import { SpkProcessStatusCards } from '@/components/spk/spk-process-status-cards';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
@@ -26,6 +26,7 @@ import {
     show,
     bulkStatus,
 } from '@/routes/jewelcad';
+import { spks as searchJewelCadSpks } from '@/routes/jewelcad/select';
 
 type JewelCadRow = {
     id: number;
@@ -527,9 +528,13 @@ export default function JewelCadIndex({
                             </div>
                         </div>
                         <div className="spkTableToolbarRight">
-                            <JewelCadSpkStatusCards
+                            <SpkProcessStatusCards
                                 counts={spkStatusCounts}
                                 variant="alerts"
+                                processLabel="JewelCAD"
+                                searchUrl={searchJewelCadSpks.url}
+                                documentIdKey="requestId"
+                                documentUrl={show.url}
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"
