@@ -12,6 +12,7 @@ import { index as polesRangkaIndex } from '@/routes/poles-rangka';
 import { index as pasangBatuIndex } from '@/routes/pasang-batu';
 import { index as polesChromeIndex } from '@/routes/poles-chrome';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
+import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
 import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
@@ -67,7 +68,7 @@ export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
 
 export const defaultInventorySubmenus: ShellNavItem[] = [
     { text: 'Batu' },
-    { text: 'Bahan Emas' },
+    { text: 'Bahan Emas', href: goldMaterialsIndex.url() },
     {
         text: 'Transaksi Bahan Emas',
         href: goldMaterialTransactionsIndex.url(),

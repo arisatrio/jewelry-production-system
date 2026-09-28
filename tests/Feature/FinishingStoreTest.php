@@ -124,6 +124,59 @@ test('finishing store calculates shrink tolerance from start weight and bahan', 
     $production->delete();
 });
 
+test('finishing store keeps surplus shrink as negative value', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINNOSHR'.Str::upper(Str::random(3)),
+    ]);
+
+    $materialId = (int) DB::connection('third')
+        ->table('msmaterialgold')
+        ->where('is_deleted', 0)
+        ->orderBy('row_id')
+        ->value('row_id');
+
+    expect($materialId)->toBeGreaterThan(0);
+
+    $response = $this->post(route('finishing.store'), [
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'craftsman_id' => null,
+        'send_craftsman_date' => now()->format('Y-m-d H:i'),
+        'start_weight' => '1.19',
+        'finish_weight' => '3.03',
+        'materials' => [
+            [
+                'section' => 'bahan',
+                'materialgold_id' => $materialId,
+                'weight' => '2.32',
+            ],
+            [
+                'section' => 'sisa',
+                'materialgold_id' => $materialId,
+                'weight' => '0.66',
+            ],
+        ],
+    ]);
+
+    $document = FinishingHandmade::query()
+        ->notDeleted()
+        ->where('spk_id', $production->row_id)
+        ->orderByDesc('row_id')
+        ->first();
+
+    expect($document)->not->toBeNull();
+
+    $response->assertRedirect(route('finishing.show', $document));
+
+    expect((string) $document->submit_materialgold)->toBe('2.32')
+        ->and((string) $document->result_materialgold)->toBe('0.66')
+        ->and((string) $document->shrink)->toBe('-0.18')
+        ->and((string) $document->shrink_tolerance)->toBe('-5.13');
+
+    $document->delete();
+    $production->delete();
+});
+
 test('finishing store requires spk', function () {
     $this->from(route('finishing.create'))
         ->post(route('finishing.store'), [

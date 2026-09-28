@@ -7,6 +7,7 @@ use App\Http\Controllers\DiamondMountingController;
 use App\Http\Controllers\FinishingController;
 use App\Http\Controllers\GoldMaterialTransactionController;
 use App\Http\Controllers\JewelCadRequestController;
+use App\Http\Controllers\MaterialGoldController;
 use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
@@ -258,6 +259,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('poles-chrome.show');
 
     Route::prefix('inventory')->name('inventory.')->group(function () {
+        Route::resource('bahan-emas', MaterialGoldController::class)
+            ->parameters(['bahan-emas' => 'materialGold'])
+            ->names('gold-materials');
+
         Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])
             ->name('gold-material-transactions.index');
         Route::post('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'store'])

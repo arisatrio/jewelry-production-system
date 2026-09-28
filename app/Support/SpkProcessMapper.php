@@ -969,14 +969,12 @@ class SpkProcessMapper
                 ? round((float) $record['shrink'], 2)
                 : null;
 
-            $startWeight = isset($record['start_weight']) && $record['start_weight'] !== null && $record['start_weight'] !== ''
-                ? (float) $record['start_weight']
-                : null;
+            $goldIn = (float) ($record['start_weight'] ?? 0) + (float) ($record['submit_materialgold'] ?? 0);
 
             $shrinkPercent = null;
 
-            if ($shrink !== null && $startWeight !== null && abs($startWeight) >= 0.0005) {
-                $shrinkPercent = round(($shrink / $startWeight) * 100, 2);
+            if ($shrink !== null && abs($goldIn) >= 0.0005) {
+                $shrinkPercent = round(($shrink / $goldIn) * 100, 2);
             }
 
             return [

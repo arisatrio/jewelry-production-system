@@ -48,7 +48,9 @@ type FinishingDetailItem = {
     resultMaterial: string | null;
     shrink: string | null;
     shrinkTolerance: string | null;
+    shrinkToleranceWeight: string | null;
     shrinkPercent: string | null;
+    hasWeightGain: boolean;
     koreksiQc: number | null;
     keteranganQc: string | null;
     materials: FinishingMaterials;
@@ -107,22 +109,6 @@ function displayValue(value: string | null | undefined): string {
     return trimmed !== '' ? trimmed : '—';
 }
 
-function parseNumeric(value: string | null | undefined): number | null {
-    if (value === null || value === undefined) {
-        return null;
-    }
-
-    const normalized = value.replace('%', '').trim().replace(',', '.');
-
-    if (normalized === '') {
-        return null;
-    }
-
-    const parsed = Number.parseFloat(normalized);
-
-    return Number.isFinite(parsed) ? parsed : null;
-}
-
 function formatShrinkPercentDisplay(value: string): string {
     const trimmed = value.trim();
 
@@ -131,20 +117,6 @@ function formatShrinkPercentDisplay(value: string): string {
     }
 
     return trimmed.endsWith('%') ? trimmed : `${trimmed}%`;
-}
-
-function shrinkPercentTone(
-    shrinkPercent: string | null,
-    shrinkTolerance: string | null,
-): 'ok' | 'nok' | null {
-    const percent = parseNumeric(shrinkPercent);
-    const tolerance = parseNumeric(shrinkTolerance);
-
-    if (percent === null || tolerance === null) {
-        return null;
-    }
-
-    return Math.abs(percent) <= Math.abs(tolerance) + 0.005 ? 'ok' : 'nok';
 }
 
 function formatDateTime(value: string | null): string {
@@ -215,11 +187,6 @@ export function FinishingDetail({
                 createdAt: event.createdAt,
             })),
         [approvalHistory],
-    );
-
-    const shrinkTone = shrinkPercentTone(
-        finishingItem.shrinkPercent,
-        finishingItem.shrinkTolerance,
     );
 
     const submitToManager = () => {
@@ -562,16 +529,7 @@ export function FinishingDetail({
                                                             <>
                                                                 {' '}
                                                                 (
-                                                                <span
-                                                                    className={[
-                                                                        'spkShrinkPercent',
-                                                                        shrinkTone
-                                                                            ? `is-${shrinkTone}`
-                                                                            : '',
-                                                                    ]
-                                                                        .filter(Boolean)
-                                                                        .join(' ')}
-                                                                >
+                                                                <span className="spkShrinkPercent">
                                                                     {formatShrinkPercentDisplay(
                                                                         finishingItem.shrinkPercent,
                                                                     )}
@@ -581,27 +539,13 @@ export function FinishingDetail({
                                                         ) : null}
                                                     </td>
                                                 </tr>
-                                                <tr>
-                                                    <th scope="row">
-                                                        Toleransi Susut
-                                                    </th>
-                                                    <td>
-                                                        {finishingItem.shrinkTolerance
-                                                            ? formatShrinkPercentDisplay(
-                                                                  finishingItem.shrinkTolerance,
-                                                              )
-                                                            : '—'}
-                                                    </td>
-                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 </section>
 
                                 <section className="spkShowSection spkDetailCard spkDetailCard--co6">
-                                    <h3 className="spkShowSectionTitle">
-                                        SPK
-                                    </h3>
+                                    <h3 className="spkShowSectionTitle">SPK</h3>
                                     {finishingItem.spk === null ? (
                                         <p>Belum ada SPK pada dokumen ini.</p>
                                     ) : (

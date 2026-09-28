@@ -16,6 +16,7 @@ import {
     resolveProcessCardGroups,
     shouldShowProcessField,
     SHRINK_VALUE_COLUMNS,
+    sortMaterialLinesByName,
     type ProcessCardGroup,
     type ProcessMaterialLine,
 } from '@/components/spk/spk-process-display';
@@ -377,8 +378,12 @@ function FinishingMaterialCompare({
 }: {
     record: Record<string, unknown>;
 }) {
-    const materialsOut = processMaterialLines(record.materials_out);
-    const materialsIn = processMaterialLines(record.materials_in);
+    const materialsOut = sortMaterialLinesByName(
+        processMaterialLines(record.materials_out),
+    );
+    const materialsIn = sortMaterialLinesByName(
+        processMaterialLines(record.materials_in),
+    );
     const submitTotal =
         record.submit_materialgold === null ||
         record.submit_materialgold === undefined ||

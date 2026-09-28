@@ -96,23 +96,21 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                             <th className="spkShrinkColNo">No</th>
                             <th className="spkShrinkColProcess">Proses</th>
                             <th className="spkShrinkColDate">Tanggal Setor</th>
-                            <th className="spkShrinkColValue">Berat Awal (g)</th>
+                            <th className="spkShrinkColValue">
+                                Berat Awal (g)
+                            </th>
                             <th className="spkShrinkColValue">
                                 Berat Akhir (g)
                             </th>
                             <th className="spkShrinkColValue">Susut (g)</th>
                             <th className="spkShrinkColValue">% Susut</th>
-                            <th className="spkShrinkColValue">Toleransi</th>
-                            <th className="spkShrinkColStatus">
-                                Status vs Toleransi
-                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {report.rows.length === 0 ? (
                             <tr>
                                 <td
-                                    colSpan={9}
+                                    colSpan={7}
                                     className="spkShrinkReportEmpty"
                                 >
                                     Belum ada data susut untuk SPK ini.
@@ -123,9 +121,7 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                                 <tr
                                     key={`${row.no}-${row.process}-${row.setorDate}`}
                                 >
-                                    <td className="spkShrinkColNo">
-                                        {row.no}
-                                    </td>
+                                    <td className="spkShrinkColNo">{row.no}</td>
                                     <td className="spkShrinkColProcess">
                                         {row.process}
                                     </td>
@@ -147,20 +143,6 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                                     </td>
                                     <td className="spkShrinkColValue">
                                         {formatPercent(row.shrinkPercent)}
-                                    </td>
-                                    <td className="spkShrinkColValue">
-                                        {formatPercent(row.tolerance)}
-                                    </td>
-                                    <td className="spkShrinkColStatus">
-                                        {row.toleranceStatus === null ? (
-                                            '—'
-                                        ) : (
-                                            <span
-                                                className={`spkToleranceStatus is-${row.toleranceStatus.toLowerCase()}`}
-                                            >
-                                                {row.toleranceStatus}
-                                            </span>
-                                        )}
                                     </td>
                                 </tr>
                             ))

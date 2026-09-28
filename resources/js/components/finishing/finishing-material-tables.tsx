@@ -1,3 +1,4 @@
+import { sortMaterialLinesByName } from '@/components/spk/spk-process-display';
 import { formatGram } from '@/lib/utils';
 
 export type FinishingMaterialLine = {
@@ -94,12 +95,12 @@ export function FinishingMaterialTables({
             <div className="spkCoranMaterialSplit">
                 <FinishingSideTable
                     title="Bahan"
-                    lines={materials.bahan}
+                    lines={sortMaterialLinesByName(materials.bahan)}
                     total={toNumber(submitMaterial)}
                 />
                 <FinishingSideTable
                     title="Sisa"
-                    lines={materials.sisa}
+                    lines={sortMaterialLinesByName(materials.sisa)}
                     total={toNumber(resultMaterial)}
                 />
             </div>

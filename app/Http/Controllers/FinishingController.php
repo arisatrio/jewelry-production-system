@@ -735,6 +735,7 @@ class FinishingController extends Controller
      *     resultMaterial: string|null,
      *     shrink: string|null,
      *     shrinkTolerance: string|null,
+     *     hasWeightGain: bool,
      *     notes: string|null
      * }
      */
@@ -761,8 +762,9 @@ class FinishingController extends Controller
             'finishWeight' => $this->formatDecimal($document->finish_weight),
             'submitMaterial' => $this->formatDecimal($document->submit_materialgold),
             'resultMaterial' => $this->formatDecimal($document->result_materialgold),
-            'shrink' => $this->formatDecimal($document->shrink),
-            'shrinkTolerance' => $this->formatDecimal($document->shrink_tolerance, 2),
+            'shrink' => $this->formatGainAwareDecimal($document->shrink),
+            'shrinkTolerance' => $this->formatGainAwareDecimal($document->shrink_tolerance, 2),
+            'hasWeightGain' => $this->hasWeightGain($document),
             'notes' => filled($document->notes) ? (string) $document->notes : null,
         ];
     }
@@ -786,7 +788,9 @@ class FinishingController extends Controller
      *     resultMaterial: string|null,
      *     shrink: string|null,
      *     shrinkTolerance: string|null,
+     *     shrinkToleranceWeight: string|null,
      *     shrinkPercent: string|null,
+     *     hasWeightGain: bool,
      *     koreksiQc: int|null,
      *     keteranganQc: string|null,
      *     materials: array{
@@ -813,11 +817,17 @@ class FinishingController extends Controller
     ): array {
         $startWeight = $this->toFloat($document->start_weight);
         $shrink = $this->toFloat($document->shrink);
+        $goldIn = ($startWeight ?? 0.0) + ($this->toFloat($document->submit_materialgold) ?? 0.0);
         $shrinkPercent = null;
 
-        if ($shrink !== null && $startWeight !== null && abs($startWeight) >= 0.0005) {
-            $shrinkPercent = number_format(($shrink / $startWeight) * 100, 2, '.', '').'%';
+        if ($shrink !== null && abs($goldIn) >= 0.0005) {
+            $shrinkPercent = $this->formatGainAwarePercent(($shrink / $goldIn) * 100);
         }
+
+        $shrinkTolerance = $this->toFloat($document->shrink_tolerance);
+        $shrinkToleranceWeight = $shrinkTolerance === null
+            ? null
+            : $this->formatGainAwareDecimal($shrinkTolerance / 100 * $goldIn);
 
         $production = $document->production;
         $materials = $materialBreakdown->forIds([(int) $document->row_id])[(int) $document->row_id]
@@ -845,9 +855,11 @@ class FinishingController extends Controller
             'finishWeight' => $this->formatDecimal($document->finish_weight),
             'submitMaterial' => $this->formatDecimal($document->submit_materialgold),
             'resultMaterial' => $this->formatDecimal($document->result_materialgold),
-            'shrink' => $this->formatDecimal($document->shrink),
-            'shrinkTolerance' => $this->formatDecimal($document->shrink_tolerance, 2),
+            'shrink' => $this->formatGainAwareDecimal($document->shrink),
+            'shrinkTolerance' => $this->formatGainAwareDecimal($document->shrink_tolerance, 2),
+            'shrinkToleranceWeight' => $shrinkToleranceWeight,
             'shrinkPercent' => $shrinkPercent,
+            'hasWeightGain' => $this->hasWeightGain($document),
             'koreksiQc' => filled($document->koreksi_qc) ? (int) $document->koreksi_qc : null,
             'keteranganQc' => filled($document->keterangan_qc)
                 ? (string) $document->keterangan_qc
@@ -924,6 +936,16 @@ class FinishingController extends Controller
             'shrink' => number_format($shrink, 2, '.', ''),
             'shrink_tolerance' => number_format($shrinkTolerance, 2, '.', ''),
         ])->save();
+    }
+
+    private function hasWeightGain(FinishingHandmade $document): bool
+    {
+        $start = $this->toFloat($document->start_weight) ?? 0.0;
+        $finish = $this->toFloat($document->finish_weight) ?? 0.0;
+        $submit = $this->toFloat($document->submit_materialgold) ?? 0.0;
+        $result = $this->toFloat($document->result_materialgold) ?? 0.0;
+
+        return (($finish + $result) - ($start + $submit)) > 0.0005;
     }
 
     /**
@@ -1215,6 +1237,33 @@ class FinishingController extends Controller
         }
 
         return number_format($number, $precision, '.', '');
+    }
+
+    /**
+     * Nilai negatif (penambahan berat) ditampilkan sebagai magnitudo bertanda plus.
+     */
+    private function formatGainAwareDecimal(mixed $value, int $precision = 2): ?string
+    {
+        $number = $this->toFloat($value);
+
+        if ($number === null) {
+            return null;
+        }
+
+        if ($number < -0.0005) {
+            return '+'.number_format(abs($number), $precision, '.', '');
+        }
+
+        return number_format($number, $precision, '.', '');
+    }
+
+    private function formatGainAwarePercent(float $percent): string
+    {
+        if ($percent < -0.0005) {
+            return '+'.number_format(abs($percent), 2, '.', '').'%';
+        }
+
+        return number_format($percent, 2, '.', '').'%';
     }
 
     private function toFloat(mixed $value): ?float

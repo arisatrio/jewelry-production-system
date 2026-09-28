@@ -282,7 +282,7 @@ test('spk process mapper attaches finishing material breakdown lines', function 
         ->and($row['materials_in'])->toHaveCount(4)
         ->and($row['tanggal'])->toBe('16-Mar-2026')
         ->and($row['pengrajin'])->toBe('Jajang')
-        ->and($row['shrink_percent'])->toBe(7.41);
+        ->and($row['shrink_percent'])->toBe(5.99);
 });
 
 test('spk process mapper attaches resin approval timeline from parent resin doc', function () {

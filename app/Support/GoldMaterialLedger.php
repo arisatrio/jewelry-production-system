@@ -51,33 +51,10 @@ class GoldMaterialLedger
             return [];
         }
 
-        $stockQuery = DB::connection('third')
-            ->table('trmaterialgold as gold_transaction')
-            ->join(
-                'mstranstype as transaction_type',
-                'transaction_type.row_id',
-                '=',
-                'gold_transaction.transtype_id',
-            )
-            ->where('gold_transaction.period_id', $periodId)
-            ->where('gold_transaction.is_deleted', 0)
-            ->where('transaction_type.is_deleted', 0)
-            ->select('gold_transaction.materialgold_id')
-            ->selectRaw(
-                "SUM(CASE
-                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'IN'
-                        THEN COALESCE(gold_transaction.weight, 0)
-                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'OUT'
-                        THEN -COALESCE(gold_transaction.weight, 0)
-                    ELSE 0
-                END) as stock"
-            )
-            ->groupBy('gold_transaction.materialgold_id');
-
         return DB::connection('third')
             ->table('msmaterialgold as material')
             ->leftJoinSub(
-                $stockQuery,
+                $this->stockQuery($periodId),
                 'material_stock',
                 'material_stock.materialgold_id',
                 '=',
@@ -102,6 +79,31 @@ class GoldMaterialLedger
     }
 
     /**
+     * Stock per bahan emas in the given period, keyed by materialgold_id.
+     *
+     * @param  list<int>  $materialIds
+     * @return array<int, string>
+     */
+    public function stockByMaterial(?int $periodId, array $materialIds): array
+    {
+        if (
+            $periodId === null
+            || $materialIds === []
+            || ! Schema::connection('third')->hasTable('trmaterialgold')
+        ) {
+            return [];
+        }
+
+        return $this->stockQuery($periodId)
+            ->whereIn('gold_transaction.materialgold_id', $materialIds)
+            ->get()
+            ->mapWithKeys(fn (object $row): array => [
+                (int) $row->materialgold_id => number_format((float) ($row->stock ?? 0), 2, '.', ''),
+            ])
+            ->all();
+    }
+
+    /**
      * @return LengthAwarePaginator<int, array<string, int|string|null>>
      */
     public function paginate(
@@ -110,8 +112,11 @@ class GoldMaterialLedger
         ?string $dateFrom,
         ?string $dateTo,
         int $perPage,
+        ?int $materialId = null,
     ): LengthAwarePaginator {
         return $this->filteredQuery($periodId, $search, $dateFrom, $dateTo)
+            ->when($materialId !== null, fn (Builder $query) => $query
+                ->where('gold_transaction.materialgold_id', $materialId))
             ->orderByDesc('gold_transaction.row_id')
             ->paginate($perPage)
             ->withQueryString()
@@ -202,6 +207,32 @@ class GoldMaterialLedger
             'deleted_date' => null,
             'deleted_by' => null,
         ]);
+    }
+
+    private function stockQuery(int $periodId): Builder
+    {
+        return DB::connection('third')
+            ->table('trmaterialgold as gold_transaction')
+            ->join(
+                'mstranstype as transaction_type',
+                'transaction_type.row_id',
+                '=',
+                'gold_transaction.transtype_id',
+            )
+            ->where('gold_transaction.period_id', $periodId)
+            ->where('gold_transaction.is_deleted', 0)
+            ->where('transaction_type.is_deleted', 0)
+            ->select('gold_transaction.materialgold_id')
+            ->selectRaw(
+                "SUM(CASE
+                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'IN'
+                        THEN COALESCE(gold_transaction.weight, 0)
+                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'OUT'
+                        THEN -COALESCE(gold_transaction.weight, 0)
+                    ELSE 0
+                END) as stock"
+            )
+            ->groupBy('gold_transaction.materialgold_id');
     }
 
     private function filteredQuery(

@@ -9,7 +9,12 @@ import { Head, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Button } from '@ui5/webcomponents-react/Button';
-import { create, index as finishingIndex, show, bulkStatus } from '@/routes/finishing';
+import {
+    create,
+    index as finishingIndex,
+    show,
+    bulkStatus,
+} from '@/routes/finishing';
 import { show as spkShow } from '@/routes/spk';
 import { NotesCell } from '@/components/notes-cell';
 import { FinishingSpkStatusCards } from '@/components/finishing/finishing-spk-status-cards';
@@ -37,6 +42,7 @@ type FinishingRow = {
     resultMaterial: string | null;
     shrink: string | null;
     shrinkTolerance: string | null;
+    hasWeightGain: boolean;
     notes: string | null;
 };
 
@@ -102,7 +108,10 @@ function formatStatusLabel(
     return code !== '' ? code : '—';
 }
 
-function statusBadgeClass(status: string | null, statusLabel: string | null): string {
+function statusBadgeClass(
+    status: string | null,
+    statusLabel: string | null,
+): string {
     const label = formatStatusLabel(statusLabel, status).toLowerCase();
 
     if (label.includes('done') || label.includes('completed')) {
@@ -113,7 +122,11 @@ function statusBadgeClass(status: string | null, statusLabel: string | null): st
         return 'spkTableBadge--default';
     }
 
-    if (label.includes('serahkan') || label.includes('pengrajin') || label.includes('loket')) {
+    if (
+        label.includes('serahkan') ||
+        label.includes('pengrajin') ||
+        label.includes('loket')
+    ) {
         return 'spkTableBadge--approved';
     }
 
@@ -204,33 +217,11 @@ function parseNumericValue(value: string | null | undefined): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-function formatTolerancePercent(value: string | null): string {
-    const trimmed = (value?.trim() ?? '').replace(/%$/u, '');
-
-    if (trimmed === '') {
-        return '—';
-    }
-
-    return `${trimmed}%`;
-}
-
-function shrinkPercentTone(
-    shrinkPercent: number | null,
-    shrinkTolerance: string | null,
-): 'ok' | 'nok' | null {
-    const tolerance = parseNumericValue(shrinkTolerance);
-
-    if (shrinkPercent === null || tolerance === null) {
-        return null;
-    }
-
-    return Math.abs(shrinkPercent) <= Math.abs(tolerance) + 0.005 ? 'ok' : 'nok';
-}
-
 function formatShrinkCell(
     shrink: string | null,
     startWeight: string | null,
-    shrinkTolerance: string | null,
+    submitMaterial: string | null,
+    hasWeightGain: boolean,
 ): ReactNode {
     const grams = formatWeightValue(shrink);
 
@@ -239,34 +230,24 @@ function formatShrinkCell(
     }
 
     const shrinkValue = parseNumericValue(shrink);
-    const startValue = parseNumericValue(startWeight);
+    const goldIn =
+        (parseNumericValue(startWeight) ?? 0) +
+        (parseNumericValue(submitMaterial) ?? 0);
 
-    if (
-        shrinkValue === null ||
-        startValue === null ||
-        Math.abs(startValue) < 0.0005
-    ) {
+    if (shrinkValue === null || Math.abs(goldIn) < 0.0005) {
         return grams;
     }
 
-    const percentValue =
-        Math.round(((shrinkValue / startValue) * 100) * 100) / 100;
-    const percentLabel = `${percentValue.toFixed(2)}%`;
-    const tone = shrinkPercentTone(percentValue, shrinkTolerance);
+    const percentValue = Math.round((shrinkValue / goldIn) * 100 * 100) / 100;
+    const percentMagnitude = Math.abs(percentValue);
+    const percentLabel = hasWeightGain
+        ? `+${percentMagnitude.toFixed(2)}%`
+        : `${percentValue.toFixed(2)}%`;
 
     return (
         <div className="spkTableShrinkCell">
             <span>{grams}</span>
-            <span
-                className={[
-                    'spkShrinkPercent',
-                    tone ? `is-${tone}` : '',
-                ]
-                    .filter(Boolean)
-                    .join(' ')}
-            >
-                ({percentLabel})
-            </span>
+            <span className="spkShrinkPercent">({percentLabel})</span>
         </div>
     );
 }
@@ -275,7 +256,10 @@ const CRAFTSMAN_DATE_ROWS = [
     { key: 'sendCraftsmanDate', label: 'Serah' },
     { key: 'receivedCraftsmanDate', label: 'Terima' },
 ] as const satisfies ReadonlyArray<{
-    key: keyof Pick<FinishingRow, 'sendCraftsmanDate' | 'receivedCraftsmanDate'>;
+    key: keyof Pick<
+        FinishingRow,
+        'sendCraftsmanDate' | 'receivedCraftsmanDate'
+    >;
     label: string;
 }>;
 
@@ -372,8 +356,7 @@ export default function FinishingIndex({
                 finishingIndex.url({
                     query: {
                         search: searchQuery || undefined,
-                        sort:
-                            filters.sort !== 'id' ? filters.sort : undefined,
+                        sort: filters.sort !== 'id' ? filters.sort : undefined,
                         direction:
                             filters.direction !== 'desc'
                                 ? filters.direction
@@ -439,12 +422,9 @@ export default function FinishingIndex({
         status: filters.status[0] ?? '',
         date_from: filters.date_from ?? '',
         date_to: filters.date_to ?? '',
-        craftsman:
-            filters.craftsman !== null ? String(filters.craftsman) : '',
+        craftsman: filters.craftsman !== null ? String(filters.craftsman) : '',
     });
-    const [entriesDraft, setEntriesDraft] = useState(
-        String(filters.per_page),
-    );
+    const [entriesDraft, setEntriesDraft] = useState(String(filters.per_page));
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
     useEffect(() => {
@@ -484,11 +464,8 @@ export default function FinishingIndex({
         [documents.data],
     );
     const allPageSelected =
-        pageIds.length > 0 &&
-        pageIds.every((id) => selectedIds.includes(id));
-    const somePageSelected = pageIds.some((id) =>
-        selectedIds.includes(id),
-    );
+        pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    const somePageSelected = pageIds.some((id) => selectedIds.includes(id));
 
     const toggleSelectAll = (checked: boolean | 'indeterminate') => {
         if (checked === true) {
@@ -500,7 +477,10 @@ export default function FinishingIndex({
         setSelectedIds([]);
     };
 
-    const toggleSelectRow = (id: number, checked: boolean | 'indeterminate') => {
+    const toggleSelectRow = (
+        id: number,
+        checked: boolean | 'indeterminate',
+    ) => {
         setSelectedIds((current) => {
             if (checked === true) {
                 return current.includes(id) ? current : [...current, id];
@@ -584,9 +564,7 @@ export default function FinishingIndex({
         const nextDateTo =
             filterDraft.date_to === '' ? null : filterDraft.date_to;
         const nextCraftsman =
-            filterDraft.craftsman === ''
-                ? null
-                : Number(filterDraft.craftsman);
+            filterDraft.craftsman === '' ? null : Number(filterDraft.craftsman);
 
         const unchanged =
             nextProcess[0] === filters.process[0] &&
@@ -678,8 +656,7 @@ export default function FinishingIndex({
         filters.date_from !== null ||
         filters.date_to !== null ||
         filters.craftsman !== null;
-    const hasCustomSort =
-        filters.sort !== 'id' || filters.direction !== 'desc';
+    const hasCustomSort = filters.sort !== 'id' || filters.direction !== 'desc';
     const hasCustomEntries = filters.per_page !== 50;
     const hasSortDraftChanges =
         sortDraft.sort !== filters.sort ||
@@ -691,8 +668,7 @@ export default function FinishingIndex({
         (filterDraft.date_to || '') !== (filters.date_to ?? '') ||
         (filterDraft.craftsman || '') !==
             (filters.craftsman !== null ? String(filters.craftsman) : '');
-    const hasEntriesDraftChanges =
-        Number(entriesDraft) !== filters.per_page;
+    const hasEntriesDraftChanges = Number(entriesDraft) !== filters.per_page;
     const hasSortDraftCustom =
         sortDraft.sort !== 'id' || sortDraft.direction !== 'desc';
     const hasFilterDraftActive =
@@ -772,7 +748,9 @@ export default function FinishingIndex({
                                             className={[
                                                 'spkTableHeaderIconBtn--finishing',
                                                 'spkTableHeaderIconTrigger--finishing',
-                                                hasCustomSort ? 'is-active' : '',
+                                                hasCustomSort
+                                                    ? 'is-active'
+                                                    : '',
                                             ]
                                                 .filter(Boolean)
                                                 .join(' ')}
@@ -907,12 +885,10 @@ export default function FinishingIndex({
                                             setFilterDraft({
                                                 process:
                                                     filters.process[0] ?? '',
-                                                status:
-                                                    filters.status[0] ?? '',
+                                                status: filters.status[0] ?? '',
                                                 date_from:
                                                     filters.date_from ?? '',
-                                                date_to:
-                                                    filters.date_to ?? '',
+                                                date_to: filters.date_to ?? '',
                                                 craftsman:
                                                     filters.craftsman !== null
                                                         ? String(
@@ -1337,9 +1313,7 @@ export default function FinishingIndex({
                                         design="Negative"
                                         disabled={bulkSubmitting}
                                         className="spkTableBulkDeleteBtn--finishing"
-                                        onClick={() =>
-                                            runBulkStatus('delete')
-                                        }
+                                        onClick={() => runBulkStatus('delete')}
                                     >
                                         {bulkSubmitting
                                             ? 'Memproses...'
@@ -1378,7 +1352,9 @@ export default function FinishingIndex({
                                     </th>
                                     <th>ID</th>
                                     <th>Tanggal</th>
-                                    <th className="spkTableColCenter">Proses</th>
+                                    <th className="spkTableColCenter">
+                                        Proses
+                                    </th>
                                     <th>SPK</th>
                                     <th>Pengrajin</th>
                                     <th className="spkTableColCraftsmanDate spkTableColCenter">
@@ -1390,10 +1366,9 @@ export default function FinishingIndex({
                                     <th className="spkTableColWeight spkTableColCenter">
                                         Berat Bahan (g)
                                     </th>
-                                    <th className="spkTableColCenter spkTableColTolerance--finishing">
-                                        Toleransi Susut (%)
+                                    <th className="spkTableColCenter">
+                                        Susut (g)
                                     </th>
-                                    <th className="spkTableColCenter">Susut (g)</th>
                                     <th className="spkTableColNotes spkTableColCenter">
                                         Catatan
                                     </th>
@@ -1405,7 +1380,7 @@ export default function FinishingIndex({
                             <tbody>
                                 {documents.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={13}>
+                                        <td colSpan={12}>
                                             Tidak ada data dokumen finishing.
                                         </td>
                                     </tr>
@@ -1448,7 +1423,11 @@ export default function FinishingIndex({
                                                     {item.docNo ?? '—'}
                                                 </button>
                                             </td>
-                                            <td>{formatDateDisplay(item.transDate)}</td>
+                                            <td>
+                                                {formatDateDisplay(
+                                                    item.transDate,
+                                                )}
+                                            </td>
                                             <td className="spkTableColCenter">
                                                 {item.processName ? (
                                                     <span
@@ -1493,7 +1472,10 @@ export default function FinishingIndex({
                                                                 </dt>
                                                                 <dd>
                                                                     {formatDateDisplay(
-                                                                        item[row.key],
+                                                                        item[
+                                                                            row
+                                                                                .key
+                                                                        ],
                                                                     )}
                                                                 </dd>
                                                             </div>
@@ -1511,7 +1493,9 @@ export default function FinishingIndex({
                                                             <dt>{row.label}</dt>
                                                             <dd>
                                                                 {formatWeightValue(
-                                                                    item[row.key],
+                                                                    item[
+                                                                        row.key
+                                                                    ],
                                                                 )}
                                                             </dd>
                                                         </div>
@@ -1531,7 +1515,10 @@ export default function FinishingIndex({
                                                                 </dt>
                                                                 <dd>
                                                                     {formatWeightValue(
-                                                                        item[row.key],
+                                                                        item[
+                                                                            row
+                                                                                .key
+                                                                        ],
                                                                     )}
                                                                 </dd>
                                                             </div>
@@ -1539,16 +1526,12 @@ export default function FinishingIndex({
                                                     )}
                                                 </dl>
                                             </td>
-                                            <td className="spkTableColCenter spkTableColTolerance--finishing">
-                                                {formatTolerancePercent(
-                                                    item.shrinkTolerance,
-                                                )}
-                                            </td>
                                             <td className="spkTableColCenter">
                                                 {formatShrinkCell(
                                                     item.shrink,
                                                     item.startWeight,
-                                                    item.shrinkTolerance,
+                                                    item.submitMaterial,
+                                                    item.hasWeightGain,
                                                 )}
                                             </td>
                                             <td className="spkTableColNotes spkTableColCenter">
@@ -1606,9 +1589,7 @@ export default function FinishingIndex({
                             <button
                                 type="button"
                                 className="spkPageBtn"
-                                disabled={
-                                    documents.current_page >= totalPages
-                                }
+                                disabled={documents.current_page >= totalPages}
                                 onClick={() =>
                                     visitPage(documents.current_page + 1)
                                 }

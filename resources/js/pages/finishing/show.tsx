@@ -65,7 +65,9 @@ type FinishingShowProps = {
         resultMaterial: string | null;
         shrink: string | null;
         shrinkTolerance: string | null;
+        shrinkToleranceWeight: string | null;
         shrinkPercent: string | null;
+        hasWeightGain: boolean;
         koreksiQc: number | null;
         keteranganQc: string | null;
         materials: FinishingMaterials;

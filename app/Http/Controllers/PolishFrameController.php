@@ -202,6 +202,7 @@ class PolishFrameController extends Controller
                 'frame_id' => null,
                 'notes' => $validated['notes'] ?? null,
                 'status' => null,
+                'is_from_new_system' => 1,
                 'is_deleted' => 0,
                 'created_date' => now(),
                 'created_by' => $actor,

@@ -26,6 +26,7 @@ export const HIDDEN_COLUMNS = new Set([
     'spk_usage_gold_color',
     'spk_usage_percent',
     'shrink_percent',
+    'shrink_tolerance',
     'is_deleted',
     'deleted_date',
     'deleted_by',
@@ -146,22 +147,13 @@ export const PROCESS_CARD_GROUPS: ProcessCardGroup[] = [
         key: 'schedule',
         label: 'Jadwal',
         variant: 'fields',
-        fields: [
-            'date_from',
-            'date_to',
-            'pengrajin',
-        ],
+        fields: ['date_from', 'date_to', 'pengrajin'],
     },
     {
         key: 'identity',
         label: 'Informasi',
         variant: 'fields',
-        fields: [
-            'craftsman_name',
-            'material',
-            'qty',
-            'estimation_brj',
-        ],
+        fields: ['craftsman_name', 'material', 'qty', 'estimation_brj'],
     },
     {
         key: 'weight',
@@ -278,9 +270,7 @@ function isGramColumn(column: string): boolean {
 }
 
 function formatGramValue(value: unknown): string {
-    return formatGram(
-        value as number | string | null | undefined,
-    );
+    return formatGram(value as number | string | null | undefined);
 }
 
 function formatShrinkTolerance(record: Record<string, unknown>): string {
@@ -556,7 +546,11 @@ export function processRecordWorkDate(
             return raw.slice(0, 11);
         }
 
-        if (/[A-Za-z]/.test(raw) && !raw.includes('T') && !/^\d{4}-/u.test(raw)) {
+        if (
+            /[A-Za-z]/.test(raw) &&
+            !raw.includes('T') &&
+            !/^\d{4}-/u.test(raw)
+        ) {
             return raw.includes(' ') ? (raw.split(/\s+/u)[0] ?? raw) : raw;
         }
 
@@ -644,9 +638,7 @@ export type ProcessMaterialLine = {
     notes: string | null;
 };
 
-export function processMaterialLines(
-    value: unknown,
-): ProcessMaterialLine[] {
+export function processMaterialLines(value: unknown): ProcessMaterialLine[] {
     if (!Array.isArray(value)) {
         return [];
     }
@@ -676,6 +668,18 @@ export function processMaterialLines(
     return lines;
 }
 
+export function sortMaterialLinesByName(
+    lines: ProcessMaterialLine[],
+): ProcessMaterialLine[] {
+    return [...lines].sort(
+        (a, b) =>
+            a.name.localeCompare(b.name, 'id', { sensitivity: 'base' }) ||
+            (a.notes ?? '').localeCompare(b.notes ?? '', 'id', {
+                sensitivity: 'base',
+            }),
+    );
+}
+
 export function isKoreksiQcActive(record: Record<string, unknown>): boolean {
     return isKoreksiQcNotOk(record.koreksi_qc);
 }
@@ -685,7 +689,9 @@ export function shouldShowProcessField(
     record: Record<string, unknown>,
 ): boolean {
     if (column === 'keterangan_qc') {
-        return isKoreksiQcActive(record) && hasProcessValue(record.keterangan_qc);
+        return (
+            isKoreksiQcActive(record) && hasProcessValue(record.keterangan_qc)
+        );
     }
 
     if (column === 'notes') {

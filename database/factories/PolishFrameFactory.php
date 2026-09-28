@@ -35,6 +35,7 @@ class PolishFrameFactory extends Factory
             'frame_id' => null,
             'notes' => fake()->optional()->sentence(),
             'status' => null,
+            'is_from_new_system' => 0,
             'is_deleted' => 0,
             'created_date' => now(),
             'created_by' => 'system',

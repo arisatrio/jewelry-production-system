@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $frame_id
  * @property string|null $status
  * @property string|null $notes
+ * @property int $is_from_new_system
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -50,6 +51,7 @@ use Illuminate\Support\Carbon;
     'frame_id',
     'status',
     'notes',
+    'is_from_new_system',
     'is_deleted',
     'created_date',
     'created_by',
@@ -95,6 +97,13 @@ class PolishFrame extends Model
     public $timestamps = false;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_from_new_system' => 0,
+    ];
+
+    /**
      * @param  Builder<PolishFrame>  $query
      * @return Builder<PolishFrame>
      */
@@ -137,6 +146,7 @@ class PolishFrame extends Model
             'date_to' => 'datetime',
             'send_craftsman_date' => 'datetime',
             'received_craftsman_date' => 'datetime',
+            'is_from_new_system' => 'integer',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',
             'modified_date' => 'datetime',

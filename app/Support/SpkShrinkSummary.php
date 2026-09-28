@@ -146,7 +146,12 @@ class SpkShrinkSummary
             $dateRaw = $record->{$source['date_column']} ?? null;
             $date = filled($dateRaw) ? Carbon::parse((string) $dateRaw) : null;
             [$startWeight, $endWeight] = $this->resolveRowWeights($record, $source['shrink_column']);
-            $shrinkPercent = $this->resolveShrinkPercent($shrink, $startWeight);
+            $shrinkPercent = $this->resolveShrinkPercent(
+                $shrink,
+                $table === 'finishinghandmade' && $startWeight !== null
+                    ? $startWeight + ($this->nullableFloat($record->submit_materialgold ?? null) ?? 0.0)
+                    : $startWeight,
+            );
             $tolerance = $hasTolerance
                 ? $this->nullableFloat($record->shrink_tolerance ?? null)
                 : null;
@@ -190,13 +195,13 @@ class SpkShrinkSummary
         ];
     }
 
-    private function resolveShrinkPercent(float $shrink, ?float $startWeight): ?float
+    private function resolveShrinkPercent(float $shrink, ?float $divisor): ?float
     {
-        if ($startWeight === null || abs($startWeight) < 0.0005) {
+        if ($divisor === null || abs($divisor) < 0.0005) {
             return null;
         }
 
-        return round(($shrink / $startWeight) * 100, 2);
+        return round(($shrink / $divisor) * 100, 2);
     }
 
     private function resolveToleranceStatus(?float $shrinkPercent, ?float $tolerance): ?string

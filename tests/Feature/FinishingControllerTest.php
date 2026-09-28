@@ -425,7 +425,7 @@ test('finishing show page is accessible', function () {
             ->where('finishingItem.submitMaterial', '1.00')
             ->where('finishingItem.resultMaterial', '0.40')
             ->where('finishingItem.shrink', '0.10')
-            ->where('finishingItem.shrinkPercent', '2.50%')
+            ->where('finishingItem.shrinkPercent', '2.00%')
             ->where('finishingItem.notes', 'Catatan detail finishing')
             ->where('finishingItem.spk.spkNo', '2026/PRD/FINSHOW')
             ->where('workflowStatus.key', 'done')
@@ -435,6 +435,69 @@ test('finishing show page is accessible', function () {
             ->where('approval.canOpenEdit', false)
             ->has('finishingItem.materials.bahan')
             ->has('finishingItem.materials.sisa')
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
+test('finishing show displays negative shrink with plus sign', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINNEGSHR',
+    ]);
+
+    $document = FinishingHandmade::factory()->done()->create([
+        'doc_no' => 'FIN9999914',
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'start_weight' => '1.19',
+        'finish_weight' => '3.03',
+        'submit_materialgold' => '2.32',
+        'result_materialgold' => '0.66',
+        'shrink' => '-0.18',
+        'shrink_tolerance' => '-5.13',
+    ]);
+
+    $this->get(route('finishing.show', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('finishing/show')
+            ->where('finishingItem.id', $document->row_id)
+            ->where('finishingItem.shrink', '+0.18')
+            ->where('finishingItem.shrinkPercent', '+5.13%')
+            ->where('finishingItem.shrinkTolerance', '+5.13')
+            ->where('finishingItem.shrinkToleranceWeight', '+0.18')
+            ->where('finishingItem.hasWeightGain', true)
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
+test('finishing show displays shrink percent of start weight plus bahan and tolerance in grams', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINTOLGR',
+    ]);
+
+    $document = FinishingHandmade::factory()->done()->create([
+        'doc_no' => 'FIN9999915',
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'start_weight' => '1.00',
+        'finish_weight' => '2.14',
+        'submit_materialgold' => '2.68',
+        'result_materialgold' => '1.47',
+        'shrink' => '0.07',
+        'shrink_tolerance' => '1.90',
+    ]);
+
+    $this->get(route('finishing.show', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('finishing/show')
+            ->where('finishingItem.shrinkPercent', '1.90%')
+            ->where('finishingItem.shrinkTolerance', '1.90')
+            ->where('finishingItem.shrinkToleranceWeight', '0.07')
         );
 
     $document->delete();
