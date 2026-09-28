@@ -62,9 +62,15 @@ test('resin index page is accessible', function () {
 test('resin index lists one row per spk detail', function () {
     $productionA = Production::factory()->create([
         'spk_no' => '2026/PRD/RSNTOTA',
+        'file_name' => 'rsntota.jpg',
+        'spk_type' => 'Pesanan',
+        'request_order_no' => 'DP-RSN01',
+        'customer_name' => 'Customer Resin',
     ]);
     $productionB = Production::factory()->create([
         'spk_no' => '2026/PRD/RSNTOTB',
+        'file_name' => null,
+        'spk_type' => 'Stok',
     ]);
 
     $resin = Resin::factory()->create([
@@ -102,6 +108,13 @@ test('resin index lists one row per spk detail', function () {
             ->where('resins.data.0.statusResin', 'OK')
             ->where('resins.data.0.notes', 'Catatan list resin')
             ->where('resins.data.0.operator', 'Operator Resin')
+            ->where(
+                'resins.data.0.spkImageUrl',
+                rtrim((string) config('spk.production_image_base_url'), '/').'/rsntota.jpg',
+            )
+            ->where('resins.data.1.spkImageUrl', null)
+            ->where('resins.data.0.orderReference', 'DP-RSN01 (Customer Resin)')
+            ->where('resins.data.1.orderReference', null)
             ->where('resins.data.1.id', $detailB->line_id)
             ->where('resins.data.1.spkNo', '2026/PRD/RSNTOTB')
             ->where('resins.data.1.beratResin', '2.75')

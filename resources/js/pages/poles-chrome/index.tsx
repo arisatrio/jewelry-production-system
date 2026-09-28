@@ -12,6 +12,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { NotesCell } from '@/components/notes-cell';
 import { PolesChromeSpkStatusCards } from '@/components/poles-chrome/poles-chrome-spk-status-cards';
+import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
+import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
+import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
@@ -24,16 +27,21 @@ import {
     show,
     bulkStatus,
 } from '@/routes/poles-chrome';
-import { show as spkShow } from '@/routes/spk';
-
 type PolesChromeRow = {
     id: number;
     docNo: string | null;
     transDate: string | null;
+    processName: string | null;
     status: string | null;
     statusLabel: string | null;
     statusItem: string | null;
     spkNo: string | null;
+    orderReference: string | null;
+    skuCode: string | null;
+    typeCode: string | null;
+    productItemName: string | null;
+    itemDescription: string | null;
+    spkImageUrl: string | null;
     craftsmanName: string | null;
     sendCraftsmanDate: string | null;
     receivedCraftsmanDate: string | null;
@@ -104,6 +112,19 @@ function formatStatusLabel(
     return code !== '' ? code : '—';
 }
 
+function isStatusIncomplete(
+    status: string | null,
+    statusLabel: string | null,
+): boolean {
+    const label = formatStatusLabel(statusLabel, status).toLowerCase();
+
+    if (label === '—' || label === '') {
+        return true;
+    }
+
+    return !(label.includes('done') || label.includes('completed'));
+}
+
 function statusBadgeClass(
     status: string | null,
     statusLabel: string | null,
@@ -149,6 +170,20 @@ const MONTH_LABELS = [
     'Nov',
     'Dec',
 ] as const;
+
+function processBadgeClass(processName: string | null): string {
+    const label = processName?.trim().toLowerCase() ?? '';
+
+    if (label.includes('repar')) {
+        return 'spkTableBadge--reparasi';
+    }
+
+    if (label.includes('general')) {
+        return 'spkTableBadge--approved';
+    }
+
+    return 'spkTableBadge--default';
+}
 
 function formatDateDisplay(value: string | null): string {
     const trimmed = value?.trim() ?? '';
@@ -1260,7 +1295,7 @@ export default function PolesChromeIndex({
                                     </th>
                                     <th>ID</th>
                                     <th>Tanggal</th>
-                                    <th>SPK</th>
+                                    <th>Item</th>
                                     <th>Pengrajin</th>
                                     <th className="spkTableColCraftsmanDate spkTableColCenter">
                                         Tanggal Serah Terima
@@ -1291,9 +1326,21 @@ export default function PolesChromeIndex({
                                         <tr
                                             key={item.id}
                                             className={
-                                                selectedIds.includes(item.id)
-                                                    ? 'is-selected'
-                                                    : undefined
+                                                [
+                                                    selectedIds.includes(
+                                                        item.id,
+                                                    )
+                                                        ? 'is-selected'
+                                                        : '',
+                                                    isStatusIncomplete(
+                                                        item.status,
+                                                        item.statusLabel,
+                                                    )
+                                                        ? 'is-incomplete'
+                                                        : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ') || undefined
                                             }
                                         >
                                             <td className="spkTableColCheck--finishing">
@@ -1312,18 +1359,29 @@ export default function PolesChromeIndex({
                                                     aria-label={`Pilih ${item.docNo ?? item.id}`}
                                                 />
                                             </td>
-                                            <td>
-                                                <button
-                                                    type="button"
-                                                    className="spkProduksiLink"
-                                                    onClick={() =>
-                                                        router.visit(
-                                                            show.url(item.id),
-                                                        )
-                                                    }
-                                                >
-                                                    {item.docNo ?? '—'}
-                                                </button>
+                                            <td className="spkTableColDoc">
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <button
+                                                        type="button"
+                                                        className="spkProduksiLink"
+                                                        onClick={() =>
+                                                            router.visit(
+                                                                show.url(
+                                                                    item.id,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        {item.docNo ?? '—'}
+                                                    </button>
+                                                    {item.processName ? (
+                                                        <span
+                                                            className={`spkTableBadge ${processBadgeClass(item.processName)}`}
+                                                        >
+                                                            {item.processName}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
                                             </td>
                                             <td>
                                                 {formatDateDisplay(
@@ -1331,23 +1389,38 @@ export default function PolesChromeIndex({
                                                 )}
                                             </td>
                                             <td>
-                                                {item.spkNo ? (
-                                                    <button
-                                                        type="button"
-                                                        className="spkProduksiLink"
-                                                        onClick={() =>
-                                                            router.visit(
-                                                                spkShow.url(
-                                                                    item.spkNo!,
-                                                                ),
-                                                            )
+                                                <div className="flex items-start gap-3">
+                                                    <SpkItemThumbnail
+                                                        imageUrl={
+                                                            item.spkImageUrl
                                                         }
-                                                    >
-                                                        {item.spkNo}
-                                                    </button>
-                                                ) : (
-                                                    '—'
-                                                )}
+                                                        spkNo={item.spkNo}
+                                                    />
+                                                    <div className="flex min-w-0 flex-col items-start gap-1">
+                                                        <SpkItemNoLink
+                                                            spkNo={item.spkNo}
+                                                            orderReference={
+                                                                item.orderReference
+                                                            }
+                                                        />
+                                                        <SpkItemSkuColumn
+                                                            typeCode={
+                                                                item.typeCode
+                                                            }
+                                                            productItemName={
+                                                                item.productItemName
+                                                            }
+                                                            skuCode={
+                                                                item.skuCode
+                                                            }
+                                                            itemDescription={
+                                                                item.skuCode
+                                                                    ? null
+                                                                    : item.itemDescription
+                                                            }
+                                                        />
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td>{item.craftsmanName ?? '—'}</td>
                                             <td className="spkTableColCraftsmanDate">

@@ -21,6 +21,7 @@ use App\Support\SpkApprovalService;
 use App\Support\SpkCraftsmanReport;
 use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkGoldReport;
+use App\Support\SpkItemImageUrl;
 use App\Support\SpkOrderPriorityResolver;
 use App\Support\SpkProcessMapper;
 use App\Support\SpkProductionControlReport;
@@ -2000,7 +2001,7 @@ class ProductionController extends Controller
 
     private function itemImageUrl(Production $production): ?string
     {
-        return $this->productionImageUrl($production->file_name);
+        return SpkItemImageUrl::fromFileName($production->file_name);
     }
 
     private function itemDescriptionForPrint(Production $production): ?string
@@ -2026,48 +2027,6 @@ class ProductionController extends Controller
         $extracted = trim($this->descriptionExtractor->extract($production->sku));
 
         return $extracted !== '' ? $extracted : null;
-    }
-
-    /**
-     * Resolve SPK item image URL from file_name.
-     *
-     * Legacy rows store a bare filename on GCS (production_image_base_url).
-     * New uploads are stored as a filename in bucket system-mahakarya/produksi.
-     * Older local paths (spk/{id}/file.jpg) remain readable from /storage.
-     */
-    private function productionImageUrl(?string $fileName): ?string
-    {
-        if (! filled($fileName)) {
-            return null;
-        }
-
-        $path = trim(str_replace('\\', '/', (string) $fileName));
-
-        if ($path === '' || $path === '-') {
-            return null;
-        }
-
-        if (
-            str_starts_with($path, 'http://')
-            || str_starts_with($path, 'https://')
-        ) {
-            return $path;
-        }
-
-        $path = preg_replace('#^/?storage/#', '', $path) ?? $path;
-        $path = ltrim($path, '/');
-
-        if ($path === '' || $path === '.' || $path === '-') {
-            return null;
-        }
-
-        if (str_contains($path, '/')) {
-            return '/storage/'.$path;
-        }
-
-        $base = rtrim((string) config('spk.production_image_base_url'), '/').'/';
-
-        return $base.$path;
     }
 
     private function absolutePrintImageUrl(mixed $url, Request $request): string

@@ -2,6 +2,8 @@
 
 use App\Models\PolishFinishedGood;
 use App\Models\Production;
+use App\Models\SkuMaster;
+use App\Models\SkuPrefixCategory;
 use App\Support\PolishFinishedGoodApprovalService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -28,6 +30,56 @@ test('poles chrome index exposes filters, filter options and bulk actions', func
         );
 });
 
+test('poles chrome index lists item column data from spk', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first();
+    $sku = $category !== null
+        ? SkuMaster::query()
+            ->where('category_prefix_id', $category->id)
+            ->whereNotNull('sku_code')
+            ->whereNotNull('item_original')
+            ->orderBy('id')
+            ->first()
+        : null;
+
+    if ($category === null || $sku === null) {
+        $this->markTestSkipped('Membutuhkan data SKU master dan kategori prefix yang sudah ada.');
+    }
+
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/PFGSKU'.Str::upper(Str::random(3)),
+        'description' => 'Deskripsi item poles chrome',
+        'file_name' => 'poles-chrome-sku-test.jpg',
+        'spk_type' => 'Pesanan',
+        'request_order_no' => 'DP-PFG01',
+        'customer_name' => 'Customer Poles Chrome',
+        'sku_id' => $sku->id,
+        'category_prefix_id' => $category->id,
+    ]);
+    $document = PolishFinishedGood::factory()->create([
+        'doc_no' => 'PFG'.Str::upper(Str::random(7)),
+        'spk_id' => $production->row_id,
+    ]);
+
+    $this->get(route('poles-chrome.index', ['search' => $document->doc_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('documents.data.0.id', $document->row_id)
+            ->where('documents.data.0.spkNo', $production->spk_no)
+            ->where('documents.data.0.skuCode', $sku->sku_code)
+            ->where('documents.data.0.typeCode', $category->prefix)
+            ->where('documents.data.0.productItemName', $sku->item_original)
+            ->where('documents.data.0.itemDescription', 'Deskripsi item poles chrome')
+            ->where('documents.data.0.orderReference', 'DP-PFG01 (Customer Poles Chrome)')
+            ->where(
+                'documents.data.0.spkImageUrl',
+                rtrim((string) config('spk.production_image_base_url'), '/').'/poles-chrome-sku-test.jpg',
+            )
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
 test('poles chrome index lists craftsman, handover dates and weight gain', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/PFGGN'.Str::upper(Str::random(3)),
@@ -43,6 +95,7 @@ test('poles chrome index lists craftsman, handover dates and weight gain', funct
 
     $document = PolishFinishedGood::factory()->create([
         'doc_no' => 'PFG9999921',
+        'process_name' => 'Reparation',
         'spk_id' => $production->row_id,
         'craftsman_id' => (int) $craftsman->row_id,
         'start_weight' => '2.00',
@@ -57,6 +110,7 @@ test('poles chrome index lists craftsman, handover dates and weight gain', funct
         ->assertInertia(fn ($page) => $page
             ->component('poles-chrome/index')
             ->where('documents.data.0.id', $document->row_id)
+            ->where('documents.data.0.processName', 'Reparation')
             ->where('documents.data.0.craftsmanName', (string) $craftsman->name)
             ->where('documents.data.0.sendCraftsmanDate', '2026-09-10 08:30')
             ->where('documents.data.0.receivedCraftsmanDate', '2026-09-11 15:45')

@@ -12,6 +12,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { NotesCell } from '@/components/notes-cell';
 import { PolesRangkaSpkStatusCards } from '@/components/poles-rangka/poles-rangka-spk-status-cards';
+import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
+import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
+import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
@@ -24,8 +27,6 @@ import {
     show,
     bulkStatus,
 } from '@/routes/poles-rangka';
-import { show as spkShow } from '@/routes/spk';
-
 type PolesRangkaRow = {
     id: number;
     docNo: string | null;
@@ -34,6 +35,12 @@ type PolesRangkaRow = {
     statusLabel: string | null;
     statusItem: string | null;
     spkNo: string | null;
+    orderReference: string | null;
+    skuCode: string | null;
+    typeCode: string | null;
+    productItemName: string | null;
+    itemDescription: string | null;
+    spkImageUrl: string | null;
     craftsmanName: string | null;
     sendCraftsmanDate: string | null;
     receivedCraftsmanDate: string | null;
@@ -102,6 +109,19 @@ function formatStatusLabel(
     const code = status?.trim() ?? '';
 
     return code !== '' ? code : '—';
+}
+
+function isStatusIncomplete(
+    status: string | null,
+    statusLabel: string | null,
+): boolean {
+    const label = formatStatusLabel(statusLabel, status).toLowerCase();
+
+    if (label === '—' || label === '') {
+        return true;
+    }
+
+    return !(label.includes('done') || label.includes('completed'));
 }
 
 function statusBadgeClass(
@@ -1260,7 +1280,7 @@ export default function PolesRangkaIndex({
                                     </th>
                                     <th>ID</th>
                                     <th>Tanggal</th>
-                                    <th>SPK</th>
+                                    <th>Item</th>
                                     <th>Pengrajin</th>
                                     <th className="spkTableColCraftsmanDate spkTableColCenter">
                                         Tanggal Serah Terima
@@ -1291,9 +1311,21 @@ export default function PolesRangkaIndex({
                                         <tr
                                             key={item.id}
                                             className={
-                                                selectedIds.includes(item.id)
-                                                    ? 'is-selected'
-                                                    : undefined
+                                                [
+                                                    selectedIds.includes(
+                                                        item.id,
+                                                    )
+                                                        ? 'is-selected'
+                                                        : '',
+                                                    isStatusIncomplete(
+                                                        item.status,
+                                                        item.statusLabel,
+                                                    )
+                                                        ? 'is-incomplete'
+                                                        : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ') || undefined
                                             }
                                         >
                                             <td className="spkTableColCheck--finishing">
@@ -1312,7 +1344,7 @@ export default function PolesRangkaIndex({
                                                     aria-label={`Pilih ${item.docNo ?? item.id}`}
                                                 />
                                             </td>
-                                            <td>
+                                            <td className="spkTableColDoc">
                                                 <button
                                                     type="button"
                                                     className="spkProduksiLink"
@@ -1331,23 +1363,38 @@ export default function PolesRangkaIndex({
                                                 )}
                                             </td>
                                             <td>
-                                                {item.spkNo ? (
-                                                    <button
-                                                        type="button"
-                                                        className="spkProduksiLink"
-                                                        onClick={() =>
-                                                            router.visit(
-                                                                spkShow.url(
-                                                                    item.spkNo!,
-                                                                ),
-                                                            )
+                                                <div className="flex items-start gap-3">
+                                                    <SpkItemThumbnail
+                                                        imageUrl={
+                                                            item.spkImageUrl
                                                         }
-                                                    >
-                                                        {item.spkNo}
-                                                    </button>
-                                                ) : (
-                                                    '—'
-                                                )}
+                                                        spkNo={item.spkNo}
+                                                    />
+                                                    <div className="flex min-w-0 flex-col items-start gap-1">
+                                                        <SpkItemNoLink
+                                                            spkNo={item.spkNo}
+                                                            orderReference={
+                                                                item.orderReference
+                                                            }
+                                                        />
+                                                        <SpkItemSkuColumn
+                                                            typeCode={
+                                                                item.typeCode
+                                                            }
+                                                            productItemName={
+                                                                item.productItemName
+                                                            }
+                                                            skuCode={
+                                                                item.skuCode
+                                                            }
+                                                            itemDescription={
+                                                                item.skuCode
+                                                                    ? null
+                                                                    : item.itemDescription
+                                                            }
+                                                        />
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td>{item.craftsmanName ?? '—'}</td>
                                             <td className="spkTableColCraftsmanDate">

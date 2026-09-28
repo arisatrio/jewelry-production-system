@@ -14,6 +14,8 @@ use App\Support\FinishingMaterialGoldSynchronizer;
 use App\Support\FinishingSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkApprovalRoles;
+use App\Support\SpkItemImageUrl;
+use App\Support\SpkOrderReference;
 use App\Support\SpkQtyUnit;
 use DateTimeImmutable;
 use Illuminate\Contracts\Database\Query\Builder;
@@ -52,7 +54,8 @@ class FinishingController extends Controller
             ->with([
                 'production' => fn ($productionQuery) => $productionQuery
                     ->notDeleted()
-                    ->select(['row_id', 'spk_no', 'item_name', 'customer_name']),
+                    ->with($this->productionSpkInfoRelations())
+                    ->select([...$this->productionSpkInfoColumns(), 'file_name']),
             ])
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($innerQuery) use ($search): void {
@@ -726,6 +729,12 @@ class FinishingController extends Controller
      *     status: string|null,
      *     statusLabel: string,
      *     spkNo: string|null,
+     *     orderReference: string|null,
+     *     skuCode: string|null,
+     *     typeCode: string|null,
+     *     productItemName: string|null,
+     *     itemDescription: string|null,
+     *     spkImageUrl: string|null,
      *     craftsmanName: string|null,
      *     sendCraftsmanDate: string|null,
      *     receivedCraftsmanDate: string|null,
@@ -753,6 +762,9 @@ class FinishingController extends Controller
             'status' => filled($document->status) ? (string) $document->status : null,
             'statusLabel' => $document->statusLabel(),
             'spkNo' => $document->production?->spk_no,
+            'orderReference' => SpkOrderReference::label($document->production),
+            ...$this->productionSkuFields($document->production),
+            'spkImageUrl' => SpkItemImageUrl::fromFileName($document->production?->file_name),
             'craftsmanName' => $craftsmanId > 0
                 ? ($craftsmanNames[$craftsmanId] ?? "Pengrajin {$craftsmanId}")
                 : null,
@@ -1212,12 +1224,41 @@ class FinishingController extends Controller
             return [
                 'spkType' => null,
                 'orderTypeLabel' => null,
+                ...$this->productionSkuFields(null),
+                'customerName' => null,
+                'satuan' => '—',
+            ];
+        }
+
+        return [
+            'spkType' => filled($production->spk_type)
+                ? (string) $production->spk_type
+                : null,
+            'orderTypeLabel' => app(ProductionOrderTypeLabel::class)->forProduction($production),
+            ...$this->productionSkuFields($production),
+            'customerName' => filled($production->customer_name)
+                ? (string) $production->customer_name
+                : null,
+            'satuan' => SpkQtyUnit::label($production->qty, $production->satuan),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     skuCode: string|null,
+     *     typeCode: string|null,
+     *     productItemName: string|null,
+     *     itemDescription: string|null
+     * }
+     */
+    private function productionSkuFields(?Production $production): array
+    {
+        if ($production === null) {
+            return [
                 'skuCode' => null,
                 'typeCode' => null,
                 'productItemName' => null,
                 'itemDescription' => null,
-                'customerName' => null,
-                'satuan' => '—',
             ];
         }
 
@@ -1231,20 +1272,12 @@ class FinishingController extends Controller
         $itemDescription = trim((string) ($production->description ?? ''));
 
         return [
-            'spkType' => filled($production->spk_type)
-                ? (string) $production->spk_type
-                : null,
-            'orderTypeLabel' => app(ProductionOrderTypeLabel::class)->forProduction($production),
             'skuCode' => filled($production->sku?->sku_code)
                 ? (string) $production->sku->sku_code
                 : null,
             'typeCode' => $typeCode !== '' ? $typeCode : null,
             'productItemName' => $productItemName !== '' ? $productItemName : null,
             'itemDescription' => $itemDescription !== '' ? $itemDescription : null,
-            'customerName' => filled($production->customer_name)
-                ? (string) $production->customer_name
-                : null,
-            'satuan' => SpkQtyUnit::label($production->qty, $production->satuan),
         ];
     }
 

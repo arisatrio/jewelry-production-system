@@ -1,3 +1,4 @@
+import { Head, router } from '@inertiajs/react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
@@ -5,21 +6,26 @@ import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
-import { Head, router } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
-import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Button } from '@ui5/webcomponents-react/Button';
-import { create, index as jewelCadIndex, show, bulkStatus } from '@/routes/jewelcad';
-import { show as spkShow } from '@/routes/spk';
-import { NotesCell, JewelCadFileIcon } from '@/components/notes-cell';
+import { Icon } from '@ui5/webcomponents-react/Icon';
+import { useEffect, useMemo, useState } from 'react';
 import { JewelCadSpkStatusCards } from '@/components/jewelcad/jewelcad-spk-status-cards';
+import { NotesCell, JewelCadFileIcon } from '@/components/notes-cell';
+import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
+import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    create,
+    index as jewelCadIndex,
+    show,
+    bulkStatus,
+} from '@/routes/jewelcad';
 
 type JewelCadRow = {
     id: number;
@@ -32,11 +38,13 @@ type JewelCadRow = {
     notes: string | null;
     material: string | null;
     spkNo: string | null;
+    orderReference: string | null;
     spkId: number | null;
     skuCode: string | null;
     typeCode: string | null;
     productItemName: string | null;
     itemDescription: string | null;
+    spkImageUrl: string | null;
     qty: number | null;
     qtyLabel: string | null;
     jwcad3d: string | null;
@@ -104,7 +112,10 @@ function formatStatusLabel(
     return code !== '' ? code : '—';
 }
 
-function statusBadgeClass(status: string | null, statusLabel: string | null): string {
+function statusBadgeClass(
+    status: string | null,
+    statusLabel: string | null,
+): string {
     const label = formatStatusLabel(statusLabel, status).toLowerCase();
 
     if (label.includes('done') || label.includes('completed')) {
@@ -120,6 +131,43 @@ function statusBadgeClass(status: string | null, statusLabel: string | null): st
     }
 
     return 'spkTableBadge--default';
+}
+
+const MONTH_LABELS = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+] as const;
+
+function formatDateDisplay(value: string | null): string {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed === '') {
+        return '—';
+    }
+
+    const [year, month, day] = (trimmed.split(/\s+/u)[0] ?? '').split('-');
+
+    if (!year || !month || !day) {
+        return trimmed;
+    }
+
+    const monthLabel = MONTH_LABELS[Number(month) - 1];
+
+    if (!monthLabel) {
+        return trimmed;
+    }
+
+    return `${day.padStart(2, '0')}-${monthLabel}-${year}`;
 }
 
 function isStatusIncomplete(
@@ -178,12 +226,7 @@ export default function JewelCadIndex({
             date_to: filters.date_to ?? '',
             operator: filters.operator ?? '',
         });
-    }, [
-        filters.status,
-        filters.date_from,
-        filters.date_to,
-        filters.operator,
-    ]);
+    }, [filters.status, filters.date_from, filters.date_to, filters.operator]);
 
     useEffect(() => {
         setEntriesDraft(String(filters.per_page));
@@ -205,11 +248,8 @@ export default function JewelCadIndex({
         return ids;
     }, [requests.data]);
     const allPageSelected =
-        pageIds.length > 0 &&
-        pageIds.every((id) => selectedIds.includes(id));
-    const somePageSelected = pageIds.some((id) =>
-        selectedIds.includes(id),
-    );
+        pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    const somePageSelected = pageIds.some((id) => selectedIds.includes(id));
 
     const toggleSelectAll = (checked: boolean | 'indeterminate') => {
         if (checked === true) {
@@ -221,7 +261,10 @@ export default function JewelCadIndex({
         setSelectedIds([]);
     };
 
-    const toggleSelectRow = (id: number, checked: boolean | 'indeterminate') => {
+    const toggleSelectRow = (
+        id: number,
+        checked: boolean | 'indeterminate',
+    ) => {
         setSelectedIds((current) => {
             if (checked === true) {
                 return current.includes(id) ? current : [...current, id];
@@ -286,9 +329,7 @@ export default function JewelCadIndex({
         const nextDateTo =
             params.date_to !== undefined ? params.date_to : filters.date_to;
         const nextOperator =
-            params.operator !== undefined
-                ? params.operator
-                : filters.operator;
+            params.operator !== undefined ? params.operator : filters.operator;
         const nextPerPage = params.per_page ?? filters.per_page;
 
         router.get(
@@ -332,8 +373,7 @@ export default function JewelCadIndex({
         [requests.last_page],
     );
 
-    const hasCustomSort =
-        filters.sort !== 'id' || filters.direction !== 'desc';
+    const hasCustomSort = filters.sort !== 'id' || filters.direction !== 'desc';
     const hasSortDraftChanges =
         sortDraft.sort !== filters.sort ||
         sortDraft.direction !== filters.direction;
@@ -357,8 +397,7 @@ export default function JewelCadIndex({
         filterDraft.operator !== '';
 
     const hasCustomEntries = filters.per_page !== 50;
-    const hasEntriesDraftChanges =
-        Number(entriesDraft) !== filters.per_page;
+    const hasEntriesDraftChanges = Number(entriesDraft) !== filters.per_page;
     const hasEntriesDraftCustom = entriesDraft !== '50';
 
     const applySort = () => {
@@ -540,7 +579,9 @@ export default function JewelCadIndex({
                                             className={[
                                                 'spkTableHeaderIconBtn--finishing',
                                                 'spkTableHeaderIconTrigger--finishing',
-                                                hasCustomSort ? 'is-active' : '',
+                                                hasCustomSort
+                                                    ? 'is-active'
+                                                    : '',
                                             ]
                                                 .filter(Boolean)
                                                 .join(' ')}
@@ -673,12 +714,10 @@ export default function JewelCadIndex({
 
                                         if (open) {
                                             setFilterDraft({
-                                                status:
-                                                    filters.status[0] ?? '',
+                                                status: filters.status[0] ?? '',
                                                 date_from:
                                                     filters.date_from ?? '',
-                                                date_to:
-                                                    filters.date_to ?? '',
+                                                date_to: filters.date_to ?? '',
                                                 operator:
                                                     filters.operator ?? '',
                                             });
@@ -761,9 +800,7 @@ export default function JewelCadIndex({
                                             <label className="spkTableHeaderSortField--finishing">
                                                 <span>Operator</span>
                                                 <select
-                                                    value={
-                                                        filterDraft.operator
-                                                    }
+                                                    value={filterDraft.operator}
                                                     aria-label="Operator"
                                                     onChange={(event) =>
                                                         setFilterDraft(
@@ -1061,9 +1098,7 @@ export default function JewelCadIndex({
                                         design="Negative"
                                         disabled={bulkSubmitting}
                                         className="spkTableBulkDeleteBtn--finishing"
-                                        onClick={() =>
-                                            runBulkStatus('delete')
-                                        }
+                                        onClick={() => runBulkStatus('delete')}
                                     >
                                         {bulkSubmitting
                                             ? 'Memproses...'
@@ -1102,9 +1137,8 @@ export default function JewelCadIndex({
                                     </th>
                                     <th>ID</th>
                                     <th>Tanggal</th>
+                                    <th>Item</th>
                                     <th>Operator</th>
-                                    <th>SPK</th>
-                                    <th>SKU</th>
                                     <th>Bahan Emas</th>
                                     <th className="spkTableColWeight spkTableColCenter">
                                         Berat (g)
@@ -1123,7 +1157,7 @@ export default function JewelCadIndex({
                             <tbody>
                                 {requests.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={11}>
+                                        <td colSpan={10}>
                                             Tidak ada data request JewelCAD.
                                         </td>
                                     </tr>
@@ -1131,21 +1165,23 @@ export default function JewelCadIndex({
                                     requests.data.map((item) => (
                                         <tr
                                             key={item.id}
-                                            className={[
-                                                selectedIds.includes(
-                                                    item.requestId,
-                                                )
-                                                    ? 'is-selected'
-                                                    : '',
-                                                isStatusIncomplete(
-                                                    item.status,
-                                                    item.statusLabel,
-                                                )
-                                                    ? 'is-incomplete'
-                                                    : '',
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' ') || undefined}
+                                            className={
+                                                [
+                                                    selectedIds.includes(
+                                                        item.requestId,
+                                                    )
+                                                        ? 'is-selected'
+                                                        : '',
+                                                    isStatusIncomplete(
+                                                        item.status,
+                                                        item.statusLabel,
+                                                    )
+                                                        ? 'is-incomplete'
+                                                        : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ') || undefined
+                                            }
                                         >
                                             <td className="spkTableColCheck--finishing">
                                                 <Checkbox
@@ -1178,41 +1214,46 @@ export default function JewelCadIndex({
                                                     {item.docNo ?? '—'}
                                                 </button>
                                             </td>
-                                            <td>{item.transDate ?? '—'}</td>
-                                            <td>{item.operator ?? '—'}</td>
                                             <td>
-                                                {item.spkNo !== null ? (
-                                                    <button
-                                                        type="button"
-                                                        className="spkProduksiLink"
-                                                        onClick={() =>
-                                                            router.visit(
-                                                                spkShow.url(
-                                                                    item.spkNo!,
-                                                                ),
-                                                            )
-                                                        }
-                                                    >
-                                                        {item.spkNo}
-                                                    </button>
-                                                ) : (
-                                                    '—'
+                                                {formatDateDisplay(
+                                                    item.transDate,
                                                 )}
                                             </td>
                                             <td>
-                                                <SpkItemSkuColumn
-                                                    typeCode={item.typeCode}
-                                                    productItemName={
-                                                        item.productItemName
-                                                    }
-                                                    skuCode={item.skuCode}
-                                                    itemDescription={
-                                                        item.skuCode
-                                                            ? null
-                                                            : item.itemDescription
-                                                    }
-                                                />
+                                                <div className="flex items-start gap-3">
+                                                    <SpkItemThumbnail
+                                                        imageUrl={
+                                                            item.spkImageUrl
+                                                        }
+                                                        spkNo={item.spkNo}
+                                                    />
+                                                    <div className="flex min-w-0 flex-col items-start gap-1">
+                                                        <SpkItemNoLink
+                                                            spkNo={item.spkNo}
+                                                            orderReference={
+                                                                item.orderReference
+                                                            }
+                                                        />
+                                                        <SpkItemSkuColumn
+                                                            typeCode={
+                                                                item.typeCode
+                                                            }
+                                                            productItemName={
+                                                                item.productItemName
+                                                            }
+                                                            skuCode={
+                                                                item.skuCode
+                                                            }
+                                                            itemDescription={
+                                                                item.skuCode
+                                                                    ? null
+                                                                    : item.itemDescription
+                                                            }
+                                                        />
+                                                    </div>
+                                                </div>
                                             </td>
+                                            <td>{item.operator ?? '—'}</td>
                                             <td>{item.material ?? '—'}</td>
                                             <td className="spkTableColWeight">
                                                 <dl className="spkTableWeightStack">

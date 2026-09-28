@@ -21,6 +21,8 @@ use App\Support\JewelCadStatusMapper;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkApprovalRoles;
+use App\Support\SpkItemImageUrl;
+use App\Support\SpkOrderReference;
 use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
 use DateTimeImmutable;
@@ -124,6 +126,8 @@ class JewelCadRequestController extends Controller
                     ->select([
                         'row_id',
                         'spk_no',
+                        'spk_type',
+                        'request_order_no',
                         'item_name',
                         'customer_name',
                         'gold_weight',
@@ -133,6 +137,7 @@ class JewelCadRequestController extends Controller
                         'category_prefix_id',
                         'description',
                         'jwcad_3d',
+                        'file_name',
                     ])
                     ->with([
                         'sku' => fn ($skuQuery) => $skuQuery
@@ -1149,11 +1154,13 @@ class JewelCadRequestController extends Controller
      *     notes: string|null,
      *     material: string|null,
      *     spkNo: string|null,
+     *     orderReference: string|null,
      *     spkId: int|null,
      *     skuCode: string|null,
      *     typeCode: string|null,
      *     productItemName: string|null,
      *     itemDescription: string|null,
+     *     spkImageUrl: string|null,
      *     qty: int|null,
      *     qtyLabel: string|null,
      *     jwcad3d: string|null,
@@ -1188,6 +1195,7 @@ class JewelCadRequestController extends Controller
             'notes' => filled($request?->notes) ? (string) $request->notes : null,
             'material' => filled($detail->material) ? (string) $detail->material : null,
             'spkNo' => filled($production?->spk_no) ? (string) $production->spk_no : null,
+            'orderReference' => SpkOrderReference::label($production),
             'spkId' => filled($detail->spk_id) ? (int) $detail->spk_id : null,
             'skuCode' => filled($production?->sku?->sku_code)
                 ? (string) $production->sku->sku_code
@@ -1195,6 +1203,7 @@ class JewelCadRequestController extends Controller
             'typeCode' => $typeCode !== '' ? $typeCode : null,
             'productItemName' => $productItemName !== '' ? $productItemName : null,
             'itemDescription' => $itemDescription !== '' ? $itemDescription : null,
+            'spkImageUrl' => SpkItemImageUrl::fromFileName($production?->file_name),
             'qty' => $qty !== null ? (int) $qty : null,
             'qtyLabel' => $qty !== null
                 ? SpkQtyUnit::label((int) $qty, $production?->satuan)

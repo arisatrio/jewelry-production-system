@@ -2,6 +2,8 @@
 
 use App\Models\DiamondMounting;
 use App\Models\Production;
+use App\Models\SkuMaster;
+use App\Models\SkuPrefixCategory;
 use App\Support\DiamondMountingApprovalService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -28,6 +30,56 @@ test('pasang batu index exposes filters, filter options and bulk actions', funct
             ->where('bulkActions.canComplete', true)
             ->where('bulkActions.canDelete', true)
         );
+});
+
+test('pasang batu index lists item column data from spk', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first();
+    $sku = $category !== null
+        ? SkuMaster::query()
+            ->where('category_prefix_id', $category->id)
+            ->whereNotNull('sku_code')
+            ->whereNotNull('item_original')
+            ->orderBy('id')
+            ->first()
+        : null;
+
+    if ($category === null || $sku === null) {
+        $this->markTestSkipped('Membutuhkan data SKU master dan kategori prefix yang sudah ada.');
+    }
+
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/DMTSKU'.Str::upper(Str::random(3)),
+        'description' => 'Deskripsi item pasang batu',
+        'file_name' => 'pasang-batu-sku-test.jpg',
+        'spk_type' => 'Pesanan',
+        'request_order_no' => 'DP-DMT01',
+        'customer_name' => 'Customer Pasang Batu',
+        'sku_id' => $sku->id,
+        'category_prefix_id' => $category->id,
+    ]);
+    $document = DiamondMounting::factory()->create([
+        'doc_no' => 'DMD'.Str::upper(Str::random(7)),
+        'spk_id' => $production->row_id,
+    ]);
+
+    $this->get(route('pasang-batu.index', ['search' => $document->doc_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('documents.data.0.id', $document->row_id)
+            ->where('documents.data.0.spkNo', $production->spk_no)
+            ->where('documents.data.0.skuCode', $sku->sku_code)
+            ->where('documents.data.0.typeCode', $category->prefix)
+            ->where('documents.data.0.productItemName', $sku->item_original)
+            ->where('documents.data.0.itemDescription', 'Deskripsi item pasang batu')
+            ->where('documents.data.0.orderReference', 'DP-DMT01 (Customer Pasang Batu)')
+            ->where(
+                'documents.data.0.spkImageUrl',
+                rtrim((string) config('spk.production_image_base_url'), '/').'/pasang-batu-sku-test.jpg',
+            )
+        );
+
+    $document->delete();
+    $production->delete();
 });
 
 test('pasang batu index lists process, craftsman, handover dates and weight gain', function () {

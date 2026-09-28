@@ -1,3 +1,4 @@
+import { Head, router } from '@inertiajs/react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
@@ -5,26 +6,27 @@ import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
-import { Head, router } from '@inertiajs/react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Button } from '@ui5/webcomponents-react/Button';
-import {
-    create,
-    index as finishingIndex,
-    show,
-    bulkStatus,
-} from '@/routes/finishing';
-import { show as spkShow } from '@/routes/spk';
-import { NotesCell } from '@/components/notes-cell';
+import { Icon } from '@ui5/webcomponents-react/Icon';
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { FinishingSpkStatusCards } from '@/components/finishing/finishing-spk-status-cards';
+import { NotesCell } from '@/components/notes-cell';
+import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
+import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
+import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
+import {
+    create,
+    index as finishingIndex,
+    show,
+    bulkStatus,
+} from '@/routes/finishing';
 type FinishingRow = {
     id: number;
     docNo: string | null;
@@ -33,6 +35,12 @@ type FinishingRow = {
     status: string | null;
     statusLabel: string | null;
     spkNo: string | null;
+    orderReference: string | null;
+    skuCode: string | null;
+    typeCode: string | null;
+    productItemName: string | null;
+    itemDescription: string | null;
+    spkImageUrl: string | null;
     craftsmanName: string | null;
     sendCraftsmanDate: string | null;
     receivedCraftsmanDate: string | null;
@@ -106,6 +114,19 @@ function formatStatusLabel(
     const code = status?.trim() ?? '';
 
     return code !== '' ? code : '—';
+}
+
+function isStatusIncomplete(
+    status: string | null,
+    statusLabel: string | null,
+): boolean {
+    const label = formatStatusLabel(statusLabel, status).toLowerCase();
+
+    if (label === '—' || label === '') {
+        return true;
+    }
+
+    return !(label.includes('done') || label.includes('completed'));
 }
 
 function statusBadgeClass(
@@ -1360,10 +1381,7 @@ export default function FinishingIndex({
                                     </th>
                                     <th>ID</th>
                                     <th>Tanggal</th>
-                                    <th className="spkTableColCenter">
-                                        Proses
-                                    </th>
-                                    <th>SPK</th>
+                                    <th>Item</th>
                                     <th>Pengrajin</th>
                                     <th className="spkTableColCraftsmanDate spkTableColCenter">
                                         Tanggal Serah Terima
@@ -1388,7 +1406,7 @@ export default function FinishingIndex({
                             <tbody>
                                 {documents.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={12}>
+                                        <td colSpan={11}>
                                             Tidak ada data dokumen finishing.
                                         </td>
                                     </tr>
@@ -1397,9 +1415,21 @@ export default function FinishingIndex({
                                         <tr
                                             key={item.id}
                                             className={
-                                                selectedIds.includes(item.id)
-                                                    ? 'is-selected'
-                                                    : undefined
+                                                [
+                                                    selectedIds.includes(
+                                                        item.id,
+                                                    )
+                                                        ? 'is-selected'
+                                                        : '',
+                                                    isStatusIncomplete(
+                                                        item.status,
+                                                        item.statusLabel,
+                                                    )
+                                                        ? 'is-incomplete'
+                                                        : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ') || undefined
                                             }
                                         >
                                             <td className="spkTableColCheck--finishing">
@@ -1418,53 +1448,68 @@ export default function FinishingIndex({
                                                     aria-label={`Pilih ${item.docNo ?? item.id}`}
                                                 />
                                             </td>
-                                            <td>
-                                                <button
-                                                    type="button"
-                                                    className="spkProduksiLink"
-                                                    onClick={() =>
-                                                        router.visit(
-                                                            show.url(item.id),
-                                                        )
-                                                    }
-                                                >
-                                                    {item.docNo ?? '—'}
-                                                </button>
+                                            <td className="spkTableColDoc">
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <button
+                                                        type="button"
+                                                        className="spkProduksiLink"
+                                                        onClick={() =>
+                                                            router.visit(
+                                                                show.url(
+                                                                    item.id,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        {item.docNo ?? '—'}
+                                                    </button>
+                                                    {item.processName ? (
+                                                        <span
+                                                            className={`spkTableBadge ${processBadgeClass(item.processName)}`}
+                                                        >
+                                                            {item.processName}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
                                             </td>
                                             <td>
                                                 {formatDateDisplay(
                                                     item.transDate,
                                                 )}
                                             </td>
-                                            <td className="spkTableColCenter">
-                                                {item.processName ? (
-                                                    <span
-                                                        className={`spkTableBadge ${processBadgeClass(item.processName)}`}
-                                                    >
-                                                        {item.processName}
-                                                    </span>
-                                                ) : (
-                                                    '—'
-                                                )}
-                                            </td>
                                             <td>
-                                                {item.spkNo ? (
-                                                    <button
-                                                        type="button"
-                                                        className="spkProduksiLink"
-                                                        onClick={() =>
-                                                            router.visit(
-                                                                spkShow.url(
-                                                                    item.spkNo!,
-                                                                ),
-                                                            )
+                                                <div className="flex items-start gap-3">
+                                                    <SpkItemThumbnail
+                                                        imageUrl={
+                                                            item.spkImageUrl
                                                         }
-                                                    >
-                                                        {item.spkNo}
-                                                    </button>
-                                                ) : (
-                                                    '—'
-                                                )}
+                                                        spkNo={item.spkNo}
+                                                    />
+                                                    <div className="flex min-w-0 flex-col items-start gap-1">
+                                                        <SpkItemNoLink
+                                                            spkNo={item.spkNo}
+                                                            orderReference={
+                                                                item.orderReference
+                                                            }
+                                                        />
+                                                        <SpkItemSkuColumn
+                                                            typeCode={
+                                                                item.typeCode
+                                                            }
+                                                            productItemName={
+                                                                item.productItemName
+                                                            }
+                                                            skuCode={
+                                                                item.skuCode
+                                                            }
+                                                            itemDescription={
+                                                                item.skuCode
+                                                                    ? null
+                                                                    : item.itemDescription
+                                                            }
+                                                        />
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td>{item.craftsmanName ?? '—'}</td>
                                             <td className="spkTableColCraftsmanDate">

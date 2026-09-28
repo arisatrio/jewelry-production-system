@@ -188,6 +188,43 @@ const HASIL_CORAN_PERCENT_ROWS = [
     label: string;
 }>;
 
+const MONTH_LABELS = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+] as const;
+
+function formatDateDisplay(value: string | null): string {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed === '') {
+        return '—';
+    }
+
+    const [year, month, day] = (trimmed.split(/\s+/u)[0] ?? '').split('-');
+
+    if (!year || !month || !day) {
+        return trimmed;
+    }
+
+    const monthLabel = MONTH_LABELS[Number(month) - 1];
+
+    if (!monthLabel) {
+        return trimmed;
+    }
+
+    return `${day.padStart(2, '0')}-${monthLabel}-${year}`;
+}
+
 export default function CoranIndex({
     corans,
     spkStatusCounts,
@@ -1163,7 +1200,11 @@ export default function CoranIndex({
                                                     {item.docNo ?? '—'}
                                                 </button>
                                             </td>
-                                            <td>{item.transDate ?? '—'}</td>
+                                            <td>
+                                                {formatDateDisplay(
+                                                    item.transDate,
+                                                )}
+                                            </td>
                                             <td>{item.craftsmanName ?? '—'}</td>
                                             <td className="spkTableColCenter">
                                                 {item.spkCount > 0

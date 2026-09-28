@@ -375,6 +375,10 @@ test('jewelcad index lists one row per spk detail', function () {
         'sku_id' => $skuA->id,
         'description' => 'White Gold Ladies Ring Electa',
         'jwcad_3d' => "FILE-{$unique}-A.3dm",
+        'file_name' => "{$unique}-a.jpg",
+        'spk_type' => 'Pesanan',
+        'request_order_no' => 'DP-JWC01',
+        'customer_name' => 'Customer JewelCAD',
     ]);
     $spkB = Production::factory()->create([
         'spk_no' => "2026/PRD/{$unique}-B",
@@ -383,6 +387,8 @@ test('jewelcad index lists one row per spk detail', function () {
         'sku_id' => $skuB->id,
         'description' => 'White Gold Ear Ring Emerald',
         'jwcad_3d' => null,
+        'file_name' => null,
+        'spk_type' => 'Stok',
     ]);
 
     JewelCadRequestDetail::factory()->create([
@@ -420,6 +426,13 @@ test('jewelcad index lists one row per spk detail', function () {
             ->where('requests.data.0.jwcad3d', "FILE-{$unique}-A.3dm")
             ->where('requests.data.0.goldWeight', '12.50')
             ->where('requests.data.0.estimationBrj', '18.13')
+            ->where(
+                'requests.data.0.spkImageUrl',
+                rtrim((string) config('spk.production_image_base_url'), '/')."/{$unique}-a.jpg",
+            )
+            ->where('requests.data.1.spkImageUrl', null)
+            ->where('requests.data.0.orderReference', 'DP-JWC01 (Customer JewelCAD)')
+            ->where('requests.data.1.orderReference', null)
             ->where('requests.data.1.requestId', $request->row_id)
             ->where('requests.data.1.docNo', $request->doc_no)
             ->where('requests.data.1.spkNo', $spkB->spk_no)

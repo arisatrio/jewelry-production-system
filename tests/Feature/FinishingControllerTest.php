@@ -2,6 +2,8 @@
 
 use App\Models\FinishingHandmade;
 use App\Models\Production;
+use App\Models\SkuMaster;
+use App\Models\SkuPrefixCategory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -83,6 +85,55 @@ test('finishing index lists document weights and status labels', function () {
             ->where('documents.data.0.notes', 'Catatan finishing list')
             ->where('documents.data.0.transDate', '2026-08-25')
             ->where('filters.search', 'FIN9999911')
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
+test('finishing index lists sku column data from spk', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first();
+    $sku = $category !== null
+        ? SkuMaster::query()
+            ->where('category_prefix_id', $category->id)
+            ->whereNotNull('sku_code')
+            ->whereNotNull('item_original')
+            ->orderBy('id')
+            ->first()
+        : null;
+
+    if ($category === null || $sku === null) {
+        $this->markTestSkipped('Membutuhkan data SKU master dan kategori prefix yang sudah ada.');
+    }
+
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINSKU'.Str::upper(Str::random(3)),
+        'description' => 'Deskripsi item finishing',
+        'file_name' => 'finishing-sku-test.jpg',
+        'spk_type' => 'Pesanan',
+        'request_order_no' => 'DP-FIN01',
+        'customer_name' => 'Customer Finishing',
+        'sku_id' => $sku->id,
+        'category_prefix_id' => $category->id,
+    ]);
+    $document = FinishingHandmade::factory()->create([
+        'doc_no' => 'FIN'.Str::upper(Str::random(7)),
+        'spk_id' => $production->row_id,
+    ]);
+
+    $this->get(route('finishing.index', ['search' => $document->doc_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('documents.data.0.id', $document->row_id)
+            ->where('documents.data.0.skuCode', $sku->sku_code)
+            ->where('documents.data.0.typeCode', $category->prefix)
+            ->where('documents.data.0.productItemName', $sku->item_original)
+            ->where('documents.data.0.itemDescription', 'Deskripsi item finishing')
+            ->where('documents.data.0.orderReference', 'DP-FIN01 (Customer Finishing)')
+            ->where(
+                'documents.data.0.spkImageUrl',
+                rtrim((string) config('spk.production_image_base_url'), '/').'/finishing-sku-test.jpg',
+            )
         );
 
     $document->delete();

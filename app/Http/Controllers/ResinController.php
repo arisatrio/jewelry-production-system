@@ -16,6 +16,8 @@ use App\Support\ResinDocNumberGenerator;
 use App\Support\ResinSpkEligibility;
 use App\Support\ResinStatusMapper;
 use App\Support\SpkApprovalRoles;
+use App\Support\SpkItemImageUrl;
+use App\Support\SpkOrderReference;
 use App\Support\SpkQtyUnit;
 use Carbon\Carbon;
 use DateTimeImmutable;
@@ -118,6 +120,8 @@ class ResinController extends Controller
                     ->select([
                         'row_id',
                         'spk_no',
+                        'spk_type',
+                        'request_order_no',
                         'item_name',
                         'customer_name',
                         'qty',
@@ -125,6 +129,7 @@ class ResinController extends Controller
                         'sku_id',
                         'category_prefix_id',
                         'description',
+                        'file_name',
                     ])
                     ->with([
                         'sku' => fn ($skuQuery) => $skuQuery
@@ -765,11 +770,13 @@ class ResinController extends Controller
      *     statusLabel: string|null,
      *     notes: string|null,
      *     spkNo: string|null,
+     *     orderReference: string|null,
      *     spkId: int|null,
      *     skuCode: string|null,
      *     typeCode: string|null,
      *     productItemName: string|null,
      *     itemDescription: string|null,
+     *     spkImageUrl: string|null,
      *     beratResin: string|null,
      *     statusResin: string|null,
      *     statusResinLabel: string
@@ -803,6 +810,7 @@ class ResinController extends Controller
                 : null,
             'notes' => filled($resin?->notes) ? (string) $resin->notes : null,
             'spkNo' => filled($production?->spk_no) ? (string) $production->spk_no : null,
+            'orderReference' => SpkOrderReference::label($production),
             'spkId' => filled($detail->spk_id) ? (int) $detail->spk_id : null,
             'skuCode' => filled($production?->sku?->sku_code)
                 ? (string) $production->sku->sku_code
@@ -810,6 +818,7 @@ class ResinController extends Controller
             'typeCode' => $typeCode !== '' ? $typeCode : null,
             'productItemName' => $productItemName !== '' ? $productItemName : null,
             'itemDescription' => $itemDescription !== '' ? $itemDescription : null,
+            'spkImageUrl' => SpkItemImageUrl::fromFileName($production?->file_name),
             'beratResin' => $detail->berat_resin !== null
                 ? number_format((float) $detail->berat_resin, 2, '.', '')
                 : null,
