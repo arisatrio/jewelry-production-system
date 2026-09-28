@@ -177,6 +177,52 @@ test('finishing store keeps surplus shrink as negative value', function () {
     $production->delete();
 });
 
+test('finishing store sets shrink to zero when finish weight is zero', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINZERO'.Str::upper(Str::random(3)),
+    ]);
+
+    $materialId = (int) DB::connection('third')
+        ->table('msmaterialgold')
+        ->where('is_deleted', 0)
+        ->orderBy('row_id')
+        ->value('row_id');
+
+    $this->post(route('finishing.store'), [
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'craftsman_id' => null,
+        'send_craftsman_date' => now()->format('Y-m-d H:i'),
+        'start_weight' => '2.00',
+        'finish_weight' => '0',
+        'materials' => [
+            [
+                'section' => 'bahan',
+                'materialgold_id' => $materialId,
+                'weight' => '3.60',
+            ],
+            [
+                'section' => 'sisa',
+                'materialgold_id' => $materialId,
+                'weight' => '4.69',
+            ],
+        ],
+    ]);
+
+    $document = FinishingHandmade::query()
+        ->notDeleted()
+        ->where('spk_id', $production->row_id)
+        ->orderByDesc('row_id')
+        ->first();
+
+    expect($document)->not->toBeNull()
+        ->and((string) $document->shrink)->toBe('0.00')
+        ->and((string) $document->shrink_tolerance)->toBe('0.00');
+
+    $document->delete();
+    $production->delete();
+});
+
 test('finishing store requires spk', function () {
     $this->from(route('finishing.create'))
         ->post(route('finishing.store'), [

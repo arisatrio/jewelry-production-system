@@ -762,8 +762,12 @@ class FinishingController extends Controller
             'finishWeight' => $this->formatDecimal($document->finish_weight),
             'submitMaterial' => $this->formatDecimal($document->submit_materialgold),
             'resultMaterial' => $this->formatDecimal($document->result_materialgold),
-            'shrink' => $this->formatGainAwareDecimal($document->shrink),
-            'shrinkTolerance' => $this->formatGainAwareDecimal($document->shrink_tolerance, 2),
+            'shrink' => $this->hasMissingWeight($document)
+                ? '0.00'
+                : $this->formatGainAwareDecimal($document->shrink),
+            'shrinkTolerance' => $this->hasMissingWeight($document)
+                ? '0.00'
+                : $this->formatGainAwareDecimal($document->shrink_tolerance, 2),
             'hasWeightGain' => $this->hasWeightGain($document),
             'notes' => filled($document->notes) ? (string) $document->notes : null,
         ];
@@ -815,8 +819,9 @@ class FinishingController extends Controller
         FinishingHandmade $document,
         FinishingMaterialBreakdown $materialBreakdown,
     ): array {
+        $hasMissingWeight = $this->hasMissingWeight($document);
         $startWeight = $this->toFloat($document->start_weight);
-        $shrink = $this->toFloat($document->shrink);
+        $shrink = $hasMissingWeight ? 0.0 : $this->toFloat($document->shrink);
         $goldIn = ($startWeight ?? 0.0) + ($this->toFloat($document->submit_materialgold) ?? 0.0);
         $shrinkPercent = null;
 
@@ -824,7 +829,7 @@ class FinishingController extends Controller
             $shrinkPercent = $this->formatGainAwarePercent(($shrink / $goldIn) * 100);
         }
 
-        $shrinkTolerance = $this->toFloat($document->shrink_tolerance);
+        $shrinkTolerance = $hasMissingWeight ? 0.0 : $this->toFloat($document->shrink_tolerance);
         $shrinkToleranceWeight = $shrinkTolerance === null
             ? null
             : $this->formatGainAwareDecimal($shrinkTolerance / 100 * $goldIn);
@@ -855,8 +860,8 @@ class FinishingController extends Controller
             'finishWeight' => $this->formatDecimal($document->finish_weight),
             'submitMaterial' => $this->formatDecimal($document->submit_materialgold),
             'resultMaterial' => $this->formatDecimal($document->result_materialgold),
-            'shrink' => $this->formatGainAwareDecimal($document->shrink),
-            'shrinkTolerance' => $this->formatGainAwareDecimal($document->shrink_tolerance, 2),
+            'shrink' => $this->formatGainAwareDecimal($shrink),
+            'shrinkTolerance' => $this->formatGainAwareDecimal($shrinkTolerance, 2),
             'shrinkToleranceWeight' => $shrinkToleranceWeight,
             'shrinkPercent' => $shrinkPercent,
             'hasWeightGain' => $this->hasWeightGain($document),
@@ -926,7 +931,9 @@ class FinishingController extends Controller
         $result = $this->toFloat($document->result_materialgold) ?? 0.0;
 
         $inputWeight = $start + $submit;
-        $shrink = round($inputWeight - ($finish + $result), 3);
+        $shrink = $this->hasMissingWeight($document)
+            ? 0.0
+            : round($inputWeight - ($finish + $result), 3);
 
         $shrinkTolerance = abs($inputWeight) >= 0.0005
             ? round(($shrink / $inputWeight) * 100, 2)
@@ -938,8 +945,21 @@ class FinishingController extends Controller
         ])->save();
     }
 
+    /**
+     * Shrink is meaningless when the start or finish weight has not been filled in.
+     */
+    private function hasMissingWeight(FinishingHandmade $document): bool
+    {
+        return abs($this->toFloat($document->start_weight) ?? 0.0) < 0.0005
+            || abs($this->toFloat($document->finish_weight) ?? 0.0) < 0.0005;
+    }
+
     private function hasWeightGain(FinishingHandmade $document): bool
     {
+        if ($this->hasMissingWeight($document)) {
+            return false;
+        }
+
         $start = $this->toFloat($document->start_weight) ?? 0.0;
         $finish = $this->toFloat($document->finish_weight) ?? 0.0;
         $submit = $this->toFloat($document->submit_materialgold) ?? 0.0;

@@ -432,7 +432,7 @@ test('finishing show page is accessible', function () {
             ->has('workflowStatus.stages')
             ->has('approvalFooter')
             ->has('approvalHistory')
-            ->where('approval.canOpenEdit', false)
+            ->where('approval.canOpenEdit', true)
             ->has('finishingItem.materials.bahan')
             ->has('finishingItem.materials.sisa')
         );
@@ -498,6 +498,46 @@ test('finishing show displays shrink percent of start weight plus bahan and tole
             ->where('finishingItem.shrinkPercent', '1.90%')
             ->where('finishingItem.shrinkTolerance', '1.90')
             ->where('finishingItem.shrinkToleranceWeight', '0.07')
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
+test('finishing show and index display zero shrink when start or finish weight is zero', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINZEROW',
+    ]);
+
+    $document = FinishingHandmade::factory()->done()->create([
+        'doc_no' => 'FIN9999916',
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'start_weight' => '0.00',
+        'finish_weight' => '0.00',
+        'submit_materialgold' => '3.60',
+        'result_materialgold' => '4.69',
+        'shrink' => '-1.09',
+        'shrink_tolerance' => '-30.28',
+    ]);
+
+    $this->get(route('finishing.show', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('finishingItem.shrink', '0.00')
+            ->where('finishingItem.shrinkPercent', '0.00%')
+            ->where('finishingItem.shrinkTolerance', '0.00')
+            ->where('finishingItem.shrinkToleranceWeight', '0.00')
+            ->where('finishingItem.hasWeightGain', false)
+        );
+
+    $this->get(route('finishing.index', ['search' => 'FIN9999916']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('documents.data.0.docNo', 'FIN9999916')
+            ->where('documents.data.0.shrink', '0.00')
+            ->where('documents.data.0.shrinkTolerance', '0.00')
+            ->where('documents.data.0.hasWeightGain', false)
         );
 
     $document->delete();

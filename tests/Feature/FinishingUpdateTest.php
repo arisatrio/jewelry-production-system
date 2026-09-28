@@ -36,14 +36,63 @@ test('finishing edit page is accessible for open documents', function () {
     $production->delete();
 });
 
-test('finishing edit is forbidden for done documents', function () {
-    $document = FinishingHandmade::factory()->done()->create([
-        'doc_no' => 'FIN'.Str::upper(Str::random(7)),
+test('finishing edit page is accessible for done documents', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINEDDN'.Str::upper(Str::random(3)),
     ]);
 
-    $this->get(route('finishing.edit', $document))->assertForbidden();
+    $document = FinishingHandmade::factory()->done()->create([
+        'doc_no' => 'FIN'.Str::upper(Str::random(7)),
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+    ]);
+
+    $this->get(route('finishing.edit', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('finishing/edit')
+            ->where('form.id', $document->row_id)
+        );
+
+    $this->get(route('finishing.show', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('approval.canOpenEdit', true)
+        );
 
     $document->delete();
+    $production->delete();
+});
+
+test('finishing update keeps done status', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINUPDN'.Str::upper(Str::random(3)),
+    ]);
+
+    $document = FinishingHandmade::factory()->done()->create([
+        'doc_no' => 'FIN'.Str::upper(Str::random(7)),
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'start_weight' => '2.00',
+        'finish_weight' => '1.80',
+    ]);
+    $status = $document->status;
+
+    $this->put(route('finishing.update', $document), [
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'start_weight' => '2.00',
+        'finish_weight' => '1.90',
+    ])->assertRedirect(route('finishing.show', $document));
+
+    $document->refresh();
+
+    expect((string) $document->finish_weight)->toBe('1.90')
+        ->and($document->status)->toBe($status)
+        ->and((string) $document->shrink)->toBe('0.10');
+
+    $document->delete();
+    $production->delete();
 });
 
 test('finishing update changes document fields', function () {
