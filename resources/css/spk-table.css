@@ -197,9 +197,9 @@
 
 .spkTable th.spkTableColDoc--spk,
 .spkTable td.spkTableColDoc--spk {
-    width: 10rem;
-    min-width: 8.5rem;
-    max-width: 10rem;
+    width: 11.75rem;
+    min-width: 11.75rem;
+    max-width: 11.75rem;
     white-space: normal;
 }
 
@@ -1417,9 +1417,9 @@
 
 .spkStatusListBody .spkAlertModalTable th.spkStatusListColDoc,
 .spkStatusListBody .spkAlertModalTable td.spkStatusListColDoc {
-    width: 9rem;
-    min-width: 8rem;
-    max-width: 9rem;
+    width: 11rem;
+    min-width: 11rem;
+    max-width: 11rem;
     white-space: normal;
 }
 

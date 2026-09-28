@@ -268,19 +268,23 @@ function SpkStatusListBody({
                                                 >
                                                     {row.produksiNo}
                                                 </button>
-                                                <span
-                                                    className={`spkTableBadge ${tipeProduksiBadgeClass(row.tipeProduksi)}`}
-                                                >
-                                                    {row.tipeProduksi}
-                                                </span>
+                                                <div className="flex items-center gap-1">
+                                                    <span
+                                                        className={`spkTableBadge ${tipeProduksiBadgeClass(row.tipeProduksi)}`}
+                                                    >
+                                                        {row.tipeProduksi}
+                                                    </span>
+                                                    <SpkPaymentStatusBadge
+                                                        status={
+                                                            row.paymentStatus
+                                                        }
+                                                    />
+                                                </div>
                                                 {row.orderReference ? (
                                                     <span className="spkTableDocMeta">
                                                         {row.orderReference}
                                                     </span>
                                                 ) : null}
-                                                <SpkPaymentStatusBadge
-                                                    status={row.paymentStatus}
-                                                />
                                                 {row.documentNo ? (
                                                     documentId !== null &&
                                                     documentUrl ? (
