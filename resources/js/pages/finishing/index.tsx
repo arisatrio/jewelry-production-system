@@ -233,9 +233,17 @@ function formatShrinkCell(
     const goldIn =
         (parseNumericValue(startWeight) ?? 0) +
         (parseNumericValue(submitMaterial) ?? 0);
+    const toneClass = hasWeightGain
+        ? 'is-gain'
+        : shrinkValue !== null && Math.abs(shrinkValue) >= 0.0005
+          ? 'is-loss'
+          : '';
+    const cellClassName = ['spkTableShrinkCell', toneClass]
+        .filter(Boolean)
+        .join(' ');
 
     if (shrinkValue === null || Math.abs(goldIn) < 0.0005) {
-        return grams;
+        return <span className={cellClassName}>{grams}</span>;
     }
 
     const percentValue = Math.round((shrinkValue / goldIn) * 100 * 100) / 100;
@@ -245,7 +253,7 @@ function formatShrinkCell(
         : `${percentValue.toFixed(2)}%`;
 
     return (
-        <div className="spkTableShrinkCell">
+        <div className={cellClassName}>
             <span>{grams}</span>
             <span className="spkShrinkPercent">({percentLabel})</span>
         </div>

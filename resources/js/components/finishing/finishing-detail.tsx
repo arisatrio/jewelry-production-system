@@ -189,6 +189,15 @@ export function FinishingDetail({
         [approvalHistory],
     );
 
+    const shrinkMagnitude = Math.abs(
+        Number.parseFloat(finishingItem.shrink?.replace('+', '') ?? '') || 0,
+    );
+    const shrinkToneClass = finishingItem.hasWeightGain
+        ? 'is-gain'
+        : shrinkMagnitude >= 0.0005
+          ? 'is-loss'
+          : '';
+
     const submitToManager = () => {
         if (!submitUrl || !approval.canSubmit) {
             return;
@@ -522,21 +531,30 @@ export function FinishingDetail({
                                                         Susut (g)
                                                     </th>
                                                     <td>
-                                                        {displayValue(
-                                                            finishingItem.shrink,
-                                                        )}
-                                                        {finishingItem.shrinkPercent ? (
-                                                            <>
-                                                                {' '}
-                                                                (
-                                                                <span className="spkShrinkPercent">
-                                                                    {formatShrinkPercentDisplay(
-                                                                        finishingItem.shrinkPercent,
-                                                                    )}
-                                                                </span>
-                                                                )
-                                                            </>
-                                                        ) : null}
+                                                        <span
+                                                            className={[
+                                                                'spkShrinkTone',
+                                                                shrinkToneClass,
+                                                            ]
+                                                                .filter(Boolean)
+                                                                .join(' ')}
+                                                        >
+                                                            {displayValue(
+                                                                finishingItem.shrink,
+                                                            )}
+                                                            {finishingItem.shrinkPercent ? (
+                                                                <>
+                                                                    {' '}
+                                                                    (
+                                                                    <span className="spkShrinkPercent">
+                                                                        {formatShrinkPercentDisplay(
+                                                                            finishingItem.shrinkPercent,
+                                                                        )}
+                                                                    </span>
+                                                                    )
+                                                                </>
+                                                            ) : null}
+                                                        </span>
                                                     </td>
                                                 </tr>
                                             </tbody>
