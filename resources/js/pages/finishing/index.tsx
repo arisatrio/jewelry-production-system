@@ -28,7 +28,6 @@ import {
     show,
     bulkStatus,
 } from '@/routes/finishing';
-import { spks as searchFinishingSpks } from '@/routes/finishing/select';
 type FinishingRow = {
     id: number;
     docNo: string | null;
@@ -731,8 +730,7 @@ export default function FinishingIndex({
                                 counts={spkStatusCounts}
                                 variant="alerts"
                                 processLabel="Finishing"
-                                searchUrl={searchFinishingSpks.url}
-                                documentIdKey="finishingId"
+                                module="finishing"
                                 documentUrl={edit.url}
                             />
                             <span

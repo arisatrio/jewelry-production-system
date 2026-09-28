@@ -1,45 +1,28 @@
-import { router } from '@inertiajs/react';
 import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
-import { useCallback, useState } from 'react';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { show as spkShow } from '@/routes/spk';
-import type { RouteQueryOptions } from '@/wayfinder';
+import { useState } from 'react';
+import { SpkStatusListDialog } from '@/components/spk/spk-status-list-dialog';
+import { processQueue } from '@/routes/spk';
 
 export type SpkQueueKey = 'pending' | 'inProgress' | 'completed';
 
 export type SpkStatusCounts = Record<SpkQueueKey, number>;
 
-type SpkStatusRow = {
-    rowId: number;
-    spkNo: string;
-    docNo: string | null;
-    customer: string;
-    item: string;
-    goldColor: string;
-    qty: number;
-    [key: string]: unknown;
-};
+export type SpkProcessQueueModule =
+    | 'jewelcad'
+    | 'resin'
+    | 'coran'
+    | 'finishing'
+    | 'poles-rangka'
+    | 'pasang-batu'
+    | 'poles-chrome';
 
 type SpkProcessStatusCardsProps = {
     counts: SpkStatusCounts;
     processLabel: string;
-    searchUrl: (options?: RouteQueryOptions) => string;
-    /** Nama field ID dokumen modul pada response `select.spks`, mis. `finishingId`. */
-    documentIdKey: string;
+    module: SpkProcessQueueModule;
     documentUrl: (documentId: number) => string;
     variant?: 'cards' | 'alerts';
 };
-
-type ActiveModal = {
-    queue: SpkQueueKey;
-    title: string;
-    total: number;
-} | null;
 
 type CardConfig = {
     key: SpkQueueKey;
@@ -79,71 +62,29 @@ function buildCardConfig(processLabel: string): CardConfig[] {
     ];
 }
 
-function displayValue(value: string | null | undefined): string {
-    const trimmed = value?.trim() ?? '';
-
-    return trimmed !== '' ? trimmed : '—';
-}
-
-function resolveDocumentId(row: SpkStatusRow, key: string): number | null {
-    const value = row[key];
-
-    return typeof value === 'number' && value > 0 ? value : null;
-}
-
 export function SpkProcessStatusCards({
     counts,
     processLabel,
-    searchUrl,
-    documentIdKey,
+    module,
     documentUrl,
     variant = 'cards',
 }: SpkProcessStatusCardsProps) {
-    const [activeModal, setActiveModal] = useState<ActiveModal>(null);
-    const [loading, setLoading] = useState(false);
-    const [rows, setRows] = useState<SpkStatusRow[]>([]);
+    const [activeQueue, setActiveQueue] = useState<{
+        key: SpkQueueKey;
+        requestId: number;
+    } | null>(null);
+    const [modalOpen, setModalOpen] = useState(false);
     const cardConfig = buildCardConfig(processLabel);
-
-    const loadRows = useCallback(
-        async (queue: SpkQueueKey) => {
-            setLoading(true);
-
-            try {
-                const response = await fetch(
-                    searchUrl({
-                        query: {
-                            queue,
-                            limit: 50,
-                        },
-                    }),
-                );
-
-                if (!response.ok) {
-                    setRows([]);
-
-                    return;
-                }
-
-                const payload = (await response.json()) as {
-                    status?: boolean;
-                    data?: SpkStatusRow[];
-                };
-
-                setRows(Array.isArray(payload.data) ? payload.data : []);
-            } finally {
-                setLoading(false);
-            }
-        },
-        [searchUrl],
+    const activeConfig = cardConfig.find(
+        (config) => config.key === activeQueue?.key,
     );
 
     const openModal = (config: CardConfig) => {
-        setActiveModal({
-            queue: config.key,
-            title: config.modalTitle,
-            total: counts[config.key],
-        });
-        void loadRows(config.key);
+        setActiveQueue((current) => ({
+            key: config.key,
+            requestId: (current?.requestId ?? 0) + 1,
+        }));
+        setModalOpen(true);
     };
 
     return (
@@ -160,6 +101,7 @@ export function SpkProcessStatusCards({
                             type="button"
                             className="spkTableStatusAlertBtn--finishing"
                             onClick={() => openModal(config)}
+                            aria-haspopup="dialog"
                             aria-label={`${counts[config.key].toLocaleString('id-ID')} ${config.hint}. Klik untuk lihat daftar.`}
                             title={config.hint}
                         >
@@ -190,6 +132,7 @@ export function SpkProcessStatusCards({
                             type="button"
                             className={`spkStatusCard spkStatusCard--${config.className}`}
                             onClick={() => openModal(config)}
+                            aria-haspopup="dialog"
                             aria-label={`${counts[config.key].toLocaleString('id-ID')} ${config.hint}. Klik untuk lihat daftar.`}
                         >
                             <span className="spkStatusCardLabel">
@@ -206,121 +149,19 @@ export function SpkProcessStatusCards({
                 </div>
             )}
 
-            <Dialog
-                open={activeModal !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setActiveModal(null);
-                    }
-                }}
-            >
-                <DialogContent className="spkAlertModal">
-                    <DialogHeader>
-                        <DialogTitle>{activeModal?.title ?? ''}</DialogTitle>
-                    </DialogHeader>
-                    <div className="spkAlertModalBody">
-                        {loading ? (
-                            <p className="spkAlertModalEmpty">Memuat data...</p>
-                        ) : rows.length === 0 ? (
-                            <p className="spkAlertModalEmpty">
-                                Tidak ada SPK pada kategori ini.
-                            </p>
-                        ) : (
-                            <table className="spkAlertModalTable">
-                                <thead>
-                                    <tr>
-                                        <th>No</th>
-                                        <th>No Dokumen</th>
-                                        <th>SPK</th>
-                                        <th>Item</th>
-                                        <th>Customer</th>
-                                        <th>Material</th>
-                                        <th>Qty</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rows.map((row, index) => {
-                                        const documentId = resolveDocumentId(
-                                            row,
-                                            documentIdKey,
-                                        );
-
-                                        return (
-                                            <tr
-                                                key={row.rowId}
-                                                className="spkAlertModalRow"
-                                                onClick={() => {
-                                                    setActiveModal(null);
-                                                    router.visit(
-                                                        spkShow.url(row.spkNo),
-                                                    );
-                                                }}
-                                            >
-                                                <td>{index + 1}</td>
-                                                <td>
-                                                    {documentId !== null &&
-                                                    row.docNo !== null ? (
-                                                        <button
-                                                            type="button"
-                                                            className="spkAlertModalLink"
-                                                            onClick={(
-                                                                event,
-                                                            ) => {
-                                                                event.stopPropagation();
-                                                                setActiveModal(
-                                                                    null,
-                                                                );
-                                                                router.visit(
-                                                                    documentUrl(
-                                                                        documentId,
-                                                                    ),
-                                                                );
-                                                            }}
-                                                        >
-                                                            {row.docNo}
-                                                        </button>
-                                                    ) : (
-                                                        displayValue(row.docNo)
-                                                    )}
-                                                </td>
-                                                <td className="spkAlertModalLink">
-                                                    {row.spkNo}
-                                                </td>
-                                                <td>
-                                                    {displayValue(row.item)}
-                                                </td>
-                                                <td>
-                                                    {displayValue(row.customer)}
-                                                </td>
-                                                <td>
-                                                    {displayValue(
-                                                        row.goldColor,
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {Number(
-                                                        row.qty,
-                                                    ).toLocaleString('id-ID')}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        )}
-                        {!loading &&
-                        rows.length > 0 &&
-                        activeModal !== null &&
-                        activeModal.total > rows.length ? (
-                            <p className="spkAlertModalFootnote">
-                                Menampilkan{' '}
-                                {rows.length.toLocaleString('id-ID')} dari{' '}
-                                {activeModal.total.toLocaleString('id-ID')} SPK.
-                            </p>
-                        ) : null}
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <SpkStatusListDialog
+                open={modalOpen}
+                onOpenChange={setModalOpen}
+                listUrl={
+                    activeConfig
+                        ? processQueue.url({ module, queue: activeConfig.key })
+                        : null
+                }
+                requestId={activeQueue?.requestId ?? 0}
+                title={activeConfig?.modalTitle ?? ''}
+                hint={activeConfig?.hint ?? ''}
+                documentUrl={documentUrl}
+            />
         </>
     );
 }

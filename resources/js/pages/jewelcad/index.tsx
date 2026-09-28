@@ -26,8 +26,6 @@ import {
     show,
     bulkStatus,
 } from '@/routes/jewelcad';
-import { spks as searchJewelCadSpks } from '@/routes/jewelcad/select';
-
 type JewelCadRow = {
     id: number;
     requestId: number;
@@ -532,8 +530,7 @@ export default function JewelCadIndex({
                                 counts={spkStatusCounts}
                                 variant="alerts"
                                 processLabel="JewelCAD"
-                                searchUrl={searchJewelCadSpks.url}
-                                documentIdKey="requestId"
+                                module="jewelcad"
                                 documentUrl={show.url}
                             />
                             <span

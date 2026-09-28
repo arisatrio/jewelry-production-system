@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BulkUpdateSpkStatusRequest;
 use App\Http\Requests\SpkApprovalDecisionRequest;
 use App\Http\Requests\StoreProductionRequest;
 use App\Http\Requests\UpdateProductionRequest;
@@ -12,8 +13,15 @@ use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Models\SpkStone;
 use App\Policies\ProductionPolicy;
+use App\Support\CoranSpkEligibility;
+use App\Support\DiamondMountingSpkEligibility;
+use App\Support\FinishingSpkEligibility;
 use App\Support\GoldColorOptions;
+use App\Support\JewelCadSpkEligibility;
+use App\Support\PolishFinishedGoodSpkEligibility;
+use App\Support\PolishFrameSpkEligibility;
 use App\Support\RequestOrderRepository;
+use App\Support\ResinSpkEligibility;
 use App\Support\SkuMasterDescriptionExtractor;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkApprovalRoles;
@@ -23,6 +31,7 @@ use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkGoldReport;
 use App\Support\SpkItemImageUrl;
 use App\Support\SpkOrderPriorityResolver;
+use App\Support\SpkOrderReference;
 use App\Support\SpkProcessMapper;
 use App\Support\SpkProductionControlReport;
 use App\Support\SpkQtyUnit;
@@ -31,20 +40,35 @@ use App\Support\SpkShrinkSummary;
 use App\Support\SpkStatusMapper;
 use App\Support\SpkStatusOrder;
 use App\Support\SpkStoneReport;
+use Closure;
+use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
 use RuntimeException;
+use stdClass;
 
 class ProductionController extends Controller
 {
+    /**
+     * @var array<string, string>
+     */
+    private const INDEX_SORT_COLUMNS = [
+        'id' => 'row_id',
+        'date' => 'created_date',
+        'spk' => 'spk_no',
+        'order_date' => 'order_date',
+        'estimated' => 'estimated_delivery_time',
+    ];
+
     public function __construct(
         private SpkStatusOrder $statusOrder,
         private SkuMasterDiamondMapper $diamondMapper,
@@ -61,15 +85,32 @@ class ProductionController extends Controller
         $type = in_array($type, SpkService::TYPES, true) ? $type : '';
         $status = $request->string('status')->trim()->toString();
         $statusLabels = array_values(SpkDashboardAnalytics::BACKLOG_STATUS_LABELS);
+        array_splice($statusLabels, 4, 0, ['Done']);
         $status = in_array($status, $statusLabels, true) ? $status : '';
-        $perPage = $request->integer('per_page', 10);
-        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
+        $sort = $request->string('sort')->toString();
+        $sort = array_key_exists($sort, self::INDEX_SORT_COLUMNS) ? $sort : 'id';
+        $direction = $request->string('direction')->toString();
+        $direction = in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+        $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString());
+        $dateTo = $this->resolveIndexDate($request->string('date_to')->toString());
+        $perPage = $request->integer('per_page', 50);
+        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
         $typeCounts = $this->activeTypeCounts();
         $statusCounts = $this->activeStatusCounts();
+
+        if ($dateFrom !== null && $dateTo !== null && $dateTo < $dateFrom) {
+            $dateTo = $dateFrom;
+        }
 
         $productions = Production::query()
             ->with(['sku', 'categoryPrefix'])
             ->notDeleted()
+            ->when($dateFrom !== null, function ($query) use ($dateFrom): void {
+                $query->whereDate('created_date', '>=', $dateFrom);
+            })
+            ->when($dateTo !== null, function ($query) use ($dateTo): void {
+                $query->whereDate('created_date', '<=', $dateTo);
+            })
             ->when($type !== '', function ($query) use ($type): void {
                 $query->where('spk_type', $type);
             })
@@ -92,23 +133,21 @@ class ProductionController extends Controller
                         ->orWhere('last_process', 'like', "%{$search}%");
                 });
             })
-            ->orderByDesc('row_id')
+            ->tap(function ($query) use ($sort, $direction): void {
+                if ($sort !== 'id') {
+                    $query->orderBy(self::INDEX_SORT_COLUMNS[$sort], $direction);
+                }
+
+                $query->orderBy('row_id', $direction);
+            })
             ->paginate($perPage)
             ->withQueryString();
 
-        $pageProductions = $productions->getCollection();
-        $doneKinds = SpkDashboardAnalytics::completedProductionKinds(
-            $pageProductions->pluck('row_id')->all(),
-        );
-        $lastProcessDates = SpkDashboardAnalytics::lastProcessDatesFor($pageProductions);
-
         $productions = $productions->through(
-            fn (Production $production): array => $this->toListItem(
-                $production,
-                $doneKinds[(int) $production->row_id] ?? false,
-                $lastProcessDates[(int) $production->row_id] ?? null,
-            ),
+            $this->indexRowMapper($productions->getCollection()),
         );
+
+        $user = $request->user();
 
         return Inertia::render('spk/index', [
             'productions' => $productions,
@@ -121,7 +160,285 @@ class ProductionController extends Controller
                 'search' => $search,
                 'type' => $type,
                 'status' => $status,
+                'sort' => $sort,
+                'direction' => $direction,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
                 'per_page' => $perPage,
+            ],
+            'filterOptions' => [
+                'per_page' => [
+                    ['value' => '10', 'label' => '10'],
+                    ['value' => '25', 'label' => '25'],
+                    ['value' => '50', 'label' => '50'],
+                    ['value' => '100', 'label' => '100'],
+                ],
+                'sort' => [
+                    ['value' => 'id', 'label' => 'ID'],
+                    ['value' => 'date', 'label' => 'Tanggal SPK'],
+                    ['value' => 'spk', 'label' => 'No SPK'],
+                    ['value' => 'order_date', 'label' => 'Tanggal Permintaan'],
+                    ['value' => 'estimated', 'label' => 'Target Selesai'],
+                ],
+                'direction' => [
+                    ['value' => 'asc', 'label' => 'A–Z'],
+                    ['value' => 'desc', 'label' => 'Z–A'],
+                ],
+            ],
+            'bulkActions' => [
+                'canSubmit' => SpkApprovalRoles::canSubmit($user),
+                'canApprove' => SpkApprovalRoles::canApprove($user),
+                'canManagerApprove' => SpkApprovalRoles::canManagerApprove($user),
+                'canDelete' => SpkApprovalRoles::canEditDraft($user),
+            ],
+        ]);
+    }
+
+    /**
+     * Ubah status beberapa SPK sekaligus dari halaman index.
+     */
+    public function bulkUpdateStatus(
+        BulkUpdateSpkStatusRequest $request,
+        SpkApprovalService $approvalService,
+        SpkService $spkService,
+        ProductionPolicy $policy,
+    ): RedirectResponse {
+        $validated = $request->validated();
+        /** @var list<int> $ids */
+        $ids = array_map(intval(...), $validated['ids']);
+        /** @var 'submit'|'approve'|'manager_approve'|'delete' $action */
+        $action = $validated['action'];
+        $actor = $this->actorName($request);
+        $user = $request->user();
+
+        $productions = Production::query()
+            ->notDeleted()
+            ->whereIn('row_id', $ids)
+            ->get()
+            ->keyBy('row_id');
+
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($ids as $id) {
+            $production = $productions->get($id);
+
+            if ($production === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $allowed = match ($action) {
+                'submit' => $policy->submit($user, $production),
+                'approve' => $policy->approve($user, $production),
+                'manager_approve' => $policy->managerApprove($user, $production),
+                'delete' => $policy->delete($user, $production),
+            };
+
+            if (! $allowed) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                match ($action) {
+                    'submit' => $approvalService->submit($production, $actor),
+                    'approve' => $approvalService->approve($production, $actor),
+                    'manager_approve' => $approvalService->managerApprove($production, $actor),
+                    'delete' => $spkService->softDelete($production, $actor),
+                };
+                $updated++;
+            } catch (InvalidArgumentException) {
+                $skipped++;
+            }
+        }
+
+        $actionLabel = match ($action) {
+            'submit' => 'Kirim ke Manager',
+            'approve' => 'Kirim ke Produksi',
+            'manager_approve' => 'Approve',
+            'delete' => 'Hapus',
+        };
+
+        $verb = $action === 'delete' ? 'dihapus' : 'diperbarui';
+
+        $message = $updated > 0
+            ? "{$updated} SPK berhasil {$verb} ({$actionLabel})."
+            : "Tidak ada SPK yang dapat {$verb} ({$actionLabel}).";
+
+        if ($skipped > 0) {
+            $message .= " {$skipped} dilewati.";
+        }
+
+        Inertia::flash('toast', [
+            'type' => $updated > 0 ? 'success' : 'warning',
+            'message' => $message,
+        ]);
+
+        return back();
+    }
+
+    private function resolveIndexDate(string $date): ?string
+    {
+        $trimmed = trim($date);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $trimmed);
+
+        if ($parsed === false || $parsed->format('Y-m-d') !== $trimmed) {
+            return null;
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * Daftar SPK per status untuk modal ringkasan status di halaman index.
+     */
+    public function statusList(Request $request, string $statusKey): JsonResponse
+    {
+        $statusKey = $this->normalizedBacklogStatusKey($statusKey);
+
+        if ($statusKey === null) {
+            abort(404);
+        }
+
+        $query = Production::query()->notDeleted();
+
+        $this->applyBacklogStatusFilter($query, $statusKey);
+
+        return $this->spkListModalResponse(
+            $request,
+            $query,
+            $this->backlogStatusFilterLabel($statusKey),
+        );
+    }
+
+    /**
+     * Daftar SPK per antrean proses modul (Belum / Sedang / Selesai) untuk modal ringkasan status.
+     */
+    public function processQueueList(Request $request, string $module, string $queue): JsonResponse
+    {
+        $eligibility = match ($module) {
+            'jewelcad' => app(JewelCadSpkEligibility::class),
+            'resin' => app(ResinSpkEligibility::class),
+            'coran' => app(CoranSpkEligibility::class),
+            'finishing' => app(FinishingSpkEligibility::class),
+            'poles-rangka' => app(PolishFrameSpkEligibility::class),
+            'pasang-batu' => app(DiamondMountingSpkEligibility::class),
+            'poles-chrome' => app(PolishFinishedGoodSpkEligibility::class),
+            default => abort(404),
+        };
+
+        $query = Production::query()->notDeleted();
+
+        match ($queue) {
+            'pending' => $eligibility->applyEligibleScope($query),
+            'inProgress' => $eligibility->applyInProgressScope($query),
+            'completed' => $eligibility->applyCompletedScope($query),
+            default => abort(404),
+        };
+
+        return $this->spkListModalResponse(
+            $request,
+            $query,
+            $queue,
+            fn (array $spkIds): array => $this->processQueueDocumentRefs($eligibility, $queue, $spkIds),
+        );
+    }
+
+    /**
+     * Referensi dokumen modul (ID & nomor dokumen) per SPK untuk antrean yang sudah punya dokumen.
+     *
+     * @param  list<int>  $spkIds
+     * @return array<int, array<string, int|string|null>>
+     */
+    private function processQueueDocumentRefs(
+        JewelCadSpkEligibility|ResinSpkEligibility|CoranSpkEligibility|FinishingSpkEligibility|PolishFrameSpkEligibility|DiamondMountingSpkEligibility|PolishFinishedGoodSpkEligibility $eligibility,
+        string $queue,
+        array $spkIds,
+    ): array {
+        if ($queue === 'pending') {
+            return [];
+        }
+
+        return match (true) {
+            $eligibility instanceof JewelCadSpkEligibility => $eligibility->requestRefsBySpkIds(
+                $spkIds,
+                completed: $queue === 'completed',
+            ),
+            $eligibility instanceof ResinSpkEligibility => $eligibility->resinRefsBySpkIds($spkIds),
+            $eligibility instanceof CoranSpkEligibility => $eligibility->coranRefsBySpkIds($spkIds),
+            $eligibility instanceof FinishingSpkEligibility => $eligibility->finishingRefsBySpkIds($spkIds),
+            $eligibility instanceof PolishFrameSpkEligibility => $eligibility->polishFrameRefsBySpkIds($spkIds),
+            $eligibility instanceof DiamondMountingSpkEligibility => $eligibility->diamondMountingRefsBySpkIds($spkIds),
+            $eligibility instanceof PolishFinishedGoodSpkEligibility => $eligibility->polishFinishedGoodRefsBySpkIds($spkIds),
+        };
+    }
+
+    /**
+     * Respons JSON baris SPK (format tabel index) dengan pencarian & paginasi untuk modal daftar SPK.
+     *
+     * @param  Builder<Production>  $query
+     * @param  (Closure(list<int>): array<int, array<string, int|string|null>>)|null  $documentRefs
+     */
+    private function spkListModalResponse(
+        Request $request,
+        Builder $query,
+        string $label,
+        ?Closure $documentRefs = null,
+    ): JsonResponse {
+        $search = $request->string('search')->trim()->toString();
+
+        $productions = $query
+            ->with(['sku', 'categoryPrefix'])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query->where('spk_no', 'like', "%{$search}%")
+                        ->orWhere('request_order_no', 'like', "%{$search}%")
+                        ->orWhere('customer_name', 'like', "%{$search}%")
+                        ->orWhere('item_name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            })
+            ->orderByDesc('row_id')
+            ->paginate(25);
+
+        $pageProductions = $productions->getCollection();
+        $toIndexRow = $this->indexRowMapper($pageProductions);
+        $refs = $documentRefs !== null
+            ? $documentRefs(array_values(
+                $pageProductions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+            ))
+            : [];
+
+        return response()->json([
+            'label' => $label,
+            'data' => $pageProductions
+                ->map(function (Production $production) use ($toIndexRow, $refs): array {
+                    $ref = $refs[(int) $production->row_id] ?? null;
+                    $documentId = $ref !== null
+                        ? collect($ref)->except('docNo')->first()
+                        : null;
+
+                    return [
+                        ...$toIndexRow($production),
+                        'documentId' => is_int($documentId) ? $documentId : null,
+                        'documentNo' => $ref['docNo'] ?? null,
+                    ];
+                })
+                ->values()
+                ->all(),
+            'meta' => [
+                'currentPage' => $productions->currentPage(),
+                'lastPage' => $productions->lastPage(),
+                'perPage' => $productions->perPage(),
+                'total' => $productions->total(),
             ],
         ]);
     }
@@ -194,7 +511,7 @@ class ProductionController extends Controller
     }
 
     /**
-     * @return array{draft: int, confirmed: int, inProgress: int}
+     * @return array{draft: int, pendingManager: int, confirmed: int, inProgress: int, done: int}
      */
     private function activeStatusCounts(): array
     {
@@ -206,7 +523,13 @@ class ProductionController extends Controller
             $allProductions->pluck('row_id')->all(),
         ));
 
-        $counts = ['draft' => 0, 'pendingManager' => 0, 'confirmed' => 0, 'inProgress' => 0];
+        $counts = [
+            'draft' => 0,
+            'pendingManager' => 0,
+            'confirmed' => 0,
+            'inProgress' => 0,
+            'done' => count($doneIds),
+        ];
 
         foreach ($allProductions as $production) {
             if (isset($doneIds[(int) $production->row_id])) {
@@ -792,7 +1115,7 @@ class ProductionController extends Controller
     }
 
     /**
-     * @param  \Closure(int): string  $urlForRowId
+     * @param  Closure(int): string  $urlForRowId
      * @return array{
      *     position: int,
      *     total: int,
@@ -804,7 +1127,7 @@ class ProductionController extends Controller
     private function buildStatusScopedNavigation(
         Production $production,
         ?string $statusKey,
-        \Closure $urlForRowId,
+        Closure $urlForRowId,
     ): array {
         $baseQuery = Production::query()->notDeleted()->whereNotNull('spk_no');
 
@@ -1193,6 +1516,90 @@ class ProductionController extends Controller
             'status' => SpkDashboardAnalytics::backlogStatusLabel($production, $completed),
             'prosesTerakhir' => $production->last_process ?? '',
             'prosesTerakhirDate' => $lastProcessDate ?? '',
+        ];
+    }
+
+    /**
+     * Mapper baris index untuk satu halaman SPK; data proses & request order dimuat sekali per halaman.
+     *
+     * @param  Collection<int, Production>  $pageProductions
+     * @return Closure(Production): array<string, mixed>
+     */
+    private function indexRowMapper(Collection $pageProductions): Closure
+    {
+        $doneKinds = SpkDashboardAnalytics::completedProductionKinds(
+            $pageProductions->pluck('row_id')->all(),
+        );
+        $lastProcessDates = SpkDashboardAnalytics::lastProcessDatesFor($pageProductions);
+        $requestOrders = app(RequestOrderRepository::class)->rowsByDocNos(array_values(
+            $pageProductions
+                ->where('spk_type', 'Pesanan')
+                ->pluck('request_order_no')
+                ->map(fn (mixed $docNo): string => trim((string) $docNo))
+                ->all(),
+        ));
+
+        return fn (Production $production): array => $this->toIndexRow(
+            $production,
+            $doneKinds[(int) $production->row_id] ?? false,
+            $lastProcessDates[(int) $production->row_id] ?? null,
+            $requestOrders[trim((string) $production->request_order_no)] ?? null,
+        );
+    }
+
+    /**
+     * Baris tabel index SPK: data list ditambah kolom Item (gambar, SKU) dan referensi pesanan.
+     *
+     * @return array<string, mixed>
+     */
+    private function toIndexRow(
+        Production $production,
+        bool|string|null $completed = null,
+        ?string $lastProcessDate = null,
+        ?stdClass $requestOrder = null,
+    ): array {
+        $row = $this->toListItem($production, $completed, $lastProcessDate);
+        $typeCode = trim((string) ($production->categoryPrefix?->prefix ?? ''));
+        $productItemName = trim((string) ($production->sku?->item_original ?? ''));
+
+        if ($productItemName === '') {
+            $productItemName = trim((string) ($production->item_name ?? ''));
+        }
+
+        $orderReference = null;
+        $paymentStatus = null;
+
+        if (SpkOrderReference::label($production) !== null) {
+            $requestOrders = app(RequestOrderRepository::class);
+            $customerName = filled($production->customer_name)
+                ? (string) $production->customer_name
+                : (filled($requestOrder?->customer_name) ? (string) $requestOrder->customer_name : '-');
+
+            $orderReference = $requestOrders->pesananDisplayLabel(
+                trim((string) $production->request_order_no),
+                $customerName,
+            );
+            $paymentStatus = $requestOrders->paymentStatusLabel($requestOrder?->is_fully_paid);
+        }
+
+        return [
+            ...$row,
+            'rowId' => (int) $production->row_id,
+            'orderReference' => $orderReference,
+            'paymentStatus' => $paymentStatus,
+            'skuCode' => filled($production->sku?->sku_code)
+                ? (string) $production->sku->sku_code
+                : null,
+            'typeCode' => $typeCode !== '' ? $typeCode : null,
+            'productItemName' => $productItemName !== '' ? $productItemName : null,
+            'spkImageUrl' => SpkItemImageUrl::fromFileName($production->file_name),
+            'createdBy' => filled($production->created_by) ? (string) $production->created_by : null,
+            'targetDaysLeft' => $production->estimated_delivery_time !== null
+                ? (int) now()->startOfDay()->diffInDays(
+                    $production->estimated_delivery_time->copy()->startOfDay(),
+                    false,
+                )
+                : null,
         ];
     }
 

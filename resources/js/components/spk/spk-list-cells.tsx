@@ -1,4 +1,4 @@
-import type { SpkRow } from '@/components/spk/types';
+import type { SpkIndexRow, SpkRow } from '@/components/spk/types';
 
 type SpkListDescriptionFields = Pick<
     SpkRow,
@@ -40,6 +40,37 @@ export function tipeProduksiBadgeClass(tipe: string): string {
     return 'spkTableBadge--default';
 }
 
+export function displayListDate(value: string | null | undefined): string {
+    const trimmed = value?.trim() ?? '';
+
+    return trimmed !== '' && trimmed !== '-' ? trimmed : '—';
+}
+
+export function isListRowIncomplete(status: string): boolean {
+    return !status.toLowerCase().includes('done');
+}
+
+export function targetDaysLeftHint(daysLeft: number): {
+    label: string;
+    className: string;
+} {
+    if (daysLeft < 0) {
+        return {
+            label: `(terlambat ${Math.abs(daysLeft)} hari)`,
+            className: 'text-red-600',
+        };
+    }
+
+    if (daysLeft === 0) {
+        return { label: '(hari ini)', className: 'text-amber-600' };
+    }
+
+    return {
+        label: `(${daysLeft} hari lagi)`,
+        className: daysLeft <= 2 ? 'text-amber-600' : 'text-slate-500',
+    };
+}
+
 export function statusBadgeClass(status: string): string {
     const lower = status.toLowerCase();
 
@@ -64,6 +95,24 @@ export function statusBadgeClass(status: string): string {
     }
 
     return 'spkTableBadge--default';
+}
+
+export function SpkPaymentStatusBadge({
+    status,
+}: {
+    status: SpkIndexRow['paymentStatus'];
+}) {
+    if (status === null) {
+        return null;
+    }
+
+    return (
+        <span
+            className={`spkTableBadge ${status === 'Lunas' ? 'spkTableBadge--paid' : 'spkTableBadge--unpaid'}`}
+        >
+            {status}
+        </span>
+    );
 }
 
 export function SpkTableTipeProduksiCell({
@@ -138,8 +187,8 @@ export function SpkTableLastProcessCell({
                     <span
                         className={`spkTableLastProcessSlaHint${
                             row.processSlaPastTarget
-                                ? ' is-past-target'
-                                : ' is-within-target'
+                                ? 'is-past-target'
+                                : 'is-within-target'
                         }`}
                     >
                         {processSlaHint}

@@ -23,8 +23,6 @@ import {
     index as coranIndex,
     show,
 } from '@/routes/coran';
-import { spks as searchCoranSpks } from '@/routes/coran/select';
-
 type MaterialColorBreakdown = {
     bahan: string | null;
     hasil: string | null;
@@ -559,8 +557,7 @@ export default function CoranIndex({
                                 counts={spkStatusCounts}
                                 variant="alerts"
                                 processLabel="Coran"
-                                searchUrl={searchCoranSpks.url}
-                                documentIdKey="coranId"
+                                module="coran"
                                 documentUrl={edit.url}
                             />
                             <span

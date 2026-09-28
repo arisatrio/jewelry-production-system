@@ -28,7 +28,6 @@ import {
     show,
     bulkStatus,
 } from '@/routes/poles-rangka';
-import { spks as searchPolesRangkaSpks } from '@/routes/poles-rangka/select';
 type PolesRangkaRow = {
     id: number;
     docNo: string | null;
@@ -670,8 +669,7 @@ export default function PolesRangkaIndex({
                                 counts={spkStatusCounts}
                                 variant="alerts"
                                 processLabel="Poles Rangka"
-                                searchUrl={searchPolesRangkaSpks.url}
-                                documentIdKey="polishFrameId"
+                                module="poles-rangka"
                                 documentUrl={edit.url}
                             />
                             <span

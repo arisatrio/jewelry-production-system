@@ -28,7 +28,6 @@ import {
     show,
     bulkStatus,
 } from '@/routes/poles-chrome';
-import { spks as searchPolesChromeSpks } from '@/routes/poles-chrome/select';
 type PolesChromeRow = {
     id: number;
     docNo: string | null;
@@ -685,8 +684,7 @@ export default function PolesChromeIndex({
                                 counts={spkStatusCounts}
                                 variant="alerts"
                                 processLabel="Poles Chrome"
-                                searchUrl={searchPolesChromeSpks.url}
-                                documentIdKey="polishFinishedGoodId"
+                                module="poles-chrome"
                                 documentUrl={edit.url}
                             />
                             <span

@@ -31,7 +31,6 @@ import {
     show,
     bulkStatus,
 } from '@/routes/resin';
-import { spks as searchResinSpks } from '@/routes/resin/select';
 type ResinRow = {
     id: number;
     resinId: number;
@@ -543,8 +542,7 @@ export default function ResinIndex({
                                 counts={spkStatusCounts}
                                 variant="alerts"
                                 processLabel="Resin"
-                                searchUrl={searchResinSpks.url}
-                                documentIdKey="resinId"
+                                module="resin"
                                 documentUrl={edit.url}
                             />
                             <span

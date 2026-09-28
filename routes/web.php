@@ -89,8 +89,16 @@ Route::middleware(['auth'])->group(function () {
         ->name('spk.select.frames');
     Route::get('spk/select/suggestions', [ProductionController::class, 'searchSuggestions'])
         ->name('spk.select.suggestions');
+    Route::post('spk/bulk-status', [ProductionController::class, 'bulkUpdateStatus'])
+        ->name('spk.bulk-status');
     Route::get('spk/status/{statusKey}', [ProductionController::class, 'showByStatus'])
         ->name('spk.show-status');
+    Route::get('spk/status-list/{statusKey}', [ProductionController::class, 'statusList'])
+        ->name('spk.status-list');
+    Route::get('spk/process-queue/{module}/{queue}', [ProductionController::class, 'processQueueList'])
+        ->whereIn('module', ['jewelcad', 'resin', 'coran', 'finishing', 'poles-rangka', 'pasang-batu', 'poles-chrome'])
+        ->whereIn('queue', ['pending', 'inProgress', 'completed'])
+        ->name('spk.process-queue');
     Route::get('spk/{production}', [ProductionController::class, 'show'])
         ->where('production', '.*')
         ->name('spk.show');

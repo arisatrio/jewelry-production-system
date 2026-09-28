@@ -29,6 +29,18 @@ export type SpkRow = {
     prosesTerakhirDate: string;
 };
 
+export type SpkIndexRow = SpkRow & {
+    rowId: number;
+    orderReference: string | null;
+    paymentStatus: 'Lunas' | 'Belum Lunas' | null;
+    skuCode: string | null;
+    typeCode: string | null;
+    productItemName: string | null;
+    spkImageUrl: string | null;
+    targetDaysLeft: number | null;
+    createdBy: string | null;
+};
+
 export type SpkWorkflowStatusKey =
     | 'draft'
     | 'confirmed'
@@ -251,14 +263,3 @@ export type SpkCraftsmanReportCard = {
     receivedAt: string | null;
     shrink: string | null;
 };
-
-export const SPK_TABLE_COLUMNS = [
-    { key: 'produksiNo', label: 'Produksi No' },
-    { key: 'tipeProduksi', label: 'Tipe Produksi' },
-    { key: 'description', label: 'Tipe | SKU' },
-    { key: 'createdDate', label: 'Tanggal SPK Dibuat' },
-    { key: 'orderDate', label: 'Tanggal Permintaan' },
-    { key: 'estimatedDelivery', label: 'Tanggal Estimasi Selesai' },
-    { key: 'prosesTerakhir', label: 'Proses terakhir' },
-    { key: 'status', label: 'Status' },
-] as const;

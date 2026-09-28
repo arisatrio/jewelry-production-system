@@ -28,7 +28,6 @@ import {
     show,
     bulkStatus,
 } from '@/routes/pasang-batu';
-import { spks as searchPasangBatuSpks } from '@/routes/pasang-batu/select';
 type PasangBatuRow = {
     id: number;
     docNo: string | null;
@@ -723,8 +722,7 @@ export default function PasangBatuIndex({
                                 counts={spkStatusCounts}
                                 variant="alerts"
                                 processLabel="Pasang Batu"
-                                searchUrl={searchPasangBatuSpks.url}
-                                documentIdKey="diamondMountingId"
+                                module="pasang-batu"
                                 documentUrl={edit.url}
                             />
                             <span
