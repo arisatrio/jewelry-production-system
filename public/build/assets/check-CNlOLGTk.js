@@ -1,1 +1,0 @@
-import{tr as e}from"./app-Fu-dUX6r.js";var t=e(`Check`,[[`path`,{d:`M20 6 9 17l-5-5`,key:`1gmf2c`}]]);export{t};
