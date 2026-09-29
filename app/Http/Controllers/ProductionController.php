@@ -784,8 +784,8 @@ class ProductionController extends Controller
             'receiptTo' => (string) $serahTerimaSpk->untuk,
             'signatures' => [
                 ['title' => 'Diserahkan oleh', 'name' => (string) $serahTerimaSpk->diserahkan_oleh],
-                ['title' => 'Diterima oleh', 'name' => (string) $serahTerimaSpk->diterima_oleh],
                 ['title' => 'Diketahui oleh', 'name' => (string) $serahTerimaSpk->diketahui_oleh],
+                ['title' => 'Diterima oleh', 'name' => (string) $serahTerimaSpk->diterima_oleh],
             ],
             'rows' => $serahTerimaSpk->items,
         ]);

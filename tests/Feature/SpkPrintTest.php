@@ -645,8 +645,8 @@ test('spk receipt print page renders stored receipt', function () {
         ->assertDontSee('>Qty</th>', false)
         ->assertSeeInOrder([
             'Diserahkan oleh', 'Budi Penyerah',
-            'Diterima oleh', 'Sari Penerima',
             'Diketahui oleh', 'Joko Mengetahui',
+            'Diterima oleh', 'Sari Penerima',
         ], false)
         ->assertSee('Dicetak oleh Admin SPK', false);
 });
