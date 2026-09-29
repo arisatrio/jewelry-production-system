@@ -167,7 +167,9 @@ class ProductionController extends Controller
                 }
             })
             ->when($search !== '', function ($query) use ($search): void {
-                $query->where(function ($query) use ($search): void {
+                $matchingSkuIds = $this->matchingSkuIds($search);
+
+                $query->where(function ($query) use ($search, $matchingSkuIds): void {
                     $query->where('spk_no', 'like', "%{$search}%")
                         ->orWhere('spk_type', 'like', "%{$search}%")
                         ->orWhere('request_order_no', 'like', "%{$search}%")
@@ -175,7 +177,10 @@ class ProductionController extends Controller
                         ->orWhere('item_name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%")
                         ->orWhere('status', 'like', "%{$search}%")
-                        ->orWhere('last_process', 'like', "%{$search}%");
+                        ->orWhere('last_process', 'like', "%{$search}%")
+                        ->when($matchingSkuIds !== [], function ($query) use ($matchingSkuIds): void {
+                            $query->orWhereIn('sku_id', $matchingSkuIds);
+                        });
                 });
             })
             ->tap(function ($query) use ($sort, $direction): void {
@@ -385,6 +390,25 @@ class ProductionController extends Controller
         };
 
         return [$from?->toDateString(), $to?->toDateString()];
+    }
+
+    /**
+     * ID SKU master (koneksi second) yang kode atau namanya cocok dengan kata kunci pencarian SPK.
+     *
+     * @return list<int>
+     */
+    private function matchingSkuIds(string $search): array
+    {
+        return SkuMaster::query()
+            ->where(function ($query) use ($search): void {
+                $query->where('sku_code', 'like', "%{$search}%")
+                    ->orWhere('item_original', 'like', "%{$search}%");
+            })
+            ->limit(1000)
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
     }
 
     private function resolveIndexDate(string $date): ?string

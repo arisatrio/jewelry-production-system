@@ -114,6 +114,36 @@ test('spk index description shows type sku description for new system', function
     $sku->delete();
 });
 
+test('spk index search matches sku code and sku name', function () {
+    $sku = SkuMaster::factory()->create([
+        'sku_code' => 'TEST-SRCH-SKU-9X7Q',
+        'item_original' => 'Cincin Uji Pencarian Zeta',
+    ]);
+
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/SKU-SEARCH',
+        'item_name' => 'Earring',
+        'description' => 'Tanpa kata kunci',
+        'sku_id' => $sku->id,
+        'is_deleted' => 0,
+    ]);
+
+    try {
+        foreach (['srch-sku-9x7', 'Uji Pencarian Zeta'] as $keyword) {
+            $this->get(route('spk.index', ['search' => $keyword]))
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->component('spk/index')
+                    ->where('productions.total', 1)
+                    ->where('productions.data.0.produksiNo', 'TEST/SPK/SKU-SEARCH')
+                );
+        }
+    } finally {
+        $production->delete();
+        $sku->delete();
+    }
+});
+
 test('spk index description shows type and description only for old system', function () {
     $category = SkuPrefixCategory::query()->firstOrCreate([
         'category' => 'Ladies Ring',
