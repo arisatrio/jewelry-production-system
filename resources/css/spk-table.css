@@ -1453,6 +1453,15 @@
     border-top: none;
 }
 
+.spkReceiptHistoryTable td.spkReceiptHistoryColWrap {
+    min-width: 10rem;
+    white-space: normal;
+}
+
+.spkReceiptHistoryDeleteBtn::part(icon) {
+    color: #dc2626;
+}
+
 .spkAlertModalEmpty {
     padding: 1.5rem 1rem;
     color: #6b7280;

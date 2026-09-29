@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\SerahTerimaSpkFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
@@ -22,11 +23,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $created_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at
+ * @property string|null $deleted_by
  */
 class SerahTerimaSpk extends Model
 {
     /** @use HasFactory<SerahTerimaSpkFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The connection name for the model.
@@ -57,6 +60,7 @@ class SerahTerimaSpk extends Model
         'spk_row_ids',
         'items',
         'created_by',
+        'deleted_by',
     ];
 
     /**

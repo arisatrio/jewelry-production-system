@@ -518,12 +518,13 @@ test('spk print template page renders blank form format', function () {
 function deleteTestingSerahTerimaSpk(): void
 {
     SerahTerimaSpk::query()
+        ->withTrashed()
         ->where(function ($query): void {
             $query->where('doc_no', 'like', 'WHOJ/PRD/TTS/2098/%')
                 ->orWhere('doc_no', 'like', 'WHOJ/PRD/TTS/2099/%')
                 ->orWhere('doc_no', 'like', 'WHOJ/PRD/TTS/TEST/%');
         })
-        ->delete();
+        ->forceDelete();
 }
 
 beforeEach(fn () => deleteTestingSerahTerimaSpk());
@@ -693,5 +694,93 @@ test('spk receipt store validates form data', function () {
     expect(SerahTerimaSpk::query()->where('doc_no', 'like', 'WHOJ/PRD/TTS/2099/%')->exists())->toBeFalse();
 
     $inactive->delete();
+    $production->delete();
+});
+
+test('spk receipt history lists stored receipts newest first with search', function () {
+    $older = SerahTerimaSpk::factory()->create([
+        'doc_no' => 'WHOJ/PRD/TTS/TEST/000011',
+        'tanggal' => '2099-09-01',
+        'dari' => 'Head Office',
+        'untuk' => 'Workshop',
+        'diserahkan_oleh' => 'Budi Penyerah',
+        'diketahui_oleh' => 'Joko Mengetahui',
+        'diterima_oleh' => 'Sari Penerima',
+        'jumlah_spk' => 1,
+        'spk_row_ids' => [1],
+        'items' => [
+            ['spkRowId' => 1, 'spkNo' => 'TEST/SPK/HISTORY-A', 'type' => 'Stock', 'item' => 'Cincin', 'description' => '', 'customer' => '', 'targetDate' => '05-Oct-2026'],
+        ],
+        'created_by' => 'Admin SPK',
+    ]);
+    $newer = SerahTerimaSpk::factory()->create([
+        'doc_no' => 'WHOJ/PRD/TTS/TEST/000012',
+        'items' => [
+            ['spkRowId' => 2, 'spkNo' => 'TEST/SPK/HISTORY-B', 'type' => 'Stock', 'item' => 'Kalung', 'description' => '', 'customer' => '', 'targetDate' => '06-Oct-2026'],
+        ],
+    ]);
+
+    $this->getJson(route('spk.print.receipt.index', ['search' => 'WHOJ/PRD/TTS/TEST/00001']))
+        ->assertOk()
+        ->assertJsonPath('meta.total', 2)
+        ->assertJsonPath('data.0.docNo', $newer->doc_no)
+        ->assertJsonPath('data.1', [
+            'id' => $older->id,
+            'docNo' => 'WHOJ/PRD/TTS/TEST/000011',
+            'tanggal' => '01-Sep-2099',
+            'dari' => 'Head Office',
+            'untuk' => 'Workshop',
+            'jumlahSpk' => 1,
+            'spkNos' => ['TEST/SPK/HISTORY-A'],
+            'diserahkanOleh' => 'Budi Penyerah',
+            'diketahuiOleh' => 'Joko Mengetahui',
+            'diterimaOleh' => 'Sari Penerima',
+            'createdBy' => 'Admin SPK',
+            'createdAt' => $older->created_at->format('d-M-Y H:i'),
+            'printUrl' => route('spk.print.receipt', $older),
+        ]);
+
+    $this->getJson(route('spk.print.receipt.index', ['search' => 'TEST/SPK/HISTORY-B']))
+        ->assertOk()
+        ->assertJsonPath('meta.total', 1)
+        ->assertJsonPath('data.0.docNo', $newer->doc_no);
+});
+
+test('spk receipt destroy soft deletes receipt and hides it from history and print', function () {
+    $receipt = SerahTerimaSpk::factory()->create(['doc_no' => 'WHOJ/PRD/TTS/TEST/000021']);
+
+    $this->deleteJson(route('spk.print.receipt.destroy', $receipt))
+        ->assertOk()
+        ->assertJsonPath('message', 'Tanda terima WHOJ/PRD/TTS/TEST/000021 berhasil dihapus.');
+
+    $trashed = SerahTerimaSpk::query()->withTrashed()->findOrFail($receipt->id);
+
+    expect($trashed->trashed())->toBeTrue()
+        ->and($trashed->deleted_by)->not->toBeEmpty();
+
+    $this->getJson(route('spk.print.receipt.index', ['search' => 'WHOJ/PRD/TTS/TEST/000021']))
+        ->assertOk()
+        ->assertJsonPath('meta.total', 0);
+
+    $this->get(route('spk.print.receipt', $receipt->id))->assertNotFound();
+    $this->deleteJson(route('spk.print.receipt.destroy', $receipt->id))->assertNotFound();
+});
+
+test('spk receipt doc number is not reused after soft delete', function () {
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/RECEIPT-REUSE',
+        'is_deleted' => 0,
+    ]);
+    $store = fn (): string => $this->postJson(route('spk.print.receipt.store'), [
+        'ids' => [$production->row_id],
+        'tanggal' => '2099-03-01',
+    ])->assertCreated()->json('docNo');
+
+    $first = $store();
+    SerahTerimaSpk::query()->where('doc_no', $first)->firstOrFail()->delete();
+
+    expect($first)->toBe('WHOJ/PRD/TTS/2099/0001')
+        ->and($store())->toBe('WHOJ/PRD/TTS/2099/0002');
+
     $production->delete();
 });

@@ -705,6 +705,51 @@ class ProductionController extends Controller
     }
 
     /**
+     * Riwayat tanda terima serah terima SPK dengan pencarian & paginasi untuk modal di halaman index.
+     */
+    public function receiptHistory(Request $request): JsonResponse
+    {
+        $search = $request->string('search')->trim()->toString();
+
+        $receipts = SerahTerimaSpk::query()
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    foreach (['doc_no', 'dari', 'untuk', 'diserahkan_oleh', 'diketahui_oleh', 'diterima_oleh', 'created_by', 'items'] as $column) {
+                        $query->orWhere($column, 'like', "%{$search}%");
+                    }
+                });
+            })
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        return response()->json([
+            'data' => $receipts->getCollection()
+                ->map(fn (SerahTerimaSpk $receipt): array => [
+                    'id' => $receipt->id,
+                    'docNo' => $receipt->doc_no,
+                    'tanggal' => $receipt->tanggal->format('d-M-Y'),
+                    'dari' => $receipt->dari,
+                    'untuk' => $receipt->untuk,
+                    'jumlahSpk' => $receipt->jumlah_spk,
+                    'spkNos' => array_values(array_column($receipt->items, 'spkNo')),
+                    'diserahkanOleh' => $receipt->diserahkan_oleh,
+                    'diketahuiOleh' => $receipt->diketahui_oleh,
+                    'diterimaOleh' => $receipt->diterima_oleh,
+                    'createdBy' => $receipt->created_by,
+                    'createdAt' => $receipt->created_at?->format('d-M-Y H:i'),
+                    'printUrl' => route('spk.print.receipt', $receipt),
+                ])
+                ->values(),
+            'meta' => [
+                'currentPage' => $receipts->currentPage(),
+                'lastPage' => $receipts->lastPage(),
+                'perPage' => $receipts->perPage(),
+                'total' => $receipts->total(),
+            ],
+        ]);
+    }
+
+    /**
      * Simpan serah terima SPK yang dipilih di halaman index dan generate nomor form.
      */
     public function storeReceipt(
@@ -788,6 +833,21 @@ class ProductionController extends Controller
                 ['title' => 'Diterima oleh', 'name' => (string) $serahTerimaSpk->diterima_oleh],
             ],
             'rows' => $serahTerimaSpk->items,
+        ]);
+    }
+
+    /**
+     * Soft delete tanda terima serah terima SPK dari modal riwayat.
+     */
+    public function destroyReceipt(Request $request, SerahTerimaSpk $serahTerimaSpk): JsonResponse
+    {
+        DB::connection('third')->transaction(function () use ($request, $serahTerimaSpk): void {
+            $serahTerimaSpk->forceFill(['deleted_by' => $this->actorName($request)])->save();
+            $serahTerimaSpk->delete();
+        });
+
+        return response()->json([
+            'message' => "Tanda terima {$serahTerimaSpk->doc_no} berhasil dihapus.",
         ]);
     }
 
@@ -1738,12 +1798,63 @@ class ProductionController extends Controller
                 ->all(),
         ));
 
-        return fn (Production $production): array => $this->toIndexRow(
-            $production,
-            $doneKinds[(int) $production->row_id] ?? false,
-            $lastProcessDates[(int) $production->row_id] ?? null,
-            $requestOrders[trim((string) $production->request_order_no)] ?? null,
-        );
+        $latestReceipts = $this->latestReceiptsBySpkRowId(array_values(
+            $pageProductions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+        ));
+
+        return function (Production $production) use ($doneKinds, $lastProcessDates, $requestOrders, $latestReceipts): array {
+            $row = $this->toIndexRow(
+                $production,
+                $doneKinds[(int) $production->row_id] ?? false,
+                $lastProcessDates[(int) $production->row_id] ?? null,
+                $requestOrders[trim((string) $production->request_order_no)] ?? null,
+            );
+            $receipt = $latestReceipts[(int) $production->row_id] ?? null;
+
+            if ($receipt !== null && trim((string) $row['prosesTerakhir']) === '') {
+                $destination = trim((string) $receipt->untuk);
+                $row['prosesTerakhir'] = 'Diserahkan ke '.($destination !== '' ? $destination : 'Workshop');
+                $row['prosesTerakhirDate'] = $receipt->tanggal->format('d-M-Y');
+            }
+
+            return $row;
+        };
+    }
+
+    /**
+     * Tanda terima serah terima terbaru (belum dihapus) per SPK row id.
+     *
+     * @param  list<int>  $spkRowIds
+     * @return array<int, SerahTerimaSpk>
+     */
+    private function latestReceiptsBySpkRowId(array $spkRowIds): array
+    {
+        if ($spkRowIds === []) {
+            return [];
+        }
+
+        $wantedIds = array_flip($spkRowIds);
+        $latest = [];
+
+        SerahTerimaSpk::query()
+            ->where(function ($query) use ($spkRowIds): void {
+                foreach ($spkRowIds as $spkRowId) {
+                    $query->orWhereJsonContains('spk_row_ids', $spkRowId);
+                }
+            })
+            ->orderByDesc('id')
+            ->get(['id', 'doc_no', 'tanggal', 'untuk', 'spk_row_ids'])
+            ->each(function (SerahTerimaSpk $receipt) use ($wantedIds, &$latest): void {
+                foreach ($receipt->spk_row_ids as $spkRowId) {
+                    $spkRowId = (int) $spkRowId;
+
+                    if (isset($wantedIds[$spkRowId]) && ! isset($latest[$spkRowId])) {
+                        $latest[$spkRowId] = $receipt;
+                    }
+                }
+            });
+
+        return $latest;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 use App\Models\Employee;
 use App\Models\Production;
+use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Support\SpkService;
@@ -1341,4 +1342,58 @@ test('spk show page returns not found for deleted production', function () {
     }
 
     $this->get(route('spk.show', $production))->assertNotFound();
+});
+
+test('spk index shows handover as last process when spk has receipt and no production process', function () {
+    $handedOver = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'last_process' => null,
+        'is_deleted' => 0,
+    ]);
+    $inProcess = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'last_process' => 'Coran',
+        'is_deleted' => 0,
+    ]);
+    $deletedReceiptSpk = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'last_process' => null,
+        'is_deleted' => 0,
+    ]);
+
+    $olderReceipt = SerahTerimaSpk::factory()->create([
+        'doc_no' => 'WHOJ/PRD/TTS/TEST/000031',
+        'tanggal' => '2099-09-01',
+        'untuk' => 'Store',
+        'spk_row_ids' => [(int) $handedOver->row_id],
+    ]);
+    $latestReceipt = SerahTerimaSpk::factory()->create([
+        'doc_no' => 'WHOJ/PRD/TTS/TEST/000032',
+        'tanggal' => '2099-09-30',
+        'untuk' => 'Workshop',
+        'spk_row_ids' => [(int) $handedOver->row_id, (int) $inProcess->row_id],
+    ]);
+    $deletedReceipt = SerahTerimaSpk::factory()->create([
+        'doc_no' => 'WHOJ/PRD/TTS/TEST/000033',
+        'spk_row_ids' => [(int) $deletedReceiptSpk->row_id],
+    ]);
+    $deletedReceipt->delete();
+
+    $lastProcessFor = function (Production $production): array {
+        $row = collect($this->get(route('spk.index', ['search' => $production->spk_no]))
+            ->assertOk()
+            ->viewData('page')['props']['productions']['data'])
+            ->firstWhere('rowId', (int) $production->row_id);
+
+        return [$row['prosesTerakhir'], $row['prosesTerakhirDate']];
+    };
+
+    expect($lastProcessFor($handedOver))->toBe(['Diserahkan ke Workshop', '30-Sep-2099'])
+        ->and($lastProcessFor($inProcess)[0])->toBe('Coran')
+        ->and($lastProcessFor($deletedReceiptSpk))->toBe(['', '']);
+
+    SerahTerimaSpk::query()->withTrashed()
+        ->whereKey([$olderReceipt->id, $latestReceipt->id, $deletedReceipt->id])
+        ->forceDelete();
+    collect([$handedOver, $inProcess, $deletedReceiptSpk])->each->delete();
 });

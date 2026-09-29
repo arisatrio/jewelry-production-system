@@ -16,6 +16,7 @@ class SerahTerimaSpkDocNumberGenerator
         $prefix = "WHOJ/PRD/TTS/{$year}/";
 
         $latest = SerahTerimaSpk::query()
+            ->withTrashed()
             ->where('doc_no', 'like', $prefix.'%')
             ->lockForUpdate()
             ->orderByDesc('doc_no')

@@ -1,10 +1,11 @@
 import { Head, router } from '@inertiajs/react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
+import approvalsIcon from '@ui5/webcomponents-icons/dist/approvals.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
+import historyIcon from '@ui5/webcomponents-icons/dist/history.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
-import approvalsIcon from '@ui5/webcomponents-icons/dist/approvals.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
 import { Button } from '@ui5/webcomponents-react/Button';
@@ -12,7 +13,6 @@ import { Icon } from '@ui5/webcomponents-react/Icon';
 import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
 import { useEffect, useMemo, useState } from 'react';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
-import { SpkReceiptPrintDialog } from '@/components/spk/spk-receipt-print-dialog';
 import {
     SpkPaymentStatusBadge,
     SpkTableDescriptionCell,
@@ -23,6 +23,8 @@ import {
     targetDaysLeftHint,
     tipeProduksiBadgeClass,
 } from '@/components/spk/spk-list-cells';
+import { SpkReceiptHistoryDialog } from '@/components/spk/spk-receipt-history-dialog';
+import { SpkReceiptPrintDialog } from '@/components/spk/spk-receipt-print-dialog';
 import { SpkStatusListDialog } from '@/components/spk/spk-status-list-dialog';
 import type { SpkIndexRow } from '@/components/spk/types';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -164,6 +166,8 @@ export default function SpkIndex({
     } | null>(null);
     const [statusListDialogOpen, setStatusListDialogOpen] = useState(false);
     const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+    const [receiptHistoryDialogOpen, setReceiptHistoryDialogOpen] =
+        useState(false);
     const activeStatusKey =
         filters.status === DONE_STATUS_FILTER
             ? 'done'
@@ -1279,6 +1283,16 @@ export default function SpkIndex({
                                 className="spkTableHeaderExportBtn--finishing"
                                 onClick={() => setReceiptDialogOpen(true)}
                             />
+                            <Button
+                                design="Default"
+                                icon={historyIcon}
+                                accessibleName="Riwayat Tanda Terima"
+                                tooltip="Riwayat Tanda Terima"
+                                className="spkTableHeaderExportBtn--finishing"
+                                onClick={() =>
+                                    setReceiptHistoryDialogOpen(true)
+                                }
+                            />
                             <span
                                 className="spkTableHeaderDivider--finishing"
                                 aria-hidden="true"
@@ -1619,6 +1633,11 @@ export default function SpkIndex({
                 onOpenChange={setReceiptDialogOpen}
                 selectedIds={selectedIds}
                 employeeOptions={receiptEmployeeOptions}
+            />
+
+            <SpkReceiptHistoryDialog
+                open={receiptHistoryDialogOpen}
+                onOpenChange={setReceiptHistoryDialogOpen}
             />
         </>
     );
