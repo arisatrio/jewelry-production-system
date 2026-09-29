@@ -480,7 +480,7 @@ export function CoranForm({
                                                 </th>
                                                 <th>Kadar</th>
                                                 <th>Status Coran</th>
-                                                <th>Total Berat (g)</th>
+                                                <th>Total Berat Keluar Hasil Coran (g)</th>
                                                 <th className="spkTableActionCol">
                                                     Aksi
                                                 </th>

@@ -10,6 +10,17 @@ import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import {
+    ActiveFilterSummary,
+    describeDateRange,
+    describeFilterOptions,
+    describeSort,
+} from '@/components/active-filter-summary';
+import {
+    buildDefaultableFilterQuery,
+    FilterMultiSelect,
+    haveSameFilterValues,
+} from '@/components/filter-multi-select';
 import { NotesCell } from '@/components/notes-cell';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
@@ -80,8 +91,11 @@ type PolesChromeIndexProps = {
         status: string[];
         date_from: string | null;
         date_to: string | null;
-        craftsman: number | null;
+        craftsman: number[];
         per_page: number;
+    };
+    defaultFilters: {
+        status: string[];
     };
     filterOptions: {
         status: FilterOption[];
@@ -97,6 +111,15 @@ type PolesChromeIndexProps = {
         canDelete: boolean;
     };
 };
+
+function buildFilterDraft(filters: PolesChromeIndexProps['filters']) {
+    return {
+        status: filters.status,
+        date_from: filters.date_from ?? '',
+        date_to: filters.date_to ?? '',
+        craftsman: filters.craftsman.map(String),
+    };
+}
 
 function formatStatusLabel(
     statusLabel: string | null,
@@ -284,6 +307,7 @@ export default function PolesChromeIndex({
     documents,
     spkStatusCounts,
     filters,
+    defaultFilters,
     filterOptions,
     bulkActions,
 }: PolesChromeIndexProps) {
@@ -301,7 +325,7 @@ export default function PolesChromeIndex({
         status?: string[];
         date_from?: string | null;
         date_to?: string | null;
-        craftsman?: number | null;
+        craftsman?: number[];
         per_page?: number;
         page?: number;
     }) => {
@@ -315,10 +339,7 @@ export default function PolesChromeIndex({
                 : filters.date_from;
         const nextDateTo =
             params.date_to !== undefined ? params.date_to : filters.date_to;
-        const nextCraftsman =
-            params.craftsman !== undefined
-                ? params.craftsman
-                : filters.craftsman;
+        const nextCraftsman = params.craftsman ?? filters.craftsman;
         const nextPerPage = params.per_page ?? filters.per_page;
 
         router.get(
@@ -328,10 +349,14 @@ export default function PolesChromeIndex({
                     sort: nextSort !== 'id' ? nextSort : undefined,
                     direction:
                         nextDirection !== 'desc' ? nextDirection : undefined,
-                    status: nextStatus.length > 0 ? nextStatus : undefined,
+                    status: buildDefaultableFilterQuery(
+                        nextStatus,
+                        defaultFilters.status,
+                    ),
                     date_from: nextDateFrom || undefined,
                     date_to: nextDateTo || undefined,
-                    craftsman: nextCraftsman ?? undefined,
+                    craftsman:
+                        nextCraftsman.length > 0 ? nextCraftsman : undefined,
                     per_page: nextPerPage !== 50 ? nextPerPage : undefined,
                     page: params.page ?? 1,
                 },
@@ -359,13 +384,16 @@ export default function PolesChromeIndex({
                             filters.direction !== 'desc'
                                 ? filters.direction
                                 : undefined,
-                        status:
-                            filters.status.length > 0
-                                ? filters.status
-                                : undefined,
+                        status: buildDefaultableFilterQuery(
+                            filters.status,
+                            defaultFilters.status,
+                        ),
                         date_from: filters.date_from || undefined,
                         date_to: filters.date_to || undefined,
-                        craftsman: filters.craftsman ?? undefined,
+                        craftsman:
+                            filters.craftsman.length > 0
+                                ? filters.craftsman
+                                : undefined,
                         per_page:
                             filters.per_page !== 50
                                 ? filters.per_page
@@ -388,6 +416,7 @@ export default function PolesChromeIndex({
         filters.sort,
         filters.direction,
         filters.status,
+        defaultFilters.status,
         filters.date_from,
         filters.date_to,
         filters.craftsman,
@@ -410,12 +439,9 @@ export default function PolesChromeIndex({
         sort: filters.sort,
         direction: filters.direction,
     });
-    const [filterDraft, setFilterDraft] = useState({
-        status: filters.status[0] ?? '',
-        date_from: filters.date_from ?? '',
-        date_to: filters.date_to ?? '',
-        craftsman: filters.craftsman !== null ? String(filters.craftsman) : '',
-    });
+    const [filterDraft, setFilterDraft] = useState(() =>
+        buildFilterDraft(filters),
+    );
     const [entriesDraft, setEntriesDraft] = useState(String(filters.per_page));
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -427,14 +453,8 @@ export default function PolesChromeIndex({
     }, [filters.sort, filters.direction]);
 
     useEffect(() => {
-        setFilterDraft({
-            status: filters.status[0] ?? '',
-            date_from: filters.date_from ?? '',
-            date_to: filters.date_to ?? '',
-            craftsman:
-                filters.craftsman !== null ? String(filters.craftsman) : '',
-        });
-    }, [filters.status, filters.date_from, filters.date_to, filters.craftsman]);
+        setFilterDraft(buildFilterDraft(filters));
+    }, [filters]);
 
     useEffect(() => {
         setEntriesDraft(String(filters.per_page));
@@ -540,21 +560,17 @@ export default function PolesChromeIndex({
     };
 
     const applyFilters = () => {
-        const nextStatus =
-            filterDraft.status === '' ? [] : [filterDraft.status];
         const nextDateFrom =
             filterDraft.date_from === '' ? null : filterDraft.date_from;
         const nextDateTo =
             filterDraft.date_to === '' ? null : filterDraft.date_to;
-        const nextCraftsman =
-            filterDraft.craftsman === '' ? null : Number(filterDraft.craftsman);
+        const nextCraftsman = filterDraft.craftsman.map(Number);
 
         const unchanged =
-            nextStatus[0] === filters.status[0] &&
-            nextStatus.length === filters.status.length &&
+            haveSameFilterValues(filterDraft.status, filters.status) &&
             nextDateFrom === filters.date_from &&
             nextDateTo === filters.date_to &&
-            nextCraftsman === filters.craftsman;
+            haveSameFilterValues(nextCraftsman, filters.craftsman);
 
         if (unchanged) {
             setFilterMenuOpen(false);
@@ -563,7 +579,7 @@ export default function PolesChromeIndex({
         }
 
         visitIndex({
-            status: nextStatus,
+            status: filterDraft.status,
             date_from: nextDateFrom,
             date_to: nextDateTo,
             craftsman: nextCraftsman,
@@ -574,17 +590,17 @@ export default function PolesChromeIndex({
 
     const clearFilters = () => {
         setFilterDraft({
-            status: '',
+            status: [],
             date_from: '',
             date_to: '',
-            craftsman: '',
+            craftsman: [],
         });
 
         if (
             filters.status.length === 0 &&
             filters.date_from === null &&
             filters.date_to === null &&
-            filters.craftsman === null
+            filters.craftsman.length === 0
         ) {
             setFilterMenuOpen(false);
 
@@ -595,7 +611,7 @@ export default function PolesChromeIndex({
             status: [],
             date_from: null,
             date_to: null,
-            craftsman: null,
+            craftsman: [],
             page: 1,
         });
         setFilterMenuOpen(false);
@@ -631,26 +647,25 @@ export default function PolesChromeIndex({
         filters.status.length > 0 ||
         filters.date_from !== null ||
         filters.date_to !== null ||
-        filters.craftsman !== null;
+        filters.craftsman.length > 0;
     const hasCustomSort = filters.sort !== 'id' || filters.direction !== 'desc';
     const hasCustomEntries = filters.per_page !== 50;
     const hasSortDraftChanges =
         sortDraft.sort !== filters.sort ||
         sortDraft.direction !== filters.direction;
     const hasFilterDraftChanges =
-        (filterDraft.status || '') !== (filters.status[0] ?? '') ||
+        !haveSameFilterValues(filterDraft.status, filters.status) ||
         (filterDraft.date_from || '') !== (filters.date_from ?? '') ||
         (filterDraft.date_to || '') !== (filters.date_to ?? '') ||
-        (filterDraft.craftsman || '') !==
-            (filters.craftsman !== null ? String(filters.craftsman) : '');
+        !haveSameFilterValues(filterDraft.craftsman, filters.craftsman);
     const hasEntriesDraftChanges = Number(entriesDraft) !== filters.per_page;
     const hasSortDraftCustom =
         sortDraft.sort !== 'id' || sortDraft.direction !== 'desc';
     const hasFilterDraftActive =
-        filterDraft.status !== '' ||
+        filterDraft.status.length > 0 ||
         filterDraft.date_from !== '' ||
         filterDraft.date_to !== '' ||
-        filterDraft.craftsman !== '';
+        filterDraft.craftsman.length > 0;
     const hasEntriesDraftCustom = entriesDraft !== '50';
 
     return (
@@ -859,18 +874,9 @@ export default function PolesChromeIndex({
                                         setFilterMenuOpen(open);
 
                                         if (open) {
-                                            setFilterDraft({
-                                                status: filters.status[0] ?? '',
-                                                date_from:
-                                                    filters.date_from ?? '',
-                                                date_to: filters.date_to ?? '',
-                                                craftsman:
-                                                    filters.craftsman !== null
-                                                        ? String(
-                                                              filters.craftsman,
-                                                          )
-                                                        : '',
-                                            });
+                                            setFilterDraft(
+                                                buildFilterDraft(filters),
+                                            );
                                         }
                                     }}
                                 >
@@ -947,84 +953,34 @@ export default function PolesChromeIndex({
                                                     }
                                                 />
                                             </label>
-                                            <label className="spkTableHeaderSortField--finishing">
-                                                <span>Pengrajin</span>
-                                                <select
-                                                    value={
-                                                        filterDraft.craftsman
-                                                    }
-                                                    aria-label="Pengrajin"
-                                                    onChange={(event) =>
-                                                        setFilterDraft(
-                                                            (current) => ({
-                                                                ...current,
-                                                                craftsman:
-                                                                    event.target
-                                                                        .value,
-                                                            }),
-                                                        )
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Semua
-                                                    </option>
-                                                    {filterOptions.craftsman.map(
-                                                        (option) => (
-                                                            <option
-                                                                key={
-                                                                    option.value
-                                                                }
-                                                                value={
-                                                                    option.value
-                                                                }
-                                                            >
-                                                                {option.label}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                            </label>
-                                            <label className="spkTableHeaderSortField--finishing">
-                                                <span>Status</span>
-                                                <select
-                                                    value={filterDraft.status}
-                                                    aria-label="Status"
-                                                    onChange={(event) =>
-                                                        setFilterDraft(
-                                                            (current) => ({
-                                                                ...current,
-                                                                status: event
-                                                                    .target
-                                                                    .value,
-                                                            }),
-                                                        )
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Semua
-                                                    </option>
-                                                    {filterOptions.status.map(
-                                                        (option) => (
-                                                            <option
-                                                                key={
-                                                                    option.value
-                                                                }
-                                                                value={
-                                                                    option.value
-                                                                }
-                                                            >
-                                                                {option.label}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                            </label>
+                                            <FilterMultiSelect
+                                                label="Pengrajin"
+                                                options={
+                                                    filterOptions.craftsman
+                                                }
+                                                value={filterDraft.craftsman}
+                                                onChange={(craftsman) =>
+                                                    setFilterDraft(
+                                                        (current) => ({
+                                                            ...current,
+                                                            craftsman,
+                                                        }),
+                                                    )
+                                                }
+                                            />
+                                            <FilterMultiSelect
+                                                label="Status"
+                                                options={filterOptions.status}
+                                                value={filterDraft.status}
+                                                onChange={(status) =>
+                                                    setFilterDraft(
+                                                        (current) => ({
+                                                            ...current,
+                                                            status,
+                                                        }),
+                                                    )
+                                                }
+                                            />
                                             <div className="spkTableHeaderSortActions--finishing">
                                                 <button
                                                     type="button"
@@ -1197,6 +1153,81 @@ export default function PolesChromeIndex({
                             </button>
                         </div>
                     </div>
+
+                    <ActiveFilterSummary
+                        filters={[
+                            filters.search !== '' && {
+                                key: 'search',
+                                label: 'Pencarian',
+                                value: filters.search,
+                                onRemove: () =>
+                                    visitIndex({ search: '', page: 1 }),
+                            },
+                            (filters.date_from !== null ||
+                                filters.date_to !== null) && {
+                                key: 'date',
+                                label: 'Tanggal',
+                                value: describeDateRange(
+                                    filters.date_from,
+                                    filters.date_to,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({
+                                        date_from: null,
+                                        date_to: null,
+                                        page: 1,
+                                    }),
+                            },
+                            filters.craftsman.length > 0 && {
+                                key: 'craftsman',
+                                label: 'Pengrajin',
+                                value: describeFilterOptions(
+                                    filters.craftsman,
+                                    filterOptions.craftsman,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({ craftsman: [], page: 1 }),
+                            },
+                            filters.status.length > 0 && {
+                                key: 'status',
+                                label: 'Status',
+                                value: describeFilterOptions(
+                                    filters.status,
+                                    filterOptions.status,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({
+                                        status: [],
+                                        page: 1,
+                                    }),
+                            },
+                        ]}
+                        sort={
+                            hasCustomSort && {
+                                key: 'sort',
+                                label: 'Urutkan',
+                                value: describeSort(
+                                    filters.sort,
+                                    filters.direction,
+                                    filterOptions.sort,
+                                    filterOptions.direction,
+                                ),
+                                onRemove: clearSort,
+                            }
+                        }
+                        onClearAll={() =>
+                            visitIndex({
+                                search: '',
+                                status: [],
+                                date_from: null,
+                                date_to: null,
+                                craftsman: [],
+                                sort: 'id',
+                                direction: 'desc',
+                                page: 1,
+                            })
+                        }
+                    />
 
                     {selectedIds.length > 0 ? (
                         <div

@@ -28,6 +28,10 @@ use InvalidArgumentException;
 
 class PolishFrameController extends Controller
 {
+    private const ALL_STATUS_FILTER = 'all';
+
+    private const COMPLETED_STATUS_FILTER = 'done';
+
     public function index(Request $request, PolishFrameSpkEligibility $spkEligibility): Response
     {
         $search = $request->string('search')->trim()->toString();
@@ -36,7 +40,7 @@ class PolishFrameController extends Controller
         $statusFilters = $this->resolveStatusFilters($request->input('status'));
         $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString());
         $dateTo = $this->resolveIndexDate($request->string('date_to')->toString());
-        $craftsmanId = $this->resolveCraftsmanFilter($request->input('craftsman'));
+        $craftsmanIds = $this->resolveCraftsmanFilters($request->input('craftsman'));
         $perPage = $this->resolveIndexPerPage($request->integer('per_page', 50));
 
         if ($dateFrom !== null && $dateTo !== null && $dateTo < $dateFrom) {
@@ -93,8 +97,8 @@ class PolishFrameController extends Controller
             ->when($dateTo !== null, function ($query) use ($dateTo): void {
                 $query->whereDate('send_craftsman_date', '<=', $dateTo);
             })
-            ->when($craftsmanId !== null, function ($query) use ($craftsmanId): void {
-                $query->where('craftsman_id', $craftsmanId);
+            ->when($craftsmanIds !== [], function ($query) use ($craftsmanIds): void {
+                $query->whereIn('craftsman_id', $craftsmanIds);
             })
             ->tap(fn ($query) => $this->applyIndexSort($query, $sort, $direction))
             ->paginate($perPage)
@@ -125,8 +129,11 @@ class PolishFrameController extends Controller
                 'status' => $statusFilters,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
-                'craftsman' => $craftsmanId,
+                'craftsman' => $craftsmanIds,
                 'per_page' => $perPage,
+            ],
+            'defaultFilters' => [
+                'status' => $this->defaultStatusFilters(),
             ],
             'filterOptions' => [
                 'status' => [
@@ -785,15 +792,18 @@ class PolishFrameController extends Controller
         return $trimmed;
     }
 
-    private function resolveCraftsmanFilter(mixed $craftsman): ?int
+    /**
+     * @return list<int>
+     */
+    private function resolveCraftsmanFilters(mixed $craftsman): array
     {
-        if (! filled($craftsman) || ! is_numeric($craftsman)) {
-            return null;
-        }
-
-        $id = (int) $craftsman;
-
-        return $id > 0 ? $id : null;
+        return collect(is_array($craftsman) ? $craftsman : (filled($craftsman) ? [$craftsman] : []))
+            ->filter(fn (mixed $value): bool => is_numeric($value))
+            ->map(fn (mixed $value): int => (int) $value)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function resolveIndexPerPage(int $perPage): int
@@ -842,6 +852,14 @@ class PolishFrameController extends Controller
      */
     private function resolveStatusFilters(mixed $status): array
     {
+        if (blank($status)) {
+            return $this->defaultStatusFilters();
+        }
+
+        if ($status === self::ALL_STATUS_FILTER) {
+            return [];
+        }
+
         $allowed = array_keys($this->statusFilterCodes());
 
         return collect(is_array($status) ? $status : (filled($status) ? [$status] : []))
@@ -850,6 +868,17 @@ class PolishFrameController extends Controller
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function defaultStatusFilters(): array
+    {
+        return array_values(array_diff(
+            array_keys($this->statusFilterCodes()),
+            [self::COMPLETED_STATUS_FILTER],
+        ));
     }
 
     /**

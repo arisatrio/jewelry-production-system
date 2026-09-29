@@ -9,6 +9,17 @@ import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
+import {
+    ActiveFilterSummary,
+    describeDateRange,
+    describeFilterOptions,
+    describeSort,
+} from '@/components/active-filter-summary';
+import {
+    buildDefaultableFilterQuery,
+    FilterMultiSelect,
+    haveSameFilterValues,
+} from '@/components/filter-multi-select';
 import { SpkProcessStatusCards } from '@/components/spk/spk-process-status-cards';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -83,6 +94,9 @@ type CoranIndexProps = {
         date_to: string | null;
         per_page: number;
     };
+    defaultFilters: {
+        status: string[];
+    };
     filterOptions: {
         status: FilterOption[];
         per_page: FilterOption[];
@@ -96,6 +110,14 @@ type CoranIndexProps = {
         canDelete: boolean;
     };
 };
+
+function buildFilterDraft(filters: CoranIndexProps['filters']) {
+    return {
+        status: filters.status,
+        date_from: filters.date_from ?? '',
+        date_to: filters.date_to ?? '',
+    };
+}
 
 function formatStatusLabel(
     statusLabel: string | null,
@@ -236,6 +258,7 @@ export default function CoranIndex({
     corans,
     spkStatusCounts,
     filters,
+    defaultFilters,
     filterOptions,
     bulkActions,
 }: CoranIndexProps) {
@@ -247,11 +270,9 @@ export default function CoranIndex({
         sort: filters.sort,
         direction: filters.direction,
     });
-    const [filterDraft, setFilterDraft] = useState({
-        status: filters.status[0] ?? '',
-        date_from: filters.date_from ?? '',
-        date_to: filters.date_to ?? '',
-    });
+    const [filterDraft, setFilterDraft] = useState(() =>
+        buildFilterDraft(filters),
+    );
     const [entriesDraft, setEntriesDraft] = useState(String(filters.per_page));
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
@@ -268,12 +289,8 @@ export default function CoranIndex({
     }, [filters.sort, filters.direction]);
 
     useEffect(() => {
-        setFilterDraft({
-            status: filters.status[0] ?? '',
-            date_from: filters.date_from ?? '',
-            date_to: filters.date_to ?? '',
-        });
-    }, [filters.status, filters.date_from, filters.date_to]);
+        setFilterDraft(buildFilterDraft(filters));
+    }, [filters]);
 
     useEffect(() => {
         setEntriesDraft(String(filters.per_page));
@@ -376,7 +393,10 @@ export default function CoranIndex({
                     sort: nextSort !== 'id' ? nextSort : undefined,
                     direction:
                         nextDirection !== 'desc' ? nextDirection : undefined,
-                    status: nextStatus.length > 0 ? nextStatus : undefined,
+                    status: buildDefaultableFilterQuery(
+                        nextStatus,
+                        defaultFilters.status,
+                    ),
                     date_from: nextDateFrom || undefined,
                     date_to: nextDateTo || undefined,
                     per_page: nextPerPage !== 50 ? nextPerPage : undefined,
@@ -421,11 +441,11 @@ export default function CoranIndex({
         filters.date_from !== null ||
         filters.date_to !== null;
     const hasFilterDraftChanges =
-        (filterDraft.status || '') !== (filters.status[0] ?? '') ||
+        !haveSameFilterValues(filterDraft.status, filters.status) ||
         (filterDraft.date_from || '') !== (filters.date_from ?? '') ||
         (filterDraft.date_to || '') !== (filters.date_to ?? '');
     const hasFilterDraftCustom =
-        filterDraft.status !== '' ||
+        filterDraft.status.length > 0 ||
         filterDraft.date_from !== '' ||
         filterDraft.date_to !== '';
 
@@ -465,16 +485,13 @@ export default function CoranIndex({
     };
 
     const applyFilters = () => {
-        const nextStatus =
-            filterDraft.status === '' ? [] : [filterDraft.status];
         const nextDateFrom =
             filterDraft.date_from === '' ? null : filterDraft.date_from;
         const nextDateTo =
             filterDraft.date_to === '' ? null : filterDraft.date_to;
 
         const unchanged =
-            nextStatus[0] === filters.status[0] &&
-            nextStatus.length === filters.status.length &&
+            haveSameFilterValues(filterDraft.status, filters.status) &&
             nextDateFrom === filters.date_from &&
             nextDateTo === filters.date_to;
 
@@ -485,7 +502,7 @@ export default function CoranIndex({
         }
 
         visitIndex({
-            status: nextStatus,
+            status: filterDraft.status,
             date_from: nextDateFrom,
             date_to: nextDateTo,
             page: 1,
@@ -495,7 +512,7 @@ export default function CoranIndex({
 
     const clearFilters = () => {
         setFilterDraft({
-            status: '',
+            status: [],
             date_from: '',
             date_to: '',
         });
@@ -742,12 +759,9 @@ export default function CoranIndex({
                                         setFilterMenuOpen(open);
 
                                         if (open) {
-                                            setFilterDraft({
-                                                status: filters.status[0] ?? '',
-                                                date_from:
-                                                    filters.date_from ?? '',
-                                                date_to: filters.date_to ?? '',
-                                            });
+                                            setFilterDraft(
+                                                buildFilterDraft(filters),
+                                            );
                                         }
                                     }}
                                 >
@@ -824,44 +838,19 @@ export default function CoranIndex({
                                                     }
                                                 />
                                             </label>
-                                            <label className="spkTableHeaderSortField--finishing">
-                                                <span>Status</span>
-                                                <select
-                                                    value={filterDraft.status}
-                                                    aria-label="Status"
-                                                    onChange={(event) =>
-                                                        setFilterDraft(
-                                                            (current) => ({
-                                                                ...current,
-                                                                status: event
-                                                                    .target
-                                                                    .value,
-                                                            }),
-                                                        )
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Semua
-                                                    </option>
-                                                    {filterOptions.status.map(
-                                                        (option) => (
-                                                            <option
-                                                                key={
-                                                                    option.value
-                                                                }
-                                                                value={
-                                                                    option.value
-                                                                }
-                                                            >
-                                                                {option.label}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                            </label>
+                                            <FilterMultiSelect
+                                                label="Status"
+                                                options={filterOptions.status}
+                                                value={filterDraft.status}
+                                                onChange={(status) =>
+                                                    setFilterDraft(
+                                                        (current) => ({
+                                                            ...current,
+                                                            status,
+                                                        }),
+                                                    )
+                                                }
+                                            />
                                             <div className="spkTableHeaderSortActions--finishing">
                                                 <button
                                                     type="button"
@@ -1034,6 +1023,70 @@ export default function CoranIndex({
                             </button>
                         </div>
                     </div>
+
+                    <ActiveFilterSummary
+                        filters={[
+                            filters.search !== '' && {
+                                key: 'search',
+                                label: 'Pencarian',
+                                value: filters.search,
+                                onRemove: () =>
+                                    visitIndex({ search: '', page: 1 }),
+                            },
+                            (filters.date_from !== null ||
+                                filters.date_to !== null) && {
+                                key: 'date',
+                                label: 'Tanggal',
+                                value: describeDateRange(
+                                    filters.date_from,
+                                    filters.date_to,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({
+                                        date_from: null,
+                                        date_to: null,
+                                        page: 1,
+                                    }),
+                            },
+                            filters.status.length > 0 && {
+                                key: 'status',
+                                label: 'Status',
+                                value: describeFilterOptions(
+                                    filters.status,
+                                    filterOptions.status,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({
+                                        status: [],
+                                        page: 1,
+                                    }),
+                            },
+                        ]}
+                        sort={
+                            hasCustomSort && {
+                                key: 'sort',
+                                label: 'Urutkan',
+                                value: describeSort(
+                                    filters.sort,
+                                    filters.direction,
+                                    filterOptions.sort,
+                                    filterOptions.direction,
+                                ),
+                                onRemove: clearSort,
+                            }
+                        }
+                        onClearAll={() =>
+                            visitIndex({
+                                search: '',
+                                status: [],
+                                date_from: null,
+                                date_to: null,
+                                sort: 'id',
+                                direction: 'desc',
+                                page: 1,
+                            })
+                        }
+                    />
 
                     {selectedIds.length > 0 ? (
                         <div

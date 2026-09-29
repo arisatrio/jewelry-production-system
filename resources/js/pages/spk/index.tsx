@@ -14,6 +14,16 @@ import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
 import { useEffect, useMemo, useState } from 'react';
+import {
+    ActiveFilterSummary,
+    describeDateRange,
+    describeFilterOptions,
+    describeSort,
+} from '@/components/active-filter-summary';
+import {
+    FilterMultiSelect,
+    haveSameFilterValues,
+} from '@/components/filter-multi-select';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import {
     SpkPaymentStatusBadge,
@@ -84,8 +94,8 @@ type SpkIndexProps = {
     statuses: string[];
     filters: {
         search: string;
-        type: string;
-        status: string;
+        type: string[];
+        status: string[];
         sort: string;
         direction: string;
         date_from: string | null;
@@ -152,6 +162,18 @@ const BULK_ACTION_CONFIRM: Record<BulkAction, string> = {
     delete: 'Hapus {count} SPK terpilih?',
 };
 
+function buildFilterDraft(filters: SpkIndexProps['filters']) {
+    return {
+        type: filters.type,
+        status: filters.status,
+        date_from: filters.date_from ?? '',
+        date_to: filters.date_to ?? '',
+        target_period: filters.target_period,
+        target_from: filters.target_from ?? '',
+        target_to: filters.target_to ?? '',
+    };
+}
+
 export default function SpkIndex({
     productions,
     types,
@@ -188,11 +210,13 @@ export default function SpkIndex({
         typeof storeOrderRequestCount === 'number'
             ? storeOrderRequestCount.toLocaleString('id-ID')
             : '…';
+    const singleStatusFilter =
+        filters.status.length === 1 ? filters.status[0] : null;
     const activeStatusKey =
-        filters.status === DONE_STATUS_FILTER
+        singleStatusFilter === DONE_STATUS_FILTER
             ? 'done'
             : Object.entries(statusLabels).find(
-                  ([, label]) => label === filters.status,
+                  ([, label]) => label === singleStatusFilter,
               )?.[0];
 
     useEffect(() => {
@@ -201,8 +225,8 @@ export default function SpkIndex({
 
     const buildIndexQuery = (params: {
         search?: string;
-        type?: string;
-        status?: string;
+        type?: string[];
+        status?: string[];
         sort?: string;
         direction?: string;
         date_from?: string | null;
@@ -238,8 +262,8 @@ export default function SpkIndex({
 
         return {
             search: nextSearch || undefined,
-            type: nextType || undefined,
-            status: nextStatus || undefined,
+            type: nextType.length > 0 ? nextType : undefined,
+            status: nextStatus.length > 0 ? nextStatus : undefined,
             sort: nextSort !== 'id' ? nextSort : undefined,
             direction: nextDirection !== 'desc' ? nextDirection : undefined,
             date_from: nextDateFrom || undefined,
@@ -274,8 +298,12 @@ export default function SpkIndex({
                 spkIndex.url({
                     query: {
                         search: searchQuery || undefined,
-                        type: filters.type || undefined,
-                        status: filters.status || undefined,
+                        type:
+                            filters.type.length > 0 ? filters.type : undefined,
+                        status:
+                            filters.status.length > 0
+                                ? filters.status
+                                : undefined,
                         sort: filters.sort !== 'id' ? filters.sort : undefined,
                         direction:
                             filters.direction !== 'desc'
@@ -329,15 +357,9 @@ export default function SpkIndex({
         sort: filters.sort,
         direction: filters.direction,
     });
-    const [filterDraft, setFilterDraft] = useState({
-        type: filters.type,
-        status: filters.status,
-        date_from: filters.date_from ?? '',
-        date_to: filters.date_to ?? '',
-        target_period: filters.target_period,
-        target_from: filters.target_from ?? '',
-        target_to: filters.target_to ?? '',
-    });
+    const [filterDraft, setFilterDraft] = useState(() =>
+        buildFilterDraft(filters),
+    );
     const [entriesDraft, setEntriesDraft] = useState(String(filters.per_page));
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -349,24 +371,8 @@ export default function SpkIndex({
     }, [filters.sort, filters.direction]);
 
     useEffect(() => {
-        setFilterDraft({
-            type: filters.type,
-            status: filters.status,
-            date_from: filters.date_from ?? '',
-            date_to: filters.date_to ?? '',
-            target_period: filters.target_period,
-            target_from: filters.target_from ?? '',
-            target_to: filters.target_to ?? '',
-        });
-    }, [
-        filters.type,
-        filters.status,
-        filters.date_from,
-        filters.date_to,
-        filters.target_period,
-        filters.target_from,
-        filters.target_to,
-    ]);
+        setFilterDraft(buildFilterDraft(filters));
+    }, [filters]);
 
     useEffect(() => {
         setEntriesDraft(String(filters.per_page));
@@ -515,8 +521,8 @@ export default function SpkIndex({
                 : filterDraft.target_period;
 
         const unchanged =
-            filterDraft.type === filters.type &&
-            filterDraft.status === filters.status &&
+            haveSameFilterValues(filterDraft.type, filters.type) &&
+            haveSameFilterValues(filterDraft.status, filters.status) &&
             nextDateFrom === filters.date_from &&
             nextDateTo === filters.date_to &&
             nextTargetPeriod === filters.target_period &&
@@ -544,8 +550,8 @@ export default function SpkIndex({
 
     const clearFilters = () => {
         setFilterDraft({
-            type: '',
-            status: '',
+            type: [],
+            status: [],
             date_from: '',
             date_to: '',
             target_period: '',
@@ -554,8 +560,8 @@ export default function SpkIndex({
         });
 
         if (
-            filters.type === '' &&
-            filters.status === '' &&
+            filters.type.length === 0 &&
+            filters.status.length === 0 &&
             filters.date_from === null &&
             filters.date_to === null &&
             filters.target_period === ''
@@ -566,8 +572,8 @@ export default function SpkIndex({
         }
 
         visitIndex({
-            type: '',
-            status: '',
+            type: [],
+            status: [],
             date_from: null,
             date_to: null,
             target_period: '',
@@ -605,8 +611,8 @@ export default function SpkIndex({
     };
 
     const hasActiveFilters =
-        filters.type !== '' ||
-        filters.status !== '' ||
+        filters.type.length > 0 ||
+        filters.status.length > 0 ||
         filters.date_from !== null ||
         filters.date_to !== null ||
         filters.target_period !== '';
@@ -616,8 +622,8 @@ export default function SpkIndex({
         sortDraft.sort !== filters.sort ||
         sortDraft.direction !== filters.direction;
     const hasFilterDraftChanges =
-        filterDraft.type !== filters.type ||
-        filterDraft.status !== filters.status ||
+        !haveSameFilterValues(filterDraft.type, filters.type) ||
+        !haveSameFilterValues(filterDraft.status, filters.status) ||
         filterDraft.date_from !== (filters.date_from ?? '') ||
         filterDraft.date_to !== (filters.date_to ?? '') ||
         filterDraft.target_period !== filters.target_period ||
@@ -627,12 +633,20 @@ export default function SpkIndex({
     const hasSortDraftCustom =
         sortDraft.sort !== 'id' || sortDraft.direction !== 'desc';
     const hasFilterDraftActive =
-        filterDraft.type !== '' ||
-        filterDraft.status !== '' ||
+        filterDraft.type.length > 0 ||
+        filterDraft.status.length > 0 ||
         filterDraft.date_from !== '' ||
         filterDraft.date_to !== '' ||
         filterDraft.target_period !== '';
     const hasEntriesDraftCustom = entriesDraft !== String(DEFAULT_PER_PAGE);
+    const typeOptions = types.map((type) => ({
+        value: type,
+        label: `${type} (${typeCounts.byType[type] ?? 0})`,
+    }));
+    const statusOptions = statuses.map((status) => ({
+        value: status,
+        label: status,
+    }));
 
     return (
         <>
@@ -874,19 +888,9 @@ export default function SpkIndex({
                                         setFilterMenuOpen(open);
 
                                         if (open) {
-                                            setFilterDraft({
-                                                type: filters.type,
-                                                status: filters.status,
-                                                date_from:
-                                                    filters.date_from ?? '',
-                                                date_to: filters.date_to ?? '',
-                                                target_period:
-                                                    filters.target_period,
-                                                target_from:
-                                                    filters.target_from ?? '',
-                                                target_to:
-                                                    filters.target_to ?? '',
-                                            });
+                                            setFilterDraft(
+                                                buildFilterDraft(filters),
+                                            );
                                         }
                                     }}
                                 >
@@ -1065,74 +1069,33 @@ export default function SpkIndex({
                                                     </label>
                                                 </>
                                             ) : null}
-                                            <label className="spkTableHeaderSortField--finishing">
-                                                <span>Tipe</span>
-                                                <select
-                                                    value={filterDraft.type}
-                                                    aria-label="Tipe"
-                                                    onChange={(event) =>
-                                                        setFilterDraft(
-                                                            (current) => ({
-                                                                ...current,
-                                                                type: event
-                                                                    .target
-                                                                    .value,
-                                                            }),
-                                                        )
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Semua ({typeCounts.all})
-                                                    </option>
-                                                    {types.map((type) => (
-                                                        <option
-                                                            key={type}
-                                                            value={type}
-                                                        >
-                                                            {type} (
-                                                            {typeCounts.byType[
-                                                                type
-                                                            ] ?? 0}
-                                                            )
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </label>
-                                            <label className="spkTableHeaderSortField--finishing">
-                                                <span>Status</span>
-                                                <select
-                                                    value={filterDraft.status}
-                                                    aria-label="Status"
-                                                    onChange={(event) =>
-                                                        setFilterDraft(
-                                                            (current) => ({
-                                                                ...current,
-                                                                status: event
-                                                                    .target
-                                                                    .value,
-                                                            }),
-                                                        )
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Semua
-                                                    </option>
-                                                    {statuses.map((status) => (
-                                                        <option
-                                                            key={status}
-                                                            value={status}
-                                                        >
-                                                            {status}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </label>
+                                            <FilterMultiSelect
+                                                label="Tipe"
+                                                allLabel={`Semua (${typeCounts.all})`}
+                                                options={typeOptions}
+                                                value={filterDraft.type}
+                                                onChange={(type) =>
+                                                    setFilterDraft(
+                                                        (current) => ({
+                                                            ...current,
+                                                            type,
+                                                        }),
+                                                    )
+                                                }
+                                            />
+                                            <FilterMultiSelect
+                                                label="Status"
+                                                options={statusOptions}
+                                                value={filterDraft.status}
+                                                onChange={(status) =>
+                                                    setFilterDraft(
+                                                        (current) => ({
+                                                            ...current,
+                                                            status,
+                                                        }),
+                                                    )
+                                                }
+                                            />
                                             <div className="spkTableHeaderSortActions--finishing">
                                                 <button
                                                     type="button"
@@ -1365,6 +1328,97 @@ export default function SpkIndex({
                             </span>
                         </Button>
                     </div>
+
+                    <ActiveFilterSummary
+                        filters={[
+                            filters.search !== '' && {
+                                key: 'search',
+                                label: 'Pencarian',
+                                value: filters.search,
+                                onRemove: () =>
+                                    visitIndex({ search: '', page: 1 }),
+                            },
+                            (filters.date_from !== null ||
+                                filters.date_to !== null) && {
+                                key: 'date',
+                                label: 'Tanggal',
+                                value: describeDateRange(
+                                    filters.date_from,
+                                    filters.date_to,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({
+                                        date_from: null,
+                                        date_to: null,
+                                        page: 1,
+                                    }),
+                            },
+                            filters.target_period !== '' && {
+                                key: 'target',
+                                label: 'Target selesai',
+                                value:
+                                    filters.target_period ===
+                                    TARGET_PERIOD_CUSTOM
+                                        ? describeDateRange(
+                                              filters.target_from,
+                                              filters.target_to,
+                                          )
+                                        : describeFilterOptions(
+                                              [filters.target_period],
+                                              filterOptions.target_period,
+                                          ),
+                                onRemove: () =>
+                                    visitIndex({
+                                        target_period: '',
+                                        target_from: null,
+                                        target_to: null,
+                                        page: 1,
+                                    }),
+                            },
+                            filters.type.length > 0 && {
+                                key: 'type',
+                                label: 'Tipe',
+                                value: filters.type.join(', '),
+                                onRemove: () =>
+                                    visitIndex({ type: [], page: 1 }),
+                            },
+                            filters.status.length > 0 && {
+                                key: 'status',
+                                label: 'Status',
+                                value: filters.status.join(', '),
+                                onRemove: () =>
+                                    visitIndex({ status: [], page: 1 }),
+                            },
+                        ]}
+                        sort={
+                            hasCustomSort && {
+                                key: 'sort',
+                                label: 'Urutkan',
+                                value: describeSort(
+                                    filters.sort,
+                                    filters.direction,
+                                    filterOptions.sort,
+                                    filterOptions.direction,
+                                ),
+                                onRemove: clearSort,
+                            }
+                        }
+                        onClearAll={() =>
+                            visitIndex({
+                                search: '',
+                                type: [],
+                                status: [],
+                                date_from: null,
+                                date_to: null,
+                                target_period: '',
+                                target_from: null,
+                                target_to: null,
+                                sort: 'id',
+                                direction: 'desc',
+                                page: 1,
+                            })
+                        }
+                    />
 
                     {selectedIds.length > 0 ? (
                         <div

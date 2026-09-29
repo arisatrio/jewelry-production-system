@@ -86,6 +86,8 @@ type CoranShowProps = {
             weightRosegold?: string | null;
             weightWhitegold?: string | null;
             weightYellowgold?: string | null;
+            jewelcadEstimatedWeight: string | null;
+            weightDifference: string | null;
             kadar: string | null;
             kadarRosegold?: string | null;
             kadarWhitegold?: string | null;

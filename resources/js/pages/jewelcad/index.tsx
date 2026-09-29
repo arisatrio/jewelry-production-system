@@ -9,6 +9,17 @@ import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
+import {
+    ActiveFilterSummary,
+    describeDateRange,
+    describeFilterOptions,
+    describeSort,
+} from '@/components/active-filter-summary';
+import {
+    buildDefaultableFilterQuery,
+    FilterMultiSelect,
+    haveSameFilterValues,
+} from '@/components/filter-multi-select';
 import { NotesCell, JewelCadFileIcon } from '@/components/notes-cell';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
@@ -78,8 +89,11 @@ type JewelCadIndexProps = {
         status: string[];
         date_from: string | null;
         date_to: string | null;
-        operator: string | null;
+        operator: string[];
         per_page: number;
+    };
+    defaultFilters: {
+        status: string[];
     };
     filterOptions: {
         status: FilterOption[];
@@ -95,6 +109,15 @@ type JewelCadIndexProps = {
         canDelete: boolean;
     };
 };
+
+function buildFilterDraft(filters: JewelCadIndexProps['filters']) {
+    return {
+        status: filters.status,
+        date_from: filters.date_from ?? '',
+        date_to: filters.date_to ?? '',
+        operator: filters.operator,
+    };
+}
 
 function formatStatusLabel(
     statusLabel: string | null,
@@ -186,6 +209,7 @@ export default function JewelCadIndex({
     requests,
     spkStatusCounts,
     filters,
+    defaultFilters,
     filterOptions,
     bulkActions,
 }: JewelCadIndexProps) {
@@ -197,12 +221,9 @@ export default function JewelCadIndex({
         sort: filters.sort,
         direction: filters.direction,
     });
-    const [filterDraft, setFilterDraft] = useState({
-        status: filters.status[0] ?? '',
-        date_from: filters.date_from ?? '',
-        date_to: filters.date_to ?? '',
-        operator: filters.operator ?? '',
-    });
+    const [filterDraft, setFilterDraft] = useState(() =>
+        buildFilterDraft(filters),
+    );
     const [entriesDraft, setEntriesDraft] = useState(String(filters.per_page));
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
@@ -219,13 +240,8 @@ export default function JewelCadIndex({
     }, [filters.sort, filters.direction]);
 
     useEffect(() => {
-        setFilterDraft({
-            status: filters.status[0] ?? '',
-            date_from: filters.date_from ?? '',
-            date_to: filters.date_to ?? '',
-            operator: filters.operator ?? '',
-        });
-    }, [filters.status, filters.date_from, filters.date_to, filters.operator]);
+        setFilterDraft(buildFilterDraft(filters));
+    }, [filters]);
 
     useEffect(() => {
         setEntriesDraft(String(filters.per_page));
@@ -313,7 +329,7 @@ export default function JewelCadIndex({
         status?: string[];
         date_from?: string | null;
         date_to?: string | null;
-        operator?: string | null;
+        operator?: string[];
         per_page?: number;
         page?: number;
     }) => {
@@ -327,8 +343,7 @@ export default function JewelCadIndex({
                 : filters.date_from;
         const nextDateTo =
             params.date_to !== undefined ? params.date_to : filters.date_to;
-        const nextOperator =
-            params.operator !== undefined ? params.operator : filters.operator;
+        const nextOperator = params.operator ?? filters.operator;
         const nextPerPage = params.per_page ?? filters.per_page;
 
         router.get(
@@ -338,10 +353,14 @@ export default function JewelCadIndex({
                     sort: nextSort !== 'id' ? nextSort : undefined,
                     direction:
                         nextDirection !== 'desc' ? nextDirection : undefined,
-                    status: nextStatus.length > 0 ? nextStatus : undefined,
+                    status: buildDefaultableFilterQuery(
+                        nextStatus,
+                        defaultFilters.status,
+                    ),
                     date_from: nextDateFrom || undefined,
                     date_to: nextDateTo || undefined,
-                    operator: nextOperator || undefined,
+                    operator:
+                        nextOperator.length > 0 ? nextOperator : undefined,
                     per_page: nextPerPage !== 50 ? nextPerPage : undefined,
                     page: params.page ?? 1,
                 },
@@ -383,17 +402,17 @@ export default function JewelCadIndex({
         filters.status.length > 0 ||
         filters.date_from !== null ||
         filters.date_to !== null ||
-        filters.operator !== null;
+        filters.operator.length > 0;
     const hasFilterDraftChanges =
-        (filterDraft.status || '') !== (filters.status[0] ?? '') ||
+        !haveSameFilterValues(filterDraft.status, filters.status) ||
         (filterDraft.date_from || '') !== (filters.date_from ?? '') ||
         (filterDraft.date_to || '') !== (filters.date_to ?? '') ||
-        (filterDraft.operator || '') !== (filters.operator ?? '');
+        !haveSameFilterValues(filterDraft.operator, filters.operator);
     const hasFilterDraftCustom =
-        filterDraft.status !== '' ||
+        filterDraft.status.length > 0 ||
         filterDraft.date_from !== '' ||
         filterDraft.date_to !== '' ||
-        filterDraft.operator !== '';
+        filterDraft.operator.length > 0;
 
     const hasCustomEntries = filters.per_page !== 50;
     const hasEntriesDraftChanges = Number(entriesDraft) !== filters.per_page;
@@ -431,21 +450,16 @@ export default function JewelCadIndex({
     };
 
     const applyFilters = () => {
-        const nextStatus =
-            filterDraft.status === '' ? [] : [filterDraft.status];
         const nextDateFrom =
             filterDraft.date_from === '' ? null : filterDraft.date_from;
         const nextDateTo =
             filterDraft.date_to === '' ? null : filterDraft.date_to;
-        const nextOperator =
-            filterDraft.operator === '' ? null : filterDraft.operator;
 
         const unchanged =
-            nextStatus[0] === filters.status[0] &&
-            nextStatus.length === filters.status.length &&
+            haveSameFilterValues(filterDraft.status, filters.status) &&
             nextDateFrom === filters.date_from &&
             nextDateTo === filters.date_to &&
-            nextOperator === filters.operator;
+            haveSameFilterValues(filterDraft.operator, filters.operator);
 
         if (unchanged) {
             setFilterMenuOpen(false);
@@ -454,10 +468,10 @@ export default function JewelCadIndex({
         }
 
         visitIndex({
-            status: nextStatus,
+            status: filterDraft.status,
             date_from: nextDateFrom,
             date_to: nextDateTo,
-            operator: nextOperator,
+            operator: filterDraft.operator,
             page: 1,
         });
         setFilterMenuOpen(false);
@@ -465,17 +479,17 @@ export default function JewelCadIndex({
 
     const clearFilters = () => {
         setFilterDraft({
-            status: '',
+            status: [],
             date_from: '',
             date_to: '',
-            operator: '',
+            operator: [],
         });
 
         if (
             filters.status.length === 0 &&
             filters.date_from === null &&
             filters.date_to === null &&
-            filters.operator === null
+            filters.operator.length === 0
         ) {
             setFilterMenuOpen(false);
 
@@ -486,7 +500,7 @@ export default function JewelCadIndex({
             status: [],
             date_from: null,
             date_to: null,
-            operator: null,
+            operator: [],
             page: 1,
         });
         setFilterMenuOpen(false);
@@ -715,14 +729,9 @@ export default function JewelCadIndex({
                                         setFilterMenuOpen(open);
 
                                         if (open) {
-                                            setFilterDraft({
-                                                status: filters.status[0] ?? '',
-                                                date_from:
-                                                    filters.date_from ?? '',
-                                                date_to: filters.date_to ?? '',
-                                                operator:
-                                                    filters.operator ?? '',
-                                            });
+                                            setFilterDraft(
+                                                buildFilterDraft(filters),
+                                            );
                                         }
                                     }}
                                 >
@@ -799,82 +808,32 @@ export default function JewelCadIndex({
                                                     }
                                                 />
                                             </label>
-                                            <label className="spkTableHeaderSortField--finishing">
-                                                <span>Operator</span>
-                                                <select
-                                                    value={filterDraft.operator}
-                                                    aria-label="Operator"
-                                                    onChange={(event) =>
-                                                        setFilterDraft(
-                                                            (current) => ({
-                                                                ...current,
-                                                                operator:
-                                                                    event.target
-                                                                        .value,
-                                                            }),
-                                                        )
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Semua
-                                                    </option>
-                                                    {filterOptions.operator.map(
-                                                        (option) => (
-                                                            <option
-                                                                key={
-                                                                    option.value
-                                                                }
-                                                                value={
-                                                                    option.value
-                                                                }
-                                                            >
-                                                                {option.label}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                            </label>
-                                            <label className="spkTableHeaderSortField--finishing">
-                                                <span>Status</span>
-                                                <select
-                                                    value={filterDraft.status}
-                                                    aria-label="Status"
-                                                    onChange={(event) =>
-                                                        setFilterDraft(
-                                                            (current) => ({
-                                                                ...current,
-                                                                status: event
-                                                                    .target
-                                                                    .value,
-                                                            }),
-                                                        )
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Semua
-                                                    </option>
-                                                    {filterOptions.status.map(
-                                                        (option) => (
-                                                            <option
-                                                                key={
-                                                                    option.value
-                                                                }
-                                                                value={
-                                                                    option.value
-                                                                }
-                                                            >
-                                                                {option.label}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                            </label>
+                                            <FilterMultiSelect
+                                                label="Operator"
+                                                options={filterOptions.operator}
+                                                value={filterDraft.operator}
+                                                onChange={(operator) =>
+                                                    setFilterDraft(
+                                                        (current) => ({
+                                                            ...current,
+                                                            operator,
+                                                        }),
+                                                    )
+                                                }
+                                            />
+                                            <FilterMultiSelect
+                                                label="Status"
+                                                options={filterOptions.status}
+                                                value={filterDraft.status}
+                                                onChange={(status) =>
+                                                    setFilterDraft(
+                                                        (current) => ({
+                                                            ...current,
+                                                            status,
+                                                        }),
+                                                    )
+                                                }
+                                            />
                                             <div className="spkTableHeaderSortActions--finishing">
                                                 <button
                                                     type="button"
@@ -1047,6 +1006,81 @@ export default function JewelCadIndex({
                             </button>
                         </div>
                     </div>
+
+                    <ActiveFilterSummary
+                        filters={[
+                            filters.search !== '' && {
+                                key: 'search',
+                                label: 'Pencarian',
+                                value: filters.search,
+                                onRemove: () =>
+                                    visitIndex({ search: '', page: 1 }),
+                            },
+                            (filters.date_from !== null ||
+                                filters.date_to !== null) && {
+                                key: 'date',
+                                label: 'Tanggal',
+                                value: describeDateRange(
+                                    filters.date_from,
+                                    filters.date_to,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({
+                                        date_from: null,
+                                        date_to: null,
+                                        page: 1,
+                                    }),
+                            },
+                            filters.operator.length > 0 && {
+                                key: 'operator',
+                                label: 'Operator',
+                                value: describeFilterOptions(
+                                    filters.operator,
+                                    filterOptions.operator,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({ operator: [], page: 1 }),
+                            },
+                            filters.status.length > 0 && {
+                                key: 'status',
+                                label: 'Status',
+                                value: describeFilterOptions(
+                                    filters.status,
+                                    filterOptions.status,
+                                ),
+                                onRemove: () =>
+                                    visitIndex({
+                                        status: [],
+                                        page: 1,
+                                    }),
+                            },
+                        ]}
+                        sort={
+                            hasCustomSort && {
+                                key: 'sort',
+                                label: 'Urutkan',
+                                value: describeSort(
+                                    filters.sort,
+                                    filters.direction,
+                                    filterOptions.sort,
+                                    filterOptions.direction,
+                                ),
+                                onRemove: clearSort,
+                            }
+                        }
+                        onClearAll={() =>
+                            visitIndex({
+                                search: '',
+                                status: [],
+                                date_from: null,
+                                date_to: null,
+                                operator: [],
+                                sort: 'id',
+                                direction: 'desc',
+                                page: 1,
+                            })
+                        }
+                    />
 
                     {selectedIds.length > 0 ? (
                         <div

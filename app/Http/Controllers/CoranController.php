@@ -7,6 +7,7 @@ use App\Http\Requests\StoreCoranRequest;
 use App\Http\Requests\UpdateCoranRequest;
 use App\Models\Coran;
 use App\Models\CoranSpk;
+use App\Models\JewelCadRequestDetail;
 use App\Models\Production;
 use App\Support\CoranApprovalService;
 use App\Support\CoranDocNumberGenerator;
@@ -30,6 +31,10 @@ use InvalidArgumentException;
 
 class CoranController extends Controller
 {
+    private const ALL_STATUS_FILTER = 'all';
+
+    private const COMPLETED_STATUS_FILTER = 'done';
+
     /**
      * Display a listing of coran documents.
      */
@@ -129,6 +134,9 @@ class CoranController extends Controller
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'per_page' => $perPage,
+            ],
+            'defaultFilters' => [
+                'status' => $this->defaultStatusFilters(),
             ],
             'filterOptions' => [
                 'status' => [
@@ -1067,6 +1075,14 @@ class CoranController extends Controller
      */
     private function resolveStatusFilters(mixed $status): array
     {
+        if (blank($status)) {
+            return $this->defaultStatusFilters();
+        }
+
+        if ($status === self::ALL_STATUS_FILTER) {
+            return [];
+        }
+
         $allowed = array_keys($this->statusFilterCodes());
 
         return collect(is_array($status) ? $status : (filled($status) ? [$status] : []))
@@ -1075,6 +1091,17 @@ class CoranController extends Controller
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function defaultStatusFilters(): array
+    {
+        return array_values(array_diff(
+            array_keys($this->statusFilterCodes()),
+            [self::COMPLETED_STATUS_FILTER],
+        ));
     }
 
     /**
@@ -1147,6 +1174,8 @@ class CoranController extends Controller
      *         weightRosegold: string|null,
      *         weightWhitegold: string|null,
      *         weightYellowgold: string|null,
+     *         jewelcadEstimatedWeight: string|null,
+     *         weightDifference: string|null,
      *         kadar: string|null,
      *         status: string|null,
      *         statusLabel: string
@@ -1161,6 +1190,9 @@ class CoranController extends Controller
         $detailRows = $coran->details
             ->filter(fn (CoranSpk $detail): bool => $detail->is_deleted === 0)
             ->values();
+        $jewelcadEstimatedWeights = $this->jewelcadEstimatedWeights(
+            $detailRows->map(fn (CoranSpk $detail): int => (int) $detail->spk_id)->all(),
+        );
 
         $submitMaterials = $this->materialLines([
             'Rose Gold' => $coran->submit_material_rosegold,
@@ -1215,20 +1247,55 @@ class CoranController extends Controller
             'coranBreakdown' => $materialBreakdown->forIds([(int) $coran->row_id])[(int) $coran->row_id]
                 ?? $materialBreakdown->empty(),
             'details' => $detailRows
-                ->map(fn (CoranSpk $detail): array => [
-                    'lineId' => (int) $detail->line_id,
-                    'spkId' => (int) $detail->spk_id,
-                    'spkNo' => $detail->production?->spk_no,
-                    ...$this->productionSpkInfoFields($detail->production),
-                    'weight' => $this->formatDecimal($detail->weight),
-                    'weightRosegold' => $this->formatDecimal($detail->weight_rosegold),
-                    'weightWhitegold' => $this->formatDecimal($detail->weight_whitegold),
-                    'weightYellowgold' => $this->formatDecimal($detail->weight_yellowgold),
-                    ...$this->detailKadarStatusDisplayFields($detail),
-                ])
+                ->map(function (CoranSpk $detail) use ($jewelcadEstimatedWeights): array {
+                    $coranWeight = $this->toFloat($detail->weight);
+                    $estimatedWeight = $jewelcadEstimatedWeights[(int) $detail->spk_id] ?? null;
+
+                    return [
+                        'lineId' => (int) $detail->line_id,
+                        'spkId' => (int) $detail->spk_id,
+                        'spkNo' => $detail->production?->spk_no,
+                        ...$this->productionSpkInfoFields($detail->production),
+                        'weight' => $this->formatDecimal($detail->weight),
+                        'weightRosegold' => $this->formatDecimal($detail->weight_rosegold),
+                        'weightWhitegold' => $this->formatDecimal($detail->weight_whitegold),
+                        'weightYellowgold' => $this->formatDecimal($detail->weight_yellowgold),
+                        'jewelcadEstimatedWeight' => $this->formatDecimal($estimatedWeight),
+                        'weightDifference' => $coranWeight !== null && $estimatedWeight !== null
+                            ? $this->formatDecimal($coranWeight - $estimatedWeight)
+                            : null,
+                        ...$this->detailKadarStatusDisplayFields($detail),
+                    ];
+                })
                 ->values()
                 ->all(),
         ];
+    }
+
+    /**
+     * Estimasi berat keluar cor dari request JewelCAD terbaru per SPK.
+     *
+     * @param  list<int>  $spkIds
+     * @return array<int, float>
+     */
+    private function jewelcadEstimatedWeights(array $spkIds): array
+    {
+        if ($spkIds === []) {
+            return [];
+        }
+
+        return JewelCadRequestDetail::query()
+            ->notDeleted()
+            ->whereIn('spk_id', array_values(array_unique($spkIds)))
+            ->whereNotNull('estimation_brj')
+            ->whereHas('request', fn ($requestQuery) => $requestQuery->notDeleted())
+            ->orderByDesc('line_id')
+            ->get(['line_id', 'row_id', 'spk_id', 'estimation_brj'])
+            ->unique('spk_id')
+            ->mapWithKeys(fn (JewelCadRequestDetail $detail): array => [
+                (int) $detail->spk_id => (float) $detail->estimation_brj,
+            ])
+            ->all();
     }
 
     /**

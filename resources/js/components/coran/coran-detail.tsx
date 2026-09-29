@@ -51,6 +51,8 @@ type CoranDetailRow = {
     weightRosegold?: string | null;
     weightWhitegold?: string | null;
     weightYellowgold?: string | null;
+    jewelcadEstimatedWeight: string | null;
+    weightDifference: string | null;
     kadar: string | null;
     kadarRosegold?: string | null;
     kadarWhitegold?: string | null;
@@ -136,6 +138,16 @@ function displayValue(value: string | null | undefined): string {
     const trimmed = value?.trim() ?? '';
 
     return trimmed !== '' ? trimmed : '—';
+}
+
+function formatSignedWeight(value: string | null | undefined): string {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed === '') {
+        return '—';
+    }
+
+    return Number(trimmed) > 0 ? `+${trimmed}` : trimmed;
 }
 
 function parseDecimal(value: string | null | undefined): number | null {
@@ -588,20 +600,26 @@ export function CoranDetail({
                                                     hasil coran (g)
                                                 </th>
                                                 <th>Kadar</th>
-                                                <th className="spkTableColCenter">
-                                                    Status
+                                                <th>Status</th>
+                                                <th>
+                                                    Total Berat keluar
+                                                    <br />
+                                                    hasil coran (g)
                                                 </th>
                                                 <th>
-                                                    Total
+                                                    Estimasi Keluar Cor
                                                     <br />
-                                                    Berat (g)
+                                                    JewelCad (g)
+                                                </th>
+                                                <th>
+                                                    Selisih (g)
                                                 </th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {coranItem.details.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={8}>
+                                                    <td colSpan={10}>
                                                         Belum ada SPK pada
                                                         dokumen ini.
                                                     </td>
@@ -722,8 +740,8 @@ export function CoranDetail({
                                                                         </span>
                                                                     </div>
                                                                 </td>
-                                                                <td className="spkTableColCenter">
-                                                                    <div className="spkFioriFieldStack items-center gap-2">
+                                                                <td>
+                                                                    <div className="spkFioriFieldStack">
                                                                         {statusColors.map(
                                                                             (
                                                                                 color,
@@ -737,12 +755,13 @@ export function CoranDetail({
                                                                                 return (
                                                                                     <div
                                                                                         key={`${detail.lineId}-${color.label}`}
-                                                                                        className="spkFioriFieldStack items-center"
+                                                                                        className="flex items-center gap-1.5 whitespace-nowrap"
                                                                                     >
                                                                                         <span>
                                                                                             {
                                                                                                 color.label
                                                                                             }
+                                                                                            :
                                                                                         </span>
                                                                                         {qcStatus ? (
                                                                                             <SpkQcStatusBadge
@@ -767,6 +786,16 @@ export function CoranDetail({
                                                                             detail.weight,
                                                                         )}
                                                                     </strong>
+                                                                </td>
+                                                                <td>
+                                                                    {displayValue(
+                                                                        detail.jewelcadEstimatedWeight,
+                                                                    )}
+                                                                </td>
+                                                                <td>
+                                                                    {formatSignedWeight(
+                                                                        detail.weightDifference,
+                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         );

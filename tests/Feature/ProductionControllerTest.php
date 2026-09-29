@@ -42,11 +42,45 @@ test('spk index page can filter productions by type', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('filters.type', 'Stock')
+            ->where('filters.type', ['Stock'])
             ->where('types', $types)
             ->where('productions.data.0.tipeProduksi', 'Stock')
             ->where('productions.data.0.produksiNo', $production->spk_no)
         );
+});
+
+test('spk index page can filter productions by multiple types', function () {
+    $customer = 'Filter Types '.strtoupper(fake()->unique()->lexify('??????'));
+    $stock = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'customer_name' => $customer,
+        'is_deleted' => 0,
+    ]);
+    $order = Production::factory()->create([
+        'spk_type' => 'Pesanan',
+        'customer_name' => $customer,
+        'is_deleted' => 0,
+    ]);
+    $repair = Production::factory()->create([
+        'spk_type' => 'Reparasi',
+        'customer_name' => $customer,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', ['type' => ['Stock', 'Pesanan', 'Unknown'], 'search' => $customer]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('filters.type', ['Stock', 'Pesanan'])
+            ->where('productions.total', 2)
+            ->where('productions.data', fn ($rows) => collect($rows)
+                ->pluck('produksiNo')
+                ->sort()
+                ->values()
+                ->all() === collect([$stock->spk_no, $order->spk_no])->sort()->values()->all())
+        );
+
+    collect([$stock, $order, $repair])->each->delete();
 });
 
 test('spk index page ignores unknown production type', function () {
@@ -54,7 +88,7 @@ test('spk index page ignores unknown production type', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('filters.type', '')
+            ->where('filters.type', [])
         );
 });
 
@@ -293,7 +327,7 @@ test('spk index done filter lists spk with completed production', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('filters.status', 'Done')
+            ->where('filters.status', ['Done'])
             ->where('productions.total', 1)
             ->where('productions.data.0.produksiNo', $done->spk_no)
             ->where('productions.data.0.status', 'DONE (Barang Jadi)')
@@ -338,10 +372,18 @@ test('spk index in progress filter excludes spk with completed production', func
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
-            ->where('filters.status', 'In Progress')
+            ->where('filters.status', ['In Progress'])
             ->where('productions.total', 1)
             ->where('productions.data.0.produksiNo', $inProgress->spk_no)
             ->where('productions.data.0.status', 'In Progress')
+        );
+
+    $this->get(route('spk.index', ['status' => ['In Progress', 'Done'], 'search' => $customer]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('filters.status', ['In Progress', 'Done'])
+            ->where('productions.total', 2)
         );
 
     DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();

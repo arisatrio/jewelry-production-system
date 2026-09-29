@@ -242,6 +242,91 @@
     color: #1f2937;
 }
 
+.spkActiveFilterBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.85rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fafbfc;
+}
+
+.spkActiveFilterGroups {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    min-width: 0;
+}
+
+.spkActiveFilterGroup {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.spkActiveFilterGroupTitle {
+    color: #6b7280;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.spkActiveFilterChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 22rem;
+    padding: 0.125rem 0.2rem 0.125rem 0.55rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #e8f2fc;
+    color: #1f2937;
+    font-size: 0.75rem;
+    line-height: 1.3;
+}
+
+.spkActiveFilterChipLabel {
+    flex-shrink: 0;
+    color: #0a6ed1;
+    font-weight: 600;
+}
+
+.spkActiveFilterChipValue {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.spkActiveFilterChipRemove {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.1rem;
+    height: 1.1rem;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #4b5563;
+    cursor: pointer;
+}
+
+.spkActiveFilterChipRemove:hover {
+    background: #bfdbfe;
+    color: #0a6ed1;
+}
+
+.spkActiveFilterChipRemove ui5-icon {
+    width: 0.65rem;
+    height: 0.65rem;
+    color: currentColor;
+}
+
 .spkTableBulkBarActions--finishing {
     display: inline-flex;
     align-items: center;
@@ -627,6 +712,95 @@
 .spkTableHeaderSortField--finishing input[type='date']:focus {
     outline: none;
     border-color: var(--sap-fiori-brand, #0070f2);
+}
+
+.spkFilterMultiSelectTrigger {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 2rem;
+    padding: 0 1.75rem 0 0.55rem;
+    border: 1px solid var(--sapButton_BorderColor, #bbcdd5);
+    border-radius: var(--sap-fiori-button-radius, 0.25rem);
+    background: #fff
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230a6ed1' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E")
+        no-repeat right 0.55rem center;
+    color: #1f2937;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: left;
+    cursor: pointer;
+}
+
+.spkFilterMultiSelectTrigger:focus-visible,
+.spkFilterMultiSelectTrigger[aria-expanded='true'] {
+    outline: none;
+    border-color: var(--sap-fiori-brand, #0070f2);
+}
+
+.spkFilterMultiSelectSummary {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.spkFilterMultiSelectPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.4rem;
+    border: 1px solid var(--sapButton_BorderColor, #bbcdd5);
+    border-radius: var(--sap-fiori-button-radius, 0.25rem);
+    background: #fff;
+}
+
+.spkFilterMultiSelectSearch {
+    width: 100%;
+    height: 1.75rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--sapButton_BorderColor, #bbcdd5);
+    border-radius: var(--sap-fiori-button-radius, 0.25rem);
+    color: #1f2937;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.spkFilterMultiSelectSearch:focus {
+    outline: none;
+    border-color: var(--sap-fiori-brand, #0070f2);
+}
+
+.spkFilterMultiSelectList {
+    display: flex;
+    flex-direction: column;
+    max-height: 12rem;
+    overflow-y: auto;
+}
+
+.spkFilterMultiSelectOption {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.35rem;
+    border-radius: 0.25rem;
+    color: #1f2937;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.spkFilterMultiSelectOption:hover {
+    background: #e8f2fc;
+}
+
+.spkFilterMultiSelectEmpty {
+    margin: 0;
+    padding: 0.3rem 0.35rem;
+    color: #6b7280;
+    font-size: 0.75rem;
+    font-weight: 500;
 }
 
 .spkTableHeaderSortClear--finishing {

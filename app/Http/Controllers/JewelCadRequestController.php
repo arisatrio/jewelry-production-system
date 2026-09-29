@@ -39,6 +39,10 @@ use InvalidArgumentException;
 
 class JewelCadRequestController extends Controller
 {
+    private const ALL_STATUS_FILTER = 'all';
+
+    private const COMPLETED_STATUS_FILTER = 'done';
+
     /**
      * Display a listing of JewelCAD requests.
      */
@@ -50,7 +54,7 @@ class JewelCadRequestController extends Controller
         $statusFilters = $this->resolveStatusFilters($request->input('status'));
         $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString());
         $dateTo = $this->resolveIndexDate($request->string('date_to')->toString());
-        $operator = $this->resolveOperatorFilter($request->string('operator')->toString());
+        $operatorFilters = $this->resolveOperatorFilters($request->input('operator'));
         $perPage = $this->resolveIndexPerPage($request->integer('per_page', 50));
 
         $rows = JewelCadRequestDetail::query()
@@ -59,7 +63,7 @@ class JewelCadRequestController extends Controller
                 $statusFilters,
                 $dateFrom,
                 $dateTo,
-                $operator,
+                $operatorFilters,
             ): void {
                 $query->notDeleted()
                     ->when($statusFilters !== [], function ($statusScope) use ($statusFilters): void {
@@ -92,8 +96,8 @@ class JewelCadRequestController extends Controller
                     ->when($dateTo !== null, function ($dateScope) use ($dateTo): void {
                         $dateScope->whereDate('trans_date', '<=', $dateTo);
                     })
-                    ->when($operator !== null, function ($operatorScope) use ($operator): void {
-                        $operatorScope->where('operator', $operator);
+                    ->when($operatorFilters !== [], function ($operatorScope) use ($operatorFilters): void {
+                        $operatorScope->whereIn('operator', $operatorFilters);
                     });
             })
             ->when($search !== '', function ($query) use ($search): void {
@@ -161,8 +165,11 @@ class JewelCadRequestController extends Controller
                 'status' => $statusFilters,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
-                'operator' => $operator,
+                'operator' => $operatorFilters,
                 'per_page' => $perPage,
+            ],
+            'defaultFilters' => [
+                'status' => $this->defaultStatusFilters(),
             ],
             'filterOptions' => [
                 'status' => [
@@ -1034,11 +1041,18 @@ class JewelCadRequestController extends Controller
         return $trimmed;
     }
 
-    private function resolveOperatorFilter(string $operator): ?string
+    /**
+     * @return list<string>
+     */
+    private function resolveOperatorFilters(mixed $operator): array
     {
-        $trimmed = trim($operator);
-
-        return $trimmed !== '' ? $trimmed : null;
+        return collect(is_array($operator) ? $operator : (filled($operator) ? [$operator] : []))
+            ->filter(fn (mixed $value): bool => is_scalar($value))
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter(fn (string $value): bool => $value !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function resolveIndexPerPage(int $perPage): int
@@ -1051,6 +1065,14 @@ class JewelCadRequestController extends Controller
      */
     private function resolveStatusFilters(mixed $status): array
     {
+        if (blank($status)) {
+            return $this->defaultStatusFilters();
+        }
+
+        if ($status === self::ALL_STATUS_FILTER) {
+            return [];
+        }
+
         $allowed = array_keys($this->statusFilterCodes());
 
         return collect(is_array($status) ? $status : (filled($status) ? [$status] : []))
@@ -1059,6 +1081,17 @@ class JewelCadRequestController extends Controller
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function defaultStatusFilters(): array
+    {
+        return array_values(array_diff(
+            array_keys($this->statusFilterCodes()),
+            [self::COMPLETED_STATUS_FILTER],
+        ));
     }
 
     /**

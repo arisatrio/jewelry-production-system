@@ -16,10 +16,11 @@ test('pasang batu index exposes filters, filter options and bulk actions', funct
             ->where('filters.sort', 'id')
             ->where('filters.direction', 'desc')
             ->where('filters.process', [])
-            ->where('filters.status', [])
+            ->where('filters.status', ['open', 'ppic'])
+            ->where('defaultFilters.status', ['open', 'ppic'])
             ->where('filters.date_from', null)
             ->where('filters.date_to', null)
-            ->where('filters.craftsman', null)
+            ->where('filters.craftsman', [])
             ->where('filters.per_page', 50)
             ->has('filterOptions.process', 2)
             ->has('filterOptions.status', 3)
@@ -231,7 +232,7 @@ test('pasang batu index can filter by send craftsman date range and craftsman', 
     ]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('filters.craftsman', $craftsmanIds[0])
+            ->where('filters.craftsman', [$craftsmanIds[0]])
             ->has('documents.data', 1)
             ->where('documents.data.0.id', $inside->row_id)
         );

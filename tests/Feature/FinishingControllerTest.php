@@ -22,10 +22,11 @@ test('finishing index page is accessible', function () {
             ->where('filters.sort', 'id')
             ->where('filters.direction', 'desc')
             ->where('filters.process', [])
-            ->where('filters.status', [])
+            ->where('filters.status', ['open', 'ppic'])
+            ->where('defaultFilters.status', ['open', 'ppic'])
             ->where('filters.date_from', null)
             ->where('filters.date_to', null)
-            ->where('filters.craftsman', null)
+            ->where('filters.craftsman', [])
             ->where('filters.per_page', 50)
             ->has('filterOptions.process')
             ->has('filterOptions.status')
@@ -37,6 +38,43 @@ test('finishing index page is accessible', function () {
             ->has('spkStatusCounts.inProgress')
             ->has('spkStatusCounts.completed')
         );
+});
+
+test('finishing index hides completed documents by default and shows them when all statuses are selected', function () {
+    $prefix = 'FINDEF'.Str::upper(Str::random(4));
+    $openDocument = FinishingHandmade::factory()->create([
+        'doc_no' => $prefix.'1',
+        'status' => FinishingHandmade::STATUS_OPEN,
+    ]);
+    $doneDocument = FinishingHandmade::factory()->done()->create([
+        'doc_no' => $prefix.'2',
+    ]);
+
+    $this->get(route('finishing.index', ['search' => $prefix]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.status', ['open', 'ppic'])
+            ->has('documents.data', 1)
+            ->where('documents.data.0.id', $openDocument->row_id)
+        );
+
+    $this->get(route('finishing.index', ['search' => $prefix, 'status' => 'all']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.status', [])
+            ->has('documents.data', 2)
+        );
+
+    $this->get(route('finishing.index', ['search' => $prefix, 'status' => ['done']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.status', ['done'])
+            ->has('documents.data', 1)
+            ->where('documents.data.0.id', $doneDocument->row_id)
+        );
+
+    $openDocument->delete();
+    $doneDocument->delete();
 });
 
 test('finishing index lists document weights and status labels', function () {
@@ -65,7 +103,7 @@ test('finishing index lists document weights and status labels', function () {
         ->where('row_id', 1)
         ->value('name');
 
-    $this->get(route('finishing.index', ['search' => 'FIN9999911']))
+    $this->get(route('finishing.index', ['search' => 'FIN9999911', 'status' => 'all']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('finishing/index')
@@ -319,9 +357,20 @@ test('finishing index can filter by craftsman', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('finishing/index')
-            ->where('filters.craftsman', $targetCraftsmanId)
+            ->where('filters.craftsman', [$targetCraftsmanId])
             ->has('documents.data', 1)
             ->where('documents.data.0.id', $matchingDocument->row_id)
+        );
+
+    $this->get(route('finishing.index', [
+        'search' => $unique,
+        'craftsman' => [$targetCraftsmanId, (int) $otherCraftsmanId],
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('finishing/index')
+            ->where('filters.craftsman', [$targetCraftsmanId, (int) $otherCraftsmanId])
+            ->has('documents.data', 2)
         );
 
     $matchingDocument->delete();
@@ -582,7 +631,7 @@ test('finishing show and index display zero shrink when start or finish weight i
             ->where('finishingItem.hasWeightGain', false)
         );
 
-    $this->get(route('finishing.index', ['search' => 'FIN9999916']))
+    $this->get(route('finishing.index', ['search' => 'FIN9999916', 'status' => 'all']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('documents.data.0.docNo', 'FIN9999916')

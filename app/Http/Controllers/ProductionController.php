@@ -101,12 +101,10 @@ class ProductionController extends Controller
     public function index(Request $request): Response
     {
         $search = $request->string('search')->trim()->toString();
-        $type = $request->string('type')->trim()->toString();
-        $type = in_array($type, SpkService::TYPES, true) ? $type : '';
-        $status = $request->string('status')->trim()->toString();
+        $typeFilters = $this->resolveIndexMultiFilter($request->input('type'), SpkService::TYPES);
         $statusLabels = array_values(SpkDashboardAnalytics::BACKLOG_STATUS_LABELS);
         array_splice($statusLabels, 4, 0, ['Done']);
-        $status = in_array($status, $statusLabels, true) ? $status : '';
+        $statusFilters = $this->resolveIndexMultiFilter($request->input('status'), $statusLabels);
         $sort = $request->string('sort')->toString();
         $sort = array_key_exists($sort, self::INDEX_SORT_COLUMNS) ? $sort : 'id';
         $direction = $request->string('direction')->toString();
@@ -157,15 +155,32 @@ class ProductionController extends Controller
             ->when($targetTo !== null, function ($query) use ($targetTo): void {
                 $query->whereDate('estimated_delivery_time', '<=', $targetTo);
             })
-            ->when($type !== '', function ($query) use ($type): void {
-                $query->where('spk_type', $type);
+            ->when($typeFilters !== [], function ($query) use ($typeFilters): void {
+                $query->whereIn('spk_type', $typeFilters);
             })
-            ->when($status !== '', function ($query) use ($status): void {
-                $statusKey = $this->normalizedBacklogStatusKey($status);
+            ->when($statusFilters !== [], function ($query) use ($statusFilters): void {
+                $statusKeys = collect($statusFilters)
+                    ->map(fn (string $status): ?string => $this->normalizedBacklogStatusKey($status))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
 
-                if ($statusKey !== null) {
-                    $this->applyBacklogStatusFilter($query, $statusKey);
+                if ($statusKeys === []) {
+                    return;
                 }
+
+                $doneKinds = SpkDashboardAnalytics::completedProductionKinds(
+                    Production::query()->notDeleted()->pluck('row_id')->all(),
+                );
+
+                $query->where(function ($statusQuery) use ($statusKeys, $doneKinds): void {
+                    foreach ($statusKeys as $statusKey) {
+                        $statusQuery->orWhere(function ($statusScope) use ($statusKey, $doneKinds): void {
+                            $this->applyBacklogStatusFilter($statusScope, $statusKey, $doneKinds);
+                        });
+                    }
+                });
             })
             ->when($search !== '', function ($query) use ($search): void {
                 $matchingSkuIds = $this->matchingSkuIds($search);
@@ -209,8 +224,8 @@ class ProductionController extends Controller
             'statuses' => $statusLabels,
             'filters' => [
                 'search' => $search,
-                'type' => $type,
-                'status' => $status,
+                'type' => $typeFilters,
+                'status' => $statusFilters,
                 'sort' => $sort,
                 'direction' => $direction,
                 'date_from' => $dateFrom,
@@ -428,6 +443,21 @@ class ProductionController extends Controller
         }
 
         return $trimmed;
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     * @return list<string>
+     */
+    private function resolveIndexMultiFilter(mixed $value, array $allowed): array
+    {
+        return collect(is_array($value) ? $value : (filled($value) ? [$value] : []))
+            ->filter(fn (mixed $item): bool => is_scalar($item))
+            ->map(fn (mixed $item): string => trim((string) $item))
+            ->filter(fn (string $item): bool => in_array($item, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
@@ -1520,10 +1550,14 @@ class ProductionController extends Controller
         return SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$statusKey] ?? $statusKey;
     }
 
-    private function applyBacklogStatusFilter(Builder $query, string $statusKey): void
+    /**
+     * @param  array<int, string>|null  $doneKinds
+     */
+    private function applyBacklogStatusFilter(Builder $query, string $statusKey, ?array $doneKinds = null): void
     {
-        $allIds = Production::query()->notDeleted()->pluck('row_id')->all();
-        $doneKinds = SpkDashboardAnalytics::completedProductionKinds($allIds);
+        $doneKinds ??= SpkDashboardAnalytics::completedProductionKinds(
+            Production::query()->notDeleted()->pluck('row_id')->all(),
+        );
 
         if ($statusKey === 'done' || SpkDashboardAnalytics::isDoneStatusKey($statusKey)) {
             $doneIds = $statusKey === 'done'

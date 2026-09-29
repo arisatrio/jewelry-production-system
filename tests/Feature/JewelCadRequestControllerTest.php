@@ -30,10 +30,11 @@ test('jewelcad index page is accessible', function () {
             ->where('filters.search', '')
             ->where('filters.sort', 'id')
             ->where('filters.direction', 'desc')
-            ->where('filters.status', [])
+            ->where('filters.status', ['draft', 'submitted', 'manager'])
+            ->where('defaultFilters.status', ['draft', 'submitted', 'manager'])
             ->where('filters.date_from', null)
             ->where('filters.date_to', null)
-            ->where('filters.operator', null)
+            ->where('filters.operator', [])
             ->where('filters.per_page', 50)
             ->has('filterOptions.status')
             ->has('filterOptions.operator')
@@ -246,9 +247,19 @@ test('jewelcad index can filter by operator', function () {
     ]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('filters.operator', $operator)
+            ->where('filters.operator', [$operator])
             ->where('requests.total', 1)
             ->where('requests.data.0.requestId', $match->row_id)
+        );
+
+    $this->get(route('jewelcad.index', [
+        'search' => $unique,
+        'operator' => [$operator, "Other {$unique}"],
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.operator', [$operator, "Other {$unique}"])
+            ->where('requests.total', 2)
         );
 });
 

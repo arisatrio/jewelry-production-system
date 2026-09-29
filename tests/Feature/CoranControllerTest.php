@@ -2,6 +2,8 @@
 
 use App\Models\Coran;
 use App\Models\CoranSpk;
+use App\Models\JewelCadRequest;
+use App\Models\JewelCadRequestDetail;
 use App\Models\Production;
 use Illuminate\Support\Str;
 
@@ -18,7 +20,8 @@ test('coran index page is accessible', function () {
             ->where('filters.search', '')
             ->where('filters.sort', 'id')
             ->where('filters.direction', 'desc')
-            ->where('filters.status', [])
+            ->where('filters.status', ['draft', 'submitted', 'manager'])
+            ->where('defaultFilters.status', ['draft', 'submitted', 'manager'])
             ->where('filters.date_from', null)
             ->where('filters.date_to', null)
             ->where('filters.per_page', 50)
@@ -41,8 +44,9 @@ test('coran index lists spk weights and material totals', function () {
         'spk_no' => '2026/PRD/CORTOTB',
     ]);
 
+    $docNo = 'COR'.Str::upper(Str::random(7));
     $coran = Coran::factory()->create([
-        'doc_no' => 'COR9999911',
+        'doc_no' => $docNo,
         'submit_material_rosegold' => '10.00',
         'submit_material_whitegold' => '5.50',
         'submit_material_yellowgold' => '0.00',
@@ -69,13 +73,13 @@ test('coran index lists spk weights and material totals', function () {
         'weight_yellowgold' => '0.00',
     ]);
 
-    $this->get(route('coran.index', ['search' => 'COR9999911']))
+    $this->get(route('coran.index', ['search' => $docNo, 'status' => 'all']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('coran/index')
             ->has('corans.data', 1)
             ->where('corans.data.0.id', $coran->row_id)
-            ->where('corans.data.0.docNo', 'COR9999911')
+            ->where('corans.data.0.docNo', $docNo)
             ->where('corans.data.0.spkCount', 2)
             ->where('corans.data.0.totalSpkWeight', '4.25')
             ->has('corans.data.0.craftsmanName')
@@ -156,6 +160,57 @@ test('coran show page is accessible', function () {
     CoranSpk::query()->where('row_id', $coran->row_id)->delete();
     $coran->delete();
     $production->delete();
+});
+
+test('coran show includes jewelcad estimated weight and difference per spk', function () {
+    $productionWithEstimate = Production::factory()->create([
+        'spk_no' => '2026/PRD/CORJWE'.Str::upper(Str::random(3)),
+    ]);
+    $productionWithoutEstimate = Production::factory()->create([
+        'spk_no' => '2026/PRD/CORJWN'.Str::upper(Str::random(3)),
+    ]);
+
+    $jewelcadRequest = JewelCadRequest::factory()->create();
+    JewelCadRequestDetail::factory()->create([
+        'row_id' => $jewelcadRequest->row_id,
+        'spk_id' => $productionWithEstimate->row_id,
+        'estimation_brj' => '5.000',
+    ]);
+
+    $coran = Coran::factory()->create([
+        'doc_no' => 'COR'.Str::upper(Str::random(7)),
+    ]);
+    CoranSpk::factory()->create([
+        'row_id' => $coran->row_id,
+        'spk_id' => $productionWithEstimate->row_id,
+        'weight' => '5.55',
+    ]);
+    CoranSpk::factory()->create([
+        'row_id' => $coran->row_id,
+        'spk_id' => $productionWithoutEstimate->row_id,
+        'weight' => '3.10',
+    ]);
+
+    $this->get(route('coran.show', $coran))
+        ->assertOk()
+        ->assertInertia(function ($page) use ($productionWithEstimate) {
+            $details = collect($page->toArray()['props']['coranItem']['details'])->keyBy('spkId');
+
+            expect($details[$productionWithEstimate->row_id]['jewelcadEstimatedWeight'])->toBe('5.00')
+                ->and($details[$productionWithEstimate->row_id]['weightDifference'])->toBe('0.55');
+
+            $withoutEstimate = $details->except($productionWithEstimate->row_id)->first();
+
+            expect($withoutEstimate['jewelcadEstimatedWeight'])->toBeNull()
+                ->and($withoutEstimate['weightDifference'])->toBeNull();
+        });
+
+    CoranSpk::query()->where('row_id', $coran->row_id)->delete();
+    JewelCadRequestDetail::query()->where('row_id', $jewelcadRequest->row_id)->delete();
+    $jewelcadRequest->delete();
+    $coran->delete();
+    $productionWithEstimate->delete();
+    $productionWithoutEstimate->delete();
 });
 
 test('coran show returns not found for deleted documents', function () {
