@@ -1543,7 +1543,7 @@ export default function SpkIndex({
                                                         >
                                                             {row.produksiNo}
                                                         </button>
-                                                        <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1">
+                                                        <div className="flex flex-nowrap items-center gap-1">
                                                             <span
                                                                 className={`spkTableBadge ${tipeProduksiBadgeClass(row.tipeProduksi)}`}
                                                             >

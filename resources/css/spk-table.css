@@ -197,9 +197,9 @@
 
 .spkTable th.spkTableColDoc--spk,
 .spkTable td.spkTableColDoc--spk {
-    width: 14rem;
-    min-width: 14rem;
-    max-width: 14rem;
+    width: 15rem;
+    min-width: 15rem;
+    max-width: 15rem;
     white-space: normal;
 }
 
