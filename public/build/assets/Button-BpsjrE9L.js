@@ -1,0 +1,1 @@
+import"./Button-DyKeIsgS.js";import{pr as e}from"./app-Fu-dUX6r.js";var t=e(`ui5-button`,[`accessibilityAttributes`,`accessibleDescription`,`accessibleName`,`accessibleNameRef`,`accessibleRole`,`design`,`endIcon`,`form`,`icon`,`loadingDelay`,`tooltip`,`type`],[`disabled`,`loading`,`submits`],[`badge`],[`click`]);t.displayName=`Button`;export{t};
