@@ -212,7 +212,7 @@ function SpkReceiptHistoryBody() {
             </div>
 
             <div
-                className={`spkAlertModalBody spkStatusListBody${loading && result !== null ? ' is-loading' : ''}`}
+                className={`spkAlertModalBody spkStatusListBody${loading && result !== null ? 'is-loading' : ''}`}
             >
                 {loading && result === null ? (
                     <p className="spkAlertModalEmpty">Memuat data...</p>
@@ -269,10 +269,10 @@ function SpkReceiptHistoryBody() {
                                         </td>
                                         <td className="spkReceiptHistoryColWrap">
                                             <div className="flex flex-col">
-                                                <span className="font-medium">
+                                                <span className="spkAlertModalTableIdentifier">
                                                     {row.jumlahSpk} SPK
                                                 </span>
-                                                <span className="text-xs text-slate-500">
+                                                <span className="spkAlertModalTableSubText">
                                                     {row.spkNos
                                                         .slice(
                                                             0,
@@ -304,7 +304,7 @@ function SpkReceiptHistoryBody() {
                                                     {row.createdBy ?? '—'}
                                                 </span>
                                                 {row.createdAt ? (
-                                                    <span className="text-xs text-slate-500">
+                                                    <span className="spkAlertModalTableSubText">
                                                         {row.createdAt}
                                                     </span>
                                                 ) : null}

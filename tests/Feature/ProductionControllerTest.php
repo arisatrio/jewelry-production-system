@@ -5,7 +5,9 @@ use App\Models\Production;
 use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
+use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkService;
+use App\Support\StoreOrderRequestRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -1518,8 +1520,8 @@ test('spk store stock requests proxies approved requests from store api', functi
             'page' => 2,
             'per_page' => 25,
             'search' => 'RS-0000033',
-            'sort_by' => 'doc_no',
-            'sort_order' => 'asc',
+            'sort_by' => 'created_date',
+            'sort_order' => 'desc',
         ]);
 });
 
@@ -1571,6 +1573,98 @@ test('spk index store stock request count is null when store api key is missing'
         ->assertInertia(fn ($page) => $page
             ->loadDeferredProps(fn ($reload) => $reload
                 ->where('storeStockRequestCount', null)
+            )
+        );
+});
+
+test('spk store order requests lists store orders per spk tab sorted by newest date', function () {
+    $this->travelTo('2026-10-20 10:00:00');
+
+    $docNos = ['TEST-SOR-0001', 'TEST-SOR-0002', 'TEST-SOR-0003', 'TEST-SOR-0004', 'TEST-SOR-0005'];
+    $baseRow = [
+        'company_id' => 1,
+        'store_id' => 0,
+        'customer_id' => 0,
+        'online_offline' => 'OFFLINE',
+        'is_deleted' => 0,
+        'created_by' => 'Annisa Fitrie',
+        'estimated_date' => null,
+        'nama_item' => null,
+        'kadar_emas' => null,
+        'notes' => null,
+        'is_fully_paid' => null,
+    ];
+
+    DB::connection('second')->table('request_order')->whereIn('doc_no', $docNos)->delete();
+    DB::connection('second')->table('request_order')->insert([
+        [...$baseRow, 'doc_no' => 'TEST-SOR-0001', 'status' => 'ORDER', 'type_order' => 'DP PO', 'trans_date' => '2026-10-01', 'estimated_date' => '2026-10-23', 'nama_item' => 'Cincin Maryam', 'kadar_emas' => 750, 'notes' => 'Size 12', 'is_fully_paid' => 0],
+        [...$baseRow, 'doc_no' => 'TEST-SOR-0002', 'status' => 'ORDER', 'type_order' => 'REPARASI', 'trans_date' => '2026-10-01'],
+        [...$baseRow, 'doc_no' => 'TEST-SOR-0003', 'status' => 'ON GOING', 'type_order' => 'CUSTOM', 'trans_date' => '2026-10-01'],
+        [...$baseRow, 'doc_no' => 'TEST-SOR-0004', 'status' => 'PAID', 'type_order' => 'CUSTOM', 'trans_date' => '2026-10-01'],
+        [...$baseRow, 'doc_no' => 'TEST-SOR-0005', 'status' => 'ORDER', 'type_order' => 'CUSTOM', 'trans_date' => '2026-10-05'],
+    ]);
+
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/SOR-USED',
+        'spk_type' => 'Pesanan',
+        'request_order_no' => 'TEST-SOR-0003',
+        'is_deleted' => 0,
+    ]);
+
+    try {
+        $this->getJson(route('spk.store-order-requests', ['search' => 'TEST-SOR-']))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.tabCounts', ['pending' => 2, 'with_spk' => 1])
+            ->assertJsonPath('data.0.docNo', 'TEST-SOR-0005')
+            ->assertJsonPath('data.1', [
+                'rowId' => DB::connection('second')->table('request_order')->where('doc_no', 'TEST-SOR-0001')->value('row_id'),
+                'docNo' => 'TEST-SOR-0001',
+                'transDate' => '01-Oct-2026',
+                'estimatedDate' => '23-Oct-2026',
+                'targetDaysLeft' => 3,
+                'store' => '-',
+                'customer' => '-',
+                'item' => 'Cincin Maryam',
+                'refSku' => null,
+                'typeOrder' => 'DP PO',
+                'paymentStatus' => 'Belum Lunas',
+                'notes' => 'Size 12',
+                'imageUrl' => null,
+                'goldInfo' => '750',
+                'createdBy' => 'Annisa Fitrie',
+                'spks' => [],
+            ]);
+
+        $this->getJson(route('spk.store-order-requests', ['tab' => 'with_spk', 'search' => 'TEST-SOR-']))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.docNo', 'TEST-SOR-0003')
+            ->assertJsonPath('data.0.spks', [[
+                'spkNo' => 'TEST/SPK/SOR-USED',
+                'status' => SpkDashboardAnalytics::backlogStatusLabel($production->fresh(), false),
+            ]]);
+
+        $this->getJson(route('spk.store-order-requests', ['tab' => 'with_spk', 'search' => 'TEST/SPK/SOR-USED']))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.docNo', 'TEST-SOR-0003');
+    } finally {
+        $production->delete();
+        DB::connection('second')->table('request_order')->whereIn('doc_no', $docNos)->delete();
+    }
+});
+
+test('spk index defers store order request count', function () {
+    config(['services.store_api.key' => null]);
+    Http::preventStrayRequests();
+
+    $this->get(route('spk.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->missing('storeOrderRequestCount')
+            ->loadDeferredProps(fn ($reload) => $reload
+                ->where('storeOrderRequestCount', app(StoreOrderRequestRepository::class)->pendingSpkCount())
             )
         );
 });

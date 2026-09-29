@@ -61,8 +61,8 @@ class StoreStockRequestRepository
             'page' => max(1, $page),
             'per_page' => $perPage,
             'search' => $search !== '' ? $search : null,
-            'sort_by' => 'doc_no',
-            'sort_order' => 'asc',
+            'sort_by' => 'created_date',
+            'sort_order' => 'desc',
         ], fn (mixed $value): bool => $value !== null));
 
         $rows = data_get($payload, 'data', []);

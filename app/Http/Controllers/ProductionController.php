@@ -44,6 +44,7 @@ use App\Support\SpkShrinkSummary;
 use App\Support\SpkStatusMapper;
 use App\Support\SpkStatusOrder;
 use App\Support\SpkStoneReport;
+use App\Support\StoreOrderRequestRepository;
 use App\Support\StoreStockRequestRepository;
 use Closure;
 use DateTimeImmutable;
@@ -247,6 +248,7 @@ class ProductionController extends Controller
             ],
             'receiptEmployeeOptions' => Inertia::once(fn (): array => $this->receiptEmployeeOptions()),
             'storeStockRequestCount' => Inertia::defer(fn (): ?int => app(StoreStockRequestRepository::class)->pendingSpkCount()),
+            'storeOrderRequestCount' => Inertia::defer(fn (): int => app(StoreOrderRequestRepository::class)->pendingSpkCount()),
             'bulkActions' => [
                 'canSubmit' => SpkApprovalRoles::canSubmit($user),
                 'canApprove' => SpkApprovalRoles::canApprove($user),
@@ -747,6 +749,18 @@ class ProductionController extends Controller
                 'message' => 'Gagal mengambil data request stok dari Store. Silakan coba lagi.',
             ], 502);
         }
+    }
+
+    /**
+     * Daftar pesanan toko (request order) per tab belum / sudah dibuatkan SPK untuk modal di halaman index.
+     */
+    public function storeOrderRequests(Request $request, StoreOrderRequestRepository $orderRequests): JsonResponse
+    {
+        return response()->json($orderRequests->paginate(
+            $request->string('tab')->trim()->toString(),
+            $request->string('search')->trim()->toString(),
+            max(1, $request->integer('page', 1)),
+        ));
     }
 
     /**

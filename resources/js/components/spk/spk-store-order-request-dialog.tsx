@@ -2,7 +2,10 @@ import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useState } from 'react';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
-import { targetDaysLeftHint } from '@/components/spk/spk-list-cells';
+import {
+    statusBadgeClass,
+    targetDaysLeftHint,
+} from '@/components/spk/spk-list-cells';
 import {
     Dialog,
     DialogContent,
@@ -10,72 +13,84 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { storeStockRequests } from '@/routes/spk';
+import { storeOrderRequests } from '@/routes/spk';
 
-type StoreStockRequestRow = {
+type StoreOrderRequestRow = {
     rowId: number;
     docNo: string;
     transDate: string;
     estimatedDate: string;
     targetDaysLeft: number | null;
     store: string;
+    customer: string;
     item: string;
     refSku: string | null;
     typeOrder: string | null;
-    status: string | null;
-    approvedAt: string | null;
+    paymentStatus: string | null;
     notes: string | null;
     imageUrl: string | null;
     goldInfo: string | null;
     createdBy: string | null;
+    spks: { spkNo: string; status: string }[];
 };
 
-type StoreStockRequestMeta = {
+type StoreOrderRequestTab = 'pending' | 'with_spk';
+
+type StoreOrderRequestMeta = {
     currentPage: number;
     lastPage: number;
     perPage: number;
     total: number;
+    tabCounts: Record<StoreOrderRequestTab, number>;
 };
 
-type StoreStockRequestResult = {
+type StoreOrderRequestResult = {
     requestKey: string;
-    rows: StoreStockRequestRow[];
-    meta: StoreStockRequestMeta | null;
+    rows: StoreOrderRequestRow[];
+    meta: StoreOrderRequestMeta | null;
     failed: boolean;
 };
 
-type SpkStoreStockRequestDialogProps = {
+type SpkStoreOrderRequestDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-export function SpkStoreStockRequestDialog({
+const STORE_ORDER_REQUEST_TABS: { id: StoreOrderRequestTab; label: string }[] =
+    [
+        { id: 'pending', label: 'Belum Dibuat SPK' },
+        { id: 'with_spk', label: 'Sudah Dibuat SPK' },
+    ];
+
+export function SpkStoreOrderRequestDialog({
     open,
     onOpenChange,
-}: SpkStoreStockRequestDialogProps) {
+}: SpkStoreOrderRequestDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="spkAlertModal spkStatusListModal">
                 <DialogHeader>
-                    <DialogTitle>Permintaan Stok Toko</DialogTitle>
+                    <DialogTitle>Permintaan Pesanan Toko</DialogTitle>
                     <DialogDescription>
-                        Permintaan stok dari toko yang sudah di-approve.
+                        Pesanan dari toko, dipisahkan berdasarkan status
+                        pembuatan SPK.
                     </DialogDescription>
                 </DialogHeader>
-                {open ? <SpkStoreStockRequestBody /> : null}
+                {open ? <SpkStoreOrderRequestBody /> : null}
             </DialogContent>
         </Dialog>
     );
 }
 
-function SpkStoreStockRequestBody() {
+function SpkStoreOrderRequestBody() {
+    const [tab, setTab] = useState<StoreOrderRequestTab>('pending');
     const [page, setPage] = useState(1);
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
-    const [result, setResult] = useState<StoreStockRequestResult | null>(null);
-    const requestKey = `${page}|${search}`;
+    const [result, setResult] = useState<StoreOrderRequestResult | null>(null);
+    const requestKey = `${tab}|${page}|${search}`;
     const loading = result?.requestKey !== requestKey;
     const rows = result?.rows ?? [];
     const meta = result?.meta ?? null;
@@ -95,6 +110,10 @@ function SpkStoreStockRequestBody() {
         const controller = new AbortController();
         const query: Record<string, string | number> = {};
 
+        if (tab !== 'pending') {
+            query.tab = tab;
+        }
+
         if (page > 1) {
             query.page = page;
         }
@@ -103,7 +122,7 @@ function SpkStoreStockRequestBody() {
             query.search = search;
         }
 
-        fetch(storeStockRequests.url({ query }), {
+        fetch(storeOrderRequests.url({ query }), {
             headers: { Accept: 'application/json' },
             signal: controller.signal,
         })
@@ -113,8 +132,8 @@ function SpkStoreStockRequestBody() {
                 }
 
                 const payload = (await response.json()) as {
-                    data?: StoreStockRequestRow[];
-                    meta?: StoreStockRequestMeta;
+                    data?: StoreOrderRequestRow[];
+                    meta?: StoreOrderRequestMeta;
                 };
 
                 setResult({
@@ -133,11 +152,48 @@ function SpkStoreStockRequestBody() {
             });
 
         return () => controller.abort();
-    }, [page, search, requestKey]);
+    }, [tab, page, search, requestKey]);
+
+    const selectTab = (nextTab: StoreOrderRequestTab) => {
+        setTab(nextTab);
+        setPage(1);
+    };
 
     return (
         <>
-            <div className="spkStatusListToolbar">
+            <div className="spkStatusListToolbar spkStoreOrderRequestToolbar">
+                <div
+                    className="spkSectionTabs spkStoreOrderRequestTabs"
+                    role="tablist"
+                    aria-label="Status pembuatan SPK"
+                >
+                    {STORE_ORDER_REQUEST_TABS.map((tabOption) => (
+                        <button
+                            key={tabOption.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === tabOption.id}
+                            className={[
+                                'spkSectionTab',
+                                tab === tabOption.id ? 'is-active' : '',
+                            ]
+                                .filter(Boolean)
+                                .join(' ')}
+                            onClick={() => selectTab(tabOption.id)}
+                        >
+                            <span className="spkSectionTabLabel">
+                                {tabOption.label}
+                                {meta !== null ? (
+                                    <span className="spkStoreOrderRequestTabCount">
+                                        {meta.tabCounts[
+                                            tabOption.id
+                                        ].toLocaleString('id-ID')}
+                                    </span>
+                                ) : null}
+                            </span>
+                        </button>
+                    ))}
+                </div>
                 <div
                     className="spkTableHeaderSearch--finishing spkStatusListSearch"
                     role="search"
@@ -145,10 +201,10 @@ function SpkStoreStockRequestBody() {
                     <input
                         type="search"
                         className="spkTableHeaderSearchInput--finishing"
-                        placeholder="Cari No Request, item, SKU, store..."
+                        placeholder="Cari No Pesanan, No SPK, customer, item, toko..."
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
-                        aria-label="Cari request stok"
+                        aria-label="Cari pesanan toko"
                     />
                     <Icon
                         name={searchIcon}
@@ -173,27 +229,63 @@ function SpkStoreStockRequestBody() {
                     </p>
                 ) : rows.length === 0 ? (
                     <p className="spkAlertModalEmpty">
-                        Tidak ada request stok approved dari Store.
+                        {tab === 'with_spk'
+                            ? 'Tidak ada pesanan toko yang sudah dibuatkan SPK.'
+                            : 'Tidak ada pesanan toko yang belum dibuatkan SPK.'}
                     </p>
                 ) : (
                     <table className="spkAlertModalTable spkReceiptHistoryTable">
                         <thead>
                             <tr>
-                                <th>No Request</th>
+                                <th>No Pesanan</th>
+                                <th>No SPK</th>
                                 <th>Item</th>
                                 <th>Tanggal</th>
                                 <th>Dibuat Oleh</th>
                                 <th className="spkTableColCenter">
                                     Target Delivery
                                 </th>
-                                <th className="spkTableColCenter">Status</th>
+                                <th className="spkTableColCenter">
+                                    Status SPK
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
                             {rows.map((row) => (
                                 <tr key={row.rowId}>
-                                    <td className="spkAlertModalTableIdentifier whitespace-nowrap">
-                                        {row.docNo}
+                                    <td className="whitespace-nowrap">
+                                        <div className="flex flex-col">
+                                            <span className="spkAlertModalTableIdentifier">
+                                                {row.docNo}
+                                            </span>
+                                            {row.customer !== '-' ? (
+                                                <span className="text-sm">
+                                                    {row.customer}
+                                                </span>
+                                            ) : null}
+                                            {row.typeOrder ||
+                                            row.paymentStatus ? (
+                                                <span className="spkAlertModalTableSubText">
+                                                    {[
+                                                        row.typeOrder,
+                                                        row.paymentStatus,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ')}
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </td>
+                                    <td className="whitespace-nowrap">
+                                        {row.spks.length > 0 ? (
+                                            <div className="flex flex-col gap-1">
+                                                {row.spks.map((spk) => (
+                                                    <span key={spk.spkNo}>
+                                                        {spk.spkNo}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : null}
                                     </td>
                                     <td className="spkReceiptHistoryColWrap">
                                         <div className="flex items-start gap-3">
@@ -214,7 +306,7 @@ function SpkStoreStockRequestBody() {
                                                     </span>
                                                 ) : null}
                                                 {row.notes ? (
-                                                    <span className="spkAlertModalTableSubText">
+                                                    <span className="spkAlertModalTableSubText whitespace-pre-line">
                                                         {row.notes}
                                                     </span>
                                                 ) : null}
@@ -238,14 +330,18 @@ function SpkStoreStockRequestBody() {
                                         </div>
                                     </td>
                                     <td className="spkTableColCenter">
-                                        <div className="flex flex-col">
-                                            <span>{row.status ?? '—'}</span>
-                                            {row.approvedAt ? (
-                                                <span className="spkAlertModalTableSubText whitespace-nowrap">
-                                                    {row.approvedAt}
-                                                </span>
-                                            ) : null}
-                                        </div>
+                                        {row.spks.length > 0 ? (
+                                            <div className="flex flex-col items-center gap-1">
+                                                {row.spks.map((spk) => (
+                                                    <span
+                                                        key={spk.spkNo}
+                                                        className={`spkTableBadge ${statusBadgeClass(spk.status)}`}
+                                                    >
+                                                        {spk.status}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : null}
                                     </td>
                                 </tr>
                             ))}
@@ -257,7 +353,7 @@ function SpkStoreStockRequestBody() {
             {meta !== null && meta.total > 0 ? (
                 <div className="spkTableFooter spkStatusListFooter">
                     <div className="spkTableTotal">
-                        Total {meta.total.toLocaleString('id-ID')} request
+                        Total {meta.total.toLocaleString('id-ID')} pesanan
                     </div>
                     <div className="spkPagination">
                         <button
