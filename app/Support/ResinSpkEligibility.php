@@ -13,7 +13,7 @@ class ResinSpkEligibility
     public const PROCESS_KEY = 'Resin';
 
     /**
-     * SPK yang sudah selesai JewelCAD tetapi belum punya dokumen resin.
+     * SPK yang sudah di-approve Manager Produksi tetapi belum punya dokumen resin.
      *
      * @param  Builder<Production>  $query
      * @return Builder<Production>
@@ -23,7 +23,7 @@ class ResinSpkEligibility
         return $query
             ->where('is_deleted', 0)
             ->whereNotNull('spk_no')
-            ->tap(fn (Builder $builder) => app(JewelCadSpkEligibility::class)->applyCompletedScope($builder))
+            ->where('status', SpkApprovalService::STATUS_DONE)
             ->whereNotIn('row_id', $this->assignedSpkIdsSubquery());
     }
 

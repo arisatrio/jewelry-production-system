@@ -199,9 +199,9 @@ export function ResinAddSpkDialog({
                                     <tr>
                                         <td colSpan={5}>
                                             Tidak ada SPK ditemukan. Hanya SPK
-                                            yang sudah selesai JewelCAD dan
-                                            belum memiliki dokumen resin yang
-                                            dapat dipilih.
+                                            yang sudah di-approve dan belum
+                                            memiliki dokumen resin yang dapat
+                                            dipilih.
                                         </td>
                                     </tr>
                                 ) : (

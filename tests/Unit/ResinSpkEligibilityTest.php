@@ -36,6 +36,54 @@ test('resin eligible scope counts spk completed jewelcad without resin', functio
     expect($matches)->toBeTrue();
 });
 
+test('resin eligible scope counts approved spk without jewelcad', function () {
+    $spk = Production::factory()->managerApproved()->create([
+        'spk_no' => '2026/PRD/RNOJC'.Str::upper(Str::random(4)),
+    ]);
+
+    $matches = Production::query()
+        ->tap(fn ($query) => app(ResinSpkEligibility::class)->applyEligibleScope($query))
+        ->where('row_id', $spk->row_id)
+        ->exists();
+
+    expect($matches)->toBeTrue();
+});
+
+test('resin eligible scope excludes spk not yet approved', function () {
+    $spk = Production::factory()->create([
+        'spk_no' => '2026/PRD/RUNAP'.Str::upper(Str::random(4)),
+        'status' => 'DRAFT',
+    ]);
+
+    $matches = Production::query()
+        ->tap(fn ($query) => app(ResinSpkEligibility::class)->applyEligibleScope($query))
+        ->where('row_id', $spk->row_id)
+        ->exists();
+
+    expect($matches)->toBeFalse();
+});
+
+test('resin eligible scope excludes spk already in resin document', function () {
+    $spk = Production::factory()->managerApproved()->create([
+        'spk_no' => '2026/PRD/RHAS'.Str::upper(Str::random(4)),
+    ]);
+    $resin = Resin::factory()->create([
+        'spk_id' => $spk->row_id,
+        'status' => 'DRAFT',
+    ]);
+    ResinDetail::factory()->create([
+        'row_id' => $resin->row_id,
+        'spk_id' => $spk->row_id,
+    ]);
+
+    $matches = Production::query()
+        ->tap(fn ($query) => app(ResinSpkEligibility::class)->applyEligibleScope($query))
+        ->where('row_id', $spk->row_id)
+        ->exists();
+
+    expect($matches)->toBeFalse();
+});
+
 test('resin mark process started updates last process to resin', function () {
     $production = Production::factory()->managerApproved()->create([
         'spk_no' => '2026/PRD/RMARK'.Str::upper(Str::random(4)),
