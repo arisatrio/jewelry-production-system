@@ -33,6 +33,7 @@ export type SpkIndexRow = SpkRow & {
     rowId: number;
     orderReference: string | null;
     paymentStatus: 'Lunas' | 'Belum Lunas' | null;
+    orderType: string | null;
     skuCode: string | null;
     typeCode: string | null;
     productItemName: string | null;

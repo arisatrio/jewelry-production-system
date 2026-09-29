@@ -576,6 +576,7 @@ test('spk index lists item column data from spk', function () {
             ->where('productions.data.0.spkImageUrl', $expectedUrl)
             ->where('productions.data.0.orderReference', null)
             ->where('productions.data.0.paymentStatus', null)
+            ->where('productions.data.0.orderType', null)
             ->where('productions.data.0.customer', 'Nadia')
             ->where('productions.data.0.createdBy', 'Genza')
         );
@@ -705,6 +706,7 @@ test('spk index page shows request order number with customer name and payment s
             ->where('productions.data.0.customer', "{$docNo} (Vera) (Lunas)")
             ->where('productions.data.0.orderReference', "{$docNo} (Vera)")
             ->where('productions.data.0.paymentStatus', 'Lunas')
+            ->where('productions.data.0.orderType', 'Custom')
         );
 
     $this->get(route('spk.show', $production))

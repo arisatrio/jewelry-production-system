@@ -1937,6 +1937,7 @@ class ProductionController extends Controller
 
         $orderReference = null;
         $paymentStatus = null;
+        $orderType = null;
 
         if (SpkOrderReference::label($production) !== null) {
             $requestOrders = app(RequestOrderRepository::class);
@@ -1949,6 +1950,7 @@ class ProductionController extends Controller
                 $customerName,
             );
             $paymentStatus = $requestOrders->paymentStatusLabel($requestOrder?->is_fully_paid);
+            $orderType = $requestOrders->typeOrderLabel($requestOrder?->type_order);
         }
 
         return [
@@ -1956,6 +1958,7 @@ class ProductionController extends Controller
             'rowId' => (int) $production->row_id,
             'orderReference' => $orderReference,
             'paymentStatus' => $paymentStatus,
+            'orderType' => $orderType,
             'skuCode' => filled($production->sku?->sku_code)
                 ? (string) $production->sku->sku_code
                 : null,

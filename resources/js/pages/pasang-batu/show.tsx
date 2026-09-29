@@ -50,6 +50,7 @@ type PasangBatuShowProps = {
     diamondMountingItem: {
         id: number;
         docNo: string | null;
+        processName: string | null;
         status: string | null;
         statusLabel: string;
         craftsmanId: number | null;

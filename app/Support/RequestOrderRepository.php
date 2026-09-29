@@ -117,6 +117,27 @@ class RequestOrderRepository
         );
     }
 
+    /**
+     * Label tipe pesanan untuk tampilan (CUSTOM → Custom, DP STOCK → DP Stock, dll).
+     */
+    public function typeOrderLabel(mixed $typeOrder): ?string
+    {
+        $typeOrder = trim((string) $typeOrder);
+
+        if ($typeOrder === '') {
+            return null;
+        }
+
+        return match (strtoupper($typeOrder)) {
+            'CUSTOM' => 'Custom',
+            'STOCK' => 'Stock',
+            'DP STOCK' => 'DP Stock',
+            'DP PO' => 'DP PO',
+            'REPARASI' => 'Reparasi',
+            default => $typeOrder,
+        };
+    }
+
     public function paymentStatusLabel(mixed $isFullyPaid): ?string
     {
         if ($isFullyPaid === null) {
@@ -233,6 +254,7 @@ class RequestOrderRepository
                 'ro.item_id',
                 'ro.ref_sku',
                 'ro.is_fully_paid',
+                'ro.type_order',
                 'c.name as customer_name',
                 DB::raw('COALESCE(i.name, ro.nama_item) as item_name'),
             ]);

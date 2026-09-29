@@ -49,6 +49,7 @@ type PolesChromeShowProps = {
     polishFinishedGoodItem: {
         id: number;
         docNo: string | null;
+        processName: string | null;
         status: string | null;
         statusLabel: string;
         statusItem: string | null;

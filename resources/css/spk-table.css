@@ -197,9 +197,9 @@
 
 .spkTable th.spkTableColDoc--spk,
 .spkTable td.spkTableColDoc--spk {
-    width: 11.75rem;
-    min-width: 11.75rem;
-    max-width: 11.75rem;
+    width: 14rem;
+    min-width: 14rem;
+    max-width: 14rem;
     white-space: normal;
 }
 
@@ -982,6 +982,12 @@
     color: #713f12;
 }
 
+.spkTableBadge--orderType {
+    background: #fff;
+    color: #b91c1c;
+    box-shadow: inset 0 0 0 1px #fca5a5;
+}
+
 .spkTableBadge--done {
     background: #dcfce7;
     color: #166534;
@@ -995,6 +1001,34 @@
 .spkTableBadge--unpaid {
     background: #fee2e2;
     color: #b91c1c;
+}
+
+.spkPaymentStatusIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    cursor: default;
+}
+
+.spkPaymentStatusIcon svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    stroke-width: 2.25;
+}
+
+.spkPaymentStatusIcon:focus-visible {
+    outline: 2px solid var(--sap-fiori-brand, #0070f2);
+    outline-offset: 1px;
+}
+
+.spkPaymentStatusIcon--paid {
+    color: #16a34a;
+}
+
+.spkPaymentStatusIcon--unpaid {
+    color: #dc2626;
 }
 
 .spkTableBadge--inProgress {

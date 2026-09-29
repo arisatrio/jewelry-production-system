@@ -1,4 +1,10 @@
+import { CircleDollarSign } from 'lucide-react';
 import type { SpkIndexRow, SpkRow } from '@/components/spk/types';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type SpkListDescriptionFields = Pick<
     SpkRow,
@@ -116,12 +122,27 @@ export function SpkPaymentStatusBadge({
         return null;
     }
 
+    const isPaid = status === 'Lunas';
+
     return (
-        <span
-            className={`spkTableBadge ${status === 'Lunas' ? 'spkTableBadge--paid' : 'spkTableBadge--unpaid'}`}
-        >
-            {status}
-        </span>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <span
+                    className={[
+                        'spkPaymentStatusIcon',
+                        isPaid
+                            ? 'spkPaymentStatusIcon--paid'
+                            : 'spkPaymentStatusIcon--unpaid',
+                    ].join(' ')}
+                    role="img"
+                    aria-label={status}
+                    tabIndex={0}
+                >
+                    <CircleDollarSign aria-hidden="true" />
+                </span>
+            </TooltipTrigger>
+            <TooltipContent>{status}</TooltipContent>
+        </Tooltip>
     );
 }
 
