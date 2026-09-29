@@ -31,6 +31,7 @@ $authenticatedFeatureTests = array_map(
 
 pest()->beforeEach(function (): void {
     ensureTestingAuthSchema();
+    ensureTestingEmployeeSchema();
 
     $this->actingAs(User::factory()->adminSpk()->create([
         'name' => 'system',
@@ -120,4 +121,34 @@ function ensureTestingAuthSchema(): void
             $table->timestamps();
         });
     }
+}
+
+/**
+ * Bootstrap the HR employee table for sqlite :memory: feature tests.
+ * Production employee data lives outside Laravel migrations.
+ */
+function ensureTestingEmployeeSchema(): void
+{
+    if (Schema::hasTable('employee')) {
+        return;
+    }
+
+    Schema::create('employee', function (Blueprint $table): void {
+        $table->id();
+        $table->unsignedBigInteger('company_id')->nullable();
+        $table->unsignedBigInteger('department_id')->nullable();
+        $table->unsignedBigInteger('position_id')->nullable();
+        $table->unsignedBigInteger('sales_id')->nullable();
+        $table->string('nomor_pegawai')->nullable();
+        $table->string('nama_lengkap')->nullable();
+        $table->string('nama_panggilan')->nullable();
+        $table->string('foto')->nullable();
+        $table->string('penempatan')->nullable();
+        $table->timestamp('tukar_off_eligible_from')->nullable();
+        $table->boolean('is_deleted')->default(0);
+        $table->string('status')->nullable();
+        $table->string('created_by')->nullable();
+        $table->string('updated_by')->nullable();
+        $table->timestamps();
+    });
 }

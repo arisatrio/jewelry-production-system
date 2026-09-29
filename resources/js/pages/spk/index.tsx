@@ -4,6 +4,7 @@ import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
+import approvalsIcon from '@ui5/webcomponents-icons/dist/approvals.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
 import { Button } from '@ui5/webcomponents-react/Button';
@@ -11,6 +12,7 @@ import { Icon } from '@ui5/webcomponents-react/Icon';
 import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
 import { useEffect, useMemo, useState } from 'react';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
+import { SpkReceiptPrintDialog } from '@/components/spk/spk-receipt-print-dialog';
 import {
     SpkPaymentStatusBadge,
     SpkTableDescriptionCell,
@@ -36,7 +38,6 @@ import {
     show as spkShow,
     statusList,
 } from '@/routes/spk';
-
 type ProductionsPaginator = {
     data: SpkIndexRow[];
     total: number;
@@ -83,13 +84,18 @@ type SpkIndexProps = {
         direction: string;
         date_from: string | null;
         date_to: string | null;
+        target_period: string;
+        target_from: string | null;
+        target_to: string | null;
         per_page: number;
     };
     filterOptions: {
+        target_period: FilterOption[];
         per_page: FilterOption[];
         sort: FilterOption[];
         direction: FilterOption[];
     };
+    receiptEmployeeOptions: string[];
     bulkActions: {
         canSubmit: boolean;
         canApprove: boolean;
@@ -101,6 +107,8 @@ type SpkIndexProps = {
 const DEFAULT_PER_PAGE = 50;
 
 const DONE_STATUS_FILTER = 'Done';
+
+const TARGET_PERIOD_CUSTOM = 'custom';
 
 const STATUS_ALERTS = [
     {
@@ -145,6 +153,7 @@ export default function SpkIndex({
     statuses,
     filters,
     filterOptions,
+    receiptEmployeeOptions,
     bulkActions,
 }: SpkIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
@@ -154,6 +163,7 @@ export default function SpkIndex({
         requestId: number;
     } | null>(null);
     const [statusListDialogOpen, setStatusListDialogOpen] = useState(false);
+    const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
     const activeStatusKey =
         filters.status === DONE_STATUS_FILTER
             ? 'done'
@@ -173,6 +183,9 @@ export default function SpkIndex({
         direction?: string;
         date_from?: string | null;
         date_to?: string | null;
+        target_period?: string;
+        target_from?: string | null;
+        target_to?: string | null;
         per_page?: number;
         page?: number;
     }) => {
@@ -187,6 +200,16 @@ export default function SpkIndex({
                 : filters.date_from;
         const nextDateTo =
             params.date_to !== undefined ? params.date_to : filters.date_to;
+        const nextTargetPeriod = params.target_period ?? filters.target_period;
+        const nextTargetFrom =
+            params.target_from !== undefined
+                ? params.target_from
+                : filters.target_from;
+        const nextTargetTo =
+            params.target_to !== undefined
+                ? params.target_to
+                : filters.target_to;
+        const isCustomTarget = nextTargetPeriod === TARGET_PERIOD_CUSTOM;
         const nextPerPage = params.per_page ?? filters.per_page;
 
         return {
@@ -197,6 +220,9 @@ export default function SpkIndex({
             direction: nextDirection !== 'desc' ? nextDirection : undefined,
             date_from: nextDateFrom || undefined,
             date_to: nextDateTo || undefined,
+            target_period: nextTargetPeriod || undefined,
+            target_from: (isCustomTarget && nextTargetFrom) || undefined,
+            target_to: (isCustomTarget && nextTargetTo) || undefined,
             per_page:
                 nextPerPage !== DEFAULT_PER_PAGE ? nextPerPage : undefined,
             page: params.page ?? 1,
@@ -233,6 +259,9 @@ export default function SpkIndex({
                                 : undefined,
                         date_from: filters.date_from || undefined,
                         date_to: filters.date_to || undefined,
+                        target_period: filters.target_period || undefined,
+                        target_from: filters.target_from || undefined,
+                        target_to: filters.target_to || undefined,
                         per_page:
                             filters.per_page !== DEFAULT_PER_PAGE
                                 ? filters.per_page
@@ -258,6 +287,9 @@ export default function SpkIndex({
         filters.direction,
         filters.date_from,
         filters.date_to,
+        filters.target_period,
+        filters.target_from,
+        filters.target_to,
         filters.per_page,
     ]);
 
@@ -278,6 +310,9 @@ export default function SpkIndex({
         status: filters.status,
         date_from: filters.date_from ?? '',
         date_to: filters.date_to ?? '',
+        target_period: filters.target_period,
+        target_from: filters.target_from ?? '',
+        target_to: filters.target_to ?? '',
     });
     const [entriesDraft, setEntriesDraft] = useState(String(filters.per_page));
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -295,8 +330,19 @@ export default function SpkIndex({
             status: filters.status,
             date_from: filters.date_from ?? '',
             date_to: filters.date_to ?? '',
+            target_period: filters.target_period,
+            target_from: filters.target_from ?? '',
+            target_to: filters.target_to ?? '',
         });
-    }, [filters.type, filters.status, filters.date_from, filters.date_to]);
+    }, [
+        filters.type,
+        filters.status,
+        filters.date_from,
+        filters.date_to,
+        filters.target_period,
+        filters.target_from,
+        filters.target_to,
+    ]);
 
     useEffect(() => {
         setEntriesDraft(String(filters.per_page));
@@ -429,12 +475,29 @@ export default function SpkIndex({
             filterDraft.date_from === '' ? null : filterDraft.date_from;
         const nextDateTo =
             filterDraft.date_to === '' ? null : filterDraft.date_to;
+        const isCustomTarget =
+            filterDraft.target_period === TARGET_PERIOD_CUSTOM;
+        const nextTargetFrom =
+            isCustomTarget && filterDraft.target_from !== ''
+                ? filterDraft.target_from
+                : null;
+        const nextTargetTo =
+            isCustomTarget && filterDraft.target_to !== ''
+                ? filterDraft.target_to
+                : null;
+        const nextTargetPeriod =
+            isCustomTarget && nextTargetFrom === null && nextTargetTo === null
+                ? ''
+                : filterDraft.target_period;
 
         const unchanged =
             filterDraft.type === filters.type &&
             filterDraft.status === filters.status &&
             nextDateFrom === filters.date_from &&
-            nextDateTo === filters.date_to;
+            nextDateTo === filters.date_to &&
+            nextTargetPeriod === filters.target_period &&
+            nextTargetFrom === filters.target_from &&
+            nextTargetTo === filters.target_to;
 
         if (unchanged) {
             setFilterMenuOpen(false);
@@ -447,6 +510,9 @@ export default function SpkIndex({
             status: filterDraft.status,
             date_from: nextDateFrom,
             date_to: nextDateTo,
+            target_period: nextTargetPeriod,
+            target_from: nextTargetFrom,
+            target_to: nextTargetTo,
             page: 1,
         });
         setFilterMenuOpen(false);
@@ -458,13 +524,17 @@ export default function SpkIndex({
             status: '',
             date_from: '',
             date_to: '',
+            target_period: '',
+            target_from: '',
+            target_to: '',
         });
 
         if (
             filters.type === '' &&
             filters.status === '' &&
             filters.date_from === null &&
-            filters.date_to === null
+            filters.date_to === null &&
+            filters.target_period === ''
         ) {
             setFilterMenuOpen(false);
 
@@ -476,6 +546,9 @@ export default function SpkIndex({
             status: '',
             date_from: null,
             date_to: null,
+            target_period: '',
+            target_from: null,
+            target_to: null,
             page: 1,
         });
         setFilterMenuOpen(false);
@@ -511,7 +584,8 @@ export default function SpkIndex({
         filters.type !== '' ||
         filters.status !== '' ||
         filters.date_from !== null ||
-        filters.date_to !== null;
+        filters.date_to !== null ||
+        filters.target_period !== '';
     const hasCustomSort = filters.sort !== 'id' || filters.direction !== 'desc';
     const hasCustomEntries = filters.per_page !== DEFAULT_PER_PAGE;
     const hasSortDraftChanges =
@@ -521,7 +595,10 @@ export default function SpkIndex({
         filterDraft.type !== filters.type ||
         filterDraft.status !== filters.status ||
         filterDraft.date_from !== (filters.date_from ?? '') ||
-        filterDraft.date_to !== (filters.date_to ?? '');
+        filterDraft.date_to !== (filters.date_to ?? '') ||
+        filterDraft.target_period !== filters.target_period ||
+        filterDraft.target_from !== (filters.target_from ?? '') ||
+        filterDraft.target_to !== (filters.target_to ?? '');
     const hasEntriesDraftChanges = Number(entriesDraft) !== filters.per_page;
     const hasSortDraftCustom =
         sortDraft.sort !== 'id' || sortDraft.direction !== 'desc';
@@ -529,7 +606,8 @@ export default function SpkIndex({
         filterDraft.type !== '' ||
         filterDraft.status !== '' ||
         filterDraft.date_from !== '' ||
-        filterDraft.date_to !== '';
+        filterDraft.date_to !== '' ||
+        filterDraft.target_period !== '';
     const hasEntriesDraftCustom = entriesDraft !== String(DEFAULT_PER_PAGE);
 
     return (
@@ -778,6 +856,12 @@ export default function SpkIndex({
                                                 date_from:
                                                     filters.date_from ?? '',
                                                 date_to: filters.date_to ?? '',
+                                                target_period:
+                                                    filters.target_period,
+                                                target_from:
+                                                    filters.target_from ?? '',
+                                                target_to:
+                                                    filters.target_to ?? '',
                                             });
                                         }
                                     }}
@@ -855,6 +939,108 @@ export default function SpkIndex({
                                                     }
                                                 />
                                             </label>
+                                            <label className="spkTableHeaderSortField--finishing">
+                                                <span>Target selesai</span>
+                                                <select
+                                                    value={
+                                                        filterDraft.target_period
+                                                    }
+                                                    aria-label="Target selesai"
+                                                    onChange={(event) =>
+                                                        setFilterDraft(
+                                                            (current) => ({
+                                                                ...current,
+                                                                target_period:
+                                                                    event.target
+                                                                        .value,
+                                                            }),
+                                                        )
+                                                    }
+                                                    onClick={(event) =>
+                                                        event.stopPropagation()
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Semua
+                                                    </option>
+                                                    {filterOptions.target_period.map(
+                                                        (option) => (
+                                                            <option
+                                                                key={
+                                                                    option.value
+                                                                }
+                                                                value={
+                                                                    option.value
+                                                                }
+                                                            >
+                                                                {option.label}
+                                                            </option>
+                                                        ),
+                                                    )}
+                                                </select>
+                                            </label>
+                                            {filterDraft.target_period ===
+                                            TARGET_PERIOD_CUSTOM ? (
+                                                <>
+                                                    <label className="spkTableHeaderSortField--finishing">
+                                                        <span>
+                                                            Target selesai dari
+                                                        </span>
+                                                        <input
+                                                            type="date"
+                                                            value={
+                                                                filterDraft.target_from
+                                                            }
+                                                            aria-label="Target selesai dari"
+                                                            onChange={(event) =>
+                                                                setFilterDraft(
+                                                                    (
+                                                                        current,
+                                                                    ) => ({
+                                                                        ...current,
+                                                                        target_from:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    }),
+                                                                )
+                                                            }
+                                                            onClick={(event) =>
+                                                                event.stopPropagation()
+                                                            }
+                                                        />
+                                                    </label>
+                                                    <label className="spkTableHeaderSortField--finishing">
+                                                        <span>
+                                                            Target selesai
+                                                            sampai
+                                                        </span>
+                                                        <input
+                                                            type="date"
+                                                            value={
+                                                                filterDraft.target_to
+                                                            }
+                                                            aria-label="Target selesai sampai"
+                                                            onChange={(event) =>
+                                                                setFilterDraft(
+                                                                    (
+                                                                        current,
+                                                                    ) => ({
+                                                                        ...current,
+                                                                        target_to:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    }),
+                                                                )
+                                                            }
+                                                            onClick={(event) =>
+                                                                event.stopPropagation()
+                                                            }
+                                                        />
+                                                    </label>
+                                                </>
+                                            ) : null}
                                             <label className="spkTableHeaderSortField--finishing">
                                                 <span>Tipe</span>
                                                 <select
@@ -1079,6 +1265,19 @@ export default function SpkIndex({
                                 icon={printIcon}
                                 accessibleName="Cetak"
                                 className="spkTableHeaderExportBtn--finishing"
+                            />
+                            <Button
+                                design="Default"
+                                icon={approvalsIcon}
+                                accessibleName="Print Tanda Terima"
+                                tooltip={
+                                    selectedIds.length > 0
+                                        ? `Print Tanda Terima (${selectedIds.length} SPK)`
+                                        : 'Print Tanda Terima — centang SPK terlebih dahulu'
+                                }
+                                disabled={selectedIds.length === 0}
+                                className="spkTableHeaderExportBtn--finishing"
+                                onClick={() => setReceiptDialogOpen(true)}
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"
@@ -1413,6 +1612,13 @@ export default function SpkIndex({
                 }
                 hint={statusListAlert?.hint ?? ''}
                 detailStatus={statusListAlert?.key}
+            />
+
+            <SpkReceiptPrintDialog
+                open={receiptDialogOpen}
+                onOpenChange={setReceiptDialogOpen}
+                selectedIds={selectedIds}
+                employeeOptions={receiptEmployeeOptions}
             />
         </>
     );

@@ -4058,6 +4058,10 @@
     max-width: min(28rem, calc(100vw - 2rem)) !important;
 }
 
+.spkReceiptPrintDialog {
+    max-width: min(28rem, calc(100vw - 2rem)) !important;
+}
+
 .spkHeaderActionBtn {
     appearance: none;
     border: none;

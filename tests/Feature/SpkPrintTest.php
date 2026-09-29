@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Employee;
 use App\Models\MsShape;
+use App\Models\Production;
+use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Models\SpkStone;
@@ -510,4 +513,185 @@ test('spk print template page renders blank form format', function () {
         ->assertDontSee('Tidak ada batu pada varian ini.', false)
         ->assertDontSee('0 item', false)
         ->assertDontSee('PRIORITAS PRODUKSI', false);
+});
+
+function deleteTestingSerahTerimaSpk(): void
+{
+    SerahTerimaSpk::query()
+        ->where(function ($query): void {
+            $query->where('doc_no', 'like', 'WHOJ/PRD/TTS/2098/%')
+                ->orWhere('doc_no', 'like', 'WHOJ/PRD/TTS/2099/%')
+                ->orWhere('doc_no', 'like', 'WHOJ/PRD/TTS/TEST/%');
+        })
+        ->delete();
+}
+
+beforeEach(fn () => deleteTestingSerahTerimaSpk());
+afterEach(fn () => deleteTestingSerahTerimaSpk());
+
+test('spk receipt store generates doc number and saves printed content', function () {
+    $customer = 'Tanda Terima '.strtoupper(fake()->unique()->lexify('??????'));
+    $first = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/RECEIPT-A',
+        'spk_type' => 'Stock',
+        'customer_name' => $customer,
+        'estimated_delivery_time' => '2026-10-05 00:00:00',
+        'is_deleted' => 0,
+    ]);
+    $second = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/RECEIPT-B',
+        'spk_type' => 'Stock',
+        'customer_name' => $customer,
+        'estimated_delivery_time' => '2026-10-10 00:00:00',
+        'is_deleted' => 0,
+    ]);
+    $deleted = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/RECEIPT-DELETED',
+        'is_deleted' => 1,
+    ]);
+    $handedBy = Employee::factory()->create();
+    $acknowledgedBy = Employee::factory()->create();
+    $receivedBy = Employee::factory()->create();
+
+    $response = $this->postJson(route('spk.print.receipt.store'), [
+        'ids' => [$second->row_id, $first->row_id, $deleted->row_id],
+        'tanggal' => '2099-09-30',
+        'dari' => 'Head Office',
+        'untuk' => 'Workshop',
+        'diserahkan_oleh' => $handedBy->nama_lengkap,
+        'diketahui_oleh' => $acknowledgedBy->nama_lengkap,
+        'diterima_oleh' => $receivedBy->nama_lengkap,
+    ]);
+
+    $receipt = SerahTerimaSpk::query()->where('doc_no', 'WHOJ/PRD/TTS/2099/0001')->firstOrFail();
+
+    $response->assertCreated()
+        ->assertExactJson([
+            'id' => $receipt->id,
+            'docNo' => 'WHOJ/PRD/TTS/2099/0001',
+            'printUrl' => route('spk.print.receipt', $receipt),
+        ]);
+
+    expect($receipt->tanggal->toDateString())->toBe('2099-09-30')
+        ->and($receipt->dari)->toBe('Head Office')
+        ->and($receipt->untuk)->toBe('Workshop')
+        ->and($receipt->diserahkan_oleh)->toBe($handedBy->nama_lengkap)
+        ->and($receipt->diketahui_oleh)->toBe($acknowledgedBy->nama_lengkap)
+        ->and($receipt->diterima_oleh)->toBe($receivedBy->nama_lengkap)
+        ->and($receipt->jumlah_spk)->toBe(2)
+        ->and($receipt->spk_row_ids)->toBe([(int) $second->row_id, (int) $first->row_id])
+        ->and(array_column($receipt->items, 'spkNo'))->toBe(['TEST/SPK/RECEIPT-B', 'TEST/SPK/RECEIPT-A'])
+        ->and($receipt->items[1]['targetDate'])->toBe('05-Oct-2026')
+        ->and($receipt->created_by)->not->toBeEmpty();
+
+    collect([$first, $second, $deleted, $handedBy, $acknowledgedBy, $receivedBy])->each->delete();
+});
+
+test('spk receipt doc number is sequential per year', function () {
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/RECEIPT-SEQ',
+        'is_deleted' => 0,
+    ]);
+
+    $docNumbers = collect(['2099-01-10', '2099-12-31', '2098-06-01'])
+        ->map(fn (string $date): string => $this->postJson(route('spk.print.receipt.store'), [
+            'ids' => [$production->row_id],
+            'tanggal' => $date,
+        ])->assertCreated()->json('docNo'))
+        ->all();
+
+    expect($docNumbers)->toBe([
+        'WHOJ/PRD/TTS/2099/0001',
+        'WHOJ/PRD/TTS/2099/0002',
+        'WHOJ/PRD/TTS/2098/0001',
+    ]);
+
+    $production->delete();
+});
+
+test('spk receipt print page renders stored receipt', function () {
+    $receipt = SerahTerimaSpk::factory()->create([
+        'doc_no' => 'WHOJ/PRD/TTS/TEST/000001',
+        'tanggal' => '2099-09-30',
+        'dari' => 'Head Office',
+        'untuk' => 'Workshop',
+        'diserahkan_oleh' => 'Budi Penyerah',
+        'diterima_oleh' => 'Sari Penerima',
+        'diketahui_oleh' => 'Joko Mengetahui',
+        'jumlah_spk' => 2,
+        'spk_row_ids' => [2, 1],
+        'items' => [
+            ['spkRowId' => 2, 'spkNo' => 'TEST/SPK/PRINT-B', 'type' => 'Stock', 'item' => 'Cincin', 'description' => '', 'customer' => '', 'targetDate' => '10-Oct-2026'],
+            ['spkRowId' => 1, 'spkNo' => 'TEST/SPK/PRINT-A', 'type' => 'Pesanan', 'item' => 'Kalung', 'description' => 'Emas 18K', 'customer' => 'Ibu Ani', 'targetDate' => '05-Oct-2026'],
+        ],
+        'created_by' => 'Admin SPK',
+    ]);
+
+    $this->get(route('spk.print.receipt', $receipt))
+        ->assertOk()
+        ->assertViewIs('spk.receipt')
+        ->assertSee('TANDA TERIMA SPK', false)
+        ->assertSee('Doc No. : WHOJ-PRD-FRM-002', false)
+        ->assertSee('Revision: 00', false)
+        ->assertSee('Date: 29/09/2026', false)
+        ->assertSeeInOrder(['No. Form', 'WHOJ/PRD/TTS/TEST/000001'], false)
+        ->assertSee(': 30-Sep-2099', false)
+        ->assertSee(': Head Office', false)
+        ->assertSee(': Workshop', false)
+        ->assertSee('Jumlah SPK: 2', false)
+        ->assertSeeInOrder(['TEST/SPK/PRINT-B', 'TEST/SPK/PRINT-A'], false)
+        ->assertSee('Emas 18K', false)
+        ->assertSeeInOrder(['>Target Selesai</th>', '>Catatan</th>'], false)
+        ->assertDontSee('>Qty</th>', false)
+        ->assertSeeInOrder([
+            'Diserahkan oleh', 'Budi Penyerah',
+            'Diterima oleh', 'Sari Penerima',
+            'Diketahui oleh', 'Joko Mengetahui',
+        ], false)
+        ->assertSee('Dicetak oleh Admin SPK', false);
+});
+
+test('spk receipt print page returns not found for unknown receipt', function () {
+    $this->get(route('spk.print.receipt', 999999999))->assertNotFound();
+});
+
+test('spk receipt store validates form data', function () {
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/RECEIPT-FORM',
+        'is_deleted' => 0,
+    ]);
+    $inactive = Employee::factory()->create(['status' => 'inactive']);
+
+    $this->postJson(route('spk.print.receipt.store'), [
+        'ids' => [$production->row_id],
+        'tanggal' => '2099-09-30',
+        'diterima_oleh' => $inactive->nama_lengkap,
+    ])->assertJsonValidationErrors('diterima_oleh');
+
+    $this->postJson(route('spk.print.receipt.store'), [
+        'ids' => [$production->row_id],
+        'tanggal' => '30/09/2099',
+    ])->assertJsonValidationErrors('tanggal');
+
+    $this->postJson(route('spk.print.receipt.store'), [
+        'ids' => [$production->row_id],
+        'tanggal' => '2099-09-30',
+        'dari' => 'Gudang',
+        'untuk' => 'Store',
+    ])->assertJsonValidationErrors('dari');
+
+    $this->postJson(route('spk.print.receipt.store'), [
+        'ids' => [$production->row_id],
+        'tanggal' => '2099-09-30',
+        'dari' => 'Store',
+        'untuk' => 'Store',
+    ])->assertJsonValidationErrors('untuk');
+
+    $this->postJson(route('spk.print.receipt.store'), ['tanggal' => '2099-09-30'])
+        ->assertJsonValidationErrors('ids');
+
+    expect(SerahTerimaSpk::query()->where('doc_no', 'like', 'WHOJ/PRD/TTS/2099/%')->exists())->toBeFalse();
+
+    $inactive->delete();
+    $production->delete();
 });

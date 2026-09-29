@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Employee;
 use App\Models\Production;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
@@ -200,6 +201,7 @@ test('spk index exposes default sort filter options and bulk actions', function 
             ->has('filterOptions.sort', 5)
             ->has('filterOptions.direction', 2)
             ->has('filterOptions.per_page', 4)
+            ->has('receiptEmployeeOptions')
             ->where('bulkActions.canApprove', true)
             ->where('bulkActions.canManagerApprove', true)
             ->where('bulkActions.canDelete', true)
@@ -208,6 +210,22 @@ test('spk index exposes default sort filter options and bulk actions', function 
             ->has('statusCounts.done')
             ->where('statuses', fn ($statuses) => collect($statuses)->contains('Done'))
         );
+});
+
+test('spk index receipt employee options list active employees from all departments', function () {
+    $headOffice = Employee::factory()->create(['department_id' => 1]);
+    $inactive = Employee::factory()->create(['status' => 'inactive']);
+    $deleted = Employee::factory()->create(['is_deleted' => 1]);
+
+    $this->get(route('spk.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('receiptEmployeeOptions', fn ($options) => collect($options)->contains($headOffice->nama_lengkap)
+                && ! collect($options)->contains($inactive->nama_lengkap)
+                && ! collect($options)->contains($deleted->nama_lengkap))
+        );
+
+    collect([$headOffice, $inactive, $deleted])->each->delete();
 });
 
 test('spk index done filter lists spk with completed production', function () {
@@ -384,6 +402,104 @@ test('spk index filters by created date range and sorts by spk number', function
     $inRangeB->delete();
     $outOfRange->delete();
 });
+
+test('spk index filters by target selesai date range', function () {
+    $customer = 'Filter Target '.strtoupper(fake()->unique()->lexify('??????'));
+    $inRange = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/TARGET-IN',
+        'customer_name' => $customer,
+        'estimated_delivery_time' => '2026-05-15 00:00:00',
+        'is_deleted' => 0,
+    ]);
+    $beforeRange = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/TARGET-BEFORE',
+        'customer_name' => $customer,
+        'estimated_delivery_time' => '2026-04-30 00:00:00',
+        'is_deleted' => 0,
+    ]);
+    $afterRange = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/TARGET-AFTER',
+        'customer_name' => $customer,
+        'estimated_delivery_time' => '2026-06-01 00:00:00',
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', [
+        'search' => $customer,
+        'target_from' => '2026-05-01',
+        'target_to' => '2026-05-31',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('filters.target_period', 'custom')
+            ->where('filters.target_from', '2026-05-01')
+            ->where('filters.target_to', '2026-05-31')
+            ->where('productions.total', 1)
+            ->where('productions.data.0.produksiNo', 'TEST/SPK/TARGET-IN')
+        );
+
+    $this->get(route('spk.index', ['target_from' => 'bukan-tanggal']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.target_period', '')
+            ->where('filters.target_from', null)
+            ->where('filters.target_to', null)
+            ->has('filterOptions.target_period', 8)
+        );
+
+    $inRange->delete();
+    $beforeRange->delete();
+    $afterRange->delete();
+});
+
+test('spk index filters by target selesai period preset', function (string $period, array $expectedSpkNos) {
+    $this->travelTo('2026-09-30 10:00:00');
+
+    $customer = 'Filter Periode '.strtoupper(fake()->unique()->lexify('??????'));
+    $targets = [
+        'TEST/SPK/PERIOD-PAST' => '2026-09-20',
+        'TEST/SPK/PERIOD-TODAY' => '2026-09-30',
+        'TEST/SPK/PERIOD-THIS-WEEK' => '2026-10-04',
+        'TEST/SPK/PERIOD-NEXT-WEEK' => '2026-10-07',
+        'TEST/SPK/PERIOD-NEXT-MONTH' => '2026-10-20',
+    ];
+    $productions = collect($targets)->map(fn (string $date, string $spkNo) => Production::factory()->create([
+        'spk_no' => $spkNo,
+        'customer_name' => $customer,
+        'estimated_delivery_time' => "{$date} 00:00:00",
+        'is_deleted' => 0,
+    ]));
+
+    $this->get(route('spk.index', [
+        'search' => $customer,
+        'target_period' => $period,
+        'target_from' => '2020-01-01',
+        'sort' => 'estimated',
+        'direction' => 'asc',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.target_period', $period)
+            ->where('filters.target_from', null)
+            ->where('filters.target_to', null)
+            ->where('productions.total', count($expectedSpkNos))
+            ->where(
+                'productions.data',
+                fn ($rows) => collect($rows)->pluck('produksiNo')->values()->all() === $expectedSpkNos,
+            )
+        );
+
+    $productions->each->delete();
+})->with([
+    'lewat target' => ['overdue', ['TEST/SPK/PERIOD-PAST']],
+    'hari ini' => ['today', ['TEST/SPK/PERIOD-TODAY']],
+    '7 hari ke depan' => ['next_7_days', ['TEST/SPK/PERIOD-TODAY', 'TEST/SPK/PERIOD-THIS-WEEK', 'TEST/SPK/PERIOD-NEXT-WEEK']],
+    'minggu ini' => ['this_week', ['TEST/SPK/PERIOD-TODAY', 'TEST/SPK/PERIOD-THIS-WEEK']],
+    'minggu depan' => ['next_week', ['TEST/SPK/PERIOD-NEXT-WEEK']],
+    'bulan ini' => ['this_month', ['TEST/SPK/PERIOD-PAST', 'TEST/SPK/PERIOD-TODAY']],
+    'bulan depan' => ['next_month', ['TEST/SPK/PERIOD-THIS-WEEK', 'TEST/SPK/PERIOD-NEXT-WEEK', 'TEST/SPK/PERIOD-NEXT-MONTH']],
+]);
 
 test('spk index lists item column data from spk', function () {
     $category = SkuPrefixCategory::query()->firstOrCreate([

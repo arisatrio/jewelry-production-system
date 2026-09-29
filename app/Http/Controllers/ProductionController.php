@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\BulkUpdateSpkStatusRequest;
+use App\Http\Requests\PrintSpkReceiptRequest;
 use App\Http\Requests\SpkApprovalDecisionRequest;
 use App\Http\Requests\StoreProductionRequest;
 use App\Http\Requests\UpdateProductionRequest;
+use App\Models\Employee;
 use App\Models\MsPosition;
 use App\Models\MsShape;
 use App\Models\Production;
+use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Models\SpkStone;
@@ -22,6 +25,7 @@ use App\Support\PolishFinishedGoodSpkEligibility;
 use App\Support\PolishFrameSpkEligibility;
 use App\Support\RequestOrderRepository;
 use App\Support\ResinSpkEligibility;
+use App\Support\SerahTerimaSpkDocNumberGenerator;
 use App\Support\SkuMasterDescriptionExtractor;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkApprovalRoles;
@@ -69,6 +73,20 @@ class ProductionController extends Controller
         'estimated' => 'estimated_delivery_time',
     ];
 
+    /**
+     * @var array<string, string>
+     */
+    private const TARGET_PERIOD_LABELS = [
+        'overdue' => 'Lewat target',
+        'today' => 'Hari ini',
+        'next_7_days' => '7 hari ke depan',
+        'this_week' => 'Minggu ini',
+        'next_week' => 'Minggu depan',
+        'this_month' => 'Bulan ini',
+        'next_month' => 'Bulan depan',
+        'custom' => 'Rentang tanggal',
+    ];
+
     public function __construct(
         private SpkStatusOrder $statusOrder,
         private SkuMasterDiamondMapper $diamondMapper,
@@ -93,6 +111,22 @@ class ProductionController extends Controller
         $direction = in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
         $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString());
         $dateTo = $this->resolveIndexDate($request->string('date_to')->toString());
+        $targetFrom = $this->resolveIndexDate($request->string('target_from')->toString());
+        $targetTo = $this->resolveIndexDate($request->string('target_to')->toString());
+        $targetPeriod = $request->string('target_period')->trim()->toString();
+
+        if (! array_key_exists($targetPeriod, self::TARGET_PERIOD_LABELS)) {
+            $targetPeriod = $targetFrom !== null || $targetTo !== null ? 'custom' : '';
+        }
+
+        if ($targetPeriod === 'custom' && $targetFrom === null && $targetTo === null) {
+            $targetPeriod = '';
+        }
+
+        if ($targetPeriod !== 'custom') {
+            [$targetFrom, $targetTo] = $this->targetPeriodRange($targetPeriod);
+        }
+
         $perPage = $request->integer('per_page', 50);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
         $typeCounts = $this->activeTypeCounts();
@@ -100,6 +134,10 @@ class ProductionController extends Controller
 
         if ($dateFrom !== null && $dateTo !== null && $dateTo < $dateFrom) {
             $dateTo = $dateFrom;
+        }
+
+        if ($targetFrom !== null && $targetTo !== null && $targetTo < $targetFrom) {
+            $targetTo = $targetFrom;
         }
 
         $productions = Production::query()
@@ -110,6 +148,12 @@ class ProductionController extends Controller
             })
             ->when($dateTo !== null, function ($query) use ($dateTo): void {
                 $query->whereDate('created_date', '<=', $dateTo);
+            })
+            ->when($targetFrom !== null, function ($query) use ($targetFrom): void {
+                $query->whereDate('estimated_delivery_time', '>=', $targetFrom);
+            })
+            ->when($targetTo !== null, function ($query) use ($targetTo): void {
+                $query->whereDate('estimated_delivery_time', '<=', $targetTo);
             })
             ->when($type !== '', function ($query) use ($type): void {
                 $query->where('spk_type', $type);
@@ -164,9 +208,19 @@ class ProductionController extends Controller
                 'direction' => $direction,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'target_period' => $targetPeriod,
+                'target_from' => $targetPeriod === 'custom' ? $targetFrom : null,
+                'target_to' => $targetPeriod === 'custom' ? $targetTo : null,
                 'per_page' => $perPage,
             ],
             'filterOptions' => [
+                'target_period' => collect(self::TARGET_PERIOD_LABELS)
+                    ->map(fn (string $label, string $value): array => [
+                        'value' => $value,
+                        'label' => $label,
+                    ])
+                    ->values()
+                    ->all(),
                 'per_page' => [
                     ['value' => '10', 'label' => '10'],
                     ['value' => '25', 'label' => '25'],
@@ -185,6 +239,7 @@ class ProductionController extends Controller
                     ['value' => 'desc', 'label' => 'Z–A'],
                 ],
             ],
+            'receiptEmployeeOptions' => Inertia::once(fn (): array => $this->receiptEmployeeOptions()),
             'bulkActions' => [
                 'canSubmit' => SpkApprovalRoles::canSubmit($user),
                 'canApprove' => SpkApprovalRoles::canApprove($user),
@@ -278,6 +333,56 @@ class ProductionController extends Controller
         ]);
 
         return back();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function receiptEmployeeOptions(): array
+    {
+        return Employee::query()
+            ->active()
+            ->whereNotNull('nama_lengkap')
+            ->where('nama_lengkap', '!=', '')
+            ->orderBy('nama_lengkap')
+            ->pluck('nama_lengkap')
+            ->map(fn (mixed $name): string => trim((string) $name))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function targetPeriodRange(string $period): array
+    {
+        $today = Carbon::today();
+
+        [$from, $to] = match ($period) {
+            'overdue' => [null, $today->copy()->subDay()],
+            'today' => [$today, $today],
+            'next_7_days' => [$today, $today->copy()->addDays(7)],
+            'this_week' => [
+                $today->copy()->startOfWeek(Carbon::MONDAY),
+                $today->copy()->endOfWeek(Carbon::SUNDAY),
+            ],
+            'next_week' => [
+                $today->copy()->addWeek()->startOfWeek(Carbon::MONDAY),
+                $today->copy()->addWeek()->endOfWeek(Carbon::SUNDAY),
+            ],
+            'this_month' => [
+                $today->copy()->startOfMonth(),
+                $today->copy()->endOfMonth(),
+            ],
+            'next_month' => [
+                $today->copy()->startOfMonth()->addMonthNoOverflow(),
+                $today->copy()->startOfMonth()->addMonthNoOverflow()->endOfMonth(),
+            ],
+            default => [null, null],
+        };
+
+        return [$from?->toDateString(), $to?->toDateString()];
     }
 
     private function resolveIndexDate(string $date): ?string
@@ -597,6 +702,100 @@ class ProductionController extends Controller
     public function printTemplate(): View
     {
         return $this->blankPrintView('Form SPK — Template');
+    }
+
+    /**
+     * Simpan serah terima SPK yang dipilih di halaman index dan generate nomor form.
+     */
+    public function storeReceipt(
+        PrintSpkReceiptRequest $request,
+        SerahTerimaSpkDocNumberGenerator $docNumberGenerator,
+    ): JsonResponse {
+        /** @var list<int> $ids */
+        $ids = array_map(intval(...), $request->validated('ids'));
+
+        $productions = Production::query()
+            ->with(['sku', 'categoryPrefix'])
+            ->notDeleted()
+            ->whereIn('row_id', $ids)
+            ->get()
+            ->sortBy(fn (Production $production): int|false => array_search((int) $production->row_id, $ids, true))
+            ->values();
+
+        abort_if($productions->isEmpty(), 404);
+
+        $receiptDate = Carbon::createFromFormat(
+            'Y-m-d',
+            $request->validated('tanggal') ?? now()->toDateString(),
+        )->startOfDay();
+
+        $items = $productions->map(fn (Production $production): array => [
+            'spkRowId' => (int) $production->row_id,
+            'spkNo' => $production->spk_no ?? '-',
+            'type' => $production->spk_type ?? '-',
+            'item' => $this->listTypeSkuLabel($production) ?? ($production->item_name ?? '-'),
+            'description' => $this->listItemDescriptionText($production) ?? '',
+            'customer' => $this->customerListLabel($production),
+            'targetDate' => $production->estimated_delivery_time?->format('d-M-Y') ?? '-',
+        ])->all();
+
+        $receipt = DB::connection('third')->transaction(fn (): SerahTerimaSpk => SerahTerimaSpk::query()->create([
+            'doc_no' => $docNumberGenerator->generate($receiptDate),
+            'tanggal' => $receiptDate->toDateString(),
+            'dari' => $this->nullableTrimmed($request->validated('dari')),
+            'untuk' => $this->nullableTrimmed($request->validated('untuk')),
+            'diserahkan_oleh' => $this->nullableTrimmed($request->validated('diserahkan_oleh')),
+            'diterima_oleh' => $this->nullableTrimmed($request->validated('diterima_oleh')),
+            'diketahui_oleh' => $this->nullableTrimmed($request->validated('diketahui_oleh')),
+            'jumlah_spk' => count($items),
+            'spk_row_ids' => array_column($items, 'spkRowId'),
+            'items' => $items,
+            'created_by' => $this->actorName($request),
+        ]));
+
+        return response()->json([
+            'id' => $receipt->id,
+            'docNo' => $receipt->doc_no,
+            'printUrl' => route('spk.print.receipt', $receipt),
+        ], 201);
+    }
+
+    /**
+     * Halaman print tanda terima serah terima SPK yang sudah disimpan.
+     */
+    public function printReceipt(SerahTerimaSpk $serahTerimaSpk): View
+    {
+        $header = [
+            ...$this->documentHeader(),
+            'formTitle' => 'Tanda Terima SPK',
+            'docNo' => (string) config('spk.receipt_document_no', 'WHOJ-PRD-FRM-002'),
+            'revision' => (string) config('spk.receipt_revision', '00'),
+            'issueDate' => (string) config('spk.receipt_issue_date', now()->format('d/m/Y')),
+        ];
+
+        return view('spk.receipt', [
+            'title' => "Tanda Terima SPK {$serahTerimaSpk->doc_no} — Print",
+            'header' => $header,
+            'receiptNo' => $serahTerimaSpk->doc_no,
+            'printedAt' => ($serahTerimaSpk->created_at ?? now())->format('d-M-Y H:i'),
+            'printedBy' => $serahTerimaSpk->created_by ?? '-',
+            'receiptDate' => $serahTerimaSpk->tanggal->format('d-M-Y'),
+            'receiptFrom' => (string) $serahTerimaSpk->dari,
+            'receiptTo' => (string) $serahTerimaSpk->untuk,
+            'signatures' => [
+                ['title' => 'Diserahkan oleh', 'name' => (string) $serahTerimaSpk->diserahkan_oleh],
+                ['title' => 'Diterima oleh', 'name' => (string) $serahTerimaSpk->diterima_oleh],
+                ['title' => 'Diketahui oleh', 'name' => (string) $serahTerimaSpk->diketahui_oleh],
+            ],
+            'rows' => $serahTerimaSpk->items,
+        ]);
+    }
+
+    private function nullableTrimmed(mixed $value): ?string
+    {
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**

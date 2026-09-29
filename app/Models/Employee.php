@@ -70,6 +70,19 @@ class Employee extends Model
     }
 
     /**
+     * Active employees across all departments.
+     *
+     * @param  Builder<Employee>  $query
+     * @return Builder<Employee>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query
+            ->notDeleted()
+            ->where('status', self::STATUS_ACTIVE);
+    }
+
+    /**
      * Active employees in the PRODUCTION department.
      *
      * @param  Builder<Employee>  $query

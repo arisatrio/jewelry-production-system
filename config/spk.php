@@ -48,6 +48,12 @@ return [
 
     'issue_date' => '14/08/2026',
 
+    'receipt_document_no' => 'WHOJ-PRD-FRM-002',
+
+    'receipt_revision' => '00',
+
+    'receipt_issue_date' => '29/09/2026',
+
     'logo' => 'images/logo.jpg',
 
     /*

@@ -50,6 +50,12 @@ export function isListRowIncomplete(status: string): boolean {
     return !status.toLowerCase().includes('done');
 }
 
+export const TARGET_DUE_SOON_DAYS = 7;
+
+export function isTargetDueSoon(daysLeft: number): boolean {
+    return daysLeft <= TARGET_DUE_SOON_DAYS;
+}
+
 export function targetDaysLeftHint(daysLeft: number): {
     label: string;
     className: string;
@@ -61,13 +67,17 @@ export function targetDaysLeftHint(daysLeft: number): {
         };
     }
 
+    const className = isTargetDueSoon(daysLeft)
+        ? 'text-orange-600'
+        : 'text-slate-500';
+
     if (daysLeft === 0) {
-        return { label: '(hari ini)', className: 'text-amber-600' };
+        return { label: '(hari ini)', className };
     }
 
     return {
         label: `(${daysLeft} hari lagi)`,
-        className: daysLeft <= 2 ? 'text-amber-600' : 'text-slate-500',
+        className,
     };
 }
 

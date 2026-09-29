@@ -57,6 +57,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('spk.print');
     Route::get('spk/print/template', [ProductionController::class, 'printTemplate'])
         ->name('spk.print.template');
+    Route::post('spk/print/receipt', [ProductionController::class, 'storeReceipt'])
+        ->name('spk.print.receipt.store');
+    Route::get('spk/print/receipt/{serahTerimaSpk}', [ProductionController::class, 'printReceipt'])
+        ->whereNumber('serahTerimaSpk')
+        ->name('spk.print.receipt');
     Route::get('spk/form/{rowId}', [ProductionController::class, 'form'])
         ->whereNumber('rowId')
         ->name('spk.form');
