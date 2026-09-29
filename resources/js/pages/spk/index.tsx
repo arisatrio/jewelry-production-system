@@ -6,6 +6,7 @@ import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
 import historyIcon from '@ui5/webcomponents-icons/dist/history.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
+import retailStoreIcon from '@ui5/webcomponents-icons/dist/retail-store.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
 import { Button } from '@ui5/webcomponents-react/Button';
@@ -26,6 +27,7 @@ import {
 import { SpkReceiptHistoryDialog } from '@/components/spk/spk-receipt-history-dialog';
 import { SpkReceiptPrintDialog } from '@/components/spk/spk-receipt-print-dialog';
 import { SpkStatusListDialog } from '@/components/spk/spk-status-list-dialog';
+import { SpkStoreStockRequestDialog } from '@/components/spk/spk-store-stock-request-dialog';
 import type { SpkIndexRow } from '@/components/spk/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -98,6 +100,7 @@ type SpkIndexProps = {
         direction: FilterOption[];
     };
     receiptEmployeeOptions: string[];
+    storeStockRequestCount?: number | null;
     bulkActions: {
         canSubmit: boolean;
         canApprove: boolean;
@@ -156,6 +159,7 @@ export default function SpkIndex({
     filters,
     filterOptions,
     receiptEmployeeOptions,
+    storeStockRequestCount,
     bulkActions,
 }: SpkIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
@@ -168,6 +172,12 @@ export default function SpkIndex({
     const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
     const [receiptHistoryDialogOpen, setReceiptHistoryDialogOpen] =
         useState(false);
+    const [storeStockRequestDialogOpen, setStoreStockRequestDialogOpen] =
+        useState(false);
+    const storeStockRequestCountLabel =
+        typeof storeStockRequestCount === 'number'
+            ? storeStockRequestCount.toLocaleString('id-ID')
+            : '–';
     const activeStatusKey =
         filters.status === DONE_STATUS_FILTER
             ? 'done'
@@ -1309,6 +1319,27 @@ export default function SpkIndex({
                         </div>
                     </div>
 
+                    <div className="spkStoreStockRequestBar">
+                        <Button
+                            className="spkStoreStockRequestBtn"
+                            design="Default"
+                            icon={retailStoreIcon}
+                            accessibleName={`Permintaan Stok Toko: ${storeStockRequestCountLabel} permintaan approved`}
+                            tooltip="Permintaan stok toko yang sudah di-approve"
+                            onClick={() => setStoreStockRequestDialogOpen(true)}
+                        >
+                            Permintaan Stok Toko
+                            <span
+                                className="spkStoreStockRequestCount"
+                                aria-hidden="true"
+                            >
+                                {storeStockRequestCount === undefined
+                                    ? '…'
+                                    : storeStockRequestCountLabel}
+                            </span>
+                        </Button>
+                    </div>
+
                     {selectedIds.length > 0 ? (
                         <div
                             className="spkTableBulkBar--finishing"
@@ -1638,6 +1669,11 @@ export default function SpkIndex({
             <SpkReceiptHistoryDialog
                 open={receiptHistoryDialogOpen}
                 onOpenChange={setReceiptHistoryDialogOpen}
+            />
+
+            <SpkStoreStockRequestDialog
+                open={storeStockRequestDialogOpen}
+                onOpenChange={setStoreStockRequestDialogOpen}
             />
         </>
     );

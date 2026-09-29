@@ -7,6 +7,7 @@ use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Support\SpkService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 test('spk index page is accessible and returns production list props', function () {
     $this->get(route('spk.index'))
@@ -1396,4 +1397,150 @@ test('spk index shows handover as last process when spk has receipt and no produ
         ->whereKey([$olderReceipt->id, $latestReceipt->id, $deletedReceipt->id])
         ->forceDelete();
     collect([$handedOver, $inProcess, $deletedReceiptSpk])->each->delete();
+});
+
+test('spk store stock requests proxies approved requests from store api', function () {
+    $this->travelTo('2026-10-20 10:00:00');
+    config([
+        'services.store_api.base_url' => 'https://store.test/api/public',
+        'services.store_api.key' => 'test-store-key',
+    ]);
+    Http::preventStrayRequests();
+    Http::fake([
+        'store.test/api/public/request/stock/list/approved' => Http::response([
+            'data' => [[
+                'row_id' => 33,
+                'doc_no' => 'RS-0000033',
+                'trans_date' => '2026-09-23',
+                'estimated_date' => '2026-10-23',
+                'type_order' => 'REQUEST STOCK',
+                'status' => 'APPROVED',
+                'status_info' => 'APPROVED 2/2',
+                'nama_item' => 'EAR ELECTA OVAL 0.3 RG',
+                'ref_sku' => 'RG-HOP-ETA-8BT-OVL-DMD-DS-030',
+                'warna_emas' => 'ROSE GOLD',
+                'kadar_emas' => 750,
+                'berat_emas' => '4.64',
+                'notes' => null,
+                'photo_file' => 'https://storage.test/sku.png',
+                'created_by' => 'Annisa Fitrie',
+                'store' => ['row_id' => 2, 'name' => 'Plaza Indonesia'],
+                'approvals' => [
+                    ['sequence' => 2, 'status' => 'APPROVED', 'is_deleted' => 0, 'approval_date' => '2026-09-24 08:59:59', 'approver' => ['id' => 31, 'name' => 'Brandon']],
+                    ['sequence' => 1, 'status' => 'APPROVED', 'is_deleted' => 0, 'approval_date' => '2026-09-24 08:30:00', 'approver' => ['id' => 12, 'name' => 'Supervisor Store']],
+                ],
+            ], [
+                'row_id' => 32,
+                'doc_no' => 'RS-0000032',
+                'status' => 'APPROVED',
+                'status_info' => 'APPROVED 2/2',
+                'approvals' => [],
+            ]],
+            'meta' => ['current_page' => 2, 'last_page' => 3, 'per_page' => 25, 'total' => 51],
+            'message' => 'Data request stock berhasil diambil',
+            'code' => 200,
+        ]),
+    ]);
+
+    $this->getJson(route('spk.store-stock-requests', ['search' => 'RS-0000033', 'page' => 2]))
+        ->assertOk()
+        ->assertExactJson([
+            'data' => [[
+                'rowId' => 33,
+                'docNo' => 'RS-0000033',
+                'transDate' => '23-Sep-2026',
+                'estimatedDate' => '23-Oct-2026',
+                'targetDaysLeft' => 3,
+                'store' => 'Plaza Indonesia',
+                'item' => 'EAR ELECTA OVAL 0.3 RG',
+                'refSku' => 'RG-HOP-ETA-8BT-OVL-DMD-DS-030',
+                'typeOrder' => 'REQUEST STOCK',
+                'status' => 'Approved by Brandon',
+                'approvedAt' => '24-Sep-2026 08:59',
+                'notes' => null,
+                'imageUrl' => 'https://storage.test/sku.png',
+                'goldInfo' => 'ROSE GOLD · 750 · 4.64 gr',
+                'createdBy' => 'Annisa Fitrie',
+            ], [
+                'rowId' => 32,
+                'docNo' => 'RS-0000032',
+                'transDate' => '-',
+                'estimatedDate' => '-',
+                'targetDaysLeft' => null,
+                'store' => '-',
+                'item' => '-',
+                'refSku' => null,
+                'typeOrder' => null,
+                'status' => 'APPROVED 2/2',
+                'approvedAt' => null,
+                'notes' => null,
+                'imageUrl' => null,
+                'goldInfo' => null,
+                'createdBy' => null,
+            ]],
+            'meta' => ['currentPage' => 2, 'lastPage' => 3, 'perPage' => 25, 'total' => 51],
+        ]);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && $request->url() === 'https://store.test/api/public/request/stock/list/approved'
+        && $request->hasHeader('X-API-KEY', 'test-store-key')
+        && $request->data() === [
+            'page' => 2,
+            'per_page' => 25,
+            'search' => 'RS-0000033',
+            'sort_by' => 'doc_no',
+            'sort_order' => 'asc',
+        ]);
+});
+
+test('spk store stock requests returns bad gateway when store api fails', function () {
+    config([
+        'services.store_api.base_url' => 'https://store.test/api/public',
+        'services.store_api.key' => 'test-store-key',
+    ]);
+    Http::preventStrayRequests();
+    Http::fake(['store.test/*' => Http::response(['message' => 'Unauthorized'], 401)]);
+
+    $this->getJson(route('spk.store-stock-requests'))
+        ->assertStatus(502)
+        ->assertJsonPath('message', 'Gagal mengambil data request stok dari Store. Silakan coba lagi.');
+});
+
+test('spk index defers store stock request count from store api', function () {
+    config([
+        'services.store_api.base_url' => 'https://store.test/api/public',
+        'services.store_api.key' => 'test-store-key',
+    ]);
+    Http::preventStrayRequests();
+    Http::fake([
+        'store.test/api/public/request/stock/list/approved' => Http::response([
+            'data' => [],
+            'meta' => ['current_page' => 1, 'last_page' => 11, 'per_page' => 1, 'total' => 11],
+        ]),
+    ]);
+
+    $this->get(route('spk.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->missing('storeStockRequestCount')
+            ->loadDeferredProps(fn ($reload) => $reload
+                ->where('storeStockRequestCount', 11)
+            )
+        );
+
+    Http::assertSentCount(1);
+});
+
+test('spk index store stock request count is null when store api key is missing', function () {
+    config(['services.store_api.key' => null]);
+    Http::preventStrayRequests();
+
+    $this->get(route('spk.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->loadDeferredProps(fn ($reload) => $reload
+                ->where('storeStockRequestCount', null)
+            )
+        );
 });

@@ -57,6 +57,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('spk.print');
     Route::get('spk/print/template', [ProductionController::class, 'printTemplate'])
         ->name('spk.print.template');
+    Route::get('spk/store-stock-requests', [ProductionController::class, 'storeStockRequests'])
+        ->name('spk.store-stock-requests');
     Route::get('spk/print/receipt', [ProductionController::class, 'receiptHistory'])
         ->name('spk.print.receipt.index');
     Route::post('spk/print/receipt', [ProductionController::class, 'storeReceipt'])
