@@ -172,18 +172,8 @@ const MONTH_LABELS = [
     'Dec',
 ] as const;
 
-function processBadgeClass(processName: string | null): string {
-    const label = processName?.trim().toLowerCase() ?? '';
-
-    if (label.includes('repar')) {
-        return 'spkTableBadge--reparasi';
-    }
-
-    if (label.includes('general')) {
-        return 'spkTableBadge--approved';
-    }
-
-    return 'spkTableBadge--default';
+function isReparasiProcess(processName: string | null): boolean {
+    return processName?.trim().toLowerCase().includes('repar') ?? false;
 }
 
 function formatDateDisplay(value: string | null): string {
@@ -1378,10 +1368,10 @@ export default function PolesChromeIndex({
                                                     >
                                                         {item.docNo ?? '—'}
                                                     </button>
-                                                    {item.processName ? (
-                                                        <span
-                                                            className={`spkTableBadge ${processBadgeClass(item.processName)}`}
-                                                        >
+                                                    {isReparasiProcess(
+                                                        item.processName,
+                                                    ) ? (
+                                                        <span className="spkTableBadge spkTableBadge--reparasi">
                                                             {item.processName}
                                                         </span>
                                                     ) : null}

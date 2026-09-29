@@ -257,6 +257,13 @@ export function FinishingDetail({
                                     <h1 className="spkDocTitle">
                                         {displayValue(finishingItem.docNo)}
                                     </h1>
+                                    {finishingItem.processName
+                                        ?.toLowerCase()
+                                        .includes('repar') ? (
+                                        <span className="spkTableBadge spkTableBadge--reparasi">
+                                            {finishingItem.processName}
+                                        </span>
+                                    ) : null}
                                 </div>
                             </div>
 

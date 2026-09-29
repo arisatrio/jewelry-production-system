@@ -1014,6 +1014,7 @@ class DiamondMountingController extends Controller
         return [
             'id' => (int) $document->row_id,
             'docNo' => $document->doc_no,
+            'processName' => filled($document->process_name) ? (string) $document->process_name : null,
             'status' => filled($document->status) ? (string) $document->status : null,
             'statusLabel' => $document->statusLabel(),
             'craftsmanId' => filled($document->craftman_id) && (int) $document->craftman_id > 0

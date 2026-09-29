@@ -33,6 +33,7 @@ type PasangBatuSpk = {
 type PasangBatuDetailItem = {
     id: number;
     docNo: string | null;
+    processName: string | null;
     status: string | null;
     statusLabel: string;
     craftsmanId: number | null;
@@ -243,6 +244,13 @@ export function PasangBatuDetail({
                                             diamondMountingItem.docNo,
                                         )}
                                     </h1>
+                                    {diamondMountingItem.processName
+                                        ?.toLowerCase()
+                                        .includes('repar') ? (
+                                        <span className="spkTableBadge spkTableBadge--reparasi">
+                                            {diamondMountingItem.processName}
+                                        </span>
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -412,6 +420,14 @@ export function PasangBatuDetail({
                                     <div className="jewelCadDetailInfoLayout coranDetailInfoLayout">
                                         <table className="spkItemMetaTable spkItemMetaTable--sm jewelCadDetailNotesTable">
                                             <tbody>
+                                                <tr>
+                                                    <th scope="row">Proses</th>
+                                                    <td>
+                                                        {displayValue(
+                                                            diamondMountingItem.processName,
+                                                        )}
+                                                    </td>
+                                                </tr>
                                                 <tr>
                                                     <th scope="row">
                                                         Pengrajin

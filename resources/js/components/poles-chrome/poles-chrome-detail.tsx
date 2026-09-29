@@ -29,6 +29,7 @@ type PolesChromeSpk = {
 type PolesChromeDetailItem = {
     id: number;
     docNo: string | null;
+    processName: string | null;
     status: string | null;
     statusLabel: string;
     statusItem: string | null;
@@ -233,8 +234,17 @@ export function PolesChromeDetail({
                             <div className="spkDocTitleBlock">
                                 <div className="spkDocTitleRow">
                                     <h1 className="spkDocTitle">
-                                        {displayValue(polishFinishedGoodItem.docNo)}
+                                        {displayValue(
+                                            polishFinishedGoodItem.docNo,
+                                        )}
                                     </h1>
+                                    {polishFinishedGoodItem.processName
+                                        ?.toLowerCase()
+                                        .includes('repar') ? (
+                                        <span className="spkTableBadge spkTableBadge--reparasi">
+                                            {polishFinishedGoodItem.processName}
+                                        </span>
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -405,7 +415,17 @@ export function PolesChromeDetail({
                                         <table className="spkItemMetaTable spkItemMetaTable--sm jewelCadDetailNotesTable">
                                             <tbody>
                                                 <tr>
-                                                    <th scope="row">Status QC</th>
+                                                    <th scope="row">Proses</th>
+                                                    <td>
+                                                        {displayValue(
+                                                            polishFinishedGoodItem.processName,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Status QC
+                                                    </th>
                                                     <td>
                                                         {displayValue(
                                                             polishFinishedGoodItem.statusItem,
@@ -502,9 +522,7 @@ export function PolesChromeDetail({
                                 </section>
 
                                 <section className="spkShowSection spkDetailCard spkDetailCard--co6">
-                                    <h3 className="spkShowSectionTitle">
-                                        SPK
-                                    </h3>
+                                    <h3 className="spkShowSectionTitle">SPK</h3>
                                     {polishFinishedGoodItem.spk === null ? (
                                         <p>Belum ada SPK pada dokumen ini.</p>
                                     ) : (
@@ -512,39 +530,40 @@ export function PolesChromeDetail({
                                             <DetailField label="SPK">
                                                 <strong>
                                                     {displayValue(
-                                                        polishFinishedGoodItem.spk.spkNo,
+                                                        polishFinishedGoodItem
+                                                            .spk.spkNo,
                                                     )}
                                                 </strong>
                                             </DetailField>
                                             <DetailField label="Tipe Produksi">
                                                 <SpkOrderTypeColumn
                                                     spkType={
-                                                        polishFinishedGoodItem.spk
-                                                            .spkType
+                                                        polishFinishedGoodItem
+                                                            .spk.spkType
                                                     }
                                                     orderTypeLabel={
-                                                        polishFinishedGoodItem.spk
-                                                            .orderTypeLabel
+                                                        polishFinishedGoodItem
+                                                            .spk.orderTypeLabel
                                                     }
                                                 />
                                             </DetailField>
                                             <DetailField label="SKU">
                                                 <SpkItemSkuColumn
                                                     typeCode={
-                                                        polishFinishedGoodItem.spk
-                                                            .typeCode
+                                                        polishFinishedGoodItem
+                                                            .spk.typeCode
                                                     }
                                                     productItemName={
-                                                        polishFinishedGoodItem.spk
-                                                            .productItemName
+                                                        polishFinishedGoodItem
+                                                            .spk.productItemName
                                                     }
                                                     skuCode={
-                                                        polishFinishedGoodItem.spk
-                                                            .skuCode
+                                                        polishFinishedGoodItem
+                                                            .spk.skuCode
                                                     }
                                                     itemDescription={
-                                                        polishFinishedGoodItem.spk
-                                                            .itemDescription
+                                                        polishFinishedGoodItem
+                                                            .spk.itemDescription
                                                     }
                                                 />
                                             </DetailField>
@@ -555,12 +574,14 @@ export function PolesChromeDetail({
                                                 )}
                                             </DetailField>
                                             <DetailField label="Qty">
-                                                {polishFinishedGoodItem.spk.satuan}
+                                                {
+                                                    polishFinishedGoodItem.spk
+                                                        .satuan
+                                                }
                                             </DetailField>
                                         </div>
                                     )}
                                 </section>
-
 
                                 {approvalFooter.length > 0 ? (
                                     <div className="spkShowBottom">

@@ -15,6 +15,7 @@ test('pasang batu show exposes approval footer and abilities', function () {
         'doc_no' => 'DMD'.Str::upper(Str::random(7)),
         'spk_id' => $production->row_id,
         'status' => null,
+        'process_name' => 'Reparasi',
     ]);
 
     $this->get(route('pasang-batu.show', $document))
@@ -24,6 +25,7 @@ test('pasang batu show exposes approval footer and abilities', function () {
             ->has('approvalFooter')
             ->has('approvalHistory')
             ->has('diamondMountingItem')
+            ->where('diamondMountingItem.processName', 'Reparasi')
             ->where('approval.canSubmit', true)
             ->where('approval.canOpenEdit', true)
             ->where('approval.canManagerApprove', false)
