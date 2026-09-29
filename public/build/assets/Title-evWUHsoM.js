@@ -1,0 +1,1 @@
+import"./ResponsivePopover-y7o-nbcB.js";import{nr as e}from"./app-Dw9UlV8u.js";var t=e(`ui5-title`,[`level`,`size`,`wrappingType`],[],[],[]);t.displayName=`Title`;export{t};
