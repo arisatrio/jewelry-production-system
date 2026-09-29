@@ -304,6 +304,51 @@ test('spk index done filter lists spk with completed production', function () {
     $approved->delete();
 });
 
+test('spk index in progress filter excludes spk with completed production', function () {
+    $customer = 'Filter Progress '.strtoupper(fake()->unique()->lexify('??????'));
+    $done = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'customer_name' => $customer,
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Chrome',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+    $inProgress = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'customer_name' => $customer,
+        'status' => 'SPKDONE',
+        'last_process' => 'Coran',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-PFG-PROGRESS-'.$done->row_id,
+        'process_name' => 'Poles Chrome',
+        'spk_id' => $done->row_id,
+        'status' => 'PFGDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['status' => 'In Progress', 'search' => $customer]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('filters.status', 'In Progress')
+            ->where('productions.total', 1)
+            ->where('productions.data.0.produksiNo', $inProgress->spk_no)
+            ->where('productions.data.0.status', 'In Progress')
+        );
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+    $done->delete();
+    $inProgress->delete();
+});
+
 test('spk status list returns paginated spk rows for the status modal', function () {
     $customer = 'Modal Status '.strtoupper(fake()->unique()->lexify('??????'));
     $inProgress = Production::factory()->create([

@@ -1522,6 +1522,26 @@ class ProductionController extends Controller
 
     private function applyBacklogStatusFilter(Builder $query, string $statusKey): void
     {
+        $allIds = Production::query()->notDeleted()->pluck('row_id')->all();
+        $doneKinds = SpkDashboardAnalytics::completedProductionKinds($allIds);
+
+        if ($statusKey === 'done' || SpkDashboardAnalytics::isDoneStatusKey($statusKey)) {
+            $doneIds = $statusKey === 'done'
+                ? array_keys($doneKinds)
+                : collect($doneKinds)
+                    ->filter(fn (string $kind): bool => $kind === $statusKey)
+                    ->keys()
+                    ->all();
+
+            $query->whereIntegerInRaw('row_id', $doneIds);
+
+            return;
+        }
+
+        if ($doneKinds !== []) {
+            $query->whereIntegerNotInRaw('row_id', array_keys($doneKinds));
+        }
+
         if ($statusKey === 'inProgress') {
             $query->where(function ($builder): void {
                 $builder->whereNotNull('last_process')
@@ -1563,22 +1583,6 @@ class ProductionController extends Controller
                     $builder->where('is_inprocess', 0)->orWhereNull('is_inprocess');
                 })
                 ->whereNull('last_process');
-
-            return;
-        }
-
-        if ($statusKey === 'done' || SpkDashboardAnalytics::isDoneStatusKey($statusKey)) {
-            $allIds = Production::query()->notDeleted()->pluck('row_id')->all();
-            $doneKinds = SpkDashboardAnalytics::completedProductionKinds($allIds);
-
-            $doneIds = $statusKey === 'done'
-                ? array_keys($doneKinds)
-                : collect($doneKinds)
-                    ->filter(fn (string $kind): bool => $kind === $statusKey)
-                    ->keys()
-                    ->all();
-
-            $query->whereIn('row_id', $doneIds);
         }
     }
 
