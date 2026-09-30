@@ -196,7 +196,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     padding: 0.65rem 0.85rem;
     color: #3f3f3f;
     font-family: inherit;
-    font-size: 0.8125rem;
+    font-size: 0.9375rem;
     font-weight: 500;
     line-height: 1.2;
     white-space: nowrap;
@@ -212,7 +212,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     transform: translate(-50%, -50%);
     color: #c4c4c4;
     font-weight: 300;
-    font-size: 0.85rem;
+    font-size: 0.95rem;
     pointer-events: none;
 }
 
@@ -222,6 +222,8 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
 }
 
 .appNavItem.is-active {
+    color: #1a1a1a;
+    font-weight: 700;
     box-shadow: inset 0 -2px 0 var(--sap-fiori-brand, #0070f2);
 }
 
@@ -233,7 +235,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
 }
 
 .appNavChevron {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: #8a8a8a;
 }
 
