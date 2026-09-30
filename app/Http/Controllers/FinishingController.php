@@ -19,6 +19,7 @@ use App\Support\SpkApprovalRoles;
 use App\Support\SpkItemImageUrl;
 use App\Support\SpkOrderReference;
 use App\Support\SpkQtyUnit;
+use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Database\Query\Builder;
@@ -229,16 +230,24 @@ class FinishingController extends Controller
             ->values()
             ->all();
 
-        $fileNameParts = ['laporan-finishing'];
+        $craftsmanName = $craftsmanId !== null
+            ? ($this->resolveCraftsmanName($craftsmanId) ?? "Pengrajin {$craftsmanId}")
+            : null;
 
-        if ($craftsmanId !== null) {
-            $fileNameParts[] = Str::slug($this->resolveCraftsmanName($craftsmanId) ?? "pengrajin-{$craftsmanId}");
-        }
-
-        $fileNameParts[] = "{$dateFrom}_{$dateTo}";
+        $fileNameParts = array_filter([
+            'laporan-finishing',
+            $craftsmanName !== null ? Str::slug($craftsmanName) : null,
+            "{$dateFrom}_{$dateTo}",
+        ]);
 
         return Excel::download(
-            new FinishingReportExport($rows),
+            new FinishingReportExport(
+                $rows,
+                craftsmanLabel: $craftsmanName ?? 'All',
+                dateFrom: CarbonImmutable::parse($dateFrom),
+                dateTo: CarbonImmutable::parse($dateTo),
+                exportedAt: now(),
+            ),
             implode('-', $fileNameParts).'.xlsx',
         );
     }
