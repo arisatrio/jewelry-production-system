@@ -21,6 +21,8 @@ import {
     FilterMultiSelect,
     haveSameFilterValues,
 } from '@/components/filter-multi-select';
+import { FinishingExportDialog } from '@/components/finishing/finishing-export-dialog';
+import type { FinishingExportValues } from '@/components/finishing/finishing-export-dialog';
 import { NotesCell } from '@/components/notes-cell';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
@@ -38,6 +40,7 @@ import {
     edit,
     show,
     bulkStatus,
+    exportMethod as exportReport,
 } from '@/routes/finishing';
 type FinishingRow = {
     id: number;
@@ -123,6 +126,29 @@ function buildFilterDraft(filters: FinishingIndexProps['filters']) {
         date_from: filters.date_from ?? '',
         date_to: filters.date_to ?? '',
         craftsman: filters.craftsman.map(String),
+    };
+}
+
+function formatIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+function buildExportInitialValues(
+    filters: FinishingIndexProps['filters'],
+): FinishingExportValues {
+    const today = new Date();
+
+    return {
+        craftsman:
+            filters.craftsman.length === 1 ? String(filters.craftsman[0]) : '',
+        date_from:
+            filters.date_from ??
+            formatIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+        date_to: filters.date_to ?? formatIsoDate(today),
     };
 }
 
@@ -468,6 +494,22 @@ export default function FinishingIndex({
     );
     const [entriesDraft, setEntriesDraft] = useState(String(filters.per_page));
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const exportInitialValues = useMemo(
+        () => buildExportInitialValues(filters),
+        [filters],
+    );
+
+    const submitExport = (values: FinishingExportValues) => {
+        window.location.href = exportReport.url({
+            query: {
+                craftsman: values.craftsman || undefined,
+                date_from: values.date_from,
+                date_to: values.date_to,
+            },
+        });
+        setExportDialogOpen(false);
+    };
 
     useEffect(() => {
         setSortDraft({
@@ -1176,7 +1218,9 @@ export default function FinishingIndex({
                                 design="Default"
                                 icon={excelAttachmentIcon}
                                 accessibleName="Ekspor"
+                                tooltip="Export laporan finishing"
                                 className="spkTableHeaderExportBtn--finishing"
+                                onClick={() => setExportDialogOpen(true)}
                             />
                             <Button
                                 design="Default"
@@ -1649,6 +1693,14 @@ export default function FinishingIndex({
                     </div>
                 </div>
             </div>
+
+            <FinishingExportDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                craftsmanOptions={filterOptions.craftsman}
+                initialValues={exportInitialValues}
+                onSubmit={submitExport}
+            />
         </>
     );
 }

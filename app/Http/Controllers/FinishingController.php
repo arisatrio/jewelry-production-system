@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\BulkUpdateFinishingStatusRequest;
+use App\Http\Requests\ExportFinishingReportRequest;
 use App\Http\Requests\StoreFinishingRequest;
 use App\Http\Requests\UpdateFinishingRequest;
 use App\Models\FinishingHandmade;
@@ -11,6 +12,7 @@ use App\Support\FinishingApprovalService;
 use App\Support\FinishingDocNumberGenerator;
 use App\Support\FinishingMaterialBreakdown;
 use App\Support\FinishingMaterialGoldSynchronizer;
+use App\Support\FinishingReportExport;
 use App\Support\FinishingSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkApprovalRoles;
@@ -18,15 +20,19 @@ use App\Support\SpkItemImageUrl;
 use App\Support\SpkOrderReference;
 use App\Support\SpkQtyUnit;
 use DateTimeImmutable;
+use DateTimeInterface;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FinishingController extends Controller
 {
@@ -181,6 +187,60 @@ class FinishingController extends Controller
                 'canDelete' => SpkApprovalRoles::canEditDraft($request->user()),
             ],
         ]);
+    }
+
+    /**
+     * Download the approved (PPIC / completed) finishing report as an Excel file, ordered by craftsman name.
+     */
+    public function export(ExportFinishingReportRequest $request): BinaryFileResponse
+    {
+        $validated = $request->validated();
+        $craftsmanId = isset($validated['craftsman']) ? (int) $validated['craftsman'] : null;
+        $dateFrom = (string) $validated['date_from'];
+        $dateTo = (string) $validated['date_to'];
+
+        $documents = FinishingHandmade::query()
+            ->notDeleted()
+            ->with([
+                'production' => fn ($productionQuery) => $productionQuery
+                    ->notDeleted()
+                    ->with($this->productionSpkInfoRelations())
+                    ->select($this->productionSpkInfoColumns()),
+            ])
+            ->whereIn('status', [
+                ...$this->statusFilterCodes()['ppic'],
+                ...$this->statusFilterCodes()[self::COMPLETED_STATUS_FILTER],
+            ])
+            ->whereDate('send_craftsman_date', '>=', $dateFrom)
+            ->whereDate('send_craftsman_date', '<=', $dateTo)
+            ->when($craftsmanId !== null, fn ($query) => $query->where('craftsman_id', $craftsmanId))
+            ->orderBy('send_craftsman_date')
+            ->orderBy('row_id')
+            ->get();
+
+        $craftsmanNames = $this->resolveCraftsmanNames(array_values($documents->pluck('craftsman_id')->all()));
+
+        $rows = $documents
+            ->map(fn (FinishingHandmade $document): array => $this->toExportRow($document, $craftsmanNames))
+            ->sortBy(fn (array $row): array => [
+                $row['craftsmanName'] === null ? 1 : 0,
+                mb_strtolower($row['craftsmanName'] ?? ''),
+            ])
+            ->values()
+            ->all();
+
+        $fileNameParts = ['laporan-finishing'];
+
+        if ($craftsmanId !== null) {
+            $fileNameParts[] = Str::slug($this->resolveCraftsmanName($craftsmanId) ?? "pengrajin-{$craftsmanId}");
+        }
+
+        $fileNameParts[] = "{$dateFrom}_{$dateTo}";
+
+        return Excel::download(
+            new FinishingReportExport($rows),
+            implode('-', $fileNameParts).'.xlsx',
+        );
     }
 
     /**
@@ -790,6 +850,97 @@ class FinishingController extends Controller
             'hasWeightGain' => $this->hasWeightGain($document),
             'notes' => filled($document->notes) ? (string) $document->notes : null,
         ];
+    }
+
+    /**
+     * @param  array<int, string>  $craftsmanNames
+     * @return array{
+     *     docNo: string|null,
+     *     sendCraftsmanDate: DateTimeInterface|null,
+     *     receivedCraftsmanDate: DateTimeInterface|null,
+     *     craftsmanName: string|null,
+     *     spkNo: string|null,
+     *     item: string|null,
+     *     itemCategory: string|null,
+     *     startWeight: float|null,
+     *     submitMaterial: float|null,
+     *     finishWeight: float|null,
+     *     resultMaterial: float|null,
+     *     shrink: float|null,
+     *     shrinkRatio: float|null,
+     *     qcStatus: string|null,
+     *     qcNotes: string|null,
+     *     workDuration: string|null,
+     *     notes: string|null
+     * }
+     */
+    private function toExportRow(FinishingHandmade $document, array $craftsmanNames): array
+    {
+        $craftsmanId = filled($document->craftsman_id) ? (int) $document->craftsman_id : 0;
+        $startWeight = $this->toFloat($document->start_weight);
+        $submitMaterial = $this->toFloat($document->submit_materialgold);
+        $shrink = $this->hasMissingWeight($document) ? 0.0 : ($this->toFloat($document->shrink) ?? 0.0);
+        $goldIn = ($startWeight ?? 0.0) + ($submitMaterial ?? 0.0);
+        $skuFields = $this->productionSkuFields($document->production);
+        $sendAt = $document->send_craftsman_date;
+        $receivedAt = $document->received_craftsman_date;
+
+        $itemLines = array_filter([
+            implode(' | ', array_filter([$skuFields['typeCode'], $skuFields['productItemName']])),
+            $skuFields['skuCode'] ?? '',
+            $skuFields['skuCode'] === null ? ($skuFields['itemDescription'] ?? '') : '',
+        ], fn (string $line): bool => $line !== '');
+
+        return [
+            'docNo' => $document->doc_no,
+            'sendCraftsmanDate' => $sendAt,
+            'receivedCraftsmanDate' => $receivedAt,
+            'craftsmanName' => $craftsmanId > 0
+                ? ($craftsmanNames[$craftsmanId] ?? "Pengrajin {$craftsmanId}")
+                : null,
+            'spkNo' => $document->production?->spk_no,
+            'item' => $itemLines === [] ? null : implode("\n", $itemLines),
+            'itemCategory' => filled($document->item_category) ? (string) $document->item_category : null,
+            'startWeight' => $startWeight,
+            'submitMaterial' => $submitMaterial,
+            'finishWeight' => $this->toFloat($document->finish_weight),
+            'resultMaterial' => $this->toFloat($document->result_materialgold),
+            'shrink' => round($shrink, 2),
+            'shrinkRatio' => abs($goldIn) >= 0.0005 ? round($shrink / $goldIn, 4) : null,
+            'qcStatus' => match (true) {
+                $document->koreksi_qc === null => null,
+                (int) $document->koreksi_qc === 1 => 'NOT OK',
+                default => 'OK',
+            },
+            'qcNotes' => filled($document->keterangan_qc) ? (string) $document->keterangan_qc : null,
+            'workDuration' => $sendAt !== null && $receivedAt !== null
+                ? $this->formatWorkDuration($sendAt, $receivedAt)
+                : null,
+            'notes' => filled($document->notes) ? (string) $document->notes : null,
+        ];
+    }
+
+    private function formatWorkDuration(DateTimeInterface $sendAt, DateTimeInterface $receivedAt): ?string
+    {
+        if ($receivedAt < $sendAt) {
+            return null;
+        }
+
+        $totalMinutes = intdiv($receivedAt->getTimestamp() - $sendAt->getTimestamp(), 60);
+
+        if ($totalMinutes === 0) {
+            return '< 1 menit';
+        }
+
+        $days = intdiv($totalMinutes, 1440);
+        $hours = intdiv($totalMinutes % 1440, 60);
+        $minutes = $totalMinutes % 60;
+
+        return implode(' ', array_filter([
+            $days > 0 ? "{$days} hari" : null,
+            $hours > 0 ? "{$hours} jam" : null,
+            $minutes > 0 ? "{$minutes} menit" : null,
+        ]));
     }
 
     /**
