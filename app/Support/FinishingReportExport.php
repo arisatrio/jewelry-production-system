@@ -30,6 +30,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  *     craftsmanName: string|null,
  *     spkNo: string|null,
  *     item: string|null,
+ *     processName: string|null,
  *     itemCategory: string|null,
  *     skuCategory: string|null,
  *     startWeight: float|null,
@@ -49,7 +50,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  */
 class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnFormatting, WithColumnWidths, WithCustomStartCell, WithEvents, WithFreezePane, WithHeadings, WithMapping, WithStyles, WithTitle
 {
-    private const LAST_COLUMN = 'Q';
+    private const LAST_COLUMN = 'R';
 
     private const HEADING_ROW = 6;
 
@@ -100,6 +101,7 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
             'Pengrajin',
             'No SPK',
             'Item',
+            'Proses',
             'Kategori',
             'Berat Awal (g)',
             'Bahan (g)',
@@ -127,6 +129,7 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
             $row['craftsmanName'],
             $row['spkNo'],
             $row['item'],
+            $row['processName'],
             $row['itemCategory'],
             $row['startWeight'],
             $row['submitMaterial'],
@@ -149,12 +152,12 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
         return [
             'B' => self::DATE_TIME_FORMAT,
             'C' => self::DATE_TIME_FORMAT,
-            'H' => self::WEIGHT_FORMAT,
             'I' => self::WEIGHT_FORMAT,
             'J' => self::WEIGHT_FORMAT,
             'K' => self::WEIGHT_FORMAT,
-            'L' => self::SHRINK_FORMAT,
-            'M' => self::SHRINK_PERCENT_FORMAT,
+            'L' => self::WEIGHT_FORMAT,
+            'M' => self::SHRINK_FORMAT,
+            'N' => self::SHRINK_PERCENT_FORMAT,
         ];
     }
 
@@ -165,8 +168,8 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
     {
         return [
             'F' => 45,
-            'O' => 35,
-            'Q' => 45,
+            'P' => 35,
+            'R' => 45,
         ];
     }
 
@@ -193,12 +196,12 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
                     'startColor' => ['rgb' => 'E2E8F0'],
                 ],
             ],
-            'A:Q' => [
+            'A:R' => [
                 'alignment' => ['vertical' => Alignment::VERTICAL_TOP],
             ],
             'F' => ['alignment' => ['wrapText' => true]],
-            'O' => ['alignment' => ['wrapText' => true]],
-            'Q' => ['alignment' => ['wrapText' => true]],
+            'P' => ['alignment' => ['wrapText' => true]],
+            'R' => ['alignment' => ['wrapText' => true]],
         ];
     }
 
@@ -248,20 +251,20 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
             : 0;
 
         $sheet->setCellValue("A{$summaryRow}", 'Total ('.count($this->rows).' dokumen)');
-        $sheet->mergeCells("A{$summaryRow}:G{$summaryRow}");
+        $sheet->mergeCells("A{$summaryRow}:H{$summaryRow}");
 
-        foreach (['H', 'I', 'J', 'K', 'L'] as $column) {
+        foreach (['I', 'J', 'K', 'L', 'M'] as $column) {
             $sheet->setCellValue("{$column}{$summaryRow}", $sum($column));
         }
 
         $sheet->setCellValue(
-            "M{$summaryRow}",
-            "=IF((H{$summaryRow}+I{$summaryRow})=0,0,L{$summaryRow}/(H{$summaryRow}+I{$summaryRow}))",
+            "N{$summaryRow}",
+            "=IF((I{$summaryRow}+J{$summaryRow})=0,0,M{$summaryRow}/(I{$summaryRow}+J{$summaryRow}))",
         );
 
-        $sheet->getStyle("H{$summaryRow}:K{$summaryRow}")->getNumberFormat()->setFormatCode(self::WEIGHT_FORMAT);
-        $sheet->getStyle("L{$summaryRow}")->getNumberFormat()->setFormatCode(self::SHRINK_FORMAT);
-        $sheet->getStyle("M{$summaryRow}")->getNumberFormat()->setFormatCode(self::SHRINK_PERCENT_FORMAT);
+        $sheet->getStyle("I{$summaryRow}:L{$summaryRow}")->getNumberFormat()->setFormatCode(self::WEIGHT_FORMAT);
+        $sheet->getStyle("M{$summaryRow}")->getNumberFormat()->setFormatCode(self::SHRINK_FORMAT);
+        $sheet->getStyle("N{$summaryRow}")->getNumberFormat()->setFormatCode(self::SHRINK_PERCENT_FORMAT);
 
         $sheet->getStyle("A{$summaryRow}:".self::LAST_COLUMN.$summaryRow)->applyFromArray([
             'font' => ['bold' => true],

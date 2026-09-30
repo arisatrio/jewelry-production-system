@@ -474,6 +474,53 @@ test('spk process queue list includes module document reference for in progress 
     expect($row['documentId'])->toBeInt()->toBeGreaterThan(0);
 });
 
+test('spk select list returns index rows with last weight and excludes given spks', function () {
+    $customer = 'Pilih SPK '.strtoupper(fake()->unique()->lexify('??????'));
+    $selectable = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/SELECT-A',
+        'customer_name' => $customer,
+        'last_weight' => 3.256,
+        'qty' => 2,
+        'is_deleted' => 0,
+    ]);
+    $excluded = Production::factory()->create([
+        'spk_no' => 'TEST/SPK/SELECT-B',
+        'customer_name' => $customer,
+        'is_deleted' => 0,
+    ]);
+
+    try {
+        $this->getJson(route('spk.select.list', [
+            'search' => $customer,
+            'exclude' => (string) $excluded->row_id,
+        ]))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('meta.perPage', 25)
+            ->assertJsonPath('data.0.rowId', (int) $selectable->row_id)
+            ->assertJsonPath('data.0.produksiNo', 'TEST/SPK/SELECT-A')
+            ->assertJsonPath('data.0.lastWeight', '3.26')
+            ->assertJsonStructure([
+                'data' => [[
+                    'status',
+                    'prosesTerakhir',
+                    'spkImageUrl',
+                    'targetDaysLeft',
+                    'tipeProduksi',
+                    'orderTypeLabel',
+                    'satuan',
+                    'skuCode',
+                    'typeCode',
+                    'productItemName',
+                    'itemDescription',
+                ]],
+            ]);
+    } finally {
+        $selectable->delete();
+        $excluded->delete();
+    }
+});
+
 test('spk process queue list rejects unknown module or queue', function () {
     $this->getJson('/spk/process-queue/unknown/pending')->assertNotFound();
     $this->getJson('/spk/process-queue/finishing/unknown')->assertNotFound();

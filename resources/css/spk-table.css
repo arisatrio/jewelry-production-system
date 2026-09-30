@@ -1824,6 +1824,15 @@
     cursor: pointer;
 }
 
+.finishingSelectSpkAlert {
+    width: 100%;
+}
+
+.spkAlertModalTable tbody tr.spkAlertModalRow.is-selected {
+    background: var(--sapList_SelectionBackgroundColor, #ebf8ff);
+    box-shadow: inset 3px 0 0 var(--sap-fiori-brand, #0070f2);
+}
+
 .spkAlertModalLink {
     color: var(--sapLinkColor, #0064d9);
     font-weight: 500;

@@ -19,6 +19,7 @@ type FinishingEditProps = {
     itemCategoryOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
     materialOptions: MaterialOption[];
+    qcNoteOptions: string[];
     form: {
         id: number;
         docNo: string | null;
@@ -30,6 +31,8 @@ type FinishingEditProps = {
         notes: string;
         startWeight: string;
         finishWeight: string;
+        koreksiQc: string;
+        keteranganQc: string;
         spk: {
             spkId: number;
             spkNo: string | null;
@@ -56,13 +59,12 @@ export default function FinishingEdit({
     itemCategoryOptions,
     craftsmanOptions,
     materialOptions,
+    qcNoteOptions,
     form,
 }: FinishingEditProps) {
     return (
         <>
-            <Head
-                title={`Edit Dokumen Finishing · ${form.docNo ?? form.id}`}
-            />
+            <Head title={`Edit Dokumen Finishing · ${form.docNo ?? form.id}`} />
             <FinishingForm
                 title="Form Edit Dokumen Finishing"
                 formDocumentNo={formDocumentNo}
@@ -74,6 +76,7 @@ export default function FinishingEdit({
                 itemCategoryOptions={itemCategoryOptions}
                 craftsmanOptions={craftsmanOptions}
                 materialOptions={materialOptions}
+                qcNoteOptions={qcNoteOptions}
                 initialValues={{
                     process_name: form.processName,
                     craftsman_id:
@@ -86,6 +89,8 @@ export default function FinishingEdit({
                     notes: form.notes ?? '',
                     start_weight: form.startWeight ?? '',
                     finish_weight: form.finishWeight ?? '',
+                    koreksi_qc: form.koreksiQc ?? '',
+                    keterangan_qc: form.keteranganQc ?? '',
                     spk: form.spk
                         ? {
                               spk_id: String(form.spk.spkId),
@@ -93,11 +98,9 @@ export default function FinishingEdit({
                               spk_type: form.spk.spkType ?? '',
                               order_type_label: form.spk.orderTypeLabel ?? '',
                               type_code: form.spk.typeCode ?? '',
-                              product_item_name:
-                                  form.spk.productItemName ?? '',
+                              product_item_name: form.spk.productItemName ?? '',
                               sku_code: form.spk.skuCode ?? '',
-                              item_description:
-                                  form.spk.itemDescription ?? '',
+                              item_description: form.spk.itemDescription ?? '',
                               satuan: form.spk.satuan ?? '',
                           }
                         : null,

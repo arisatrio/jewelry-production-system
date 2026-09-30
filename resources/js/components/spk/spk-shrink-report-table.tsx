@@ -1,6 +1,6 @@
-import type { SpkShrinkReport } from '@/components/spk/types';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { Title } from '@ui5/webcomponents-react/Title';
+import type { SpkShrinkReport } from '@/components/spk/types';
 import { formatGram } from '@/lib/utils';
 
 type SpkShrinkReportTableProps = {
@@ -139,7 +139,9 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                                             : formatGram(row.endWeight)}
                                     </td>
                                     <td className="spkShrinkColValue">
-                                        {formatGram(row.shrink)}
+                                        {row.shrink === null
+                                            ? '—'
+                                            : formatGram(row.shrink)}
                                     </td>
                                     <td className="spkShrinkColValue">
                                         {formatPercent(row.shrinkPercent)}

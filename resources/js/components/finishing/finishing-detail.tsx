@@ -1,21 +1,19 @@
+import { router } from '@inertiajs/react';
 import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
 import paperPlaneIcon from '@ui5/webcomponents-icons/dist/paper-plane.js';
-import { router } from '@inertiajs/react';
-import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { FinishingMaterialTables } from '@/components/finishing/finishing-material-tables';
+import type { FinishingMaterials } from '@/components/finishing/finishing-material-tables';
+import { SpkApprovalTimelinePanel } from '@/components/spk/spk-approval-timeline-panel';
+import type { SpkApprovalTimelineEvent } from '@/components/spk/spk-approval-timeline-panel';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
-import {
-    SpkApprovalTimelinePanel,
-    type SpkApprovalTimelineEvent,
-} from '@/components/spk/spk-approval-timeline-panel';
-import {
-    FinishingMaterialTables,
-    type FinishingMaterials,
-} from '@/components/finishing/finishing-material-tables';
+import { SpkQcStatusBadge } from '@/components/spk/spk-qc-status-badge';
 
 type FinishingSpk = {
     spkId: number | null;
@@ -486,6 +484,44 @@ export function FinishingDetail({
                                                     <td>
                                                         {displayValue(
                                                             finishingItem.notes,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Status QC
+                                                    </th>
+                                                    <td>
+                                                        {finishingItem.koreksiQc ===
+                                                        null ? (
+                                                            '—'
+                                                        ) : (
+                                                            <SpkQcStatusBadge
+                                                                status={
+                                                                    finishingItem.koreksiQc ===
+                                                                    0
+                                                                        ? {
+                                                                              variant:
+                                                                                  'ok',
+                                                                              label: 'OK',
+                                                                          }
+                                                                        : {
+                                                                              variant:
+                                                                                  'not-ok',
+                                                                              label: 'Not OK',
+                                                                          }
+                                                                }
+                                                            />
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Catatan QC
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.keteranganQc,
                                                         )}
                                                     </td>
                                                 </tr>

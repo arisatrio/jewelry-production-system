@@ -64,6 +64,91 @@ test('finishing edit page is accessible for done documents', function () {
     $production->delete();
 });
 
+test('finishing edit page maps qc status and notes', function (?int $koreksiQc, string $expected) {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINEDQC'.Str::upper(Str::random(3)),
+    ]);
+
+    $document = FinishingHandmade::factory()->create([
+        'doc_no' => 'FIN'.Str::upper(Str::random(7)),
+        'spk_id' => $production->row_id,
+        'status' => null,
+        'koreksi_qc' => $koreksiQc,
+        'keterangan_qc' => 'kontruksi',
+    ]);
+
+    try {
+        $this->get(route('finishing.edit', $document))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('form.koreksiQc', $expected)
+                ->where('form.keteranganQc', 'kontruksi')
+            );
+    } finally {
+        $document->delete();
+        $production->delete();
+    }
+})->with([
+    'ok' => [0, '0'],
+    'not ok' => [1, '1'],
+    'legacy koreksi' => [2, '1'],
+    'kosong' => [null, ''],
+]);
+
+test('finishing update saves qc status and keeps it when omitted', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINUPQC'.Str::upper(Str::random(3)),
+    ]);
+
+    $document = FinishingHandmade::factory()->create([
+        'doc_no' => 'FIN'.Str::upper(Str::random(7)),
+        'spk_id' => $production->row_id,
+        'status' => null,
+        'process_name' => 'Finishing',
+        'koreksi_qc' => 0,
+        'keterangan_qc' => null,
+    ]);
+
+    try {
+        $this->put(route('finishing.update', $document), [
+            'spk_id' => $production->row_id,
+            'process_name' => 'Finishing',
+            'koreksi_qc' => '1',
+            'keterangan_qc' => 'bolong',
+        ])->assertSessionHasNoErrors();
+
+        $document->refresh();
+
+        expect($document->koreksi_qc)->toBe(1)
+            ->and($document->keterangan_qc)->toBe('bolong');
+
+        $this->put(route('finishing.update', $document), [
+            'spk_id' => $production->row_id,
+            'process_name' => 'Finishing',
+        ])->assertSessionHasNoErrors();
+
+        $document->refresh();
+
+        expect($document->koreksi_qc)->toBe(1)
+            ->and($document->keterangan_qc)->toBe('bolong');
+
+        $this->put(route('finishing.update', $document), [
+            'spk_id' => $production->row_id,
+            'process_name' => 'Finishing',
+            'koreksi_qc' => null,
+            'keterangan_qc' => null,
+        ])->assertSessionHasNoErrors();
+
+        $document->refresh();
+
+        expect($document->koreksi_qc)->toBeNull()
+            ->and($document->keterangan_qc)->toBeNull();
+    } finally {
+        $document->delete();
+        $production->delete();
+    }
+});
+
 test('finishing update keeps done status', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/FINUPDN'.Str::upper(Str::random(3)),

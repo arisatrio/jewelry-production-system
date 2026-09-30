@@ -66,6 +66,123 @@ test('finishing store creates document with spk', function () {
     $production->delete();
 });
 
+test('finishing create page defaults qc status to ok', function () {
+    $this->get(route('finishing.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('form.koreksiQc', '0')
+            ->where('form.keteranganQc', '')
+        );
+});
+
+test('finishing store saves qc status and notes', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINQC'.Str::upper(Str::random(3)),
+    ]);
+
+    $this->post(route('finishing.store'), [
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'koreksi_qc' => '1',
+        'keterangan_qc' => ' bolong ',
+        'materials' => [],
+    ])->assertSessionHasNoErrors();
+
+    $document = FinishingHandmade::query()
+        ->notDeleted()
+        ->where('spk_id', $production->row_id)
+        ->orderByDesc('row_id')
+        ->first();
+
+    try {
+        expect($document)->not->toBeNull()
+            ->and($document->koreksi_qc)->toBe(1)
+            ->and($document->keterangan_qc)->toBe('bolong');
+    } finally {
+        $document?->delete();
+        $production->delete();
+    }
+});
+
+test('finishing qc note options include newly saved notes without case duplicates', function () {
+    $note = 'Retak Uji '.Str::upper(Str::random(5));
+    $documents = collect([
+        FinishingHandmade::factory()->create(['koreksi_qc' => 1, 'keterangan_qc' => $note]),
+        FinishingHandmade::factory()->create(['koreksi_qc' => 1, 'keterangan_qc' => ' '.mb_strtolower($note).' ']),
+    ]);
+
+    try {
+        $options = $this->get(route('finishing.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('qcNoteOptions'))
+            ->viewData('page')['props']['qcNoteOptions'];
+
+        $matches = collect($options)
+            ->filter(fn (string $option): bool => mb_strtolower($option) === mb_strtolower($note))
+            ->values();
+
+        expect($matches)->toHaveCount(1);
+
+        $this->get(route('finishing.edit', $documents->first()))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('qcNoteOptions'));
+    } finally {
+        $documents->each->delete();
+    }
+});
+
+test('finishing store rejects invalid qc input', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINQCX'.Str::upper(Str::random(3)),
+    ]);
+
+    try {
+        $this->from(route('finishing.create'))
+            ->post(route('finishing.store'), [
+                'spk_id' => $production->row_id,
+                'process_name' => 'Finishing',
+                'koreksi_qc' => '2',
+                'keterangan_qc' => str_repeat('a', 101),
+            ])
+            ->assertRedirect(route('finishing.create'))
+            ->assertSessionHasErrors(['koreksi_qc', 'keterangan_qc']);
+    } finally {
+        $production->delete();
+    }
+});
+
+test('finishing store requires qc notes when qc is not ok', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINQCN'.Str::upper(Str::random(3)),
+    ]);
+
+    try {
+        $this->from(route('finishing.create'))
+            ->post(route('finishing.store'), [
+                'spk_id' => $production->row_id,
+                'process_name' => 'Finishing',
+                'koreksi_qc' => '1',
+                'keterangan_qc' => '  ',
+            ])
+            ->assertRedirect(route('finishing.create'))
+            ->assertSessionHasErrors([
+                'keterangan_qc' => 'Catatan QC wajib diisi jika status QC NOT OK.',
+            ]);
+
+        $this->from(route('finishing.create'))
+            ->post(route('finishing.store'), [
+                'spk_id' => $production->row_id,
+                'process_name' => 'Finishing',
+                'koreksi_qc' => '0',
+                'keterangan_qc' => null,
+            ])
+            ->assertSessionDoesntHaveErrors('keterangan_qc');
+    } finally {
+        FinishingHandmade::query()->where('spk_id', $production->row_id)->delete();
+        $production->delete();
+    }
+});
+
 test('finishing store calculates shrink tolerance from start weight and bahan', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/FINSTOL'.Str::upper(Str::random(3)),

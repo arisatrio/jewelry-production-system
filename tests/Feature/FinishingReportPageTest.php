@@ -59,6 +59,7 @@ test('finishing report page summarizes approved documents per craftsman', functi
             'finish_weight' => '9.00',
             'result_materialgold' => '0.50',
             'shrink' => '0.50',
+            'process_name' => 'Handmade',
             'koreksi_qc' => 1,
             'spk_id' => $production->row_id,
         ]),
@@ -121,6 +122,8 @@ test('finishing report page summarizes approved documents per craftsman', functi
                 ->where('rows.1.id', $documents[0]->getKey())
                 ->where('rows.1.skuCategory', $skuCategory->displayName())
                 ->where('rows.0.skuCategory', null)
+                ->where('rows.1.processName', 'Handmade')
+                ->where('rows.0.processName', 'Finishing')
                 ->where('rows.1.sendCraftsmanDate', '1999-04-02 08:00')
                 ->where('rows.1.shrinkPercent', '5.00%')
                 ->where('rows.1.qcStatus', 'NOT OK')

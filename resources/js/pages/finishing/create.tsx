@@ -19,6 +19,7 @@ type FinishingCreateProps = {
     itemCategoryOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
     materialOptions: MaterialOption[];
+    qcNoteOptions: string[];
     form: {
         sendCraftsmanDate: string;
         receivedCraftsmanDate: string;
@@ -28,6 +29,8 @@ type FinishingCreateProps = {
         notes: string;
         startWeight: string;
         finishWeight: string;
+        koreksiQc: string;
+        keteranganQc: string;
         spk: null;
         materials: Array<{
             section: string;
@@ -44,6 +47,7 @@ export default function FinishingCreate({
     itemCategoryOptions,
     craftsmanOptions,
     materialOptions,
+    qcNoteOptions,
     form,
 }: FinishingCreateProps) {
     return (
@@ -59,6 +63,7 @@ export default function FinishingCreate({
                 itemCategoryOptions={itemCategoryOptions}
                 craftsmanOptions={craftsmanOptions}
                 materialOptions={materialOptions}
+                qcNoteOptions={qcNoteOptions}
                 initialValues={{
                     process_name: form.processName,
                     craftsman_id:
@@ -71,6 +76,8 @@ export default function FinishingCreate({
                     notes: form.notes ?? '',
                     start_weight: form.startWeight ?? '',
                     finish_weight: form.finishWeight ?? '',
+                    koreksi_qc: form.koreksiQc ?? '0',
+                    keterangan_qc: form.keteranganQc ?? '',
                     spk: null,
                     materials: (form.materials ?? []).map(
                         (material, index) => ({

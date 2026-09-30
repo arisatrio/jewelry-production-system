@@ -23,6 +23,7 @@ use App\Support\GoldColorOptions;
 use App\Support\JewelCadSpkEligibility;
 use App\Support\PolishFinishedGoodSpkEligibility;
 use App\Support\PolishFrameSpkEligibility;
+use App\Support\ProductionOrderTypeLabel;
 use App\Support\RequestOrderRepository;
 use App\Support\ResinSpkEligibility;
 use App\Support\SerahTerimaSpkDocNumberGenerator;
@@ -516,6 +517,37 @@ class ProductionController extends Controller
     }
 
     /**
+     * Daftar SPK (format tabel index) untuk modal pilih SPK di form dokumen proses, termasuk berat terakhir.
+     */
+    public function selectList(Request $request): JsonResponse
+    {
+        $excludeInput = $request->input('exclude', []);
+        $exclude = collect(is_array($excludeInput) ? $excludeInput : explode(',', (string) $excludeInput))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->values()
+            ->all();
+
+        $query = Production::query()
+            ->notDeleted()
+            ->whereNotNull('spk_no')
+            ->when($exclude !== [], fn (Builder $query) => $query->whereNotIn('row_id', $exclude));
+
+        return $this->spkListModalResponse(
+            $request,
+            $query,
+            'select',
+            extraFields: fn (Production $production): array => [
+                'lastWeight' => filled($production->last_weight)
+                    ? number_format((float) $production->last_weight, 2, '.', '')
+                    : null,
+                'orderTypeLabel' => app(ProductionOrderTypeLabel::class)->forProduction($production),
+                'satuan' => SpkQtyUnit::label($production->qty, $production->satuan),
+            ],
+        );
+    }
+
+    /**
      * Referensi dokumen modul (ID & nomor dokumen) per SPK untuk antrean yang sudah punya dokumen.
      *
      * @param  list<int>  $spkIds
@@ -549,12 +581,14 @@ class ProductionController extends Controller
      *
      * @param  Builder<Production>  $query
      * @param  (Closure(list<int>): array<int, array<string, int|string|null>>)|null  $documentRefs
+     * @param  (Closure(Production): array<string, mixed>)|null  $extraFields
      */
     private function spkListModalResponse(
         Request $request,
         Builder $query,
         string $label,
         ?Closure $documentRefs = null,
+        ?Closure $extraFields = null,
     ): JsonResponse {
         $search = $request->string('search')->trim()->toString();
 
@@ -583,7 +617,7 @@ class ProductionController extends Controller
         return response()->json([
             'label' => $label,
             'data' => $pageProductions
-                ->map(function (Production $production) use ($toIndexRow, $refs): array {
+                ->map(function (Production $production) use ($toIndexRow, $refs, $extraFields): array {
                     $ref = $refs[(int) $production->row_id] ?? null;
                     $documentId = $ref !== null
                         ? collect($ref)->except('docNo')->first()
@@ -593,6 +627,7 @@ class ProductionController extends Controller
                         ...$toIndexRow($production),
                         'documentId' => is_int($documentId) ? $documentId : null,
                         'documentNo' => $ref['docNo'] ?? null,
+                        ...($extraFields !== null ? $extraFields($production) : []),
                     ];
                 })
                 ->values()

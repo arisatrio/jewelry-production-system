@@ -56,6 +56,7 @@ test('finishing export downloads approved rows in the date range ordered by craf
         'finish_weight' => '9.00',
         'result_materialgold' => '0.50',
         'shrink' => '0.50',
+        'process_name' => 'Reparation',
         'item_category' => 'Cincin',
         'koreksi_qc' => 1,
         'keterangan_qc' => 'Batu kurang rapi',
@@ -108,6 +109,8 @@ test('finishing export downloads approved rows in the date range ordered by craf
                 ->and($rows[0]['workDuration'])->toBe('45 menit')
                 ->and($rows[1]['craftsmanName'])->toBe((string) $secondCraftsman->name)
                 ->and($rows[1]['spkNo'])->toBe('1999/PRD/FINEXP')
+                ->and($rows[0]['processName'])->toBe('Finishing')
+                ->and($rows[1]['processName'])->toBe('Reparation')
                 ->and($rows[1]['itemCategory'])->toBe('Cincin')
                 ->and($rows[1]['startWeight'])->toBe(10.0)
                 ->and($rows[1]['finishWeight'])->toBe(9.0)
@@ -153,8 +156,8 @@ test('finishing export writes a zero summary row when no documents match', funct
 
     expect($sheet->getCell('A6')->getValue())->toBe('No Document')
         ->and($sheet->getCell('A7')->getValue())->toBe('Total (0 dokumen)')
-        ->and($sheet->getCell('H7')->getCalculatedValue())->toEqual(0)
-        ->and($sheet->getCell('M7')->getCalculatedValue())->toEqual(0);
+        ->and($sheet->getCell('I7')->getCalculatedValue())->toEqual(0)
+        ->and($sheet->getCell('N7')->getCalculatedValue())->toEqual(0);
 });
 
 test('finishing export generates a real xlsx file with report header and summary row', function () {
@@ -198,20 +201,22 @@ test('finishing export generates a real xlsx file with report header and summary
         ->and($sheet->getCell('A2')->getValue())->toBe('Pengrajin : All')
         ->and($sheet->getCell('A3')->getValue())->toBe('Tanggal : 01-Mar-1999 s/d 31-Mar-1999')
         ->and($sheet->getCell('A4')->getValue())->toBe('Tanggal Export : 30-Sep-2026 08:50')
-        ->and($sheet->getMergeCells())->toHaveKey('A1:Q1')
+        ->and($sheet->getMergeCells())->toHaveKey('A1:R1')
         ->and($sheet->getCell('A6')->getValue())->toBe('No Document')
-        ->and($sheet->getCell('Q6')->getValue())->toBe('Notes')
+        ->and($sheet->getCell('G6')->getValue())->toBe('Proses')
+        ->and($sheet->getCell('R6')->getValue())->toBe('Notes')
         ->and($sheet->getCell('A7')->getValue())->toBe('FINEXP0005')
         ->and($sheet->getCell('B7')->getFormattedValue())->toBe('02-Mar-1999 08:00')
-        ->and($sheet->getCell('P7')->getValue())->toBe('4 jam')
+        ->and($sheet->getCell('G7')->getValue())->toBe('Finishing')
+        ->and($sheet->getCell('Q7')->getValue())->toBe('4 jam')
         ->and($sheet->getCell('A9')->getValue())->toBe('Total (2 dokumen)')
-        ->and($sheet->getCell('H9')->getValue())->toBe('=SUM(H7:H8)')
-        ->and($sheet->getCell('H9')->getCalculatedValue())->toEqual(15.0)
-        ->and($sheet->getCell('I9')->getCalculatedValue())->toEqual(5.0)
-        ->and($sheet->getCell('J9')->getCalculatedValue())->toEqual(17.0)
-        ->and($sheet->getCell('K9')->getCalculatedValue())->toEqual(1.0)
-        ->and($sheet->getCell('L9')->getCalculatedValue())->toEqual(2.0)
-        ->and($sheet->getCell('M9')->getFormattedValue())->toBe('10.00%');
+        ->and($sheet->getCell('I9')->getValue())->toBe('=SUM(I7:I8)')
+        ->and($sheet->getCell('I9')->getCalculatedValue())->toEqual(15.0)
+        ->and($sheet->getCell('J9')->getCalculatedValue())->toEqual(5.0)
+        ->and($sheet->getCell('K9')->getCalculatedValue())->toEqual(17.0)
+        ->and($sheet->getCell('L9')->getCalculatedValue())->toEqual(1.0)
+        ->and($sheet->getCell('M9')->getCalculatedValue())->toEqual(2.0)
+        ->and($sheet->getCell('N9')->getFormattedValue())->toBe('10.00%');
 
     $documents->each->delete();
 });

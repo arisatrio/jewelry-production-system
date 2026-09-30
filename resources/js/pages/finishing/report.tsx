@@ -52,6 +52,7 @@ type ReportRow = {
     craftsmanName: string | null;
     spkNo: string | null;
     item: string | null;
+    processName: string | null;
     itemCategory: string | null;
     skuCategory: string | null;
     startWeight: string | null;
@@ -1134,6 +1135,7 @@ export default function FinishingReport({
                                         <th>Pengrajin</th>
                                         <th>No SPK</th>
                                         <th>Item</th>
+                                        <th>Proses</th>
                                         <th>Kategori</th>
                                         <th>Berat Awal</th>
                                         <th>Bahan</th>
@@ -1170,6 +1172,7 @@ export default function FinishingReport({
                                             <td className="finishingReportWrapCell">
                                                 {row.item ?? '—'}
                                             </td>
+                                            <td>{row.processName ?? '—'}</td>
                                             <td>{row.itemCategory ?? '—'}</td>
                                             <td>
                                                 {formatGram(row.startWeight)}

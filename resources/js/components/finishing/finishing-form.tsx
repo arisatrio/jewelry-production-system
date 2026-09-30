@@ -1,9 +1,9 @@
-import type { FormEvent } from 'react';
-import { useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import saveIcon from '@ui5/webcomponents-icons/dist/save.js';
 import { Button } from '@ui5/webcomponents-react/Button';
+import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
+import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { DateTimePicker } from '@ui5/webcomponents-react/DateTimePicker';
 import { Form } from '@ui5/webcomponents-react/Form';
 import { FormGroup } from '@ui5/webcomponents-react/FormGroup';
@@ -14,15 +14,15 @@ import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { TextArea } from '@ui5/webcomponents-react/TextArea';
-import {
-    FinishingMaterialEditor,
-    type FinishingMaterialFormLine,
-    type FinishingMaterialOption,
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { FinishingMaterialEditor } from '@/components/finishing/finishing-material-editor';
+import type {
+    FinishingMaterialFormLine,
+    FinishingMaterialOption,
 } from '@/components/finishing/finishing-material-editor';
-import {
-    FinishingSelectSpkDialog,
-    type FinishingSelectedSpk,
-} from '@/components/finishing/finishing-select-spk-dialog';
+import { FinishingSelectSpkDialog } from '@/components/finishing/finishing-select-spk-dialog';
+import type { FinishingSelectedSpk } from '@/components/finishing/finishing-select-spk-dialog';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 
@@ -52,9 +52,16 @@ type FinishingFormValues = {
     notes: string;
     start_weight: string;
     finish_weight: string;
+    koreksi_qc: string;
+    keterangan_qc: string;
     spk: FinishingSpkForm | null;
     materials: FinishingMaterialFormLine[];
 };
+
+const QC_STATUS_OPTIONS: OptionItem[] = [
+    { value: '0', label: 'OK' },
+    { value: '1', label: 'NOT OK' },
+];
 
 type FinishingFormProps = {
     title: string;
@@ -67,11 +74,25 @@ type FinishingFormProps = {
     itemCategoryOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
     materialOptions: FinishingMaterialOption[];
+    qcNoteOptions: string[];
     initialValues: FinishingFormValues;
 };
 
 function fieldState(error?: string): 'None' | 'Negative' {
     return error ? 'Negative' : 'None';
+}
+
+function findQcNoteOption(options: string[], value: string): string | null {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === '') {
+        return null;
+    }
+
+    return (
+        options.find((option) => option.trim().toLowerCase() === normalized) ??
+        null
+    );
 }
 
 function normalizeWeightForSubmit(value: string): string | null {
@@ -120,13 +141,13 @@ export function FinishingForm({
     itemCategoryOptions,
     craftsmanOptions,
     materialOptions,
+    qcNoteOptions,
     initialValues,
 }: FinishingFormProps) {
     const { data, setData, post, put, processing, errors, transform } =
         useForm<FinishingFormValues>(initialValues);
     const [spkDialogOpen, setSpkDialogOpen] = useState(false);
-    const hasSelectedSpk =
-        data.spk !== null && data.spk.spk_id.trim() !== '';
+    const hasSelectedSpk = data.spk !== null && data.spk.spk_id.trim() !== '';
 
     const handleSelectedSpk = (selected: FinishingSelectedSpk) => {
         const { lastWeight, ...spk } = selected;
@@ -163,10 +184,17 @@ export function FinishingForm({
                 formData.item_category.trim() !== ''
                     ? formData.item_category
                     : null,
-            notes:
-                formData.notes.trim() !== '' ? formData.notes.trim() : null,
+            notes: formData.notes.trim() !== '' ? formData.notes.trim() : null,
             start_weight: normalizeWeightForSubmit(formData.start_weight),
             finish_weight: normalizeWeightForSubmit(formData.finish_weight),
+            koreksi_qc: formData.koreksi_qc !== '' ? formData.koreksi_qc : null,
+            keterangan_qc:
+                formData.keterangan_qc.trim() !== ''
+                    ? (findQcNoteOption(
+                          qcNoteOptions,
+                          formData.keterangan_qc,
+                      ) ?? formData.keterangan_qc.trim())
+                    : null,
             materials: formData.materials
                 .filter(
                     (line) =>
@@ -180,8 +208,7 @@ export function FinishingForm({
                             ? Number(line.materialgold_id)
                             : null,
                     weight: normalizeWeightForSubmit(line.weight),
-                    notes:
-                        line.notes.trim() !== '' ? line.notes.trim() : null,
+                    notes: line.notes.trim() !== '' ? line.notes.trim() : null,
                 })),
         }));
 
@@ -221,9 +248,7 @@ export function FinishingForm({
                                         className="spkFioriFormCardBtnGrey"
                                         icon={declineIcon}
                                         disabled={processing}
-                                        onClick={() =>
-                                            router.visit(cancelHref)
-                                        }
+                                        onClick={() => router.visit(cancelHref)}
                                     >
                                         Batal
                                     </Button>
@@ -372,9 +397,7 @@ export function FinishingForm({
 
                                             <FormItem
                                                 labelContent={
-                                                    <Label showColon>
-                                                        Qty
-                                                    </Label>
+                                                    <Label showColon>Qty</Label>
                                                 }
                                             >
                                                 <Input
@@ -441,8 +464,7 @@ export function FinishingForm({
                                                 <Option
                                                     value=""
                                                     selected={
-                                                        data.craftsman_id ===
-                                                        ''
+                                                        data.craftsman_id === ''
                                                     }
                                                 >
                                                     —
@@ -479,9 +501,7 @@ export function FinishingForm({
                                     >
                                         <div className="spkFioriFieldStack">
                                             <DateTimePicker
-                                                value={
-                                                    data.send_craftsman_date
-                                                }
+                                                value={data.send_craftsman_date}
                                                 valueFormat="yyyy-MM-dd HH:mm"
                                                 displayFormat="dd/MM/yyyy HH:mm"
                                                 valueState={fieldState(
@@ -497,9 +517,7 @@ export function FinishingForm({
                                             />
                                             {errors.send_craftsman_date ? (
                                                 <Text className="spkFioriError">
-                                                    {
-                                                        errors.send_craftsman_date
-                                                    }
+                                                    {errors.send_craftsman_date}
                                                 </Text>
                                             ) : null}
                                         </div>
@@ -697,6 +715,128 @@ export function FinishingForm({
                                             {errors.finish_weight ? (
                                                 <Text className="spkFioriError">
                                                     {errors.finish_weight}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon>Status QC</Label>
+                                        }
+                                    >
+                                        <div className="spkFioriFieldStack">
+                                            <Select
+                                                accessibleName="Status QC finishing"
+                                                valueState={fieldState(
+                                                    errors.koreksi_qc,
+                                                )}
+                                                onChange={(event) =>
+                                                    setData(
+                                                        'koreksi_qc',
+                                                        event.detail
+                                                            .selectedOption
+                                                            .value ?? '',
+                                                    )
+                                                }
+                                            >
+                                                <Option
+                                                    value=""
+                                                    selected={
+                                                        data.koreksi_qc === ''
+                                                    }
+                                                >
+                                                    —
+                                                </Option>
+                                                {QC_STATUS_OPTIONS.map(
+                                                    (option) => (
+                                                        <Option
+                                                            key={option.value}
+                                                            value={option.value}
+                                                            selected={
+                                                                data.koreksi_qc ===
+                                                                option.value
+                                                            }
+                                                        >
+                                                            {option.label}
+                                                        </Option>
+                                                    ),
+                                                )}
+                                            </Select>
+                                            {errors.koreksi_qc ? (
+                                                <Text className="spkFioriError">
+                                                    {errors.koreksi_qc}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label
+                                                showColon
+                                                required={
+                                                    data.koreksi_qc === '1'
+                                                }
+                                            >
+                                                Catatan QC
+                                            </Label>
+                                        }
+                                    >
+                                        <div className="spkFioriFieldStack">
+                                            <ComboBox
+                                                accessibleName="Catatan QC finishing"
+                                                value={data.keterangan_qc}
+                                                required={
+                                                    data.koreksi_qc === '1'
+                                                }
+                                                placeholder="Pilih atau ketik catatan QC baru"
+                                                filter="Contains"
+                                                showClearIcon
+                                                valueState={fieldState(
+                                                    errors.keterangan_qc,
+                                                )}
+                                                onInput={(event) =>
+                                                    setData(
+                                                        'keterangan_qc',
+                                                        (
+                                                            event.target
+                                                                .value ?? ''
+                                                        ).slice(0, 100),
+                                                    )
+                                                }
+                                                onChange={(event) =>
+                                                    setData(
+                                                        'keterangan_qc',
+                                                        (
+                                                            event.target
+                                                                .value ?? ''
+                                                        ).slice(0, 100),
+                                                    )
+                                                }
+                                            >
+                                                {qcNoteOptions.map((note) => (
+                                                    <ComboBoxItem
+                                                        key={note}
+                                                        text={note}
+                                                    />
+                                                ))}
+                                            </ComboBox>
+                                            {data.keterangan_qc.trim() !== '' &&
+                                            findQcNoteOption(
+                                                qcNoteOptions,
+                                                data.keterangan_qc,
+                                            ) === null ? (
+                                                <Text className="spkFioriHint">
+                                                    Catatan baru "
+                                                    {data.keterangan_qc.trim()}"
+                                                    akan ditambahkan ke pilihan
+                                                    saat disimpan.
+                                                </Text>
+                                            ) : null}
+                                            {errors.keterangan_qc ? (
+                                                <Text className="spkFioriError">
+                                                    {errors.keterangan_qc}
                                                 </Text>
                                             ) : null}
                                         </div>

@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use App\Models\CoranSpk;
 use App\Models\Production;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -21,7 +23,7 @@ class SpkShrinkSummary
      *         setorDate: string,
      *         startWeight: string|null,
      *         endWeight: string|null,
-     *         shrink: string,
+     *         shrink: string|null,
      *         shrinkPercent: string|null,
      *         tolerance: string|null,
      *         toleranceStatus: string|null
@@ -47,7 +49,7 @@ class SpkShrinkSummary
         /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
         $sources = config('spk_processes.shrink_sources', []);
 
-        $rows = [];
+        $rows = $this->coranRows($spkId);
 
         foreach ($sources as $source) {
             foreach ($this->rowsForSource($spkId, $source) as $row) {
@@ -63,14 +65,14 @@ class SpkShrinkSummary
         $total = 0.0;
 
         foreach (array_values($rows) as $index => $row) {
-            $total += (float) $row['shrinkValue'];
+            $total += $row['shrinkValue'] ?? 0.0;
             $numbered[] = [
                 'no' => $index + 1,
                 'process' => $row['process'],
                 'setorDate' => $row['setorDate'],
                 'startWeight' => $this->formatNullableWeight($row['startWeight']),
                 'endWeight' => $this->formatNullableWeight($row['endWeight']),
-                'shrink' => $this->formatWeight((float) $row['shrinkValue']),
+                'shrink' => $this->formatNullableWeight($row['shrinkValue']),
                 'shrinkPercent' => $row['shrinkPercent'],
                 'tolerance' => $row['tolerance'],
                 'toleranceStatus' => $row['toleranceStatus'],
@@ -175,6 +177,65 @@ class SpkShrinkSummary
         }
 
         return $rows;
+    }
+
+    /**
+     * Baris proses Cor per SPK: hanya total berat cor, karena susut coran dicatat per dokumen (bukan per SPK).
+     *
+     * @return list<array{
+     *     process: string,
+     *     setorDate: string,
+     *     sortDate: string,
+     *     startWeight: float|null,
+     *     endWeight: float|null,
+     *     shrinkValue: float|null,
+     *     shrinkPercent: string|null,
+     *     tolerance: string|null,
+     *     toleranceStatus: string|null
+     * }>
+     */
+    private function coranRows(int $spkId): array
+    {
+        $records = CoranSpk::query()
+            ->notDeleted()
+            ->where('spk_id', $spkId)
+            ->whereHas('coran', fn (Builder $query) => $query->notDeleted())
+            ->with('coran:row_id,trans_date')
+            ->get();
+
+        return $records->map(function (CoranSpk $record): array {
+            $date = $record->coran?->trans_date;
+
+            return [
+                'process' => 'Cor',
+                'setorDate' => $date?->format('d-M-Y') ?? '—',
+                'sortDate' => $date?->format('Y-m-d H:i:s') ?? '0000-01-01',
+                'startWeight' => null,
+                'endWeight' => $this->coranTotalWeight($record),
+                'shrinkValue' => null,
+                'shrinkPercent' => null,
+                'tolerance' => null,
+                'toleranceStatus' => null,
+            ];
+        })->values()->all();
+    }
+
+    private function coranTotalWeight(CoranSpk $record): ?float
+    {
+        $weight = $this->nullableFloat($record->weight);
+
+        if ($weight !== null) {
+            return $weight;
+        }
+
+        $colorWeights = array_filter(
+            [$record->weight_rosegold, $record->weight_whitegold, $record->weight_yellowgold],
+            fn (mixed $value): bool => filled($value),
+        );
+
+        return $colorWeights === []
+            ? null
+            : round(array_sum(array_map(fn (mixed $value): float => (float) $value, $colorWeights)), 2);
     }
 
     /**

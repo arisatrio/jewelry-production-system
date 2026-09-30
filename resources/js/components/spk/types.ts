@@ -166,7 +166,7 @@ export type SpkShrinkReportRow = {
     setorDate: string;
     startWeight: string | null;
     endWeight: string | null;
-    shrink: string;
+    shrink: string | null;
     shrinkPercent: string | null;
     tolerance: string | null;
     toleranceStatus: 'OK' | 'NOK' | null;

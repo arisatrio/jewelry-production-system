@@ -92,6 +92,22 @@ class StoreFinishingRequest extends FormRequest
                 : null,
             'materials' => $materials,
         ]);
+
+        if ($this->has('koreksi_qc')) {
+            $this->merge([
+                'koreksi_qc' => filled($this->input('koreksi_qc'))
+                    ? trim((string) $this->input('koreksi_qc'))
+                    : null,
+            ]);
+        }
+
+        if ($this->has('keterangan_qc')) {
+            $this->merge([
+                'keterangan_qc' => filled($this->input('keterangan_qc'))
+                    ? trim((string) $this->input('keterangan_qc'))
+                    : null,
+            ]);
+        }
     }
 
     /**
@@ -126,6 +142,8 @@ class StoreFinishingRequest extends FormRequest
             'start_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'finish_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'shrink_tolerance' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'koreksi_qc' => ['nullable', Rule::in(['0', '1'])],
+            'keterangan_qc' => ['nullable', 'required_if:koreksi_qc,1', 'string', 'max:100'],
             'materials' => ['nullable', 'array'],
             'materials.*.section' => [
                 'required',
@@ -225,6 +243,9 @@ class StoreFinishingRequest extends FormRequest
             'start_weight.numeric' => 'Berat awal harus berupa angka.',
             'finish_weight.numeric' => 'Berat akhir harus berupa angka.',
             'shrink_tolerance.numeric' => 'Toleransi susut harus berupa angka.',
+            'koreksi_qc.in' => 'Status QC tidak valid.',
+            'keterangan_qc.required_if' => 'Catatan QC wajib diisi jika status QC NOT OK.',
+            'keterangan_qc.max' => 'Catatan QC maksimal 100 karakter.',
             'materials.*.section.required' => 'Kategori bahan emas wajib dipilih.',
             'materials.*.section.in' => 'Kategori bahan emas tidak valid.',
             'materials.*.materialgold_id.required' => 'Bahan emas wajib dipilih.',

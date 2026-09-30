@@ -265,6 +265,7 @@ class FinishingController extends Controller
      *     craftsmanName: string|null,
      *     spkNo: string|null,
      *     item: string|null,
+     *     processName: string|null,
      *     itemCategory: string|null,
      *     skuCategory: string|null,
      *     startWeight: float|null,
@@ -467,6 +468,7 @@ class FinishingController extends Controller
      *     craftsmanName: string|null,
      *     spkNo: string|null,
      *     item: string|null,
+     *     processName: string|null,
      *     itemCategory: string|null,
      *     skuCategory: string|null,
      *     startWeight: float|null,
@@ -493,6 +495,7 @@ class FinishingController extends Controller
             'craftsmanName' => $row['craftsmanName'],
             'spkNo' => $row['spkNo'],
             'item' => $row['item'],
+            'processName' => $row['processName'],
             'itemCategory' => $row['itemCategory'],
             'skuCategory' => $row['skuCategory'],
             'startWeight' => $this->formatDecimal($row['startWeight']),
@@ -519,6 +522,7 @@ class FinishingController extends Controller
             'formDocumentNo' => (string) config('spk.finishing_form_document_no'),
             'processOptions' => $this->processOptions(),
             'itemCategoryOptions' => $this->itemCategoryOptions(),
+            'qcNoteOptions' => $this->qcNoteOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'materialOptions' => $materialSynchronizer->materialOptions(),
             'form' => [
@@ -530,6 +534,8 @@ class FinishingController extends Controller
                 'notes' => '',
                 'startWeight' => '',
                 'finishWeight' => '',
+                'koreksiQc' => '0',
+                'keteranganQc' => '',
                 'spk' => null,
                 'materials' => [],
             ],
@@ -666,7 +672,10 @@ class FinishingController extends Controller
                 'created_by' => $actor,
                 'modified_date' => now(),
                 'modified_by' => $actor,
-                'koreksi_qc' => 0,
+                'koreksi_qc' => array_key_exists('koreksi_qc', $validated)
+                    ? $this->toKoreksiQc($validated['koreksi_qc'])
+                    : 0,
+                'keterangan_qc' => $validated['keterangan_qc'] ?? null,
             ]);
 
             $production = Production::query()
@@ -757,6 +766,7 @@ class FinishingController extends Controller
             'formDocumentNo' => (string) config('spk.finishing_form_document_no'),
             'processOptions' => $this->processOptions(),
             'itemCategoryOptions' => $this->itemCategoryOptions(),
+            'qcNoteOptions' => $this->qcNoteOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'materialOptions' => $materialSynchronizer->materialOptions(),
             'form' => [
@@ -776,6 +786,12 @@ class FinishingController extends Controller
                 'notes' => filled($finishing->notes) ? (string) $finishing->notes : '',
                 'startWeight' => $this->formatDecimal($finishing->start_weight) ?? '',
                 'finishWeight' => $this->formatDecimal($finishing->finish_weight) ?? '',
+                'koreksiQc' => match (true) {
+                    $finishing->koreksi_qc === null => '',
+                    (int) $finishing->koreksi_qc === 0 => '0',
+                    default => '1',
+                },
+                'keteranganQc' => filled($finishing->keterangan_qc) ? (string) $finishing->keterangan_qc : '',
                 'spk' => $production === null ? null : [
                     'spkId' => (int) $production->row_id,
                     'spkNo' => $production->spk_no,
@@ -1024,6 +1040,12 @@ class FinishingController extends Controller
                 'received_craftsman_date' => $validated['received_craftsman_date'] ?? null,
                 'item_category' => $validated['item_category'] ?? null,
                 'notes' => $validated['notes'] ?? null,
+                ...(array_key_exists('koreksi_qc', $validated)
+                    ? ['koreksi_qc' => $this->toKoreksiQc($validated['koreksi_qc'])]
+                    : []),
+                ...(array_key_exists('keterangan_qc', $validated)
+                    ? ['keterangan_qc' => $validated['keterangan_qc']]
+                    : []),
                 'modified_date' => now(),
                 'modified_by' => $actor,
             ]);
@@ -1129,6 +1151,7 @@ class FinishingController extends Controller
      *     craftsmanName: string|null,
      *     spkNo: string|null,
      *     item: string|null,
+     *     processName: string|null,
      *     itemCategory: string|null,
      *     skuCategory: string|null,
      *     startWeight: float|null,
@@ -1173,6 +1196,7 @@ class FinishingController extends Controller
                 : null,
             'spkNo' => $document->production?->spk_no,
             'item' => $itemLines === [] ? null : implode("\n", $itemLines),
+            'processName' => filled($document->process_name) ? (string) $document->process_name : null,
             'itemCategory' => filled($document->item_category) ? (string) $document->item_category : null,
             'skuCategory' => $skuCategory !== null && $skuCategory !== '-' ? $skuCategory : null,
             'startWeight' => $startWeight,
@@ -1588,6 +1612,29 @@ class FinishingController extends Controller
     /**
      * @return list<array{value: string, label: string}>
      */
+    /**
+     * Catatan QC yang pernah dipakai (tanpa beda huruf besar/kecil), urut dari yang paling sering.
+     *
+     * @return list<string>
+     */
+    private function qcNoteOptions(): array
+    {
+        return FinishingHandmade::query()
+            ->notDeleted()
+            ->whereNotNull('keterangan_qc')
+            ->whereRaw("TRIM(keterangan_qc) <> ''")
+            ->selectRaw('MIN(TRIM(keterangan_qc)) as note, COUNT(*) as usage_count')
+            ->groupByRaw('LOWER(TRIM(keterangan_qc))')
+            ->orderByDesc('usage_count')
+            ->orderBy('note')
+            ->limit(100)
+            ->toBase()
+            ->pluck('note')
+            ->map(fn (mixed $note): string => (string) $note)
+            ->values()
+            ->all();
+    }
+
     private function itemCategoryOptions(): array
     {
         return collect(FinishingHandmade::itemCategoryOptions())
@@ -1735,6 +1782,11 @@ class FinishingController extends Controller
             'productItemName' => $productItemName !== '' ? $productItemName : null,
             'itemDescription' => $itemDescription !== '' ? $itemDescription : null,
         ];
+    }
+
+    private function toKoreksiQc(?string $value): ?int
+    {
+        return $value === null ? null : (int) $value;
     }
 
     private function formatDecimal(mixed $value, int $precision = 2): ?string

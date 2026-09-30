@@ -103,6 +103,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('spk.select.frames');
     Route::get('spk/select/suggestions', [ProductionController::class, 'searchSuggestions'])
         ->name('spk.select.suggestions');
+    Route::get('spk/select/list', [ProductionController::class, 'selectList'])
+        ->name('spk.select.list');
     Route::post('spk/bulk-status', [ProductionController::class, 'bulkUpdateStatus'])
         ->name('spk.bulk-status');
     Route::get('spk/status/{statusKey}', [ProductionController::class, 'showByStatus'])
