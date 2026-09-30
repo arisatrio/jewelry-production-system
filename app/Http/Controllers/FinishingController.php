@@ -199,36 +199,7 @@ class FinishingController extends Controller
         $craftsmanId = isset($validated['craftsman']) ? (int) $validated['craftsman'] : null;
         $dateFrom = (string) $validated['date_from'];
         $dateTo = (string) $validated['date_to'];
-
-        $documents = FinishingHandmade::query()
-            ->notDeleted()
-            ->with([
-                'production' => fn ($productionQuery) => $productionQuery
-                    ->notDeleted()
-                    ->with($this->productionSpkInfoRelations())
-                    ->select($this->productionSpkInfoColumns()),
-            ])
-            ->whereIn('status', [
-                ...$this->statusFilterCodes()['ppic'],
-                ...$this->statusFilterCodes()[self::COMPLETED_STATUS_FILTER],
-            ])
-            ->whereDate('send_craftsman_date', '>=', $dateFrom)
-            ->whereDate('send_craftsman_date', '<=', $dateTo)
-            ->when($craftsmanId !== null, fn ($query) => $query->where('craftsman_id', $craftsmanId))
-            ->orderBy('send_craftsman_date')
-            ->orderBy('row_id')
-            ->get();
-
-        $craftsmanNames = $this->resolveCraftsmanNames(array_values($documents->pluck('craftsman_id')->all()));
-
-        $rows = $documents
-            ->map(fn (FinishingHandmade $document): array => $this->toExportRow($document, $craftsmanNames))
-            ->sortBy(fn (array $row): array => [
-                $row['craftsmanName'] === null ? 1 : 0,
-                mb_strtolower($row['craftsmanName'] ?? ''),
-            ])
-            ->values()
-            ->all();
+        $rows = $this->approvedReportRows($craftsmanId, $dateFrom, $dateTo);
 
         $craftsmanName = $craftsmanId !== null
             ? ($this->resolveCraftsmanName($craftsmanId) ?? "Pengrajin {$craftsmanId}")
@@ -250,6 +221,293 @@ class FinishingController extends Controller
             ),
             implode('-', $fileNameParts).'.xlsx',
         );
+    }
+
+    /**
+     * Display the approved (PPIC / completed) finishing report page.
+     */
+    public function report(Request $request): Response
+    {
+        $craftsmanId = $this->resolveCraftsmanFilters($request->input('craftsman'))[0] ?? null;
+        $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString())
+            ?? now()->startOfMonth()->format('Y-m-d');
+        $dateTo = $this->resolveIndexDate($request->string('date_to')->toString())
+            ?? now()->format('Y-m-d');
+
+        if ($dateTo < $dateFrom) {
+            $dateTo = $dateFrom;
+        }
+
+        $rows = $this->approvedReportRows($craftsmanId, $dateFrom, $dateTo);
+
+        return Inertia::render('finishing/report', [
+            'filters' => [
+                'craftsman' => $craftsmanId !== null ? (string) $craftsmanId : '',
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+            'craftsmanOptions' => $this->craftsmanOptions(),
+            'summary' => $this->reportSummary($rows),
+            'byCraftsman' => $this->reportByCraftsman($rows),
+            'bySkuCategory' => $this->reportBySkuCategory($rows),
+            'rows' => array_map(fn (array $row): array => $this->toReportPageRow($row), $rows),
+        ]);
+    }
+
+    /**
+     * Approved (PPIC / completed) finishing rows sent to craftsmen within the date range, ordered by craftsman name.
+     *
+     * @return array<int, array{
+     *     id: int,
+     *     docNo: string|null,
+     *     sendCraftsmanDate: DateTimeInterface|null,
+     *     receivedCraftsmanDate: DateTimeInterface|null,
+     *     craftsmanName: string|null,
+     *     spkNo: string|null,
+     *     item: string|null,
+     *     itemCategory: string|null,
+     *     skuCategory: string|null,
+     *     startWeight: float|null,
+     *     submitMaterial: float|null,
+     *     finishWeight: float|null,
+     *     resultMaterial: float|null,
+     *     shrink: float|null,
+     *     shrinkRatio: float|null,
+     *     qcStatus: string|null,
+     *     qcNotes: string|null,
+     *     workDuration: string|null,
+     *     workMinutes: int|null,
+     *     notes: string|null
+     * }>
+     */
+    private function approvedReportRows(?int $craftsmanId, string $dateFrom, string $dateTo): array
+    {
+        $documents = FinishingHandmade::query()
+            ->notDeleted()
+            ->with([
+                'production' => fn ($productionQuery) => $productionQuery
+                    ->notDeleted()
+                    ->with($this->productionSpkInfoRelations())
+                    ->select($this->productionSpkInfoColumns()),
+            ])
+            ->whereIn('status', [
+                ...$this->statusFilterCodes()['ppic'],
+                ...$this->statusFilterCodes()[self::COMPLETED_STATUS_FILTER],
+            ])
+            ->whereDate('send_craftsman_date', '>=', $dateFrom)
+            ->whereDate('send_craftsman_date', '<=', $dateTo)
+            ->when($craftsmanId !== null, fn ($query) => $query->where('craftsman_id', $craftsmanId))
+            ->orderBy('send_craftsman_date')
+            ->orderBy('row_id')
+            ->get();
+
+        $craftsmanNames = $this->resolveCraftsmanNames(array_values($documents->pluck('craftsman_id')->all()));
+
+        return $documents
+            ->map(fn (FinishingHandmade $document): array => $this->toExportRow($document, $craftsmanNames))
+            ->sortBy(fn (array $row): array => [
+                $row['craftsmanName'] === null ? 1 : 0,
+                mb_strtolower($row['craftsmanName'] ?? ''),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, array{craftsmanName: string|null, startWeight: float|null, submitMaterial: float|null, finishWeight: float|null, resultMaterial: float|null, shrink: float|null, qcStatus: string|null, workMinutes: int|null}>  $rows
+     * @return array{
+     *     documentCount: int,
+     *     craftsmanCount: int,
+     *     startWeight: string,
+     *     submitMaterial: string,
+     *     finishWeight: string,
+     *     resultMaterial: string,
+     *     shrink: string,
+     *     shrinkPercent: string|null,
+     *     qcNotOkCount: int,
+     *     workMinutes: int,
+     *     workMinutesCount: int
+     * }
+     */
+    private function reportSummary(array $rows): array
+    {
+        return [
+            ...$this->aggregateReportRows($rows),
+            'craftsmanCount' => count(array_unique(array_filter(array_column($rows, 'craftsmanName')))),
+        ];
+    }
+
+    /**
+     * @param  array<int, array{craftsmanName: string|null, startWeight: float|null, submitMaterial: float|null, finishWeight: float|null, resultMaterial: float|null, shrink: float|null, qcStatus: string|null, workMinutes: int|null}>  $rows
+     * @return list<array{
+     *     craftsmanName: string,
+     *     documentCount: int,
+     *     startWeight: string,
+     *     submitMaterial: string,
+     *     finishWeight: string,
+     *     resultMaterial: string,
+     *     shrink: string,
+     *     shrinkPercent: string|null,
+     *     qcNotOkCount: int,
+     *     workMinutes: int,
+     *     workMinutesCount: int
+     * }>
+     */
+    private function reportByCraftsman(array $rows): array
+    {
+        $groups = [];
+
+        foreach ($rows as $row) {
+            $groups[$row['craftsmanName'] ?? 'Tanpa pengrajin'][] = $row;
+        }
+
+        $result = [];
+
+        foreach ($groups as $craftsmanName => $groupRows) {
+            $result[] = [
+                'craftsmanName' => (string) $craftsmanName,
+                ...$this->aggregateReportRows($groupRows),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Aggregates rows per SKU prefix category (e.g. "CINCIN (CC)"), alphabetically with uncategorized rows last.
+     *
+     * @param  array<int, array{skuCategory: string|null, startWeight: float|null, submitMaterial: float|null, finishWeight: float|null, resultMaterial: float|null, shrink: float|null, qcStatus: string|null, workMinutes: int|null}>  $rows
+     * @return list<array{
+     *     skuCategory: string,
+     *     documentCount: int,
+     *     startWeight: string,
+     *     submitMaterial: string,
+     *     finishWeight: string,
+     *     resultMaterial: string,
+     *     shrink: string,
+     *     shrinkPercent: string|null,
+     *     qcNotOkCount: int,
+     *     workMinutes: int,
+     *     workMinutesCount: int
+     * }>
+     */
+    private function reportBySkuCategory(array $rows): array
+    {
+        $uncategorizedLabel = 'Tanpa kategori SKU';
+        $groups = [];
+
+        foreach ($rows as $row) {
+            $groups[$row['skuCategory'] ?? $uncategorizedLabel][] = $row;
+        }
+
+        uksort($groups, fn (string|int $left, string|int $right): int => [
+            $left === $uncategorizedLabel ? 1 : 0,
+            (string) $left,
+        ] <=> [
+            $right === $uncategorizedLabel ? 1 : 0,
+            (string) $right,
+        ]);
+
+        $result = [];
+
+        foreach ($groups as $skuCategory => $groupRows) {
+            $result[] = [
+                'skuCategory' => (string) $skuCategory,
+                ...$this->aggregateReportRows($groupRows),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<int, array{startWeight: float|null, submitMaterial: float|null, finishWeight: float|null, resultMaterial: float|null, shrink: float|null, qcStatus: string|null, workMinutes: int|null}>  $rows
+     * @return array{
+     *     documentCount: int,
+     *     startWeight: string,
+     *     submitMaterial: string,
+     *     finishWeight: string,
+     *     resultMaterial: string,
+     *     shrink: string,
+     *     shrinkPercent: string|null,
+     *     qcNotOkCount: int,
+     *     workMinutes: int,
+     *     workMinutesCount: int
+     * }
+     */
+    private function aggregateReportRows(array $rows): array
+    {
+        $startWeight = array_sum(array_map(fn (array $row): float => $row['startWeight'] ?? 0.0, $rows));
+        $submitMaterial = array_sum(array_map(fn (array $row): float => $row['submitMaterial'] ?? 0.0, $rows));
+        $shrink = array_sum(array_map(fn (array $row): float => $row['shrink'] ?? 0.0, $rows));
+        $goldIn = $startWeight + $submitMaterial;
+
+        return [
+            'documentCount' => count($rows),
+            'startWeight' => number_format($startWeight, 2, '.', ''),
+            'submitMaterial' => number_format($submitMaterial, 2, '.', ''),
+            'finishWeight' => number_format(array_sum(array_map(fn (array $row): float => $row['finishWeight'] ?? 0.0, $rows)), 2, '.', ''),
+            'resultMaterial' => number_format(array_sum(array_map(fn (array $row): float => $row['resultMaterial'] ?? 0.0, $rows)), 2, '.', ''),
+            'shrink' => $this->formatGainAwareDecimal($shrink) ?? '0.00',
+            'shrinkPercent' => abs($goldIn) >= 0.0005
+                ? $this->formatGainAwarePercent($shrink / $goldIn * 100)
+                : null,
+            'qcNotOkCount' => count(array_filter($rows, fn (array $row): bool => $row['qcStatus'] === 'NOT OK')),
+            'workMinutes' => array_sum(array_map(fn (array $row): int => $row['workMinutes'] ?? 0, $rows)),
+            'workMinutesCount' => count(array_filter($rows, fn (array $row): bool => $row['workMinutes'] !== null)),
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     id: int,
+     *     docNo: string|null,
+     *     sendCraftsmanDate: DateTimeInterface|null,
+     *     receivedCraftsmanDate: DateTimeInterface|null,
+     *     craftsmanName: string|null,
+     *     spkNo: string|null,
+     *     item: string|null,
+     *     itemCategory: string|null,
+     *     skuCategory: string|null,
+     *     startWeight: float|null,
+     *     submitMaterial: float|null,
+     *     finishWeight: float|null,
+     *     resultMaterial: float|null,
+     *     shrink: float|null,
+     *     shrinkRatio: float|null,
+     *     qcStatus: string|null,
+     *     qcNotes: string|null,
+     *     workDuration: string|null,
+     *     workMinutes: int|null,
+     *     notes: string|null
+     * }  $row
+     * @return array<string, int|string|null>
+     */
+    private function toReportPageRow(array $row): array
+    {
+        return [
+            'id' => $row['id'],
+            'docNo' => $row['docNo'],
+            'sendCraftsmanDate' => $row['sendCraftsmanDate']?->format('Y-m-d H:i'),
+            'receivedCraftsmanDate' => $row['receivedCraftsmanDate']?->format('Y-m-d H:i'),
+            'craftsmanName' => $row['craftsmanName'],
+            'spkNo' => $row['spkNo'],
+            'item' => $row['item'],
+            'itemCategory' => $row['itemCategory'],
+            'skuCategory' => $row['skuCategory'],
+            'startWeight' => $this->formatDecimal($row['startWeight']),
+            'submitMaterial' => $this->formatDecimal($row['submitMaterial']),
+            'finishWeight' => $this->formatDecimal($row['finishWeight']),
+            'resultMaterial' => $this->formatDecimal($row['resultMaterial']),
+            'shrink' => $this->formatGainAwareDecimal($row['shrink']),
+            'shrinkPercent' => $row['shrinkRatio'] !== null
+                ? $this->formatGainAwarePercent($row['shrinkRatio'] * 100)
+                : null,
+            'qcStatus' => $row['qcStatus'],
+            'qcNotes' => $row['qcNotes'],
+            'workDuration' => $row['workDuration'],
+            'notes' => $row['notes'],
+        ];
     }
 
     /**
@@ -864,6 +1122,7 @@ class FinishingController extends Controller
     /**
      * @param  array<int, string>  $craftsmanNames
      * @return array{
+     *     id: int,
      *     docNo: string|null,
      *     sendCraftsmanDate: DateTimeInterface|null,
      *     receivedCraftsmanDate: DateTimeInterface|null,
@@ -871,6 +1130,7 @@ class FinishingController extends Controller
      *     spkNo: string|null,
      *     item: string|null,
      *     itemCategory: string|null,
+     *     skuCategory: string|null,
      *     startWeight: float|null,
      *     submitMaterial: float|null,
      *     finishWeight: float|null,
@@ -880,6 +1140,7 @@ class FinishingController extends Controller
      *     qcStatus: string|null,
      *     qcNotes: string|null,
      *     workDuration: string|null,
+     *     workMinutes: int|null,
      *     notes: string|null
      * }
      */
@@ -891,8 +1152,10 @@ class FinishingController extends Controller
         $shrink = $this->hasMissingWeight($document) ? 0.0 : ($this->toFloat($document->shrink) ?? 0.0);
         $goldIn = ($startWeight ?? 0.0) + ($submitMaterial ?? 0.0);
         $skuFields = $this->productionSkuFields($document->production);
+        $skuCategory = $document->production?->categoryPrefix?->displayName();
         $sendAt = $document->send_craftsman_date;
         $receivedAt = $document->received_craftsman_date;
+        $workMinutes = $this->workMinutes($sendAt, $receivedAt);
 
         $itemLines = array_filter([
             implode(' | ', array_filter([$skuFields['typeCode'], $skuFields['productItemName']])),
@@ -901,6 +1164,7 @@ class FinishingController extends Controller
         ], fn (string $line): bool => $line !== '');
 
         return [
+            'id' => (int) $document->getKey(),
             'docNo' => $document->doc_no,
             'sendCraftsmanDate' => $sendAt,
             'receivedCraftsmanDate' => $receivedAt,
@@ -910,6 +1174,7 @@ class FinishingController extends Controller
             'spkNo' => $document->production?->spk_no,
             'item' => $itemLines === [] ? null : implode("\n", $itemLines),
             'itemCategory' => filled($document->item_category) ? (string) $document->item_category : null,
+            'skuCategory' => $skuCategory !== null && $skuCategory !== '-' ? $skuCategory : null,
             'startWeight' => $startWeight,
             'submitMaterial' => $submitMaterial,
             'finishWeight' => $this->toFloat($document->finish_weight),
@@ -922,21 +1187,23 @@ class FinishingController extends Controller
                 default => 'OK',
             },
             'qcNotes' => filled($document->keterangan_qc) ? (string) $document->keterangan_qc : null,
-            'workDuration' => $sendAt !== null && $receivedAt !== null
-                ? $this->formatWorkDuration($sendAt, $receivedAt)
-                : null,
+            'workDuration' => $workMinutes !== null ? $this->formatWorkDuration($workMinutes) : null,
+            'workMinutes' => $workMinutes,
             'notes' => filled($document->notes) ? (string) $document->notes : null,
         ];
     }
 
-    private function formatWorkDuration(DateTimeInterface $sendAt, DateTimeInterface $receivedAt): ?string
+    private function workMinutes(?DateTimeInterface $sendAt, ?DateTimeInterface $receivedAt): ?int
     {
-        if ($receivedAt < $sendAt) {
+        if ($sendAt === null || $receivedAt === null || $receivedAt < $sendAt) {
             return null;
         }
 
-        $totalMinutes = intdiv($receivedAt->getTimestamp() - $sendAt->getTimestamp(), 60);
+        return intdiv($receivedAt->getTimestamp() - $sendAt->getTimestamp(), 60);
+    }
 
+    private function formatWorkDuration(int $totalMinutes): string
+    {
         if ($totalMinutes === 0) {
             return '< 1 menit';
         }
@@ -1371,7 +1638,7 @@ class FinishingController extends Controller
             'sku' => fn ($skuQuery) => $skuQuery
                 ->select(['id', 'sku_code', 'item_original']),
             'categoryPrefix' => fn ($prefixQuery) => $prefixQuery
-                ->select(['id', 'prefix']),
+                ->select(['id', 'category', 'prefix']),
         ];
     }
 

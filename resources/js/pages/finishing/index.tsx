@@ -1,5 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
+import barChartIcon from '@ui5/webcomponents-icons/dist/bar-chart.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
@@ -41,6 +42,7 @@ import {
     show,
     bulkStatus,
     exportMethod as exportReport,
+    report,
 } from '@/routes/finishing';
 type FinishingRow = {
     id: number;
@@ -1227,6 +1229,30 @@ export default function FinishingIndex({
                                 icon={printIcon}
                                 accessibleName="Cetak"
                                 className="spkTableHeaderExportBtn--finishing"
+                            />
+                            <Button
+                                design="Default"
+                                icon={barChartIcon}
+                                accessibleName="Laporan finishing"
+                                tooltip="Laporan finishing"
+                                className="spkTableHeaderExportBtn--finishing"
+                                onClick={() =>
+                                    router.visit(
+                                        report.url({
+                                            query: {
+                                                craftsman:
+                                                    exportInitialValues.craftsman ||
+                                                    undefined,
+                                                date_from:
+                                                    filters.date_from ??
+                                                    undefined,
+                                                date_to:
+                                                    filters.date_to ??
+                                                    undefined,
+                                            },
+                                        }),
+                                    )
+                                }
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"

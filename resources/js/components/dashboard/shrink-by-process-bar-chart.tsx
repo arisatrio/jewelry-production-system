@@ -7,14 +7,41 @@ type ShrinkProcessItem = {
     process: string;
     totalShrink: string;
     recordCount: number;
+    tooltipExtra?: string;
+    labelExtra?: string;
 };
 
 type ShrinkByProcessBarChartProps = {
     items: ShrinkProcessItem[];
+    recordLabel?: string;
+    emptyMessage?: string;
+    valueSuffix?: string;
+    palette?: 'red' | 'blue';
+    showRecordCount?: boolean;
 };
+
+const PALETTES = {
+    red: {
+        light: { r: 254, g: 202, b: 202 },
+        dark: { r: 153, g: 27, b: 27 },
+        base: 0xdc2626,
+        label: 0x7f1d1d,
+    },
+    blue: {
+        light: { r: 191, g: 219, b: 254 },
+        dark: { r: 30, g: 64, b: 175 },
+        base: 0x2563eb,
+        label: 0x1e3a8a,
+    },
+} as const;
 
 export function ShrinkByProcessBarChart({
     items,
+    recordLabel = 'record',
+    emptyMessage = 'Belum ada data susut per proses.',
+    valueSuffix = ' g',
+    palette = 'red',
+    showRecordCount = true,
 }: ShrinkByProcessBarChartProps) {
     const chartRef = useRef<HTMLDivElement | null>(null);
 
@@ -92,6 +119,8 @@ export function ShrinkByProcessBarChart({
             value: Number(item.totalShrink),
             display: item.totalShrink,
             records: item.recordCount,
+            extra: item.tooltipExtra ? ` (${item.tooltipExtra})` : '',
+            labelExtra: item.labelExtra ? ` · ${item.labelExtra}` : '',
         }));
 
         const maxValue = Math.max(...data.map((item) => item.value), 0.001);
@@ -105,19 +134,18 @@ export function ShrinkByProcessBarChart({
             }),
         );
 
-        const AMBER_LIGHT = { r: 253, g: 230, b: 138 };
-        const AMBER_DARK = { r: 146, g: 64, b: 14 };
+        const colors = PALETTES[palette];
 
         const colorForValue = (value: number): number => {
             const t = value / maxValue;
             const r = Math.round(
-                AMBER_LIGHT.r + (AMBER_DARK.r - AMBER_LIGHT.r) * t,
+                colors.light.r + (colors.dark.r - colors.light.r) * t,
             );
             const g = Math.round(
-                AMBER_LIGHT.g + (AMBER_DARK.g - AMBER_LIGHT.g) * t,
+                colors.light.g + (colors.dark.g - colors.light.g) * t,
             );
             const b = Math.round(
-                AMBER_LIGHT.b + (AMBER_DARK.b - AMBER_LIGHT.b) * t,
+                colors.light.b + (colors.dark.b - colors.light.b) * t,
             );
 
             return (r << 16) | (g << 8) | b;
@@ -131,11 +159,13 @@ export function ShrinkByProcessBarChart({
                 valueXField: 'value',
                 categoryYField: 'label',
                 sequencedInterpolation: true,
-                fill: am5.color(0xd97706),
-                stroke: am5.color(0xd97706),
+                fill: am5.color(colors.base),
+                stroke: am5.color(colors.base),
                 tooltip: am5.Tooltip.new(root, {
                     pointerOrientation: 'left',
-                    labelText: '{categoryY}: {display} g · {records} record',
+                    labelText: showRecordCount
+                        ? `{categoryY}: {display}${valueSuffix}{extra} · {records} ${recordLabel}`
+                        : `{categoryY}: {display}${valueSuffix}{extra}`,
                 }),
             }),
         );
@@ -149,16 +179,14 @@ export function ShrinkByProcessBarChart({
 
         series.columns.template.adapters.add('fill', (_fill, target) => {
             const context = target.dataItem?.dataContext as
-                | { value: number }
-                | undefined;
+                { value: number } | undefined;
 
             return am5.color(colorForValue(Number(context?.value ?? 0)));
         });
 
         series.columns.template.adapters.add('stroke', (_stroke, target) => {
             const context = target.dataItem?.dataContext as
-                | { value: number }
-                | undefined;
+                { value: number } | undefined;
 
             return am5.color(colorForValue(Number(context?.value ?? 0)));
         });
@@ -167,18 +195,19 @@ export function ShrinkByProcessBarChart({
             const context = dataItem.dataContext as {
                 value: number;
                 display: string;
+                labelExtra: string;
             };
             const value = Number(context?.value ?? 0);
             const inside = maxValue > 0 && value / maxValue >= 0.82;
 
             const label = am5.Label.new(bulletRoot, {
-                text: `${context.display} g`,
+                text: `${context.display}${valueSuffix}${context.labelExtra}`,
                 centerY: am5.p50,
                 centerX: inside ? am5.p100 : am5.p0,
                 dx: inside ? -6 : 4,
                 fontSize: 10,
                 fontWeight: '700',
-                fill: am5.color(inside ? 0xffffff : 0x78350f),
+                fill: am5.color(inside ? 0xffffff : colors.label),
             });
 
             return am5.Bullet.new(bulletRoot, {
@@ -195,10 +224,10 @@ export function ShrinkByProcessBarChart({
         return () => {
             root.dispose();
         };
-    }, [items]);
+    }, [items, recordLabel, valueSuffix, palette, showRecordCount]);
 
     if (items.length === 0) {
-        return <p className="dashEmpty">Belum ada data susut per proses.</p>;
+        return <p className="dashEmpty">{emptyMessage}</p>;
     }
 
     return <div ref={chartRef} className="dashProcessBarChart" />;

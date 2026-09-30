@@ -23,6 +23,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * @phpstan-type FinishingReportRow array{
+ *     id: int,
  *     docNo: string|null,
  *     sendCraftsmanDate: DateTimeInterface|null,
  *     receivedCraftsmanDate: DateTimeInterface|null,
@@ -30,6 +31,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  *     spkNo: string|null,
  *     item: string|null,
  *     itemCategory: string|null,
+ *     skuCategory: string|null,
  *     startWeight: float|null,
  *     submitMaterial: float|null,
  *     finishWeight: float|null,
@@ -39,6 +41,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  *     qcStatus: string|null,
  *     qcNotes: string|null,
  *     workDuration: string|null,
+ *     workMinutes: int|null,
  *     notes: string|null
  * }
  *

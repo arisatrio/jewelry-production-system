@@ -185,6 +185,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('finishing/select/spks', [FinishingController::class, 'searchSpks'])
         ->name('finishing.select.spks');
     Route::get('finishing/export', [FinishingController::class, 'export'])->name('finishing.export');
+    Route::get('finishing/report', [FinishingController::class, 'report'])->name('finishing.report');
     Route::get('finishing/create', [FinishingController::class, 'create'])->name('finishing.create');
     Route::post('finishing', [FinishingController::class, 'store'])->name('finishing.store');
     Route::get('finishing/{finishing}/edit', [FinishingController::class, 'edit'])

@@ -6157,3 +6157,222 @@
         margin: 10mm;
     }
 }
+
+.dashHeaderActions.finishingReportFilters {
+    flex-shrink: 1;
+    gap: 0.5rem;
+}
+
+.finishingReportFilters > * {
+    flex-shrink: 0;
+}
+
+.finishingReportCraftsmanSelect {
+    width: 15rem;
+}
+
+.dashStatusTable td.finishingReportWrapCell {
+    min-width: 14rem;
+    max-width: 22rem;
+    white-space: pre-line;
+}
+
+.dashMaterialYieldRow.finishingReportChartRow {
+    min-height: 30rem;
+}
+
+.finishingReportChartRow .dashProcessBarChart {
+    min-height: 26rem;
+}
+
+.dashPieRow.finishingReportChartRow.is-chart-table {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.dashPieRow.finishingReportChartRow.is-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finishingReportWorkTable {
+    flex: 1 1 auto;
+}
+
+.finishingReportWorkTable td {
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .dashPieRow.finishingReportChartRow.is-chart-table,
+    .dashPieRow.finishingReportChartRow.is-three {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.finishingReportTableRow {
+    flex: 0 0 auto;
+}
+
+.dashPanelHeader.finishingReportPanelHeaderRow {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.finishingTopSpkCard {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.finishingTopSpkCard .dashPanelHeader {
+    margin-bottom: 0;
+}
+
+.finishingTopSpkSummary {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1fr) minmax(0, 2fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.finishingTopSpkIdentity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid #fecaca;
+    border-radius: 0.55rem;
+    background: #fef2f2;
+}
+
+.finishingTopSpkNo {
+    align-self: flex-start;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #991b1b;
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+}
+
+.finishingTopSpkNo:hover {
+    text-decoration: underline;
+}
+
+.finishingTopSpkItem {
+    font-size: 0.8rem;
+    color: #374151;
+    white-space: pre-line;
+}
+
+.finishingTopSpkTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.finishingTopSpkTag {
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: #b91c1c;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.finishingTopSpkTag.is-muted {
+    background: #fff;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+}
+
+.dashMaterialStatGrid.finishingTopSpkStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 0;
+}
+
+.finishingTopSpkStats .dashMaterialStat.is-shrink {
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.finishingTopSpkStats .dashMaterialStat.is-shrink .dashMaterialStatValue {
+    color: #b91c1c;
+}
+
+@media (max-width: 1100px) {
+    .finishingTopSpkSummary {
+        grid-template-columns: 1fr;
+    }
+
+    .dashMaterialStatGrid.finishingTopSpkStats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.finishingShrinkSharePieChart {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 26rem;
+}
+.dashKpiCard.is-today.finishingReportKpiCard {
+    border-color: #e5e7eb;
+    background: #fff;
+    padding-inline-end: 3rem;
+}
+
+.dashKpiCard.is-today .finishingReportKpiSubvalue {
+    font-size: 0.85rem;
+}
+
+.dashKpiCard.is-today .finishingReportKpiSubvalue.is-orange {
+    color: #c2410c;
+}
+
+.dashKpiCard.is-today .finishingReportKpiSubvalue.is-red {
+    color: #b91c1c;
+}
+
+.finishingReportKpiIcon {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+}
+
+.finishingReportKpiIcon ui5-icon {
+    width: 1rem;
+    height: 1rem;
+    color: inherit;
+}
+
+.finishingReportKpiIcon.is-blue {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.finishingReportKpiIcon.is-amber {
+    background: #fffbeb;
+    color: #b45309;
+}
+
+.finishingReportKpiIcon.is-green {
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.finishingReportKpiIcon.is-orange {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.finishingReportKpiIcon.is-red {
+    background: #fef2f2;
+    color: #b91c1c;
+}
