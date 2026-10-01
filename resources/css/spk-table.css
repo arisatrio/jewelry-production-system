@@ -6266,6 +6266,102 @@
     white-space: pre-line;
 }
 
+.finishingReportTrendPanel {
+    flex: 0 0 auto;
+    height: 22.5rem;
+    min-height: 22.5rem;
+}
+
+.finishingReportTrendHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+
+.finishingReportTrendHeader .dashPanelHeaderText {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.finishingReportTrendStats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(12rem, 1fr));
+    min-width: 0;
+    gap: 0.45rem;
+    flex: 1 1 46rem;
+    margin-left: auto;
+}
+
+.finishingReportTrendStat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+    min-width: 0;
+    padding: 0.4rem 0.6rem 0.45rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.55rem;
+    background: #f9fafb;
+}
+
+.finishingReportTrendStat.is-high {
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.finishingReportTrendStat.is-low {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.finishingReportTrendStat.is-avg {
+    border-color: #fed7aa;
+    background: #fff7ed;
+}
+
+.finishingReportTrendStatLabel {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #6b7280;
+}
+
+.finishingReportTrendStatValue {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #111827;
+    font-variant-numeric: tabular-nums;
+}
+
+.finishingReportTrendStat.is-high .finishingReportTrendStatValue {
+    color: #b91c1c;
+}
+
+.finishingReportTrendStat.is-low .finishingReportTrendStatValue {
+    color: #166534;
+}
+
+.finishingReportTrendStat.is-avg .finishingReportTrendStatValue {
+    color: #9a3412;
+}
+
+.finishingReportTrendStatHint {
+    font-size: 0.72rem;
+    line-height: 1.3;
+    color: #6b7280;
+    white-space: normal;
+}
+
+.finishingReportTrendChart {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+}
+
 .dashMaterialYieldRow.finishingReportChartRow {
     min-height: 30rem;
 }
@@ -6294,6 +6390,20 @@
     .dashPieRow.finishingReportChartRow.is-chart-table,
     .dashPieRow.finishingReportChartRow.is-three {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .finishingReportTrendHeader {
+        flex-direction: column;
+    }
+
+    .finishingReportTrendStats {
+        width: 100%;
+        flex-basis: auto;
+    }
+
+    .finishingReportTrendPanel {
+        height: auto;
+        min-height: 22rem;
     }
 }
 

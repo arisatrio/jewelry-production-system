@@ -17,6 +17,17 @@ test('finishing report page defaults to the current month', function () {
             ->where('filters.date_to', '2026-09-30')
             ->has('craftsmanOptions')
             ->has('summary')
+            ->where('monthlyShrink.year', 2026)
+            ->has('monthlyShrink.months', 12)
+            ->where('monthlyShrink.months.0.month', 1)
+            ->where('monthlyShrink.months.8.month', 9)
+            ->where('monthlyShrink.months.8.includeInTrend', true)
+            ->where('monthlyShrink.months.9.month', 10)
+            ->where('monthlyShrink.months.9.shrink', '0.00')
+            ->where('monthlyShrink.months.9.shrinkPercent', null)
+            ->where('monthlyShrink.months.9.includeInTrend', false)
+            ->where('monthlyShrink.months.11.month', 12)
+            ->where('monthlyShrink.months.11.includeInTrend', false)
             ->has('byCraftsman')
             ->has('bySkuCategory')
             ->has('rows')
@@ -144,5 +155,142 @@ test('finishing report page summarizes approved documents per craftsman', functi
     } finally {
         $documents->each->delete();
         $production->delete();
+    }
+});
+
+test('finishing report page charts year to date shrink by month', function () {
+    $this->travelTo(now()->setDate(2099, 3, 15)->setTime(9, 0));
+
+    if (FinishingHandmade::query()->whereYear('send_craftsman_date', 2099)->exists()) {
+        $this->markTestSkipped('Ada data finishing di tahun 2099.');
+    }
+
+    $craftsmen = DB::connection('third')
+        ->table('mscraftsman')
+        ->whereNotNull('name')
+        ->where('name', '!=', '')
+        ->orderBy('name')
+        ->limit(2)
+        ->get(['row_id', 'name'])
+        ->all();
+
+    if (count($craftsmen) < 2) {
+        $this->markTestSkipped('Butuh minimal dua pengrajin di mscraftsman.');
+    }
+
+    [$firstCraftsman, $secondCraftsman] = $craftsmen;
+
+    $documents = collect([
+        FinishingHandmade::factory()->done()->create([
+            'doc_no' => 'FINYTD0001',
+            'craftsman_id' => $firstCraftsman->row_id,
+            'send_craftsman_date' => '2099-01-08 08:00:00',
+            'start_weight' => '10.00',
+            'submit_materialgold' => '0.00',
+            'shrink' => '1.20',
+        ]),
+        FinishingHandmade::factory()->create([
+            'doc_no' => 'FINYTD0002',
+            'status' => FinishingHandmade::STATUS_TO_PPIC,
+            'craftsman_id' => $secondCraftsman->row_id,
+            'send_craftsman_date' => '2099-01-20 08:00:00',
+            'start_weight' => '5.00',
+            'submit_materialgold' => '0.00',
+            'shrink' => '0.30',
+        ]),
+        FinishingHandmade::factory()->done()->create([
+            'doc_no' => 'FINYTD0003',
+            'craftsman_id' => $firstCraftsman->row_id,
+            'send_craftsman_date' => '2099-02-02 08:00:00',
+            'start_weight' => '5.00',
+            'submit_materialgold' => '0.00',
+            'shrink' => '-0.25',
+        ]),
+        FinishingHandmade::factory()->done()->create([
+            'doc_no' => 'FINYTD0004',
+            'craftsman_id' => $firstCraftsman->row_id,
+            'send_craftsman_date' => '2099-03-15 08:00:00',
+            'start_weight' => '8.00',
+            'submit_materialgold' => '2.00',
+            'shrink' => '0.40',
+        ]),
+        FinishingHandmade::factory()->done()->create([
+            'doc_no' => 'FINYTD0005',
+            'craftsman_id' => $firstCraftsman->row_id,
+            'send_craftsman_date' => '2099-03-20 08:00:00',
+            'shrink' => '9.00',
+        ]),
+        FinishingHandmade::factory()->done()->create([
+            'doc_no' => 'FINYTD0006',
+            'craftsman_id' => $firstCraftsman->row_id,
+            'send_craftsman_date' => '2098-12-31 08:00:00',
+            'shrink' => '5.00',
+        ]),
+        FinishingHandmade::factory()->create([
+            'doc_no' => 'FINYTD0007',
+            'status' => FinishingHandmade::STATUS_OPEN,
+            'craftsman_id' => $firstCraftsman->row_id,
+            'send_craftsman_date' => '2099-01-09 08:00:00',
+            'shrink' => '8.00',
+        ]),
+        FinishingHandmade::factory()->done()->deleted()->create([
+            'doc_no' => 'FINYTD0008',
+            'craftsman_id' => $firstCraftsman->row_id,
+            'send_craftsman_date' => '2099-02-11 08:00:00',
+            'shrink' => '7.00',
+        ]),
+    ]);
+
+    try {
+        $this->get(route('finishing.report', [
+            'date_from' => '1999-01-01',
+            'date_to' => '1999-01-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.date_from', '1999-01-01')
+                ->where('monthlyShrink.year', 2099)
+                ->has('monthlyShrink.months', 12)
+                ->where('monthlyShrink.months.0.month', 1)
+                ->where('monthlyShrink.months.0.shrink', '1.50')
+                ->where('monthlyShrink.months.0.shrinkPercent', '10.00%')
+                ->where('monthlyShrink.months.0.processCount', 2)
+                ->where('monthlyShrink.months.0.includeInTrend', true)
+                ->where('monthlyShrink.months.1.month', 2)
+                ->where('monthlyShrink.months.1.shrink', '-0.25')
+                ->where('monthlyShrink.months.1.shrinkPercent', '+5.00%')
+                ->where('monthlyShrink.months.1.processCount', 1)
+                ->where('monthlyShrink.months.2.month', 3)
+                ->where('monthlyShrink.months.2.shrink', '0.40')
+                ->where('monthlyShrink.months.2.shrinkPercent', '4.00%')
+                ->where('monthlyShrink.months.2.processCount', 1)
+                ->where('monthlyShrink.months.2.includeInTrend', true)
+                ->where('monthlyShrink.months.3.month', 4)
+                ->where('monthlyShrink.months.3.shrink', '0.00')
+                ->where('monthlyShrink.months.3.shrinkPercent', null)
+                ->where('monthlyShrink.months.3.processCount', 0)
+                ->where('monthlyShrink.months.3.includeInTrend', false)
+                ->where('monthlyShrink.months.11.month', 12)
+            );
+
+        $this->get(route('finishing.report', [
+            'craftsman' => $firstCraftsman->row_id,
+            'date_from' => '1999-01-01',
+            'date_to' => '1999-01-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('monthlyShrink.months.0.shrink', '1.20')
+                ->where('monthlyShrink.months.0.shrinkPercent', '12.00%')
+                ->where('monthlyShrink.months.0.processCount', 1)
+                ->where('monthlyShrink.months.1.shrink', '-0.25')
+                ->where('monthlyShrink.months.1.shrinkPercent', '+5.00%')
+                ->where('monthlyShrink.months.2.shrink', '0.40')
+                ->where('monthlyShrink.months.2.shrinkPercent', '4.00%')
+                ->where('monthlyShrink.months.11.shrink', '0.00')
+                ->where('monthlyShrink.months.11.includeInTrend', false)
+            );
+    } finally {
+        $documents->each->delete();
     }
 });

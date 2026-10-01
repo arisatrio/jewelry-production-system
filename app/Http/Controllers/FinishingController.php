@@ -248,6 +248,7 @@ class FinishingController extends Controller
             ],
             'craftsmanOptions' => $this->craftsmanOptions(),
             'summary' => $this->reportSummary($rows),
+            'monthlyShrink' => $this->reportMonthlyShrink($craftsmanId),
             'byCraftsman' => $this->reportByCraftsman($rows),
             'bySkuCategory' => $this->reportBySkuCategory($rows),
             'rows' => array_map(fn (array $row): array => $this->toReportPageRow($row), $rows),
@@ -291,10 +292,7 @@ class FinishingController extends Controller
                     ->with($this->productionSpkInfoRelations())
                     ->select($this->productionSpkInfoColumns()),
             ])
-            ->whereIn('status', [
-                ...$this->statusFilterCodes()['ppic'],
-                ...$this->statusFilterCodes()[self::COMPLETED_STATUS_FILTER],
-            ])
+            ->whereIn('status', $this->approvedReportStatuses())
             ->whereDate('send_craftsman_date', '>=', $dateFrom)
             ->whereDate('send_craftsman_date', '<=', $dateTo)
             ->when($craftsmanId !== null, fn ($query) => $query->where('craftsman_id', $craftsmanId))
@@ -312,6 +310,63 @@ class FinishingController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Total susut proses finishing yang sudah di-approve, Januari–Desember tahun berjalan.
+     * Bulan yang belum berjalan bernilai nol. Tidak mengikuti filter tanggal laporan.
+     *
+     * @return array{year: int, months: list<array{month: int, shrink: string, shrinkPercent: string|null, processCount: int, includeInTrend: bool}>}
+     */
+    private function reportMonthlyShrink(?int $craftsmanId): array
+    {
+        $today = now();
+        $year = (int) $today->year;
+
+        $totals = FinishingHandmade::query()
+            ->notDeleted()
+            ->whereIn('status', $this->approvedReportStatuses())
+            ->when($craftsmanId !== null, fn ($query) => $query->where('craftsman_id', $craftsmanId))
+            ->whereYear('send_craftsman_date', $year)
+            ->whereDate('send_craftsman_date', '<=', $today->toDateString())
+            ->toBase()
+            ->selectRaw('MONTH(send_craftsman_date) as month, COALESCE(SUM(shrink), 0) as shrink, COALESCE(SUM(start_weight), 0) + COALESCE(SUM(submit_materialgold), 0) as gold_in, COUNT(*) as process_count')
+            ->groupByRaw('MONTH(send_craftsman_date)')
+            ->get();
+
+        $shrinkByMonth = [];
+        $goldInByMonth = [];
+        $processCountByMonth = [];
+
+        foreach ($totals as $total) {
+            $shrinkByMonth[(int) $total->month] = (float) $total->shrink;
+            $goldInByMonth[(int) $total->month] = (float) $total->gold_in;
+            $processCountByMonth[(int) $total->month] = (int) $total->process_count;
+        }
+
+        $months = [];
+        $currentMonth = (int) $today->month;
+
+        for ($month = 1; $month <= 12; $month++) {
+            $shrink = $shrinkByMonth[$month] ?? 0;
+            $goldIn = $goldInByMonth[$month] ?? 0;
+            $includeInTrend = $month <= $currentMonth;
+
+            $months[] = [
+                'month' => $month,
+                'shrink' => number_format($includeInTrend ? $shrink : 0, 2, '.', ''),
+                'shrinkPercent' => $includeInTrend && abs($goldIn) >= 0.0005
+                    ? $this->formatGainAwarePercent($shrink / $goldIn * 100)
+                    : null,
+                'processCount' => $includeInTrend ? ($processCountByMonth[$month] ?? 0) : 0,
+                'includeInTrend' => $includeInTrend,
+            ];
+        }
+
+        return [
+            'year' => $year,
+            'months' => $months,
+        ];
     }
 
     /**
@@ -1583,6 +1638,19 @@ class FinishingController extends Controller
             array_keys($this->statusFilterCodes()),
             [self::COMPLETED_STATUS_FILTER],
         ));
+    }
+
+    /**
+     * Status yang masuk laporan: sudah diserahkan ke PPIC atau completed.
+     *
+     * @return list<string>
+     */
+    private function approvedReportStatuses(): array
+    {
+        return [
+            ...$this->statusFilterCodes()['ppic'],
+            ...$this->statusFilterCodes()[self::COMPLETED_STATUS_FILTER],
+        ];
     }
 
     /**

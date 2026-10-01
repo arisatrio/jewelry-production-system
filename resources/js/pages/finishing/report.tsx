@@ -15,6 +15,12 @@ import { useMemo, useState } from 'react';
 import { ShrinkByProcessBarChart } from '@/components/dashboard/shrink-by-process-bar-chart';
 import { CraftsmanShrinkProcessChart } from '@/components/finishing/craftsman-shrink-process-chart';
 import type { CraftsmanShrinkProcessItem } from '@/components/finishing/craftsman-shrink-process-chart';
+import {
+    MonthlyShrinkTrendChart,
+    monthlyShrinkMonthLabel,
+    monthlyShrinkPeriodLabel,
+} from '@/components/finishing/monthly-shrink-trend-chart';
+import type { MonthlyShrinkPoint } from '@/components/finishing/monthly-shrink-trend-chart';
 import { ShrinkSharePieChart } from '@/components/finishing/shrink-share-pie-chart';
 import type { ShrinkSharePieItem } from '@/components/finishing/shrink-share-pie-chart';
 import {
@@ -77,6 +83,10 @@ type FinishingReportProps = {
     filters: ReportFilters;
     craftsmanOptions: { value: string; label: string }[];
     summary: ReportAggregate & { craftsmanCount: number };
+    monthlyShrink: {
+        year: number;
+        months: MonthlyShrinkPoint[];
+    };
     byCraftsman: (ReportAggregate & { craftsmanName: string })[];
     bySkuCategory: (ReportAggregate & { skuCategory: string })[];
     rows: ReportRow[];
@@ -123,6 +133,19 @@ function formatDateDisplay(value: string | null): string {
     const dateLabel = `${day}-${monthLabel}-${year}`;
 
     return timePart ? `${dateLabel} ${timePart.slice(0, 5)}` : dateLabel;
+}
+
+function formatSignedGram(value: number): string {
+    const formatted = Math.abs(value).toLocaleString('id-ID', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+
+    if (value < -0.0005) {
+        return `+${formatted} g`;
+    }
+
+    return `${formatted} g`;
 }
 
 function formatGram(value: number | string | null): string {
@@ -460,6 +483,7 @@ export default function FinishingReport({
     filters,
     craftsmanOptions,
     summary,
+    monthlyShrink,
     byCraftsman,
     bySkuCategory,
     rows,
@@ -497,6 +521,81 @@ export default function FinishingReport({
     };
 
     const periodLabel = `${formatDateDisplay(filters.date_from)} s/d ${formatDateDisplay(filters.date_to)}`;
+    const trendCraftsmanLabel =
+        filters.craftsman === ''
+            ? 'Semua pengrajin'
+            : (craftsmanOptions.find(
+                  (option) => option.value === filters.craftsman,
+              )?.label ?? 'Pengrajin');
+    const trendPeriodLabel = monthlyShrinkPeriodLabel(
+        monthlyShrink.year,
+        monthlyShrink.months,
+    );
+    const trendHighlights = useMemo(() => {
+        const elapsed = monthlyShrink.months
+            .filter((month) => month.includeInTrend)
+            .map((month) => ({
+                ...month,
+                shrinkValue: Number(month.shrink),
+            }))
+            .filter((month) => Math.abs(month.shrinkValue) >= 0.0005);
+
+        if (elapsed.length === 0) {
+            return null;
+        }
+
+        const highest = elapsed.reduce((best, month) =>
+            month.shrinkValue >= best.shrinkValue ? month : best,
+        );
+        const lowest = elapsed.reduce((best, month) =>
+            month.shrinkValue <= best.shrinkValue ? month : best,
+        );
+        const average =
+            elapsed.reduce((sum, month) => sum + month.shrinkValue, 0) /
+            elapsed.length;
+        const firstLabel = monthlyShrinkMonthLabel(elapsed[0].month);
+        const lastLabel = monthlyShrinkMonthLabel(
+            elapsed[elapsed.length - 1].month,
+        );
+
+        const averageProcessCount =
+            elapsed.reduce((sum, month) => sum + month.processCount, 0) /
+            elapsed.length;
+        const averageProcessLabel = `${averageProcessCount.toLocaleString('id-ID', { maximumFractionDigits: 1 })} proses`;
+
+        const detail = (month: (typeof elapsed)[number]): string => {
+            const grams = formatSignedGram(month.shrinkValue);
+            const processes = `${month.processCount.toLocaleString('id-ID')} proses`;
+
+            return month.shrinkPercent
+                ? `${grams} · ${month.shrinkPercent} · ${processes}`
+                : `${grams} · ${processes}`;
+        };
+
+        return [
+            {
+                label: 'Bulan tertinggi',
+                value: monthlyShrinkMonthLabel(highest.month),
+                hint: detail(highest),
+                tone: 'high',
+            },
+            {
+                label: 'Bulan terendah',
+                value: monthlyShrinkMonthLabel(lowest.month),
+                hint: detail(lowest),
+                tone: 'low',
+            },
+            {
+                label: 'Rata-rata / bulan',
+                value: formatSignedGram(average),
+                hint:
+                    firstLabel === lastLabel
+                        ? `${firstLabel} · ${averageProcessLabel}`
+                        : `${firstLabel}–${lastLabel} · ${averageProcessLabel}`,
+                tone: 'avg',
+            },
+        ] as const;
+    }, [monthlyShrink.months]);
 
     const craftsmanShrinkProcessItems = useMemo<CraftsmanShrinkProcessItem[]>(
         () =>
@@ -794,6 +893,41 @@ export default function FinishingReport({
                         </article>
                     ))}
                 </section>
+
+                <article className="dashPanel dashProcessBarPanel finishingReportTrendPanel">
+                    <header className="dashPanelHeader finishingReportTrendHeader">
+                        <div className="dashPanelHeaderText">
+                            <h2 className="dashPanelTitle">Tren Total Susut</h2>
+                            <p className="dashPanelMeta">
+                                {trendCraftsmanLabel} · {trendPeriodLabel}
+                            </p>
+                        </div>
+                        {trendHighlights ? (
+                            <div
+                                className="finishingReportTrendStats"
+                                aria-label="Ringkasan tren susut bulanan"
+                            >
+                                {trendHighlights.map((stat) => (
+                                    <article
+                                        key={stat.label}
+                                        className={`finishingReportTrendStat is-${stat.tone}`}
+                                    >
+                                        <span className="finishingReportTrendStatLabel">
+                                            {stat.label}
+                                        </span>
+                                        <strong className="finishingReportTrendStatValue">
+                                            {stat.value}
+                                        </strong>
+                                        <span className="finishingReportTrendStatHint">
+                                            {stat.hint}
+                                        </span>
+                                    </article>
+                                ))}
+                            </div>
+                        ) : null}
+                    </header>
+                    <MonthlyShrinkTrendChart months={monthlyShrink.months} />
+                </article>
 
                 <div
                     className="dashPieRow dashMaterialYieldRow finishingReportChartRow is-chart-table"
