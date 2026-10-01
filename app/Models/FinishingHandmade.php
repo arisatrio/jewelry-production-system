@@ -26,6 +26,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $send_craftsman_date
  * @property Carbon|null $received_craftsman_date
  * @property string|null $item_category
+ * @property string|null $work_category
+ * @property string|null $work_type
  * @property string|null $notes
  * @property string|null $status
  * @property int $is_from_new_system
@@ -53,6 +55,8 @@ use Illuminate\Support\Carbon;
     'send_craftsman_date',
     'received_craftsman_date',
     'item_category',
+    'work_category',
+    'work_type',
     'notes',
     'status',
     'is_from_new_system',
@@ -106,6 +110,67 @@ class FinishingHandmade extends Model
             'Barang Besar - lvl 2',
             'Barang Besar - lvl 3',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function workCategoryOptions(): array
+    {
+        return array_keys(self::workTypesByCategory());
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public static function workTypesByCategory(): array
+    {
+        return [
+            'Pasang / Setting' => [
+                'Pasang / Ganti Chain',
+                'Setting Stopper',
+                'Setting Engsel',
+                'Pasang Batu',
+            ],
+            'Finishing' => [
+                'Finishing 1',
+                'Finishing 2',
+                'Finishing 3',
+                'Finishing Komponen',
+                'Finishing Rangka',
+                'Poles / Doff / Permukaan',
+            ],
+            'Repair' => [
+                'Repair Bolong',
+                'Repair Patah / Putus / Longgar',
+                'Repair Bentuk / Konstruksi',
+                'Repair Kuncian',
+                'Repair / Ganti Kuku',
+                'Repair Umum',
+                'Repair Komponen',
+                'Repair Berat / Ketebalan',
+                'General Check Up',
+            ],
+            'Ukuran' => [
+                'Resize Ukuran (HK)',
+                'Ubah Panjang / Extension',
+                'Potong / Tambah Butir',
+            ],
+            'Lainnya' => [
+                'Lainnya',
+            ],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function workTypeOptions(): array
+    {
+        return collect(self::workTypesByCategory())
+            ->flatten()
+            ->values()
+            ->all();
     }
 
     public function canEditForm(): bool

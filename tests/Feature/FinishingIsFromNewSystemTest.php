@@ -22,16 +22,12 @@ test('finishing store sets is_from_new_system to one', function () {
         'spk_no' => '2026/PRD/FINNEW'.Str::upper(Str::random(3)),
     ]);
 
-    $response = $this->post(route('finishing.store'), [
+    $response = $this->post(route('finishing.store'), validFinishingSerahPayload([
         'spk_id' => $production->row_id,
-        'process_name' => 'Finishing',
-        'craftsman_id' => null,
-        'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '3.16',
         'finish_weight' => '2.45',
         'notes' => 'Catatan finishing new system',
-        'materials' => [],
-    ]);
+    ]));
 
     $document = FinishingHandmade::query()
         ->notDeleted()

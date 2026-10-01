@@ -39,6 +39,8 @@ type FinishingDetailItem = {
     sendCraftsmanDate: string | null;
     receivedCraftsmanDate: string | null;
     itemCategory: string | null;
+    workCategory: string | null;
+    workType: string | null;
     notes: string | null;
     startWeight: string | null;
     finishWeight: string | null;
@@ -471,11 +473,31 @@ export function FinishingDetail({
                                                 </tr>
                                                 <tr>
                                                     <th scope="row">
-                                                        Kategori Item
+                                                        Kategori Barang
                                                     </th>
                                                     <td>
                                                         {displayValue(
                                                             finishingItem.itemCategory,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Kategori Pekerjaan
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.workCategory,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Jenis Pekerjaan
+                                                    </th>
+                                                    <td>
+                                                        {displayValue(
+                                                            finishingItem.workType,
                                                         )}
                                                     </td>
                                                 </tr>

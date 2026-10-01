@@ -14,7 +14,7 @@ import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { TextArea } from '@ui5/webcomponents-react/TextArea';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { FinishingMaterialEditor } from '@/components/finishing/finishing-material-editor';
 import type {
@@ -49,6 +49,8 @@ type FinishingFormValues = {
     send_craftsman_date: string;
     received_craftsman_date: string;
     item_category: string;
+    work_category: string;
+    work_type: string;
     notes: string;
     start_weight: string;
     finish_weight: string;
@@ -72,6 +74,8 @@ type FinishingFormProps = {
     method?: 'post' | 'put';
     processOptions: OptionItem[];
     itemCategoryOptions: OptionItem[];
+    workCategoryOptions: OptionItem[];
+    workTypeOptionsByCategory: Record<string, string[]>;
     craftsmanOptions: OptionItem[];
     materialOptions: FinishingMaterialOption[];
     qcNoteOptions: string[];
@@ -82,7 +86,7 @@ function fieldState(error?: string): 'None' | 'Negative' {
     return error ? 'Negative' : 'None';
 }
 
-function findQcNoteOption(options: string[], value: string): string | null {
+function findMatchingOption(options: string[], value: string): string | null {
     const normalized = value.trim().toLowerCase();
 
     if (normalized === '') {
@@ -139,6 +143,8 @@ export function FinishingForm({
     method = 'post',
     processOptions,
     itemCategoryOptions,
+    workCategoryOptions,
+    workTypeOptionsByCategory,
     craftsmanOptions,
     materialOptions,
     qcNoteOptions,
@@ -148,6 +154,13 @@ export function FinishingForm({
         useForm<FinishingFormValues>(initialValues);
     const [spkDialogOpen, setSpkDialogOpen] = useState(false);
     const hasSelectedSpk = data.spk !== null && data.spk.spk_id.trim() !== '';
+    const workTypeOptions = useMemo(
+        () =>
+            data.work_category.trim() !== ''
+                ? (workTypeOptionsByCategory[data.work_category] ?? [])
+                : [],
+        [data.work_category, workTypeOptionsByCategory],
+    );
 
     const handleSelectedSpk = (selected: FinishingSelectedSpk) => {
         const { lastWeight, ...spk } = selected;
@@ -184,13 +197,28 @@ export function FinishingForm({
                 formData.item_category.trim() !== ''
                     ? formData.item_category
                     : null,
+            work_category:
+                formData.work_category.trim() !== ''
+                    ? formData.work_category
+                    : null,
+            work_type:
+                formData.work_type.trim() !== ''
+                    ? (findMatchingOption(
+                          formData.work_category.trim() !== ''
+                              ? (workTypeOptionsByCategory[
+                                    formData.work_category
+                                ] ?? [])
+                              : [],
+                          formData.work_type,
+                      ) ?? formData.work_type.trim())
+                    : null,
             notes: formData.notes.trim() !== '' ? formData.notes.trim() : null,
             start_weight: normalizeWeightForSubmit(formData.start_weight),
             finish_weight: normalizeWeightForSubmit(formData.finish_weight),
             koreksi_qc: formData.koreksi_qc !== '' ? formData.koreksi_qc : null,
             keterangan_qc:
                 formData.keterangan_qc.trim() !== ''
-                    ? (findQcNoteOption(
+                    ? (findMatchingOption(
                           qcNoteOptions,
                           formData.keterangan_qc,
                       ) ?? formData.keterangan_qc.trim())
@@ -412,7 +440,7 @@ export function FinishingForm({
 
                                     <FormItem
                                         labelContent={
-                                            <Label showColon>
+                                            <Label showColon required>
                                                 Berat awal (g)
                                             </Label>
                                         }
@@ -421,6 +449,7 @@ export function FinishingForm({
                                             <Input
                                                 type="Number"
                                                 accessibleName="Berat awal"
+                                                required
                                                 value={data.start_weight}
                                                 valueState={fieldState(
                                                     errors.start_weight,
@@ -443,12 +472,15 @@ export function FinishingForm({
 
                                     <FormItem
                                         labelContent={
-                                            <Label showColon>Pengrajin</Label>
+                                            <Label showColon required>
+                                                Pengrajin
+                                            </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
                                             <Select
                                                 accessibleName="Pengrajin finishing"
+                                                required
                                                 valueState={fieldState(
                                                     errors.craftsman_id,
                                                 )}
@@ -494,13 +526,14 @@ export function FinishingForm({
 
                                     <FormItem
                                         labelContent={
-                                            <Label showColon>
+                                            <Label showColon required>
                                                 Tanggal serah pengrajin
                                             </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
                                             <DateTimePicker
+                                                required
                                                 value={data.send_craftsman_date}
                                                 valueFormat="yyyy-MM-dd HH:mm"
                                                 displayFormat="dd/MM/yyyy HH:mm"
@@ -570,12 +603,15 @@ export function FinishingForm({
 
                                     <FormItem
                                         labelContent={
-                                            <Label showColon>Kategori</Label>
+                                            <Label showColon required>
+                                                Kategori Barang
+                                            </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
                                             <Select
-                                                accessibleName="Kategori item finishing"
+                                                accessibleName="Kategori barang finishing"
+                                                required
                                                 valueState={fieldState(
                                                     errors.item_category,
                                                 )}
@@ -622,12 +658,144 @@ export function FinishingForm({
 
                                     <FormItem
                                         labelContent={
-                                            <Label showColon>Catatan</Label>
+                                            <Label showColon required>
+                                                Kategori Pekerjaan
+                                            </Label>
+                                        }
+                                    >
+                                        <div className="spkFioriFieldStack">
+                                            <Select
+                                                accessibleName="Kategori pekerjaan finishing"
+                                                required
+                                                valueState={fieldState(
+                                                    errors.work_category,
+                                                )}
+                                                onChange={(event) => {
+                                                    const value =
+                                                        event.detail
+                                                            .selectedOption
+                                                            .value ?? '';
+
+                                                    setData({
+                                                        ...data,
+                                                        work_category: value,
+                                                        work_type: '',
+                                                    });
+                                                }}
+                                            >
+                                                <Option
+                                                    value=""
+                                                    selected={
+                                                        data.work_category ===
+                                                        ''
+                                                    }
+                                                >
+                                                    —
+                                                </Option>
+                                                {workCategoryOptions.map(
+                                                    (option) => (
+                                                        <Option
+                                                            key={option.value}
+                                                            value={option.value}
+                                                            selected={
+                                                                data.work_category ===
+                                                                option.value
+                                                            }
+                                                        >
+                                                            {option.label}
+                                                        </Option>
+                                                    ),
+                                                )}
+                                            </Select>
+                                            {errors.work_category ? (
+                                                <Text className="spkFioriError">
+                                                    {errors.work_category}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon required>
+                                                Jenis Pekerjaan
+                                            </Label>
+                                        }
+                                    >
+                                        <div className="spkFioriFieldStack">
+                                            <ComboBox
+                                                accessibleName="Jenis pekerjaan finishing"
+                                                value={data.work_type}
+                                                required
+                                                disabled={
+                                                    data.work_category.trim() ===
+                                                    ''
+                                                }
+                                                placeholder="Pilih atau ketik jenis pekerjaan"
+                                                filter="Contains"
+                                                showClearIcon
+                                                valueState={fieldState(
+                                                    errors.work_type,
+                                                )}
+                                                onInput={(event) =>
+                                                    setData(
+                                                        'work_type',
+                                                        (
+                                                            event.target
+                                                                .value ?? ''
+                                                        ).slice(0, 100),
+                                                    )
+                                                }
+                                                onChange={(event) =>
+                                                    setData(
+                                                        'work_type',
+                                                        (
+                                                            event.target
+                                                                .value ?? ''
+                                                        ).slice(0, 100),
+                                                    )
+                                                }
+                                            >
+                                                {workTypeOptions.map(
+                                                    (option) => (
+                                                        <ComboBoxItem
+                                                            key={option}
+                                                            text={option}
+                                                        />
+                                                    ),
+                                                )}
+                                            </ComboBox>
+                                            {data.work_type.trim() !== '' &&
+                                            findMatchingOption(
+                                                workTypeOptions,
+                                                data.work_type,
+                                            ) === null ? (
+                                                <Text className="spkFioriHint">
+                                                    Jenis pekerjaan baru "
+                                                    {data.work_type.trim()}"
+                                                    akan disimpan saat
+                                                    dokumen disimpan.
+                                                </Text>
+                                            ) : null}
+                                            {errors.work_type ? (
+                                                <Text className="spkFioriError">
+                                                    {errors.work_type}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon required>
+                                                Catatan
+                                            </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
                                             <TextArea
                                                 accessibleName="Catatan finishing"
+                                                required
                                                 value={data.notes}
                                                 rows={3}
                                                 valueState={fieldState(
@@ -823,7 +991,7 @@ export function FinishingForm({
                                                 ))}
                                             </ComboBox>
                                             {data.keterangan_qc.trim() !== '' &&
-                                            findQcNoteOption(
+                                            findMatchingOption(
                                                 qcNoteOptions,
                                                 data.keterangan_qc,
                                             ) === null ? (

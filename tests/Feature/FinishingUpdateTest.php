@@ -110,34 +110,31 @@ test('finishing update saves qc status and keeps it when omitted', function () {
     ]);
 
     try {
-        $this->put(route('finishing.update', $document), [
+        $this->put(route('finishing.update', $document), validFinishingSerahPayload([
             'spk_id' => $production->row_id,
-            'process_name' => 'Finishing',
             'koreksi_qc' => '1',
             'keterangan_qc' => 'bolong',
-        ])->assertSessionHasNoErrors();
+        ]))->assertSessionHasNoErrors();
 
         $document->refresh();
 
         expect($document->koreksi_qc)->toBe(1)
             ->and($document->keterangan_qc)->toBe('bolong');
 
-        $this->put(route('finishing.update', $document), [
+        $this->put(route('finishing.update', $document), validFinishingSerahPayload([
             'spk_id' => $production->row_id,
-            'process_name' => 'Finishing',
-        ])->assertSessionHasNoErrors();
+        ]))->assertSessionHasNoErrors();
 
         $document->refresh();
 
         expect($document->koreksi_qc)->toBe(1)
             ->and($document->keterangan_qc)->toBe('bolong');
 
-        $this->put(route('finishing.update', $document), [
+        $this->put(route('finishing.update', $document), validFinishingSerahPayload([
             'spk_id' => $production->row_id,
-            'process_name' => 'Finishing',
             'koreksi_qc' => null,
             'keterangan_qc' => null,
-        ])->assertSessionHasNoErrors();
+        ]))->assertSessionHasNoErrors();
 
         $document->refresh();
 
@@ -163,12 +160,11 @@ test('finishing update keeps done status', function () {
     ]);
     $status = $document->status;
 
-    $this->put(route('finishing.update', $document), [
+    $this->put(route('finishing.update', $document), validFinishingSerahPayload([
         'spk_id' => $production->row_id,
-        'process_name' => 'Finishing',
         'start_weight' => '2.00',
         'finish_weight' => '1.90',
-    ])->assertRedirect(route('finishing.show', $document));
+    ]))->assertRedirect(route('finishing.show', $document));
 
     $document->refresh();
 
@@ -198,17 +194,14 @@ test('finishing update changes document fields', function () {
         'notes' => 'Sebelum update',
     ]);
 
-    $response = $this->put(route('finishing.update', $document), [
+    $response = $this->put(route('finishing.update', $document), validFinishingSerahPayload([
         'spk_id' => $productionB->row_id,
         'process_name' => 'Handmade',
-        'craftsman_id' => null,
-        'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '2.50',
         'finish_weight' => '2.00',
         'notes' => 'Sesudah update',
         'item_category' => 'Barang Kecil',
-        'materials' => [],
-    ]);
+    ]));
 
     $document->refresh();
 

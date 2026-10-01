@@ -72,6 +72,12 @@ class StoreFinishingRequest extends FormRequest
             'item_category' => filled($this->input('item_category'))
                 ? trim((string) $this->input('item_category'))
                 : null,
+            'work_category' => filled($this->input('work_category'))
+                ? trim((string) $this->input('work_category'))
+                : null,
+            'work_type' => filled($this->input('work_type'))
+                ? trim((string) $this->input('work_type'))
+                : null,
             'notes' => filled($this->input('notes'))
                 ? trim((string) $this->input('notes'))
                 : null,
@@ -130,16 +136,22 @@ class StoreFinishingRequest extends FormRequest
                 'string',
                 Rule::in(FinishingHandmade::processNameOptions()),
             ],
-            'craftsman_id' => ['nullable', 'integer'],
-            'send_craftsman_date' => ['nullable', 'date_format:Y-m-d H:i'],
+            'craftsman_id' => ['required', 'integer', 'min:1'],
+            'send_craftsman_date' => ['required', 'date_format:Y-m-d H:i'],
             'received_craftsman_date' => ['nullable', 'date_format:Y-m-d H:i'],
             'item_category' => [
-                'nullable',
+                'required',
                 'string',
                 Rule::in(FinishingHandmade::itemCategoryOptions()),
             ],
-            'notes' => ['nullable', 'string', 'max:1000'],
-            'start_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'work_category' => [
+                'required',
+                'string',
+                Rule::in(FinishingHandmade::workCategoryOptions()),
+            ],
+            'work_type' => ['required', 'string', 'max:100'],
+            'notes' => ['required', 'string', 'max:1000'],
+            'start_weight' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'finish_weight' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'shrink_tolerance' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'koreksi_qc' => ['nullable', Rule::in(['0', '1'])],
@@ -239,7 +251,18 @@ class StoreFinishingRequest extends FormRequest
             'spk_id.exists' => 'SPK yang dipilih tidak valid.',
             'process_name.required' => 'Proses wajib dipilih.',
             'process_name.in' => 'Proses tidak valid.',
-            'item_category.in' => 'Kategori tidak valid.',
+            'craftsman_id.required' => 'Pengrajin wajib dipilih.',
+            'craftsman_id.min' => 'Pengrajin wajib dipilih.',
+            'send_craftsman_date.required' => 'Tanggal serah pengrajin wajib diisi.',
+            'send_craftsman_date.date_format' => 'Format tanggal serah pengrajin tidak valid.',
+            'item_category.required' => 'Kategori barang wajib dipilih.',
+            'item_category.in' => 'Kategori barang tidak valid.',
+            'work_category.required' => 'Kategori pekerjaan wajib dipilih.',
+            'work_category.in' => 'Kategori pekerjaan tidak valid.',
+            'work_type.required' => 'Jenis pekerjaan wajib diisi.',
+            'work_type.max' => 'Jenis pekerjaan maksimal 100 karakter.',
+            'notes.required' => 'Catatan wajib diisi.',
+            'start_weight.required' => 'Berat awal wajib diisi.',
             'start_weight.numeric' => 'Berat awal harus berupa angka.',
             'finish_weight.numeric' => 'Berat akhir harus berupa angka.',
             'shrink_tolerance.numeric' => 'Toleransi susut harus berupa angka.',

@@ -577,6 +577,8 @@ class FinishingController extends Controller
             'formDocumentNo' => (string) config('spk.finishing_form_document_no'),
             'processOptions' => $this->processOptions(),
             'itemCategoryOptions' => $this->itemCategoryOptions(),
+            'workCategoryOptions' => $this->workCategoryOptions(),
+            'workTypeOptionsByCategory' => FinishingHandmade::workTypesByCategory(),
             'qcNoteOptions' => $this->qcNoteOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'materialOptions' => $materialSynchronizer->materialOptions(),
@@ -586,6 +588,8 @@ class FinishingController extends Controller
                 'processName' => 'Finishing',
                 'craftsmanId' => null,
                 'itemCategory' => null,
+                'workCategory' => null,
+                'workType' => null,
                 'notes' => '',
                 'startWeight' => '',
                 'finishWeight' => '',
@@ -719,6 +723,8 @@ class FinishingController extends Controller
                 'send_craftsman_date' => $validated['send_craftsman_date'] ?? null,
                 'received_craftsman_date' => $validated['received_craftsman_date'] ?? null,
                 'item_category' => $validated['item_category'] ?? null,
+                'work_category' => $validated['work_category'] ?? null,
+                'work_type' => $validated['work_type'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'status' => null,
                 'is_from_new_system' => 1,
@@ -821,6 +827,8 @@ class FinishingController extends Controller
             'formDocumentNo' => (string) config('spk.finishing_form_document_no'),
             'processOptions' => $this->processOptions(),
             'itemCategoryOptions' => $this->itemCategoryOptions(),
+            'workCategoryOptions' => $this->workCategoryOptions(),
+            'workTypeOptionsByCategory' => FinishingHandmade::workTypesByCategory(),
             'qcNoteOptions' => $this->qcNoteOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'materialOptions' => $materialSynchronizer->materialOptions(),
@@ -837,6 +845,12 @@ class FinishingController extends Controller
                     : null,
                 'itemCategory' => filled($finishing->item_category)
                     ? (string) $finishing->item_category
+                    : null,
+                'workCategory' => filled($finishing->work_category)
+                    ? (string) $finishing->work_category
+                    : null,
+                'workType' => filled($finishing->work_type)
+                    ? (string) $finishing->work_type
                     : null,
                 'notes' => filled($finishing->notes) ? (string) $finishing->notes : '',
                 'startWeight' => $this->formatDecimal($finishing->start_weight) ?? '',
@@ -1094,6 +1108,8 @@ class FinishingController extends Controller
                 'send_craftsman_date' => $validated['send_craftsman_date'] ?? null,
                 'received_craftsman_date' => $validated['received_craftsman_date'] ?? null,
                 'item_category' => $validated['item_category'] ?? null,
+                'work_category' => $validated['work_category'] ?? null,
+                'work_type' => $validated['work_type'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 ...(array_key_exists('koreksi_qc', $validated)
                     ? ['koreksi_qc' => $this->toKoreksiQc($validated['koreksi_qc'])]
@@ -1379,6 +1395,12 @@ class FinishingController extends Controller
             'receivedCraftsmanDate' => $document->received_craftsman_date?->format('Y-m-d H:i:s'),
             'itemCategory' => filled($document->item_category)
                 ? (string) $document->item_category
+                : null,
+            'workCategory' => filled($document->work_category)
+                ? (string) $document->work_category
+                : null,
+            'workType' => filled($document->work_type)
+                ? (string) $document->work_type
                 : null,
             'notes' => filled($document->notes) ? (string) $document->notes : null,
             'startWeight' => $this->formatDecimal($document->start_weight),
@@ -1706,6 +1728,20 @@ class FinishingController extends Controller
     private function itemCategoryOptions(): array
     {
         return collect(FinishingHandmade::itemCategoryOptions())
+            ->map(fn (string $value): array => [
+                'value' => $value,
+                'label' => $value,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function workCategoryOptions(): array
+    {
+        return collect(FinishingHandmade::workCategoryOptions())
             ->map(fn (string $value): array => [
                 'value' => $value,
                 'label' => $value,

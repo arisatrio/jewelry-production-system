@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -127,6 +128,36 @@ function ensureTestingAuthSchema(): void
  * Bootstrap the HR employee table for sqlite :memory: feature tests.
  * Production employee data lives outside Laravel migrations.
  */
+function finishingCraftsmanId(): int
+{
+    $craftsmanId = (int) DB::connection('third')
+        ->table('mscraftsman')
+        ->where('is_deleted', 0)
+        ->orderBy('row_id')
+        ->value('row_id');
+
+    return $craftsmanId > 0 ? $craftsmanId : 1;
+}
+
+/**
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function validFinishingSerahPayload(array $overrides = []): array
+{
+    return array_merge([
+        'process_name' => 'Finishing',
+        'craftsman_id' => finishingCraftsmanId(),
+        'send_craftsman_date' => now()->format('Y-m-d H:i'),
+        'start_weight' => '1.00',
+        'item_category' => 'Barang Kecil',
+        'work_category' => 'Finishing',
+        'work_type' => 'Finishing 1',
+        'notes' => 'Catatan serah pengrajin',
+        'materials' => [],
+    ], $overrides);
+}
+
 function ensureTestingEmployeeSchema(): void
 {
     if (Schema::hasTable('employee')) {

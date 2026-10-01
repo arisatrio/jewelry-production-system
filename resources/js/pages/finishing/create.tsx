@@ -17,6 +17,8 @@ type FinishingCreateProps = {
     formDocumentNo: string;
     processOptions: OptionItem[];
     itemCategoryOptions: OptionItem[];
+    workCategoryOptions: OptionItem[];
+    workTypeOptionsByCategory: Record<string, string[]>;
     craftsmanOptions: OptionItem[];
     materialOptions: MaterialOption[];
     qcNoteOptions: string[];
@@ -26,6 +28,8 @@ type FinishingCreateProps = {
         processName: string;
         craftsmanId: number | null;
         itemCategory: string | null;
+        workCategory: string | null;
+        workType: string | null;
         notes: string;
         startWeight: string;
         finishWeight: string;
@@ -45,6 +49,8 @@ export default function FinishingCreate({
     formDocumentNo,
     processOptions,
     itemCategoryOptions,
+    workCategoryOptions,
+    workTypeOptionsByCategory,
     craftsmanOptions,
     materialOptions,
     qcNoteOptions,
@@ -61,6 +67,8 @@ export default function FinishingCreate({
                 submitUrl={store.url()}
                 processOptions={processOptions}
                 itemCategoryOptions={itemCategoryOptions}
+                workCategoryOptions={workCategoryOptions}
+                workTypeOptionsByCategory={workTypeOptionsByCategory}
                 craftsmanOptions={craftsmanOptions}
                 materialOptions={materialOptions}
                 qcNoteOptions={qcNoteOptions}
@@ -73,6 +81,8 @@ export default function FinishingCreate({
                     send_craftsman_date: form.sendCraftsmanDate,
                     received_craftsman_date: form.receivedCraftsmanDate,
                     item_category: form.itemCategory ?? '',
+                    work_category: form.workCategory ?? '',
+                    work_type: form.workType ?? '',
                     notes: form.notes ?? '',
                     start_weight: form.startWeight ?? '',
                     finish_weight: form.finishWeight ?? '',

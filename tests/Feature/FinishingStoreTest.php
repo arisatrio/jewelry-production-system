@@ -27,16 +27,12 @@ test('finishing store creates document with spk', function () {
         'spk_no' => '2026/PRD/FINSTORE'.Str::upper(Str::random(3)),
     ]);
 
-    $response = $this->post(route('finishing.store'), [
+    $response = $this->post(route('finishing.store'), validFinishingSerahPayload([
         'spk_id' => $production->row_id,
-        'process_name' => 'Finishing',
-        'craftsman_id' => null,
-        'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '3.16',
         'finish_weight' => '2.45',
         'notes' => 'Catatan store finishing',
-        'materials' => [],
-    ]);
+    ]));
 
     $document = FinishingHandmade::query()
         ->notDeleted()
@@ -80,13 +76,11 @@ test('finishing store saves qc status and notes', function () {
         'spk_no' => '2026/PRD/FINQC'.Str::upper(Str::random(3)),
     ]);
 
-    $this->post(route('finishing.store'), [
+    $this->post(route('finishing.store'), validFinishingSerahPayload([
         'spk_id' => $production->row_id,
-        'process_name' => 'Finishing',
         'koreksi_qc' => '1',
         'keterangan_qc' => ' bolong ',
-        'materials' => [],
-    ])->assertSessionHasNoErrors();
+    ]))->assertSessionHasNoErrors();
 
     $document = FinishingHandmade::query()
         ->notDeleted()
@@ -138,12 +132,11 @@ test('finishing store rejects invalid qc input', function () {
 
     try {
         $this->from(route('finishing.create'))
-            ->post(route('finishing.store'), [
+            ->post(route('finishing.store'), validFinishingSerahPayload([
                 'spk_id' => $production->row_id,
-                'process_name' => 'Finishing',
                 'koreksi_qc' => '2',
                 'keterangan_qc' => str_repeat('a', 101),
-            ])
+            ]))
             ->assertRedirect(route('finishing.create'))
             ->assertSessionHasErrors(['koreksi_qc', 'keterangan_qc']);
     } finally {
@@ -158,24 +151,22 @@ test('finishing store requires qc notes when qc is not ok', function () {
 
     try {
         $this->from(route('finishing.create'))
-            ->post(route('finishing.store'), [
+            ->post(route('finishing.store'), validFinishingSerahPayload([
                 'spk_id' => $production->row_id,
-                'process_name' => 'Finishing',
                 'koreksi_qc' => '1',
                 'keterangan_qc' => '  ',
-            ])
+            ]))
             ->assertRedirect(route('finishing.create'))
             ->assertSessionHasErrors([
                 'keterangan_qc' => 'Catatan QC wajib diisi jika status QC NOT OK.',
             ]);
 
         $this->from(route('finishing.create'))
-            ->post(route('finishing.store'), [
+            ->post(route('finishing.store'), validFinishingSerahPayload([
                 'spk_id' => $production->row_id,
-                'process_name' => 'Finishing',
                 'koreksi_qc' => '0',
                 'keterangan_qc' => null,
-            ])
+            ]))
             ->assertSessionDoesntHaveErrors('keterangan_qc');
     } finally {
         FinishingHandmade::query()->where('spk_id', $production->row_id)->delete();
@@ -196,11 +187,8 @@ test('finishing store calculates shrink tolerance from start weight and bahan', 
 
     expect($materialId)->toBeGreaterThan(0);
 
-    $response = $this->post(route('finishing.store'), [
+    $response = $this->post(route('finishing.store'), validFinishingSerahPayload([
         'spk_id' => $production->row_id,
-        'process_name' => 'Finishing',
-        'craftsman_id' => null,
-        'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '0.87',
         'finish_weight' => '0.73',
         'materials' => [
@@ -220,7 +208,7 @@ test('finishing store calculates shrink tolerance from start weight and bahan', 
                 'weight' => '0.11',
             ],
         ],
-    ]);
+    ]));
 
     $document = FinishingHandmade::query()
         ->notDeleted()
@@ -254,11 +242,8 @@ test('finishing store keeps surplus shrink as negative value', function () {
 
     expect($materialId)->toBeGreaterThan(0);
 
-    $response = $this->post(route('finishing.store'), [
+    $response = $this->post(route('finishing.store'), validFinishingSerahPayload([
         'spk_id' => $production->row_id,
-        'process_name' => 'Finishing',
-        'craftsman_id' => null,
-        'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '1.19',
         'finish_weight' => '3.03',
         'materials' => [
@@ -273,7 +258,7 @@ test('finishing store keeps surplus shrink as negative value', function () {
                 'weight' => '0.66',
             ],
         ],
-    ]);
+    ]));
 
     $document = FinishingHandmade::query()
         ->notDeleted()
@@ -305,11 +290,8 @@ test('finishing store sets shrink to zero when finish weight is zero', function 
         ->orderBy('row_id')
         ->value('row_id');
 
-    $this->post(route('finishing.store'), [
+    $this->post(route('finishing.store'), validFinishingSerahPayload([
         'spk_id' => $production->row_id,
-        'process_name' => 'Finishing',
-        'craftsman_id' => null,
-        'send_craftsman_date' => now()->format('Y-m-d H:i'),
         'start_weight' => '2.00',
         'finish_weight' => '0',
         'materials' => [
@@ -324,7 +306,7 @@ test('finishing store sets shrink to zero when finish weight is zero', function 
                 'weight' => '4.69',
             ],
         ],
-    ]);
+    ]));
 
     $document = FinishingHandmade::query()
         ->notDeleted()
