@@ -119,6 +119,8 @@ Route::middleware(['auth'])->group(function () {
         ->whereIn('module', ['jewelcad', 'resin', 'coran', 'finishing', 'poles-rangka', 'pasang-batu', 'poles-chrome'])
         ->whereIn('queue', ['pending', 'inProgress', 'completed'])
         ->name('spk.process-queue');
+    Route::post('spk/stones/check-stock', [SpkStoneStockController::class, 'check'])
+        ->name('spk.stones.check-stock');
     Route::get('spk/stones/{spkStone}/stock', [SpkStoneStockController::class, 'show'])
         ->whereNumber('spkStone')
         ->name('spk.stones.stock');

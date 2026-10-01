@@ -208,6 +208,29 @@ test('matching stones lists micro stones with their balance', function () {
         ->and($result['stock']['availablePcs'])->toBeGreaterThanOrEqual(15);
 });
 
+test('spk stone check stock endpoint returns stock from form attributes', function () {
+    $shapeId = stockTestShapeId('HS');
+
+    $expected = app(SpkStoneStockChecker::class)->matchingFromAttributes($shapeId, 1, 0.45);
+
+    $this->postJson(route('spk.stones.check-stock'), [
+        'shape_id' => $shapeId,
+        'pcs' => 1,
+        'carat_per_pcs' => 0.45,
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', true)
+        ->assertJsonPath('data.stock.source', $expected['stock']['source'])
+        ->assertJsonPath('data.stock.availablePcs', $expected['stock']['availablePcs'])
+        ->assertJsonStructure(['data' => ['stock' => ['source', 'status', 'requiredPcs', 'availablePcs', 'note'], 'rows']]);
+});
+
+test('spk stone check stock endpoint validates required fields', function () {
+    $this->postJson(route('spk.stones.check-stock'), [])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['shape_id', 'pcs']);
+});
+
 test('spk stone stock endpoint returns stock and matching rows', function () {
     $stone = SpkStone::query()->notDeleted()->whereNotNull('shape_id')->where('pcs', '>', 0)->first();
 

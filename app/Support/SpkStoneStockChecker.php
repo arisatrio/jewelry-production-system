@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\DiamondCrtMatrix;
+use App\Models\MsShape;
 use App\Models\MsStone;
 use App\Models\SpkStone;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -80,6 +81,23 @@ class SpkStoneStockChecker
      *     rows: list<array<string, int|string|null>>
      * }
      */
+    /**
+     * Cek stok dari atribut batu form (belum disimpan ke database).
+     *
+     * @return array{
+     *     stock: array{source: 'dossier'|'micro', status: 'available'|'unavailable', requiredPcs: int, availablePcs: int, note: string|null},
+     *     rows: list<array<string, int|string|null>>
+     * }
+     */
+    public function matchingFromAttributes(
+        int $shapeId,
+        int $pcs,
+        float $caratPerPcs,
+        ?string $size = null,
+    ): array {
+        return $this->matchingStones($this->previewStone($shapeId, $pcs, $caratPerPcs, $size));
+    }
+
     public function matchingStones(SpkStone $stone): array
     {
         $match = $this->resolveMatch($stone, $this->loadContext(collect([$stone])));
@@ -272,6 +290,28 @@ class SpkStoneStockChecker
         $pcs = (int) ($stone->pcs ?? 0);
 
         return $pcs > 0 ? round((float) ($stone->carat ?? 0) / $pcs, 3) : 0.0;
+    }
+
+    private function previewStone(
+        int $shapeId,
+        int $pcs,
+        float $caratPerPcs,
+        ?string $size = null,
+    ): SpkStone {
+        $totalCarat = $pcs > 0 ? round($caratPerPcs * $pcs, 3) : 0.0;
+
+        $stone = new SpkStone([
+            'shape_id' => $shapeId,
+            'pcs' => $pcs,
+            'carat' => number_format($totalCarat, 3, '.', ''),
+            'size' => $size,
+        ]);
+        $stone->line_id = 0;
+
+        $shape = MsShape::query()->notDeleted()->find($shapeId);
+        $stone->setRelation('shape', $shape);
+
+        return $stone;
     }
 
     /**

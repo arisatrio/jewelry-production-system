@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { check as checkStoneStock } from '@/actions/App/Http/Controllers/SpkStoneStockController';
 import type { SpkStoneItem, SpkStoneStock } from '@/components/spk/types';
 import {
     Dialog,
@@ -35,10 +36,35 @@ type StoneStockPayload = {
     rows: Array<DossierStockRow | MicroStockRow>;
 };
 
+export type SpkStoneStockDialogStone = SpkStoneItem & {
+    shapeId?: string;
+    isPreview?: boolean;
+};
+
 type SpkStoneStockDialogProps = {
-    stone: SpkStoneItem | null;
+    stone: SpkStoneStockDialogStone | null;
     onOpenChange: (open: boolean) => void;
 };
+
+function readXsrfToken(): string {
+    const row = document.cookie
+        .split('; ')
+        .find((part) => part.startsWith('XSRF-TOKEN='));
+
+    if (!row) {
+        return '';
+    }
+
+    return decodeURIComponent(row.slice('XSRF-TOKEN='.length));
+}
+
+function isPreviewStone(stone: SpkStoneStockDialogStone): boolean {
+    if (stone.isPreview) {
+        return true;
+    }
+
+    return !/^\d+$/.test(String(stone.id));
+}
 
 function displayValue(value: string | number | null | undefined): string {
     const text = value === null || value === undefined ? '' : String(value);
@@ -139,7 +165,7 @@ export function SpkStoneStockDialog({
     const stoneId = stone?.id ?? null;
 
     useEffect(() => {
-        if (stoneId === null) {
+        if (stone === null) {
             return;
         }
 
@@ -151,10 +177,42 @@ export function SpkStoneStockDialog({
             setPayload(null);
 
             try {
-                const response = await fetch(stoneStock.url(Number(stoneId)), {
-                    headers: { Accept: 'application/json' },
-                    signal: controller.signal,
-                });
+                const response = isPreviewStone(stone)
+                    ? await fetch(checkStoneStock.url(), {
+                          method: 'POST',
+                          headers: {
+                              Accept: 'application/json',
+                              'Content-Type': 'application/json',
+                              'X-Requested-With': 'XMLHttpRequest',
+                              'X-XSRF-TOKEN': readXsrfToken(),
+                          },
+                          credentials: 'same-origin',
+                          signal: controller.signal,
+                          body: JSON.stringify({
+                              shape_id: Number(stone.shapeId ?? 0),
+                              pcs: Number(stone.pcs ?? 0),
+                              carat_per_pcs:
+                                  stone.caratPerPcs === undefined ||
+                                  String(stone.caratPerPcs).trim() === ''
+                                      ? null
+                                      : Number(
+                                            String(stone.caratPerPcs).replace(
+                                                ',',
+                                                '.',
+                                            ),
+                                        ),
+                              size:
+                                  stone.size === undefined ||
+                                  String(stone.size).trim() === '' ||
+                                  stone.size === '-'
+                                      ? null
+                                      : String(stone.size).trim(),
+                          }),
+                      })
+                    : await fetch(stoneStock.url(Number(stoneId)), {
+                          headers: { Accept: 'application/json' },
+                          signal: controller.signal,
+                      });
 
                 if (!response.ok) {
                     setFailed(true);
@@ -181,7 +239,7 @@ export function SpkStoneStockDialog({
         void load();
 
         return () => controller.abort();
-    }, [stoneId]);
+    }, [stone, stoneId]);
 
     const stock = payload?.stock ?? stone?.stock ?? null;
     const rows = payload?.rows ?? [];

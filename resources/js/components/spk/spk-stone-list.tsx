@@ -4,8 +4,12 @@ import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
 import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Text } from '@ui5/webcomponents-react/Text';
-import { useState } from 'react';
-import { SpkStoneStockDialog } from '@/components/spk/spk-stone-stock-dialog';
+import { useMemo, useState } from 'react';
+import {
+    SpkStoneStockDialog,
+    type SpkStoneStockDialogStone,
+} from '@/components/spk/spk-stone-stock-dialog';
+import { useSpkFormStoneStock } from '@/hooks/use-spk-form-stone-stock';
 import type {
     SpkItemDetail,
     SpkStoneItem,
@@ -385,11 +389,23 @@ export function SpkItemDetailCard({
 
 function SpkStoneStockCell({
     stock,
+    loading = false,
+    failed = false,
     onShowList,
 }: {
     stock?: SpkStoneStock | null;
+    loading?: boolean;
+    failed?: boolean;
     onShowList: () => void;
 }) {
+    if (loading) {
+        return <span className="spkStoneStockMeta">Memuat...</span>;
+    }
+
+    if (failed) {
+        return <span className="spkStoneStockMeta">Gagal cek stok</span>;
+    }
+
     if (!stock) {
         return <>-</>;
     }
@@ -798,6 +814,20 @@ export function SpkFormStoneListCard({
 }: SpkFormStoneListCardProps) {
     const [draft, setDraft] = useState(emptyDraft);
     const [draftKey, setDraftKey] = useState(0);
+    const [stockListStone, setStockListStone] =
+        useState<SpkStoneStockDialogStone | null>(null);
+    const stockInputs = useMemo(
+        () =>
+            stones.map((stone) => ({
+                id: stone.id,
+                shapeId: stone.shapeId,
+                pcs: stone.pcs,
+                caratPerPcs: stone.caratPerPcs,
+                size: stone.size,
+            })),
+        [stones],
+    );
+    const stockStateById = useSpkFormStoneStock(stockInputs);
 
     const totalButir = stones.reduce(
         (sum, stone) => sum + (Number(stone.pcs) || 0),
@@ -922,6 +952,7 @@ export function SpkFormStoneListCard({
                             <th>Carat per Butir (pcs)</th>
                             <th>Jumlah Butir (pcs)</th>
                             <th>Total Carat</th>
+                            <th>Stok</th>
                             <th className="spkStoneTableActionCol">Aksi</th>
                         </tr>
                     </thead>
@@ -1011,6 +1042,7 @@ export function SpkFormStoneListCard({
                                 />
                             </td>
                             <td>{draftTotal}</td>
+                            <td>-</td>
                             <td>
                                 <button
                                     type="button"
@@ -1024,7 +1056,7 @@ export function SpkFormStoneListCard({
 
                         {stones.length === 0 ? (
                             <tr>
-                                <td colSpan={7}>
+                                <td colSpan={8}>
                                     <div className="spkStoneEmpty">
                                         <Text>
                                             Belum ada batu. Isi baris di atas
@@ -1211,6 +1243,43 @@ export function SpkFormStoneListCard({
                                         )}
                                     </td>
                                     <td>
+                                        <SpkStoneStockCell
+                                            stock={
+                                                stockStateById[stone.id]?.stock
+                                            }
+                                            loading={
+                                                stockStateById[stone.id]
+                                                    ?.loading ?? false
+                                            }
+                                            failed={
+                                                stockStateById[stone.id]
+                                                    ?.failed ?? false
+                                            }
+                                            onShowList={() =>
+                                                setStockListStone({
+                                                    id: stone.id,
+                                                    isPreview: true,
+                                                    shapeId: stone.shapeId,
+                                                    shapeName: stone.shapeName,
+                                                    shape: stone.shapeName,
+                                                    shapeCode: '',
+                                                    size: stone.size,
+                                                    pcs: Number(stone.pcs) || 0,
+                                                    caratPerPcs:
+                                                        stone.caratPerPcs,
+                                                    carat: stone.caratPerPcs,
+                                                    totalCarat: formatTotalCarat(
+                                                        stone.pcs,
+                                                        stone.caratPerPcs,
+                                                    ),
+                                                    stock:
+                                                        stockStateById[stone.id]
+                                                            ?.stock ?? null,
+                                                })
+                                            }
+                                        />
+                                    </td>
+                                    <td>
                                         <button
                                             type="button"
                                             className="spkStoneRowActionBtn spkStoneRowActionBtn--danger"
@@ -1238,10 +1307,19 @@ export function SpkFormStoneListCard({
                                 })}
                             </td>
                             <td />
+                            <td />
                         </tr>
                     </tfoot>
                 </table>
             </div>
+            <SpkStoneStockDialog
+                stone={stockListStone}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setStockListStone(null);
+                    }
+                }}
+            />
             {errors.stones ? (
                 <Text className="spkFioriError">{errors.stones}</Text>
             ) : null}
