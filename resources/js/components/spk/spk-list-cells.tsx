@@ -56,6 +56,15 @@ export function isListRowIncomplete(status: string): boolean {
     return !status.toLowerCase().includes('done');
 }
 
+const MANAGER_PENDING_STATUSES = new Set([
+    'draft',
+    'menunggu approval',
+]);
+
+export function isPendingManagerApproval(status: string): boolean {
+    return MANAGER_PENDING_STATUSES.has(status.trim().toLowerCase());
+}
+
 export const TARGET_DUE_SOON_DAYS = 7;
 
 export function isTargetDueSoon(daysLeft: number): boolean {

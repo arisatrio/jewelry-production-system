@@ -203,6 +203,12 @@
     white-space: normal;
 }
 
+.spkTableColDoc--spk .spkProduksiLink {
+    font-size: 0.9rem;
+    line-height: 1.35;
+    font-weight: 600;
+}
+
 .spkTableDocMeta {
     font-size: 0.75rem;
     line-height: 1.3;
@@ -862,6 +868,79 @@
 
 .spkTable tbody tr.spkTableRowLink:hover {
     background: #f3f4f6;
+}
+
+.spkTableDocRow {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 100%;
+}
+
+.spkTableDocMetaBlock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.spkTableRowActions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.spkRowActionBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    padding: 0;
+    border: 1px solid #d0d5dd;
+    border-radius: 0.375rem;
+    background: #fff;
+    color: #2563eb;
+    cursor: pointer;
+}
+
+.spkRowActionBtn:hover:not(:disabled) {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.spkRowActionBtn:focus-visible {
+    outline: 2px solid var(--sap-fiori-brand, #0070f2);
+    outline-offset: 0.125rem;
+}
+
+.spkRowActionBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.spkRowActionBtn ui5-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    color: currentColor;
+}
+
+.spkRowActionBtn--send:hover:not(:disabled) {
+    border-color: #86efac;
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.spkRowActionBtn--approve {
+    color: #059669;
+}
+
+.spkRowActionBtn--approve:hover:not(:disabled) {
+    border-color: #86efac;
+    background: #ecfdf5;
+    color: #047857;
 }
 
 .spkProduksiLink {
@@ -1889,6 +1968,76 @@
     width: 1rem;
     height: 1rem;
     color: currentColor;
+}
+
+.spkReceiptPrintBtn {
+    appearance: none;
+    box-sizing: border-box;
+    border: 1px solid var(--sapButton_BorderColor, #bbcdd5);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: var(--sap-fiori-button-height, 2.25rem);
+    min-width: 2.25rem;
+    margin-inline-end: 0.35rem;
+    padding: 0 0.875rem;
+    border-radius: var(--sap-fiori-button-radius, 0.25rem);
+    background: var(--sapButton_Background, #fff);
+    color: var(--sapButton_TextColor, #0064d9);
+    font-family: var(--sapFontFamily, inherit);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: none;
+    transition:
+        background-color 0.1s ease-in,
+        border-color 0.1s ease-in,
+        color 0.1s ease-in;
+}
+
+.spkReceiptPrintBtn:hover:not(:disabled) {
+    background: var(--sapButton_Hover_Background, #eaecee);
+    border-color: var(--sapButton_Hover_BorderColor, #bbcdd5);
+    color: var(--sapButton_Hover_TextColor, #0064d9);
+}
+
+.spkReceiptPrintBtn:active:not(:disabled) {
+    background: var(--sapButton_Active_Background, #d5dadd);
+    border-color: var(--sapButton_Active_BorderColor, #bbcdd5);
+    color: var(--sapButton_Active_TextColor, #0064d9);
+}
+
+.spkReceiptPrintBtn:focus-visible {
+    outline: 2px solid var(--sap-fiori-brand, #0070f2);
+    outline-offset: 0.125rem;
+}
+
+.spkReceiptPrintBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.spkReceiptPrintBtn ui5-icon {
+    width: 1rem;
+    height: 1rem;
+    color: currentColor;
+}
+
+.spkReceiptPrintCount {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--sap-fiori-brand, #0070f2);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .dashboardContent:has(.spkTableShell) {

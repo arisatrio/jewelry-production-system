@@ -1,9 +1,8 @@
 import { Head, router } from '@inertiajs/react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
-import approvalsIcon from '@ui5/webcomponents-icons/dist/approvals.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
-import historyIcon from '@ui5/webcomponents-icons/dist/history.js';
+import documentIcon from '@ui5/webcomponents-icons/dist/document.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import retailStoreIcon from '@ui5/webcomponents-icons/dist/retail-store.js';
@@ -32,11 +31,17 @@ import {
     SpkTableStatusCell,
     displayListDate,
     isListRowIncomplete,
+    isPendingManagerApproval,
     targetDaysLeftHint,
     tipeProduksiBadgeClass,
 } from '@/components/spk/spk-list-cells';
 import { SpkReceiptHistoryDialog } from '@/components/spk/spk-receipt-history-dialog';
 import { SpkReceiptPrintDialog } from '@/components/spk/spk-receipt-print-dialog';
+import {
+    shouldShowSpkRowSendButton,
+    SpkRowSendButton,
+} from '@/components/spk/spk-row-approval-buttons';
+import { SpkRowPrintButton } from '@/components/spk/spk-row-print-button';
 import { SpkStatusListDialog } from '@/components/spk/spk-status-list-dialog';
 import { SpkStoreOrderRequestDialog } from '@/components/spk/spk-store-order-request-dialog';
 import { SpkStoreStockRequestDialog } from '@/components/spk/spk-store-stock-request-dialog';
@@ -190,6 +195,7 @@ export default function SpkIndex({
 }: SpkIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
+    const [rowActionProcessing, setRowActionProcessing] = useState(false);
     const [statusListDialog, setStatusListDialog] = useState<{
         key: StatusAlertKey;
         requestId: number;
@@ -411,6 +417,15 @@ export default function SpkIndex({
 
             return current.filter((rowId) => rowId !== id);
         });
+    };
+
+    const openReceiptPrintDialog = (): void => {
+        if (selectedIds.length === 0) {
+            window.alert('Pilih SPK terlebih dahulu.');
+            return;
+        }
+
+        setReceiptDialogOpen(true);
     };
 
     const runBulkStatus = (action: BulkAction) => {
@@ -1249,26 +1264,7 @@ export default function SpkIndex({
                             />
                             <Button
                                 design="Default"
-                                icon={printIcon}
-                                accessibleName="Cetak"
-                                className="spkTableHeaderExportBtn--finishing"
-                            />
-                            <Button
-                                design="Default"
-                                icon={approvalsIcon}
-                                accessibleName="Print Tanda Terima"
-                                tooltip={
-                                    selectedIds.length > 0
-                                        ? `Print Tanda Terima (${selectedIds.length} SPK)`
-                                        : 'Print Tanda Terima — centang SPK terlebih dahulu'
-                                }
-                                disabled={selectedIds.length === 0}
-                                className="spkTableHeaderExportBtn--finishing"
-                                onClick={() => setReceiptDialogOpen(true)}
-                            />
-                            <Button
-                                design="Default"
-                                icon={historyIcon}
+                                icon={documentIcon}
                                 accessibleName="Riwayat Tanda Terima"
                                 tooltip="Riwayat Tanda Terima"
                                 className="spkTableHeaderExportBtn--finishing"
@@ -1280,6 +1276,32 @@ export default function SpkIndex({
                                 className="spkTableHeaderDivider--finishing"
                                 aria-hidden="true"
                             />
+                            <button
+                                type="button"
+                                className="spkReceiptPrintBtn"
+                                aria-label={
+                                    selectedIds.length > 0
+                                        ? `Print Tanda Terima (${selectedIds.length} SPK)`
+                                        : 'Print Tanda Terima'
+                                }
+                                title={
+                                    selectedIds.length > 0
+                                        ? `Print Tanda Terima (${selectedIds.length} SPK)`
+                                        : 'Print Tanda Terima'
+                                }
+                                onClick={openReceiptPrintDialog}
+                            >
+                                <Icon name={printIcon} mode="Decorative" />
+                                <span>Tanda Terima</span>
+                                {selectedIds.length > 0 ? (
+                                    <span
+                                        className="spkReceiptPrintCount"
+                                        aria-hidden="true"
+                                    >
+                                        {selectedIds.length}
+                                    </span>
+                                ) : null}
+                            </button>
                             <button
                                 type="button"
                                 className="spkCreateBtn"
@@ -1549,6 +1571,19 @@ export default function SpkIndex({
                                                       row.targetDaysLeft,
                                                   )
                                                 : null;
+                                        const showRowSend =
+                                            shouldShowSpkRowSendButton(
+                                                row.status,
+                                                bulkActions.canSubmit,
+                                                bulkActions.canApprove,
+                                            );
+                                        const rowActionsDisabled =
+                                            rowActionProcessing ||
+                                            bulkSubmitting;
+                                        const rowSendAction =
+                                            bulkActions.canApprove
+                                                ? 'approve'
+                                                : 'submit';
 
                                         return (
                                             <tr
@@ -1560,7 +1595,7 @@ export default function SpkIndex({
                                                         )
                                                             ? 'is-selected'
                                                             : '',
-                                                        isListRowIncomplete(
+                                                        isPendingManagerApproval(
                                                             row.status,
                                                         )
                                                             ? 'is-incomplete'
@@ -1587,42 +1622,78 @@ export default function SpkIndex({
                                                     />
                                                 </td>
                                                 <td className="spkTableColDoc spkTableColDoc--spk">
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <button
-                                                            type="button"
-                                                            className="spkProduksiLink"
-                                                            onClick={() =>
-                                                                openDetail(row)
-                                                            }
-                                                        >
-                                                            {row.produksiNo}
-                                                        </button>
-                                                        <div className="flex flex-nowrap items-center gap-1">
-                                                            <span
-                                                                className={`spkTableBadge ${tipeProduksiBadgeClass(row.tipeProduksi)}`}
-                                                            >
-                                                                {
-                                                                    row.tipeProduksi
-                                                                }
-                                                            </span>
-                                                            {row.orderType ? (
-                                                                <span className="spkTableBadge spkTableBadge--orderType">
-                                                                    {
-                                                                        row.orderType
+                                                    <div className="spkTableDocRow">
+                                                        <div className="spkTableRowActions">
+                                                            {showRowSend ? (
+                                                                <SpkRowSendButton
+                                                                    rowId={
+                                                                        row.rowId
                                                                     }
-                                                                </span>
+                                                                    spkNo={
+                                                                        row.produksiNo
+                                                                    }
+                                                                    action={
+                                                                        rowSendAction
+                                                                    }
+                                                                    disabled={
+                                                                        rowActionsDisabled
+                                                                    }
+                                                                    onProcessingChange={
+                                                                        setRowActionProcessing
+                                                                    }
+                                                                />
                                                             ) : null}
-                                                            <SpkPaymentStatusBadge
-                                                                status={
-                                                                    row.paymentStatus
+                                                            <SpkRowPrintButton
+                                                                rowId={
+                                                                    row.rowId
+                                                                }
+                                                                spkNo={
+                                                                    row.produksiNo
                                                                 }
                                                             />
                                                         </div>
-                                                        {orderInfo !== '' ? (
-                                                            <span className="spkTableDocMeta">
-                                                                {orderInfo}
-                                                            </span>
-                                                        ) : null}
+                                                        <div className="spkTableDocMetaBlock">
+                                                            <button
+                                                                type="button"
+                                                                className="spkProduksiLink"
+                                                                onClick={() =>
+                                                                    openDetail(
+                                                                        row,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {
+                                                                    row.produksiNo
+                                                                }
+                                                            </button>
+                                                            <div className="flex flex-nowrap items-center gap-1">
+                                                                <span
+                                                                    className={`spkTableBadge ${tipeProduksiBadgeClass(row.tipeProduksi)}`}
+                                                                >
+                                                                    {
+                                                                        row.tipeProduksi
+                                                                    }
+                                                                </span>
+                                                                {row.orderType ? (
+                                                                    <span className="spkTableBadge spkTableBadge--orderType">
+                                                                        {
+                                                                            row.orderType
+                                                                        }
+                                                                    </span>
+                                                                ) : null}
+                                                                <SpkPaymentStatusBadge
+                                                                    status={
+                                                                        row.paymentStatus
+                                                                    }
+                                                                />
+                                                            </div>
+                                                            {orderInfo !==
+                                                            '' ? (
+                                                                <span className="spkTableDocMeta">
+                                                                    {orderInfo}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td>
