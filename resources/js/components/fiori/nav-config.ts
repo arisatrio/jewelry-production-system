@@ -8,17 +8,20 @@ import {
 } from '@/routes/analytics';
 import { index as coranIndex } from '@/routes/coran';
 import { index as finishingIndex } from '@/routes/finishing';
-import { index as polesRangkaIndex } from '@/routes/poles-rangka';
-import { index as pasangBatuIndex } from '@/routes/pasang-batu';
-import { index as polesChromeIndex } from '@/routes/poles-chrome';
+import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
+import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
 import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
+import { edit as diamondCrtMatrixEdit } from '@/routes/master-data/diamond-crt-matrix';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
+import { edit as spkProcessSlaEdit } from '@/routes/master-data/spk-process-sla';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
 import { index as varianItemIndex } from '@/routes/master-data/varian-item';
-import { edit as spkProcessSlaEdit } from '@/routes/master-data/spk-process-sla';
+import { index as pasangBatuIndex } from '@/routes/pasang-batu';
+import { index as polesChromeIndex } from '@/routes/poles-chrome';
+import { index as polesRangkaIndex } from '@/routes/poles-rangka';
 import { index as resinIndex } from '@/routes/resin';
 import { index as spkIndex } from '@/routes/spk';
 
@@ -67,7 +70,8 @@ export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
 ];
 
 export const defaultInventorySubmenus: ShellNavItem[] = [
-    { text: 'Batu' },
+    { text: 'Batu Dossier', href: diamondDossiersIndex.url() },
+    { text: 'Batu Mikro', href: microStonesIndex.url() },
     { text: 'Bahan Emas', href: goldMaterialsIndex.url() },
     {
         text: 'Transaksi Bahan Emas',
@@ -84,6 +88,7 @@ export const defaultMasterDataSubmenus: ShellNavItem[] = [
     { text: 'Master Item Product', href: varianItemIndex.url() },
     { text: 'Master SKU', href: masterSkuIndex.url() },
     { text: 'SLA Proses SPK', href: spkProcessSlaEdit.url() },
+    { text: 'Matrix CRT Dossier', href: diamondCrtMatrixEdit.url() },
 ];
 
 /** Dropdown menus rendered after primary items, before module links. */

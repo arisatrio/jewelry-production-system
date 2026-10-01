@@ -118,6 +118,14 @@ export type SpkNavigation = {
     backUrl: string;
 };
 
+export type SpkStoneStock = {
+    source: 'dossier' | 'micro';
+    status: 'available' | 'unavailable';
+    requiredPcs: number;
+    availablePcs: number;
+    note: string | null;
+};
+
 export type SpkStoneItem = {
     id: string;
     positionId?: string;
@@ -130,6 +138,7 @@ export type SpkStoneItem = {
     caratPerPcs: string;
     totalCarat: string;
     size: string | number;
+    stock?: SpkStoneStock | null;
     master?: {
         positionName?: string | null;
         shapeName?: string | null;

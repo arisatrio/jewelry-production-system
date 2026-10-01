@@ -12,6 +12,22 @@ class DiamondMountingStoneSynchronizer
 
     public const TRANSTYPE_RETURN = 8;
 
+    public function __construct(private DiamondDossierInventory $diamondDossierInventory) {}
+
+    /**
+     * @return list<array{value: string, label: string, description: string, code: string|null, diamondType: string|null, shape: string|null, certificate: string|null, crt: string|null}>
+     */
+    public function diamondOptions(?DiamondMounting $document = null): array
+    {
+        if (! Schema::connection('third')->hasTable('trdiamond')) {
+            return [];
+        }
+
+        return $this->diamondDossierInventory->mountingOptions(
+            $document !== null ? (int) $document->row_id : null,
+        );
+    }
+
     /**
      * @return list<array{value: string, label: string, stock: string}>
      */
@@ -116,7 +132,7 @@ class DiamondMountingStoneSynchronizer
      * @return array{
      *     setting: list<array{stoneId: int, pcs: string, crt: string, notes: string}>,
      *     return: list<array{stoneId: int, pcs: string, crt: string, notes: string}>,
-     *     diamonds: list<array{kode: string, diamondType: string, shapeId: int|null, certificate: string, crt: string}>,
+     *     diamonds: list<array{diamondId: int}>,
      *     mounted: list<array{diamondCode: string, shapeId: int|null, pcs: string, crt: string, size: string}>
      * }
      */
@@ -240,7 +256,7 @@ class DiamondMountingStoneSynchronizer
     }
 
     /**
-     * @return list<array{kode: string, diamondType: string, shapeId: int|null, certificate: string, crt: string}>
+     * @return list<array{diamondId: int}>
      */
     private function formDiamondLinesFor(DiamondMounting $document): array
     {
@@ -248,28 +264,14 @@ class DiamondMountingStoneSynchronizer
             return [];
         }
 
-        $query = DB::connection('third')
+        return array_values(DB::connection('third')
             ->table('trdiamond')
             ->where('diamondmounting_id', $document->row_id)
-            ->orderBy('row_id');
-
-        if (Schema::connection('third')->hasColumn('trdiamond', 'is_deleted')) {
-            $query->where('is_deleted', 0);
-        }
-
-        return $query
-            ->get(['doc_no', 'diamond_type', 'shape_id', 'certificate', 'crt'])
-            ->map(fn (object $row): array => [
-                'kode' => trim((string) ($row->doc_no ?? '')),
-                'diamondType' => trim((string) ($row->diamond_type ?? '')),
-                'shapeId' => filled($row->shape_id ?? null) && (int) $row->shape_id > 0
-                    ? (int) $row->shape_id
-                    : null,
-                'certificate' => trim((string) ($row->certificate ?? '')),
-                'crt' => $this->formatNumber($row->crt, 4),
-            ])
-            ->values()
-            ->all();
+            ->where('is_deleted', 0)
+            ->orderBy('row_id')
+            ->pluck('row_id')
+            ->map(fn (mixed $id): array => ['diamondId' => (int) $id])
+            ->all());
     }
 
     /**
@@ -549,61 +551,12 @@ class DiamondMountingStoneSynchronizer
             return;
         }
 
-        $query = DB::connection('third')
-            ->table('trdiamond')
-            ->where('diamondmounting_id', $document->row_id);
+        $diamondIds = array_values(array_filter(
+            array_map(fn (array $line): int => (int) ($line['diamond_id'] ?? 0), $lines),
+            fn (int $diamondId): bool => $diamondId > 0,
+        ));
 
-        if (Schema::connection('third')->hasColumn('trdiamond', 'is_deleted')) {
-            $query->where('is_deleted', 0)->update([
-                'is_deleted' => 1,
-                'deleted_date' => now(),
-                'deleted_by' => $actor,
-                'modified_date' => now(),
-                'modified_by' => $actor,
-            ]);
-        } else {
-            $query->delete();
-        }
-
-        $now = now();
-
-        foreach ($lines as $line) {
-            $kode = trim((string) ($line['kode'] ?? ''));
-            $diamondType = trim((string) ($line['diamond_type'] ?? ''));
-            $certificate = trim((string) ($line['certificate'] ?? ''));
-            $shapeId = filled($line['shape_id'] ?? null) && (int) $line['shape_id'] > 0
-                ? (int) $line['shape_id']
-                : null;
-            $crt = $this->toFloat($line['crt'] ?? null);
-
-            if ($kode === '' && $diamondType === '' && $certificate === '' && $shapeId === null && $crt === null) {
-                continue;
-            }
-
-            DB::connection('third')->table('trdiamond')->insert([
-                'doc_no' => $kode !== '' ? $kode : null,
-                'diamond_type' => $diamondType !== '' ? $diamondType : null,
-                'entry_date' => $now->toDateString(),
-                'out_date' => null,
-                'supplier' => null,
-                'crt' => $crt !== null ? number_format($crt, 4, '.', '') : null,
-                'shape_id' => $shapeId,
-                'color' => null,
-                'certificate' => $certificate !== '' ? $certificate : null,
-                'rapp' => null,
-                'disc' => null,
-                'hpp' => null,
-                'diamondmounting_id' => $document->row_id,
-                'is_used' => 0,
-                'is_deleted' => 0,
-                'created_date' => $now,
-                'created_by' => $actor,
-                'modified_date' => $now,
-                'modified_by' => $actor,
-                'deleted_date' => null,
-                'deleted_by' => null,
-            ]);
-        }
+        $this->diamondDossierInventory->assignToMounting((int) $document->row_id, $diamondIds, $actor);
     }
 
     /**

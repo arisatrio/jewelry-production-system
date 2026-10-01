@@ -13,6 +13,10 @@ class StoneLedger
 
     public const DEDUCTION_TRANSACTION_TYPE_ID = 15;
 
+    public const STOCK_STATUS_AVAILABLE = 'available';
+
+    public const STOCK_STATUS_EMPTY = 'empty';
+
     /**
      * @return array{id: int, label: string}|null
      */
@@ -51,33 +55,10 @@ class StoneLedger
             return [];
         }
 
-        $stockQuery = DB::connection('third')
-            ->table('trstone as stone_transaction')
-            ->join(
-                'mstranstype as transaction_type',
-                'transaction_type.row_id',
-                '=',
-                'stone_transaction.transtype_id',
-            )
-            ->where('stone_transaction.period_id', $periodId)
-            ->where('stone_transaction.is_deleted', 0)
-            ->where('transaction_type.is_deleted', 0)
-            ->select('stone_transaction.stone_id')
-            ->selectRaw(
-                "SUM(CASE
-                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'IN'
-                        THEN COALESCE(stone_transaction.pcs, 0)
-                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'OUT'
-                        THEN -COALESCE(stone_transaction.pcs, 0)
-                    ELSE 0
-                END) as stock"
-            )
-            ->groupBy('stone_transaction.stone_id');
-
         return DB::connection('third')
             ->table('msstone as stone')
             ->leftJoinSub(
-                $stockQuery,
+                $this->stockSubquery($periodId),
                 'stone_stock',
                 'stone_stock.stone_id',
                 '=',
@@ -90,15 +71,107 @@ class StoneLedger
             ->get([
                 'stone.row_id',
                 'stone.name',
-                'stone_stock.stock',
+                'stone_stock.balance_pcs',
             ])
             ->map(fn (object $stone): array => [
                 'value' => (string) $stone->row_id,
                 'label' => (string) $stone->name,
-                'stock' => (string) (int) round((float) ($stone->stock ?? 0)),
+                'stock' => (string) (int) round((float) ($stone->balance_pcs ?? 0)),
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  list<int>  $stoneIds
+     * @return array<int, float> stone_id => saldo pcs pada periode
+     */
+    public function balancePcsByStone(int $periodId, array $stoneIds): array
+    {
+        if ($stoneIds === []) {
+            return [];
+        }
+
+        return DB::connection('third')
+            ->query()
+            ->fromSub($this->stockSubquery($periodId), 'stone_stock')
+            ->whereIn('stone_stock.stone_id', $stoneIds)
+            ->pluck('stone_stock.balance_pcs', 'stone_stock.stone_id')
+            ->mapWithKeys(fn (mixed $balance, int|string $stoneId): array => [
+                (int) $stoneId => (float) $balance,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, int|string|null>>
+     */
+    public function paginateStock(
+        int $periodId,
+        string $search,
+        ?string $stockStatus,
+        int $perPage,
+    ): LengthAwarePaginator {
+        return $this->stockQuery($periodId, $search, $stockStatus)
+            ->orderBy('stone.name')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (object $stone): array => $this->toStockRow($stone));
+    }
+
+    /**
+     * @param  list<int>  $stoneIds
+     * @return list<array<string, int|string|null>>
+     */
+    public function stockByStoneIds(int $periodId, array $stoneIds): array
+    {
+        if ($stoneIds === []) {
+            return [];
+        }
+
+        return array_values($this->stockQuery($periodId, '', null)
+            ->whereIn('stone.row_id', $stoneIds)
+            ->orderBy('stone.name')
+            ->get()
+            ->map(fn (object $stone): array => $this->toStockRow($stone))
+            ->all());
+    }
+
+    /**
+     * @return array<string, int|string|null>
+     */
+    private function toStockRow(object $stone): array
+    {
+        return [
+            'id' => (int) $stone->row_id,
+            'name' => (string) $stone->name,
+            'parcel' => filled($stone->parcel) ? (string) $stone->parcel : null,
+            'size' => filled($stone->stone_size) ? (string) $stone->stone_size : null,
+            'shape' => filled($stone->shape_name) ? (string) $stone->shape_name : null,
+            'pcsIn' => $this->formatPcs((float) ($stone->pcs_in ?? 0)),
+            'pcsOut' => $this->formatPcs((float) ($stone->pcs_out ?? 0)),
+            'balancePcs' => $this->formatPcs((float) ($stone->balance_pcs ?? 0)),
+            'balanceCrt' => number_format((float) ($stone->balance_crt ?? 0), 4, '.', ''),
+        ];
+    }
+
+    /**
+     * @return array{pcs: string, crt: string}
+     */
+    public function stockTotals(int $periodId, string $search, ?string $stockStatus): array
+    {
+        $totals = $this->stockQuery($periodId, $search, $stockStatus)
+            ->cloneWithout(['columns', 'orders'])
+            ->selectRaw(
+                'SUM(COALESCE(stone_stock.balance_pcs, 0)) as total_pcs, '
+                .'SUM(COALESCE(stone_stock.balance_crt, 0)) as total_crt'
+            )
+            ->first();
+
+        return [
+            'pcs' => $this->formatPcs((float) ($totals->total_pcs ?? 0)),
+            'crt' => number_format((float) ($totals->total_crt ?? 0), 4, '.', ''),
+        ];
     }
 
     /**
@@ -280,6 +353,90 @@ class StoneLedger
                 'stone_transaction.created_by',
                 'stone_transaction.created_date',
             ]);
+    }
+
+    private function stockQuery(int $periodId, string $search, ?string $stockStatus): Builder
+    {
+        return DB::connection('third')
+            ->table('msstone as stone')
+            ->leftJoinSub(
+                $this->stockSubquery($periodId),
+                'stone_stock',
+                'stone_stock.stone_id',
+                '=',
+                'stone.row_id',
+            )
+            ->leftJoin('msshape as shape', 'shape.row_id', '=', 'stone.shape_id')
+            ->where('stone.is_deleted', 0)
+            ->whereNotNull('stone.name')
+            ->where('stone.name', '!=', '')
+            ->when($stockStatus === self::STOCK_STATUS_AVAILABLE, fn (Builder $query) => $query
+                ->whereRaw('COALESCE(stone_stock.balance_pcs, 0) > 0'))
+            ->when($stockStatus === self::STOCK_STATUS_EMPTY, fn (Builder $query) => $query
+                ->whereRaw('COALESCE(stone_stock.balance_pcs, 0) <= 0'))
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $like = '%'.$search.'%';
+
+                $query->where(function (Builder $innerQuery) use ($like): void {
+                    $innerQuery->where('stone.name', 'like', $like)
+                        ->orWhere('stone.parcel', 'like', $like)
+                        ->orWhere('shape.name', 'like', $like);
+                });
+            })
+            ->select([
+                'stone.row_id',
+                'stone.name',
+                'stone.parcel',
+                'stone.stone_size',
+                'shape.name as shape_name',
+                'stone_stock.pcs_in',
+                'stone_stock.pcs_out',
+                'stone_stock.balance_pcs',
+                'stone_stock.balance_crt',
+            ]);
+    }
+
+    private function stockSubquery(int $periodId): Builder
+    {
+        return DB::connection('third')
+            ->table('trstone as stone_transaction')
+            ->join(
+                'mstranstype as transaction_type',
+                'transaction_type.row_id',
+                '=',
+                'stone_transaction.transtype_id',
+            )
+            ->where('stone_transaction.period_id', $periodId)
+            ->where('stone_transaction.is_deleted', 0)
+            ->where('transaction_type.is_deleted', 0)
+            ->select('stone_transaction.stone_id')
+            ->selectRaw(
+                "SUM(CASE
+                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'IN'
+                        THEN COALESCE(stone_transaction.pcs, 0)
+                    ELSE 0
+                END) as pcs_in,
+                SUM(CASE
+                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'OUT'
+                        THEN COALESCE(stone_transaction.pcs, 0)
+                    ELSE 0
+                END) as pcs_out,
+                SUM(CASE
+                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'IN'
+                        THEN COALESCE(stone_transaction.pcs, 0)
+                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'OUT'
+                        THEN -COALESCE(stone_transaction.pcs, 0)
+                    ELSE 0
+                END) as balance_pcs,
+                SUM(CASE
+                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'IN'
+                        THEN COALESCE(stone_transaction.crt, 0)
+                    WHEN UPPER(TRIM(transaction_type.in_out)) = 'OUT'
+                        THEN -COALESCE(stone_transaction.crt, 0)
+                    ELSE 0
+                END) as balance_crt"
+            )
+            ->groupBy('stone_transaction.stone_id');
     }
 
     private function formatPcs(float $value): string

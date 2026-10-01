@@ -11,6 +11,15 @@ export type PasangBatuStoneOption = {
     value: string;
     label: string;
     stock?: string;
+    description?: string;
+};
+
+export type PasangBatuDiamondOption = PasangBatuStoneOption & {
+    code: string | null;
+    diamondType: string | null;
+    shape: string | null;
+    certificate: string | null;
+    crt: string | null;
 };
 
 export type SettingStoneLine = {
@@ -23,11 +32,7 @@ export type SettingStoneLine = {
 
 export type DiamondLine = {
     key: string;
-    kode: string;
-    diamond_type: string;
-    shape_id: string;
-    certificate: string;
-    crt: string;
+    diamond_id: string;
 };
 
 export type MountedStoneLine = {
@@ -42,6 +47,7 @@ export type MountedStoneLine = {
 type PasangBatuStoneEditorProps = {
     stoneOptions: PasangBatuStoneOption[];
     shapeOptions: PasangBatuStoneOption[];
+    diamondOptions: PasangBatuDiamondOption[];
     settingStones: SettingStoneLine[];
     returnStones: SettingStoneLine[];
     diamonds: DiamondLine[];
@@ -172,7 +178,7 @@ function OptionComboBox({
                     additionalText={
                         option.stock !== undefined
                             ? `Stok: ${Number(option.stock).toLocaleString('id-ID')} pcs`
-                            : undefined
+                            : option.description || undefined
                     }
                     value={option.value}
                 />
@@ -194,11 +200,7 @@ function emptySettingLine(): SettingStoneLine {
 function emptyDiamondLine(): DiamondLine {
     return {
         key: newLineKey('diamond'),
-        kode: '',
-        diamond_type: '',
-        shape_id: '',
-        certificate: '',
-        crt: '',
+        diamond_id: '',
     };
 }
 
@@ -421,15 +423,19 @@ function SettingStonePanel({
 
 function DiamondPanel({
     lines,
-    shapeOptions,
+    diamondOptions,
     errors,
     onChange,
 }: {
     lines: DiamondLine[];
-    shapeOptions: PasangBatuStoneOption[];
+    diamondOptions: PasangBatuDiamondOption[];
     errors: Record<string, string>;
     onChange: (lines: DiamondLine[]) => void;
 }) {
+    const diamondOptionById = new Map(
+        diamondOptions.map((option) => [option.value, option]),
+    );
+
     return (
         <div className="spkStoneBatchPanel">
             <div className="spkCoranMaterialEditorPanelHeader">
@@ -467,146 +473,59 @@ function DiamondPanel({
                         </tr>
                     ) : (
                         lines.map((line, index) => {
-                            const shapeError =
-                                errors[`diamonds.${index}.shape_id`];
-                            const crtError = errors[`diamonds.${index}.crt`];
+                            const diamondError =
+                                errors[`diamonds.${index}.diamond_id`];
+                            const selectedDiamond = diamondOptionById.get(
+                                line.diamond_id,
+                            );
+                            const selectedInOtherLines = new Set(
+                                lines
+                                    .filter((item) => item.key !== line.key)
+                                    .map((item) => item.diamond_id),
+                            );
+                            const lineOptions = diamondOptions.filter(
+                                (option) =>
+                                    !selectedInOtherLines.has(option.value),
+                            );
 
                             return (
                                 <tr key={line.key} className="spkCoranLineRow">
                                     <td>
-                                        <Input
-                                            accessibleName="Kode diamond"
-                                            value={line.kode}
-                                            valueState={fieldState(
-                                                errors[
-                                                    `diamonds.${index}.kode`
-                                                ],
-                                            )}
-                                            onInput={(event) =>
-                                                onChange(
-                                                    updateDiamondLine(
-                                                        lines,
-                                                        line.key,
-                                                        {
-                                                            kode:
-                                                                event.target
-                                                                    .value ??
-                                                                '',
-                                                        },
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                    <td>
-                                        <Input
-                                            accessibleName="Tipe diamond"
-                                            value={line.diamond_type}
-                                            valueState={fieldState(
-                                                errors[
-                                                    `diamonds.${index}.diamond_type`
-                                                ],
-                                            )}
-                                            onInput={(event) =>
-                                                onChange(
-                                                    updateDiamondLine(
-                                                        lines,
-                                                        line.key,
-                                                        {
-                                                            diamond_type:
-                                                                event.target
-                                                                    .value ??
-                                                                '',
-                                                        },
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                    <td>
                                         <div className="spkFioriFieldStack">
                                             <OptionComboBox
-                                                accessibleName="Bentuk diamond"
-                                                value={line.shape_id}
-                                                options={shapeOptions}
-                                                error={shapeError}
-                                                placeholder="Cari / pilih bentuk"
-                                                onChange={(shapeId) =>
+                                                accessibleName="Batu Dossier"
+                                                value={line.diamond_id}
+                                                options={lineOptions}
+                                                error={diamondError}
+                                                placeholder="Cari kode / bentuk / crt"
+                                                onChange={(diamondId) =>
                                                     onChange(
                                                         updateDiamondLine(
                                                             lines,
                                                             line.key,
                                                             {
-                                                                shape_id:
-                                                                    shapeId,
+                                                                diamond_id:
+                                                                    diamondId,
                                                             },
                                                         ),
                                                     )
                                                 }
                                             />
-                                            {shapeError ? (
+                                            {diamondError ? (
                                                 <Text className="spkFioriError">
-                                                    {shapeError}
+                                                    {diamondError}
                                                 </Text>
                                             ) : null}
                                         </div>
                                     </td>
                                     <td>
-                                        <Input
-                                            accessibleName="Sertifikat diamond"
-                                            value={line.certificate}
-                                            valueState={fieldState(
-                                                errors[
-                                                    `diamonds.${index}.certificate`
-                                                ],
-                                            )}
-                                            onInput={(event) =>
-                                                onChange(
-                                                    updateDiamondLine(
-                                                        lines,
-                                                        line.key,
-                                                        {
-                                                            certificate:
-                                                                event.target
-                                                                    .value ??
-                                                                '',
-                                                        },
-                                                    ),
-                                                )
-                                            }
-                                        />
+                                        {selectedDiamond?.diamondType ?? '—'}
                                     </td>
+                                    <td>{selectedDiamond?.shape ?? '—'}</td>
                                     <td>
-                                        <div className="spkFioriFieldStack">
-                                            <Input
-                                                type="Number"
-                                                accessibleName="Crt diamond"
-                                                value={line.crt}
-                                                valueState={fieldState(
-                                                    crtError,
-                                                )}
-                                                onInput={(event) =>
-                                                    onChange(
-                                                        updateDiamondLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                crt:
-                                                                    event.target
-                                                                        .value ??
-                                                                    '',
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {crtError ? (
-                                                <Text className="spkFioriError">
-                                                    {crtError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
+                                        {selectedDiamond?.certificate ?? '—'}
                                     </td>
+                                    <td>{selectedDiamond?.crt ?? '—'}</td>
                                     <td className="spkTableActionCol">
                                         <Button
                                             design="Transparent"
@@ -630,6 +549,9 @@ function DiamondPanel({
                     )}
                 </tbody>
             </table>
+            {errors.diamonds ? (
+                <Text className="spkFioriError">{errors.diamonds}</Text>
+            ) : null}
         </div>
     );
 }
@@ -861,6 +783,7 @@ function MountedStonePanel({
 export function PasangBatuStoneEditor({
     stoneOptions,
     shapeOptions,
+    diamondOptions,
     settingStones,
     returnStones,
     diamonds,
@@ -898,7 +821,7 @@ export function PasangBatuStoneEditor({
                 />
                 <DiamondPanel
                     lines={diamonds}
-                    shapeOptions={shapeOptions}
+                    diamondOptions={diamondOptions}
                     errors={errors}
                     onChange={onDiamondsChange}
                 />

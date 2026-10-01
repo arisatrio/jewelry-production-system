@@ -1,10 +1,16 @@
+import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import pictureIcon from '@ui5/webcomponents-icons/dist/picture.js';
 import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
 import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { useState } from 'react';
-import type { SpkItemDetail, SpkStoneItem } from '@/components/spk/types';
+import { SpkStoneStockDialog } from '@/components/spk/spk-stone-stock-dialog';
+import type {
+    SpkItemDetail,
+    SpkStoneItem,
+    SpkStoneStock,
+} from '@/components/spk/types';
 
 type SpkItemStoneCardProps = {
     item: SpkItemDetail;
@@ -90,9 +96,7 @@ export function parseGoldWeightGrams(
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function formatGoldWeightGramsLabel(
-    value: string | number,
-): string {
+export function formatGoldWeightGramsLabel(value: string | number): string {
     const parsed = parseGoldWeightGrams(value);
 
     if (parsed === null) {
@@ -228,7 +232,11 @@ export function MasterDiffHint({
     master?: string | number | null;
     displayMaster?: string | number | null;
 }) {
-    if (!isMasterFieldChanged(current, master) || master === null || master === undefined) {
+    if (
+        !isMasterFieldChanged(current, master) ||
+        master === null ||
+        master === undefined
+    ) {
         return null;
     }
 
@@ -248,8 +256,7 @@ function SpkTypeProductItemValue({ item }: { item: SpkItemDetail }) {
     const typeProductLine = [typeCode, productItemName]
         .filter((part) => part !== '-')
         .join(' | ');
-    const hasStructuredType =
-        typeProductLine !== '' || skuCode !== '-';
+    const hasStructuredType = typeProductLine !== '' || skuCode !== '-';
 
     if (!hasStructuredType) {
         return <>{emptyDash(item.name)}</>;
@@ -258,7 +265,9 @@ function SpkTypeProductItemValue({ item }: { item: SpkItemDetail }) {
     return (
         <div className="spkItemTypeProductStack">
             {typeProductLine !== '' ? (
-                <span className="spkItemTypeProductLine">{typeProductLine}</span>
+                <span className="spkItemTypeProductLine">
+                    {typeProductLine}
+                </span>
             ) : null}
             {skuCode !== '-' ? (
                 <span className="spkItemSkuCode">{skuCode}</span>
@@ -374,7 +383,57 @@ export function SpkItemDetailCard({
     );
 }
 
+function SpkStoneStockCell({
+    stock,
+    onShowList,
+}: {
+    stock?: SpkStoneStock | null;
+    onShowList: () => void;
+}) {
+    if (!stock) {
+        return <>-</>;
+    }
+
+    const isAvailable = stock.status === 'available';
+    const sourceLabel = stock.source === 'dossier' ? 'Dossier' : 'Mikro';
+
+    return (
+        <div className="spkStoneStockCell">
+            <div className="spkStoneStock" title={stock.note ?? undefined}>
+                <span
+                    className={
+                        isAvailable
+                            ? 'spkStoneStockBadge is-available'
+                            : 'spkStoneStockBadge is-unavailable'
+                    }
+                >
+                    {isAvailable ? 'Tersedia' : 'Tidak Tersedia'}
+                </span>
+                <span className="spkStoneStockMeta">
+                    {`${sourceLabel} · stok ${stock.availablePcs.toLocaleString('id-ID')} pcs`}
+                </span>
+                {stock.note ? (
+                    <span className="spkStoneStockMeta">{stock.note}</span>
+                ) : null}
+            </div>
+            <button
+                type="button"
+                className="spkStoneStockListBtn"
+                aria-label={`Lihat daftar stok batu ${sourceLabel}`}
+                title={`Lihat daftar stok batu ${sourceLabel}`}
+                onClick={onShowList}
+            >
+                <Icon name={listIcon} mode="Decorative" />
+            </button>
+        </div>
+    );
+}
+
 export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
+    const [stockListStone, setStockListStone] = useState<SpkStoneItem | null>(
+        null,
+    );
+    const showStock = stones.some((stone) => stone.stock !== undefined);
     const totalButir = stones.reduce(
         (sum, stone) => sum + (Number(stone.pcs) || 0),
         0,
@@ -409,6 +468,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                 <th>Carat per Butir (pcs)</th>
                                 <th>Jumlah Butir (pcs)</th>
                                 <th>Total Carat</th>
+                                {showStock ? <th>Stok</th> : null}
                             </tr>
                         </thead>
                         <tbody>
@@ -457,7 +517,19 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                             master={stone.master?.pcs}
                                         />
                                     </td>
-                                    <td>{formatDecimal3Id(stone.totalCarat)}</td>
+                                    <td>
+                                        {formatDecimal3Id(stone.totalCarat)}
+                                    </td>
+                                    {showStock ? (
+                                        <td>
+                                            <SpkStoneStockCell
+                                                stock={stone.stock}
+                                                onShowList={() =>
+                                                    setStockListStone(stone)
+                                                }
+                                            />
+                                        </td>
+                                    ) : null}
                                 </tr>
                             ))}
                         </tbody>
@@ -473,11 +545,23 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                         maximumFractionDigits: 3,
                                     })}
                                 </td>
+                                {showStock ? <td /> : null}
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             )}
+
+            {showStock ? (
+                <SpkStoneStockDialog
+                    stone={stockListStone}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setStockListStone(null);
+                        }
+                    }}
+                />
+            ) : null}
         </div>
     );
 }
@@ -595,9 +679,7 @@ function PositionComboBox({
         positionName: string;
     }) => void;
 }) {
-    const [text, setText] = useState(
-        () => positionNama || positionName || '',
-    );
+    const [text, setText] = useState(() => positionNama || positionName || '');
 
     const selectExisting = (nextId: string, nextLabel?: string) => {
         const matched = positionOptions.find(
@@ -665,6 +747,7 @@ function PositionComboBox({
             }}
             onSelectionChange={(event) => {
                 const item = event.detail.item;
+
                 if (!item?.value) {
                     return;
                 }
@@ -1059,11 +1142,7 @@ export function SpkFormStoneListCard({
                                         />
                                         {errors[`stones.${index}.size`] ? (
                                             <Text className="spkFioriError">
-                                                {
-                                                    errors[
-                                                        `stones.${index}.size`
-                                                    ]
-                                                }
+                                                {errors[`stones.${index}.size`]}
                                             </Text>
                                         ) : null}
                                     </td>
@@ -1121,11 +1200,7 @@ export function SpkFormStoneListCard({
                                         />
                                         {errors[`stones.${index}.pcs`] ? (
                                             <Text className="spkFioriError">
-                                                {
-                                                    errors[
-                                                        `stones.${index}.pcs`
-                                                    ]
-                                                }
+                                                {errors[`stones.${index}.pcs`]}
                                             </Text>
                                         ) : null}
                                     </td>
@@ -1271,7 +1346,9 @@ export function SpkItemStoneCard({
                             </tr>
                             <tr>
                                 <th scope="row">Catatan</th>
-                                <td className="spkItemNotesCell">{notesText}</td>
+                                <td className="spkItemNotesCell">
+                                    {notesText}
+                                </td>
                             </tr>
                         </tbody>
                     </table>

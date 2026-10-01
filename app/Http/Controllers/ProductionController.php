@@ -45,6 +45,7 @@ use App\Support\SpkShrinkSummary;
 use App\Support\SpkStatusMapper;
 use App\Support\SpkStatusOrder;
 use App\Support\SpkStoneReport;
+use App\Support\SpkStoneStockChecker;
 use App\Support\StoreOrderRequestRepository;
 use App\Support\StoreStockRequestRepository;
 use Closure;
@@ -94,6 +95,7 @@ class ProductionController extends Controller
         private SpkStatusOrder $statusOrder,
         private SkuMasterDiamondMapper $diamondMapper,
         private SkuMasterDescriptionExtractor $descriptionExtractor,
+        private SpkStoneStockChecker $stoneStockChecker,
     ) {}
 
     /**
@@ -1790,14 +1792,19 @@ class ProductionController extends Controller
             ? $this->diamondMapper->toFormStones($production->sku->diamonds)
             : [];
 
-        return $production->stones()
+        $stones = $production->stones()
             ->notDeleted()
             ->with(['shape', 'position'])
             ->orderBy('line_id')
             ->get()
-            ->values()
-            ->map(function (SpkStone $stone, int $index) use ($masterStones): array {
+            ->values();
+
+        $stockByLineId = $this->stoneStockChecker->forStones($stones);
+
+        return $stones
+            ->map(function (SpkStone $stone, int $index) use ($masterStones, $stockByLineId): array {
                 $item = $this->toStoneItem($stone);
+                $item['stock'] = $stockByLineId[(int) $stone->line_id] ?? null;
                 $master = $masterStones[$index] ?? null;
 
                 $item['master'] = $master === null

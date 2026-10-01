@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(SpkPermissionSeeder::class);
         $this->call(SpkProcessSlaTargetSeeder::class);
+        $this->call(DiamondCrtMatrixSeeder::class);
 
         // User::factory(10)->create();
 

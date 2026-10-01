@@ -3,12 +3,15 @@
 use App\Http\Controllers\CoranController;
 use App\Http\Controllers\CraftsmanPerformanceDashboardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DiamondCrtMatrixController;
+use App\Http\Controllers\DiamondDossierController;
 use App\Http\Controllers\DiamondMountingController;
 use App\Http\Controllers\FinishingController;
 use App\Http\Controllers\GoldMaterialTransactionController;
 use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MaterialGoldController;
 use App\Http\Controllers\MaterialYieldDashboardController;
+use App\Http\Controllers\MicroStoneController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
@@ -21,6 +24,7 @@ use App\Http\Controllers\ShopFloorDashboardController;
 use App\Http\Controllers\SkuMasterController;
 use App\Http\Controllers\SkuOutputDashboardController;
 use App\Http\Controllers\SpkProcessSlaController;
+use App\Http\Controllers\SpkStoneStockController;
 use App\Http\Controllers\StoneTransactionController;
 use Illuminate\Support\Facades\Route;
 
@@ -115,6 +119,9 @@ Route::middleware(['auth'])->group(function () {
         ->whereIn('module', ['jewelcad', 'resin', 'coran', 'finishing', 'poles-rangka', 'pasang-batu', 'poles-chrome'])
         ->whereIn('queue', ['pending', 'inProgress', 'completed'])
         ->name('spk.process-queue');
+    Route::get('spk/stones/{spkStone}/stock', [SpkStoneStockController::class, 'show'])
+        ->whereNumber('spkStone')
+        ->name('spk.stones.stock');
     Route::get('spk/{production}', [ProductionController::class, 'show'])
         ->where('production', '.*')
         ->name('spk.show');
@@ -300,6 +307,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'store'])
             ->name('gold-material-transactions.store');
 
+        Route::get('batu-dossier', [DiamondDossierController::class, 'index'])
+            ->name('diamond-dossiers.index');
+
+        Route::get('batu-mikro', [MicroStoneController::class, 'index'])
+            ->name('micro-stones.index');
+
         Route::get('transaksi-batu', [StoneTransactionController::class, 'index'])
             ->name('stone-transactions.index');
         Route::post('transaksi-batu', [StoneTransactionController::class, 'store'])
@@ -332,6 +345,11 @@ Route::middleware(['auth'])->group(function () {
             ->name('spk-process-sla.edit');
         Route::put('spk-process-sla', [SpkProcessSlaController::class, 'update'])
             ->name('spk-process-sla.update');
+
+        Route::get('matrix-crt-dossier', [DiamondCrtMatrixController::class, 'edit'])
+            ->name('diamond-crt-matrix.edit');
+        Route::put('matrix-crt-dossier', [DiamondCrtMatrixController::class, 'update'])
+            ->name('diamond-crt-matrix.update');
     });
 });
 

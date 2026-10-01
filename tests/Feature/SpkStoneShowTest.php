@@ -30,6 +30,9 @@ test('spk show page includes stones list props', function () {
             ->has('stones.0.caratPerPcs')
             ->has('stones.0.totalCarat')
             ->has('stones.0.size')
+            ->has('stones.0.stock.source')
+            ->has('stones.0.stock.status')
+            ->has('stones.0.stock.availablePcs')
         );
 
     if (filled($stone->shape?->name) && filled($stone->shape?->code)) {

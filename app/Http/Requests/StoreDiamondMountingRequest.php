@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Models\DiamondMounting;
 use App\Models\Production;
+use App\Support\DiamondDossierInventory;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -85,11 +87,7 @@ class StoreDiamondMountingRequest extends FormRequest
             'return_stones.*.crt' => ['nullable', 'numeric', 'min:0'],
             'return_stones.*.notes' => ['nullable', 'string', 'max:500'],
             'diamonds' => ['nullable', 'array'],
-            'diamonds.*.kode' => ['nullable', 'string', 'max:100'],
-            'diamonds.*.diamond_type' => ['nullable', 'string', 'max:100'],
-            'diamonds.*.shape_id' => ['nullable', 'integer', 'min:1'],
-            'diamonds.*.certificate' => ['nullable', 'string', 'max:100'],
-            'diamonds.*.crt' => ['nullable', 'numeric', 'min:0'],
+            'diamonds.*.diamond_id' => ['required', 'integer', 'min:1', 'distinct'],
             'mounted_stones' => ['nullable', 'array'],
             'mounted_stones.*.diamond_code' => ['nullable', 'string', 'max:150'],
             'mounted_stones.*.shape_id' => ['nullable', 'integer', 'min:1'],
@@ -144,7 +142,7 @@ class StoreDiamondMountingRequest extends FormRequest
 
                 $this->validateStoneIds($validator, 'setting_stones');
                 $this->validateStoneIds($validator, 'return_stones');
-                $this->validateShapeIds($validator, 'diamonds');
+                $this->validateDiamondIds($validator);
                 $this->validateShapeIds($validator, 'mounted_stones');
             },
         ];
@@ -163,6 +161,8 @@ class StoreDiamondMountingRequest extends FormRequest
             'weight_finish_goods.numeric' => 'Berat akhir harus berupa angka.',
             'setting_stones.*.stone_id.required' => 'Batu setting wajib dipilih.',
             'return_stones.*.stone_id.required' => 'Batu retur wajib dipilih.',
+            'diamonds.*.diamond_id.required' => 'Batu Dossier wajib dipilih.',
+            'diamonds.*.diamond_id.distinct' => 'Batu Dossier tidak boleh dipilih lebih dari sekali.',
         ];
     }
 
@@ -206,7 +206,7 @@ class StoreDiamondMountingRequest extends FormRequest
     }
 
     /**
-     * @return list<array{kode: string|null, diamond_type: string|null, shape_id: int|null, certificate: string|null, crt: string|null}>
+     * @return list<array{diamond_id: int}>
      */
     private function normalizeDiamondLines(mixed $lines): array
     {
@@ -221,23 +221,13 @@ class StoreDiamondMountingRequest extends FormRequest
                 continue;
             }
 
-            $shapeId = filled($line['shape_id'] ?? null) && (int) $line['shape_id'] > 0
-                ? (int) $line['shape_id']
-                : null;
+            $diamondId = (int) ($line['diamond_id'] ?? 0);
 
-            $normalized[] = [
-                'kode' => filled($line['kode'] ?? null) ? trim((string) $line['kode']) : null,
-                'diamond_type' => filled($line['diamond_type'] ?? null)
-                    ? trim((string) $line['diamond_type'])
-                    : null,
-                'shape_id' => $shapeId,
-                'certificate' => filled($line['certificate'] ?? null)
-                    ? trim((string) $line['certificate'])
-                    : null,
-                'crt' => filled($line['crt'] ?? null)
-                    ? str_replace(',', '.', trim((string) $line['crt']))
-                    : null,
-            ];
+            if ($diamondId <= 0) {
+                continue;
+            }
+
+            $normalized[] = ['diamond_id' => $diamondId];
         }
 
         return $normalized;
@@ -325,6 +315,48 @@ class StoreDiamondMountingRequest extends FormRequest
 
             if ($stoneId > 0 && ! isset($existingLookup[$stoneId])) {
                 $validator->errors()->add("{$key}.{$index}.stone_id", 'Batu tidak valid.');
+            }
+        }
+    }
+
+    private function validateDiamondIds(Validator $validator): void
+    {
+        $lines = $this->collect('diamonds');
+
+        if ($lines->isEmpty()) {
+            return;
+        }
+
+        if (! Schema::connection('third')->hasTable('trdiamond')) {
+            $validator->errors()->add('diamonds', 'Data Batu Dossier tidak tersedia.');
+
+            return;
+        }
+
+        $diamondIds = array_values($lines
+            ->pluck('diamond_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->all());
+
+        $mountingDocument = $this->route('pasangBatu');
+        $mountingId = $mountingDocument instanceof DiamondMounting
+            ? (int) $mountingDocument->row_id
+            : null;
+
+        $selectableLookup = array_flip(
+            app(DiamondDossierInventory::class)->selectableIdsForMounting($diamondIds, $mountingId),
+        );
+
+        foreach ($lines as $index => $line) {
+            $diamondId = (int) ($line['diamond_id'] ?? 0);
+
+            if ($diamondId > 0 && ! isset($selectableLookup[$diamondId])) {
+                $validator->errors()->add(
+                    "diamonds.{$index}.diamond_id",
+                    'Batu Dossier tidak tersedia atau sudah dipakai dokumen lain.',
+                );
             }
         }
     }

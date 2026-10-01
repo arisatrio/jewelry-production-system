@@ -273,6 +273,7 @@ class DiamondMountingController extends Controller
             'craftsmanOptions' => $this->craftsmanOptions(),
             'stoneOptions' => $stoneSynchronizer->stoneOptions(),
             'shapeOptions' => $stoneSynchronizer->shapeOptions(),
+            'diamondOptions' => $stoneSynchronizer->diamondOptions(),
             'form' => [
                 'sendCraftsmanDate' => now()->format('Y-m-d H:i'),
                 'receivedCraftsmanDate' => '',
@@ -509,6 +510,7 @@ class DiamondMountingController extends Controller
             'craftsmanOptions' => $this->craftsmanOptions(),
             'stoneOptions' => $stoneSynchronizer->stoneOptions(),
             'shapeOptions' => $stoneSynchronizer->shapeOptions(),
+            'diamondOptions' => $stoneSynchronizer->diamondOptions($pasangBatu),
             'form' => [
                 'id' => (int) $pasangBatu->row_id,
                 'docNo' => $pasangBatu->doc_no,

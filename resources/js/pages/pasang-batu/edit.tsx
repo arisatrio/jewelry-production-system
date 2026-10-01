@@ -1,6 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { PasangBatuForm } from '@/components/pasang-batu/pasang-batu-form';
-import type { PasangBatuStoneOption } from '@/components/pasang-batu/pasang-batu-stone-editor';
+import type {
+    PasangBatuDiamondOption,
+    PasangBatuStoneOption,
+} from '@/components/pasang-batu/pasang-batu-stone-editor';
 import { show, update } from '@/routes/pasang-batu';
 
 type OptionItem = {
@@ -13,6 +16,7 @@ type PasangBatuEditProps = {
     craftsmanOptions: OptionItem[];
     stoneOptions: PasangBatuStoneOption[];
     shapeOptions: PasangBatuStoneOption[];
+    diamondOptions: PasangBatuDiamondOption[];
     form: {
         id: number;
         docNo: string | null;
@@ -36,11 +40,7 @@ type PasangBatuEditProps = {
             notes: string;
         }>;
         diamonds?: Array<{
-            kode: string;
-            diamondType: string;
-            shapeId: number | null;
-            certificate: string;
-            crt: string;
+            diamondId: number;
         }>;
         mountedStones?: Array<{
             diamondCode: string;
@@ -76,6 +76,7 @@ export default function PasangBatuEdit({
     craftsmanOptions,
     stoneOptions,
     shapeOptions,
+    diamondOptions,
     form,
 }: PasangBatuEditProps) {
     return (
@@ -93,6 +94,7 @@ export default function PasangBatuEdit({
                 craftsmanOptions={craftsmanOptions}
                 stoneOptions={stoneOptions}
                 shapeOptions={shapeOptions}
+                diamondOptions={diamondOptions}
                 initialValues={{
                     craftsman_id:
                         form.craftsmanId !== null
@@ -139,14 +141,7 @@ export default function PasangBatuEdit({
                     ),
                     diamonds: (form.diamonds ?? []).map((line, index) => ({
                         key: lineKey('diamond', index),
-                        kode: line.kode ?? '',
-                        diamond_type: line.diamondType ?? '',
-                        shape_id:
-                            line.shapeId !== null && line.shapeId !== undefined
-                                ? String(line.shapeId)
-                                : '',
-                        certificate: line.certificate ?? '',
-                        crt: line.crt ?? '',
+                        diamond_id: String(line.diamondId),
                     })),
                     mounted_stones: (form.mountedStones ?? []).map(
                         (line, index) => ({

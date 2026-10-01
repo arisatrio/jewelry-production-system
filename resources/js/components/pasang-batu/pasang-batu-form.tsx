@@ -22,6 +22,7 @@ import {
     PasangBatuStoneEditor,
     type DiamondLine,
     type MountedStoneLine,
+    type PasangBatuDiamondOption,
     type PasangBatuStoneOption,
     type SettingStoneLine,
 } from '@/components/pasang-batu/pasang-batu-stone-editor';
@@ -70,6 +71,7 @@ type PasangBatuFormProps = {
     craftsmanOptions: OptionItem[];
     stoneOptions: PasangBatuStoneOption[];
     shapeOptions: PasangBatuStoneOption[];
+    diamondOptions: PasangBatuDiamondOption[];
     initialValues: PasangBatuFormValues;
 };
 
@@ -168,6 +170,7 @@ export function PasangBatuForm({
     craftsmanOptions,
     stoneOptions,
     shapeOptions,
+    diamondOptions,
     initialValues,
 }: PasangBatuFormProps) {
     const { data, setData, post, put, processing, errors, transform } =
@@ -237,26 +240,9 @@ export function PasangBatuForm({
                         line.notes.trim() !== '' ? line.notes.trim() : null,
                 })),
             diamonds: formData.diamonds
-                .filter(
-                    (line) =>
-                        line.kode.trim() !== '' ||
-                        line.diamond_type.trim() !== '' ||
-                        line.shape_id.trim() !== '' ||
-                        line.certificate.trim() !== '' ||
-                        line.crt.trim() !== '',
-                )
+                .filter((line) => line.diamond_id.trim() !== '')
                 .map((line) => ({
-                    kode: line.kode.trim() !== '' ? line.kode.trim() : null,
-                    diamond_type:
-                        line.diamond_type.trim() !== ''
-                            ? line.diamond_type.trim()
-                            : null,
-                    shape_id: normalizeOptionalId(line.shape_id),
-                    certificate:
-                        line.certificate.trim() !== ''
-                            ? line.certificate.trim()
-                            : null,
-                    crt: normalizeNullableNumber(line.crt),
+                    diamond_id: Number(line.diamond_id),
                 })),
             mounted_stones: formData.mounted_stones
                 .filter(
@@ -751,6 +737,7 @@ export function PasangBatuForm({
                             <PasangBatuStoneEditor
                                 stoneOptions={stoneOptions}
                                 shapeOptions={shapeOptions}
+                                diamondOptions={diamondOptions}
                                 settingStones={data.setting_stones}
                                 returnStones={data.return_stones}
                                 diamonds={data.diamonds}
