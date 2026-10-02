@@ -1,0 +1,1 @@
+import{fr as e}from"./app-CS0-g3Cu.js";import"./Text-CABqzyzR.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};
