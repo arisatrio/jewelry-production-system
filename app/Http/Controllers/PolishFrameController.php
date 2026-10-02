@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\BuildsPolishProcessReport;
 use App\Http\Requests\BulkUpdatePolishFrameStatusRequest;
 use App\Http\Requests\StorePolishFrameRequest;
 use App\Http\Requests\UpdatePolishFrameRequest;
@@ -28,6 +29,8 @@ use InvalidArgumentException;
 
 class PolishFrameController extends Controller
 {
+    use BuildsPolishProcessReport;
+
     private const ALL_STATUS_FILTER = 'all';
 
     private const COMPLETED_STATUS_FILTER = 'done';
@@ -1156,6 +1159,36 @@ class PolishFrameController extends Controller
         }
 
         return (float) $value;
+    }
+
+    protected function polishProcessReportModelClass(): string
+    {
+        return PolishFrame::class;
+    }
+
+    protected function polishProcessReportTable(): string
+    {
+        return 'polishframe';
+    }
+
+    protected function polishProcessReportExportTitle(): string
+    {
+        return 'Laporan Poles Rangka';
+    }
+
+    protected function polishProcessReportExportPrefix(): string
+    {
+        return 'laporan-poles-rangka';
+    }
+
+    protected function polishProcessReportInertiaPage(): string
+    {
+        return 'poles-rangka/report';
+    }
+
+    protected function polishProcessReportIncludesProcessName(): bool
+    {
+        return false;
     }
 
     /**

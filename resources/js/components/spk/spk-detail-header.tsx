@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import barCodeIcon from '@ui5/webcomponents-icons/dist/bar-code.js';
+import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
 import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-arrow.js';
@@ -70,6 +71,12 @@ function normalizeMainSection(section: string): MainSectionTab {
     return section;
 }
 
+type SpkPolesChromeCompleteAction = {
+    documentId: number;
+    docNo: string | null;
+    completeUrl: string;
+};
+
 type SpkDetailLayoutProps = {
     production: SpkDetail;
     item: SpkItemDetail;
@@ -88,6 +95,7 @@ type SpkDetailLayoutProps = {
     approval?: SpkApprovalAbilities;
     approvalTimeline?: SpkApprovalTimelineEvent[];
     approvalFooter?: SpkApprovalFooterColumn[];
+    polesChromeComplete?: SpkPolesChromeCompleteAction | null;
     children?: ReactNode;
 };
 
@@ -113,6 +121,7 @@ export function SpkDetailLayout({
     approval,
     approvalTimeline = [],
     approvalFooter,
+    polesChromeComplete = null,
     children,
 }: SpkDetailLayoutProps) {
     const [mainSection, setMainSection] = useState<MainSectionTab>(() =>
@@ -121,6 +130,7 @@ export function SpkDetailLayout({
     const [barcodeOpen, setBarcodeOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [completingPolesChrome, setCompletingPolesChrome] = useState(false);
     const workflowStatus = production.workflowStatus;
     const activeStageIndex = workflowStatus?.stageIndex ?? 0;
     const statusStages = workflowStatus?.stages ?? [
@@ -223,6 +233,22 @@ export function SpkDetailLayout({
         });
     };
 
+    const completePolesChrome = (): void => {
+        if (!polesChromeComplete?.completeUrl || completingPolesChrome) {
+            return;
+        }
+
+        setCompletingPolesChrome(true);
+        router.post(
+            polesChromeComplete.completeUrl,
+            { return_to: 'spk' },
+            {
+                preserveScroll: true,
+                onFinish: () => setCompletingPolesChrome(false),
+            },
+        );
+    };
+
     return (
         <div className="spkDetailStack">
             <div className="spkTopBarCard">
@@ -305,6 +331,27 @@ export function SpkDetailLayout({
                                     productionId={Number(production.id)}
                                     approval={approval}
                                 />
+                            ) : null}
+                            {polesChromeComplete ? (
+                                <button
+                                    type="button"
+                                    className="spkHeaderActionBtn spkHeaderActionBtn--positive spkHeaderTextActionBtn"
+                                    disabled={completingPolesChrome}
+                                    title={
+                                        polesChromeComplete.docNo
+                                            ? `Selesaikan ${polesChromeComplete.docNo}`
+                                            : 'Selesaikan proses Poles Chrome'
+                                    }
+                                    onClick={completePolesChrome}
+                                >
+                                    <Icon
+                                        name={acceptIcon}
+                                        mode="Decorative"
+                                    />
+                                    {completingPolesChrome
+                                        ? 'Memproses...'
+                                        : 'Tandai Selesai'}
+                                </button>
                             ) : null}
                             <button
                                 type="button"

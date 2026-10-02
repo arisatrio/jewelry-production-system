@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateProductionRequest;
 use App\Models\Employee;
 use App\Models\MsPosition;
 use App\Models\MsShape;
+use App\Models\PolishFinishedGood;
 use App\Models\Production;
 use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
@@ -21,6 +22,7 @@ use App\Support\DiamondMountingSpkEligibility;
 use App\Support\FinishingSpkEligibility;
 use App\Support\GoldColorOptions;
 use App\Support\JewelCadSpkEligibility;
+use App\Support\PolishFinishedGoodApprovalService;
 use App\Support\PolishFinishedGoodSpkEligibility;
 use App\Support\PolishFrameSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
@@ -1442,7 +1444,51 @@ class ProductionController extends Controller
                 $production,
                 $this->actorName($request),
             ),
+            'polesChromeComplete' => $this->polesChromeCompleteAction(
+                $request,
+                $production,
+                $processMapper,
+            ),
         ]);
+    }
+
+    /**
+     * @return array{
+     *     documentId: int,
+     *     docNo: string|null,
+     *     completeUrl: string
+     * }|null
+     */
+    private function polesChromeCompleteAction(
+        Request $request,
+        Production $production,
+        SpkProcessMapper $processMapper,
+    ): ?array {
+        if ($processMapper->processKeyForLastProcess($production->last_process) !== 'Poles Chrome') {
+            return null;
+        }
+
+        $document = PolishFinishedGood::query()
+            ->notDeleted()
+            ->where('spk_id', $production->row_id)
+            ->orderByDesc('row_id')
+            ->first();
+
+        if ($document === null) {
+            return null;
+        }
+
+        $approvalService = app(PolishFinishedGoodApprovalService::class);
+
+        if (! $approvalService->abilitiesFor($document, $request->user())['canComplete']) {
+            return null;
+        }
+
+        return [
+            'documentId' => (int) $document->row_id,
+            'docNo' => filled($document->doc_no) ? (string) $document->doc_no : null,
+            'completeUrl' => route('poles-chrome.complete', $document),
+        ];
     }
 
     /**

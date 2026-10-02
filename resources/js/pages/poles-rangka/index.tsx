@@ -1,5 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
+import barChartIcon from '@ui5/webcomponents-icons/dist/bar-chart.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
@@ -38,6 +39,7 @@ import {
     edit,
     show,
     bulkStatus,
+    report,
 } from '@/routes/poles-rangka';
 type PolesRangkaRow = {
     id: number;
@@ -1132,6 +1134,35 @@ export default function PolesRangkaIndex({
                                 icon={printIcon}
                                 accessibleName="Cetak"
                                 className="spkTableHeaderExportBtn--finishing"
+                            />
+                            <Button
+                                design="Default"
+                                icon={barChartIcon}
+                                accessibleName="Laporan poles rangka"
+                                tooltip="Laporan poles rangka"
+                                className="spkTableHeaderExportBtn--finishing"
+                                onClick={() =>
+                                    router.visit(
+                                        report.url({
+                                            query: {
+                                                craftsman:
+                                                    filters.craftsman
+                                                        .length === 1
+                                                        ? String(
+                                                              filters
+                                                                  .craftsman[0],
+                                                          )
+                                                        : undefined,
+                                                date_from:
+                                                    filters.date_from ??
+                                                    undefined,
+                                                date_to:
+                                                    filters.date_to ??
+                                                    undefined,
+                                            },
+                                        }),
+                                    )
+                                }
                             />
                             <span
                                 className="spkTableHeaderDivider--finishing"

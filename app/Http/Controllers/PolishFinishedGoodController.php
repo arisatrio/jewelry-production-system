@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\BuildsPolishProcessReport;
 use App\Http\Requests\BulkUpdatePolishFinishedGoodStatusRequest;
 use App\Http\Requests\StorePolishFinishedGoodRequest;
 use App\Http\Requests\UpdatePolishFinishedGoodRequest;
@@ -28,6 +29,8 @@ use InvalidArgumentException;
 
 class PolishFinishedGoodController extends Controller
 {
+    use BuildsPolishProcessReport;
+
     private const ALL_STATUS_FILTER = 'all';
 
     private const COMPLETED_STATUS_FILTER = 'done';
@@ -577,6 +580,17 @@ class PolishFinishedGoodController extends Controller
             'type' => 'success',
             'message' => 'Dokumen Poles Chrome selesai.',
         ]);
+
+        if ($request->input('return_to') === 'spk') {
+            $spkNo = Production::query()
+                ->notDeleted()
+                ->where('row_id', $polesChrome->spk_id)
+                ->value('spk_no');
+
+            if (filled($spkNo)) {
+                return redirect()->route('spk.show', $spkNo);
+            }
+        }
 
         return to_route('poles-chrome.show', $polesChrome);
     }
@@ -1164,6 +1178,36 @@ class PolishFinishedGoodController extends Controller
         }
 
         return (float) $value;
+    }
+
+    protected function polishProcessReportModelClass(): string
+    {
+        return PolishFinishedGood::class;
+    }
+
+    protected function polishProcessReportTable(): string
+    {
+        return 'polishfinishedgood';
+    }
+
+    protected function polishProcessReportExportTitle(): string
+    {
+        return 'Laporan Poles Chrome';
+    }
+
+    protected function polishProcessReportExportPrefix(): string
+    {
+        return 'laporan-poles-chrome';
+    }
+
+    protected function polishProcessReportInertiaPage(): string
+    {
+        return 'poles-chrome/report';
+    }
+
+    protected function polishProcessReportIncludesProcessName(): bool
+    {
+        return true;
     }
 
     /**

@@ -19,6 +19,12 @@ import type {
     SpkStoneReport,
 } from '@/components/spk/types';
 
+type SpkPolesChromeCompleteAction = {
+    documentId: number;
+    docNo: string | null;
+    completeUrl: string;
+};
+
 type SpkShowProps = {
     production: SpkDetail;
     item: SpkItemDetail;
@@ -35,6 +41,7 @@ type SpkShowProps = {
     approval: SpkApprovalAbilities;
     approvalTimeline: SpkApprovalTimelineEvent[];
     approvalFooter: SpkApprovalFooterColumn[];
+    polesChromeComplete: SpkPolesChromeCompleteAction | null;
 };
 
 export default function SpkShow({
@@ -53,6 +60,7 @@ export default function SpkShow({
     approval,
     approvalTimeline,
     approvalFooter,
+    polesChromeComplete,
 }: SpkShowProps) {
     const productionProcesses = processes.filter(
         (process) =>
@@ -91,6 +99,7 @@ export default function SpkShow({
                     approval={approval}
                     approvalTimeline={approvalTimeline}
                     approvalFooter={approvalFooter}
+                    polesChromeComplete={polesChromeComplete}
                 >
                     {activeProcess ? (
                         <SpkProcessPanel process={activeProcess} />

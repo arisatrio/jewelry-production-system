@@ -74,6 +74,7 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
         private readonly DateTimeInterface $dateFrom,
         private readonly DateTimeInterface $dateTo,
         private readonly DateTimeInterface $exportedAt,
+        private readonly string $reportTitle = 'Laporan Finishing',
     ) {}
 
     public function startCell(): string
@@ -180,7 +181,7 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
 
     public function title(): string
     {
-        return 'Laporan Finishing';
+        return $this->reportTitle;
     }
 
     /**
@@ -223,7 +224,7 @@ class FinishingReportExport implements FromArray, ShouldAutoSize, WithColumnForm
     private function writeReportHeader(Worksheet $sheet): void
     {
         $lines = [
-            'Laporan Finishing',
+            $this->reportTitle,
             "Pengrajin : {$this->craftsmanLabel}",
             'Tanggal : '.$this->dateFrom->format('d-M-Y').' s/d '.$this->dateTo->format('d-M-Y'),
             'Tanggal Export : '.$this->exportedAt->format('d-M-Y H:i'),

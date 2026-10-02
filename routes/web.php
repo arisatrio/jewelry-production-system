@@ -223,6 +223,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('poles-rangka/select/spks', [PolishFrameController::class, 'searchSpks'])
         ->name('poles-rangka.select.spks');
+    Route::get('poles-rangka/export', [PolishFrameController::class, 'export'])->name('poles-rangka.export');
+    Route::get('poles-rangka/report', [PolishFrameController::class, 'report'])->name('poles-rangka.report');
     Route::get('poles-rangka/create', [PolishFrameController::class, 'create'])->name('poles-rangka.create');
     Route::post('poles-rangka', [PolishFrameController::class, 'store'])->name('poles-rangka.store');
     Route::post('poles-rangka/bulk-status', [PolishFrameController::class, 'bulkUpdateStatus'])
@@ -275,6 +277,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('poles-chrome/select/spks', [PolishFinishedGoodController::class, 'searchSpks'])
         ->name('poles-chrome.select.spks');
+    Route::get('poles-chrome/export', [PolishFinishedGoodController::class, 'export'])->name('poles-chrome.export');
+    Route::get('poles-chrome/report', [PolishFinishedGoodController::class, 'report'])->name('poles-chrome.report');
     Route::get('poles-chrome/create', [PolishFinishedGoodController::class, 'create'])->name('poles-chrome.create');
     Route::post('poles-chrome', [PolishFinishedGoodController::class, 'store'])->name('poles-chrome.store');
     Route::post('poles-chrome/bulk-status', [PolishFinishedGoodController::class, 'bulkUpdateStatus'])
