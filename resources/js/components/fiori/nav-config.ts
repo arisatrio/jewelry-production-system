@@ -7,7 +7,7 @@ import {
     workOrder,
 } from '@/routes/analytics';
 import { index as coranIndex } from '@/routes/coran';
-import { index as finishingIndex } from '@/routes/finishing';
+import { index as finishingIndex, report as finishingReport } from '@/routes/finishing';
 import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
@@ -20,8 +20,14 @@ import { edit as spkProcessSlaEdit } from '@/routes/master-data/spk-process-sla'
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
 import { index as varianItemIndex } from '@/routes/master-data/varian-item';
 import { index as pasangBatuIndex } from '@/routes/pasang-batu';
-import { index as polesChromeIndex } from '@/routes/poles-chrome';
-import { index as polesRangkaIndex } from '@/routes/poles-rangka';
+import {
+    index as polesChromeIndex,
+    report as polesChromeReport,
+} from '@/routes/poles-chrome';
+import {
+    index as polesRangkaIndex,
+    report as polesRangkaReport,
+} from '@/routes/poles-rangka';
 import { index as resinIndex } from '@/routes/resin';
 import { index as reparasiIndex } from '@/routes/reparasi';
 import { index as spkIndex } from '@/routes/spk';
@@ -53,6 +59,9 @@ export const defaultAnalyticsSubmenus: ShellNavItem[] = [
     { text: 'Material & Yield', href: materialYield.url() },
     { text: 'Performance Pengrajin', href: craftsmanPerformance.url() },
     { text: 'Output SKU', href: skuOutput.url() },
+    { text: 'Laporan Finishing', href: finishingReport.url() },
+    { text: 'Laporan Poles Rangka', href: polesRangkaReport.url() },
+    { text: 'Laporan Poles Chrome', href: polesChromeReport.url() },
 ];
 
 export const defaultProduksiSubmenus: ShellNavItem[] = [

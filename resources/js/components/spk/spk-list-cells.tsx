@@ -238,10 +238,6 @@ export function SpkTableLastProcessCell({
         );
     }
 
-    if (row.status === 'Approved') {
-        return <span>Belum Diproses</span>;
-    }
-
     return <span>-</span>;
 }
 

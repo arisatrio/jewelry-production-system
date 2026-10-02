@@ -35,3 +35,22 @@ test('modifikasi barang jadi is nested under pengerjaan lanjutan submenu', funct
         ->and($postSpk[1] ?? '')->toContain('pengerjaan-lanjutan')
         ->and($postSpk[1] ?? '')->toContain('defaultPengerjaanLanjutanSubmenus');
 });
+
+test('process report pages are listed under analytics submenu', function () {
+    $config = file_get_contents(resource_path('js/components/fiori/nav-config.ts'));
+
+    expect($config)->not->toBeFalse();
+
+    preg_match(
+        '/export const defaultAnalyticsSubmenus: ShellNavItem\[\] = \[(.*?)\];/s',
+        (string) $config,
+        $analytics,
+    );
+
+    expect($analytics[1] ?? '')->toContain('Laporan Finishing')
+        ->and($analytics[1] ?? '')->toContain('finishingReport.url()')
+        ->and($analytics[1] ?? '')->toContain('Laporan Poles Rangka')
+        ->and($analytics[1] ?? '')->toContain('polesRangkaReport.url()')
+        ->and($analytics[1] ?? '')->toContain('Laporan Poles Chrome')
+        ->and($analytics[1] ?? '')->toContain('polesChromeReport.url()');
+});
