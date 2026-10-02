@@ -27,8 +27,10 @@ test('modifikasi barang jadi is nested under pengerjaan lanjutan submenu', funct
 
     expect($moduleNav[1] ?? '')->not->toContain('Modifikasi Barang Jadi')
         ->and($moduleNav[1] ?? '')->toContain("'SPK'")
+        ->and($moduleNav[1] ?? '')->toContain("'Reparasi'")
+        ->and($moduleNav[1] ?? '')->toContain('reparasiIndex.url()')
         ->and($pengerjaanLanjutan[1] ?? '')->toContain('Modifikasi Barang Jadi')
-        ->and($pengerjaanLanjutan[1] ?? '')->toContain('Reparasi')
+        ->and($pengerjaanLanjutan[1] ?? '')->not->toContain('Reparasi')
         ->and($pengerjaanLanjutan[1] ?? '')->toContain('Penambahan Chain')
         ->and($postSpk[1] ?? '')->toContain('pengerjaan-lanjutan')
         ->and($postSpk[1] ?? '')->toContain('defaultPengerjaanLanjutanSubmenus');

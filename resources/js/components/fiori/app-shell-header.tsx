@@ -264,9 +264,11 @@ export default function AppShellHeader({
     const pendingProfileActionRef = useRef<string | null>(null);
     const ignoreProfileClickRef = useRef(false);
 
-    const spkNavItem = moduleNavItems.find((item) => item.text === 'SPK');
+    const primaryModuleNavItems = moduleNavItems.filter(
+        (item) => item.text === 'SPK' || item.text === 'Reparasi',
+    );
     const trailingModuleNavItems = moduleNavItems.filter(
-        (item) => item.text !== 'SPK',
+        (item) => item.text !== 'SPK' && item.text !== 'Reparasi',
     );
 
     useEffect(() => {
@@ -430,7 +432,7 @@ export default function AppShellHeader({
     const allMenuItems = [
         ...primaryNavItems,
         ...midDropdowns.flatMap((dropdown) => dropdown.items),
-        ...(spkNavItem ? [spkNavItem] : []),
+        ...primaryModuleNavItems,
         ...postSpkDropdowns.flatMap((dropdown) => dropdown.items),
         ...trailingModuleNavItems,
         ...trailingDropdowns.flatMap((dropdown) => dropdown.items),
@@ -727,7 +729,7 @@ export default function AppShellHeader({
             <nav className="appNav" aria-label="Menu modul">
                 {primaryNavItems.map(renderNavLink)}
                 {midDropdowns.map(renderDropdownButton)}
-                {spkNavItem ? renderNavLink(spkNavItem) : null}
+                {primaryModuleNavItems.map(renderNavLink)}
                 {postSpkDropdowns.map(renderDropdownButton)}
                 {trailingModuleNavItems.map(renderNavLink)}
                 {trailingDropdowns.map(renderDropdownButton)}

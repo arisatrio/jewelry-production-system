@@ -16,6 +16,8 @@ test('spk index page is accessible and returns production list props', function 
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/index')
+            ->where('indexContext', 'spk')
+            ->where('types', SpkService::standardIndexTypes())
             ->has('productions.data')
             ->has('productions.total')
             ->has('filters.search')
@@ -36,7 +38,7 @@ test('spk index page can filter productions by type', function () {
         $production = app(SpkService::class)->createStock('system');
     }
 
-    $types = SpkService::TYPES;
+    $types = SpkService::standardIndexTypes();
 
     $this->get(route('spk.index', ['type' => 'Stock', 'search' => $production->spk_no]))
         ->assertOk()
@@ -1157,10 +1159,13 @@ test('spk index marks status done when reference type poles barang jadi is rpfdo
         'created_by' => 'system',
     ], 'row_id');
 
-    $this->get(route('spk.index', ['search' => $production->spk_no]))
+    $indexRoute = $spkType === 'Reparasi' ? 'reparasi.index' : 'spk.index';
+    $indexComponent = $spkType === 'Reparasi' ? 'reparasi/index' : 'spk/index';
+
+    $this->get(route($indexRoute, ['search' => $production->spk_no]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('spk/index')
+            ->component($indexComponent)
             ->where('productions.data.0.status', 'DONE (Barang Jadi)')
             ->where('productions.data.0.prosesTerakhir', 'Poles Barang Jadi')
         );
@@ -1193,10 +1198,13 @@ test('spk index marks status done when reference type finishing is rfhdone', fun
         'created_by' => 'system',
     ], 'row_id');
 
-    $this->get(route('spk.index', ['search' => $production->spk_no]))
+    $indexRoute = $spkType === 'Reparasi' ? 'reparasi.index' : 'spk.index';
+    $indexComponent = $spkType === 'Reparasi' ? 'reparasi/index' : 'spk/index';
+
+    $this->get(route($indexRoute, ['search' => $production->spk_no]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('spk/index')
+            ->component($indexComponent)
             ->where('productions.data.0.status', 'DONE (Barang Jadi)')
             ->where('productions.data.0.prosesTerakhir', 'Finishing')
         );

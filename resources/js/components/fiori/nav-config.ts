@@ -23,6 +23,7 @@ import { index as pasangBatuIndex } from '@/routes/pasang-batu';
 import { index as polesChromeIndex } from '@/routes/poles-chrome';
 import { index as polesRangkaIndex } from '@/routes/poles-rangka';
 import { index as resinIndex } from '@/routes/resin';
+import { index as reparasiIndex } from '@/routes/reparasi';
 import { index as spkIndex } from '@/routes/spk';
 
 export type ShellNavItem = {
@@ -42,6 +43,7 @@ export const defaultPrimaryNavItems: ShellNavItem[] = [
 
 export const defaultModuleNavItems: ShellNavItem[] = [
     { text: 'SPK', href: spkIndex.url() },
+    { text: 'Reparasi', href: reparasiIndex.url() },
 ];
 
 export const defaultAnalyticsSubmenus: ShellNavItem[] = [
@@ -64,7 +66,6 @@ export const defaultProduksiSubmenus: ShellNavItem[] = [
 ];
 
 export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
-    { text: 'Reparasi' },
     { text: 'Penambahan Chain' },
     { text: 'Modifikasi Barang Jadi' },
 ];

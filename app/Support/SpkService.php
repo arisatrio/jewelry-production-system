@@ -17,7 +17,20 @@ class SpkService
 {
     public const TYPES = ['Pesanan', 'Exchange', 'Refund', 'Reparasi', 'Stock'];
 
+    public const REPARATION_TYPE = 'Reparasi';
+
     public const REFERENCE_TYPES = ['Exchange', 'Refund', 'Reparasi'];
+
+    /**
+     * @return list<string>
+     */
+    public static function standardIndexTypes(): array
+    {
+        return array_values(array_filter(
+            self::TYPES,
+            fn (string $type): bool => $type !== self::REPARATION_TYPE,
+        ));
+    }
 
     public const DEFAULT_SUPPLIER_ID = 1;
 

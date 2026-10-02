@@ -51,6 +51,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('analytics.craftsman-performance');
     Route::get('analytics/sku-output', [SkuOutputDashboardController::class, 'index'])
         ->name('analytics.sku-output');
+    Route::get('reparasi', [ProductionController::class, 'reparasiIndex'])->name('reparasi.index');
     Route::get('spk', [ProductionController::class, 'index'])->name('spk.index');
     Route::get('spk/create-guide', [ProductionController::class, 'createGuide'])
         ->name('spk.create.guide');

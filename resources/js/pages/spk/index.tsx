@@ -52,6 +52,7 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { index as reparasiIndex } from '@/routes/reparasi';
 import {
     bulkStatus,
     create as spkCreate,
@@ -79,7 +80,10 @@ type StatusAlertKey = 'draft' | 'pendingManager' | 'inProgress' | 'done';
 
 type BulkAction = 'submit' | 'approve' | 'manager_approve' | 'delete';
 
+type SpkIndexContext = 'spk' | 'reparasi';
+
 type SpkIndexProps = {
+    indexContext?: SpkIndexContext;
     productions: ProductionsPaginator;
     types: string[];
     typeCounts: {
@@ -180,6 +184,7 @@ function buildFilterDraft(filters: SpkIndexProps['filters']) {
 }
 
 export default function SpkIndex({
+    indexContext = 'spk',
     productions,
     types,
     typeCounts,
@@ -193,6 +198,8 @@ export default function SpkIndex({
     storeOrderRequestCount,
     bulkActions,
 }: SpkIndexProps) {
+    const isReparasiIndex = indexContext === 'reparasi';
+    const listIndexRoute = isReparasiIndex ? reparasiIndex : spkIndex;
     const [searchQuery, setSearchQuery] = useState(filters.search);
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
     const [rowActionProcessing, setRowActionProcessing] = useState(false);
@@ -285,7 +292,7 @@ export default function SpkIndex({
 
     const visitIndex = (params: Parameters<typeof buildIndexQuery>[0]) => {
         router.get(
-            spkIndex.url({ query: buildIndexQuery(params) }),
+            listIndexRoute.url({ query: buildIndexQuery(params) }),
             {},
             {
                 preserveState: true,
@@ -301,7 +308,7 @@ export default function SpkIndex({
             }
 
             router.get(
-                spkIndex.url({
+                listIndexRoute.url({
                     query: {
                         search: searchQuery || undefined,
                         type:
@@ -349,6 +356,7 @@ export default function SpkIndex({
         filters.target_from,
         filters.target_to,
         filters.per_page,
+        listIndexRoute,
     ]);
 
     const totalPages = useMemo(
@@ -665,17 +673,19 @@ export default function SpkIndex({
 
     return (
         <>
-            <Head title="SPK" />
+            <Head title={isReparasiIndex ? 'Reparasi' : 'SPK'} />
             <div className="spkTableShell">
                 <div className="spkTableCard">
                     <div className="spkTableToolbar spkTableHeaderBar--finishing spkTableHeaderBar--spk">
                         <div className="spkTableToolbarLeft">
                             <div className="spkTableTitleBlock spkTableTitleBlock--finishing">
                                 <h2 className="spkTableHeaderTitle--finishing">
-                                    SPK
+                                    {isReparasiIndex ? 'Reparasi' : 'SPK'}
                                 </h2>
                                 <p className="spkTableHeaderSubtitle--finishing text-muted-foreground">
-                                    Data surat perintah kerja produksi
+                                    {isReparasiIndex
+                                        ? 'Data surat perintah kerja reparasi'
+                                        : 'Data surat perintah kerja produksi'}
                                 </p>
                             </div>
                         </div>
@@ -1084,20 +1094,22 @@ export default function SpkIndex({
                                                     </label>
                                                 </>
                                             ) : null}
-                                            <FilterMultiSelect
-                                                label="Tipe"
-                                                allLabel={`Semua (${typeCounts.all})`}
-                                                options={typeOptions}
-                                                value={filterDraft.type}
-                                                onChange={(type) =>
-                                                    setFilterDraft(
-                                                        (current) => ({
-                                                            ...current,
-                                                            type,
-                                                        }),
-                                                    )
-                                                }
-                                            />
+                                            {!isReparasiIndex ? (
+                                                <FilterMultiSelect
+                                                    label="Tipe"
+                                                    allLabel={`Semua (${typeCounts.all})`}
+                                                    options={typeOptions}
+                                                    value={filterDraft.type}
+                                                    onChange={(type) =>
+                                                        setFilterDraft(
+                                                            (current) => ({
+                                                                ...current,
+                                                                type,
+                                                            }),
+                                                        )
+                                                    }
+                                                />
+                                            ) : null}
                                             <FilterMultiSelect
                                                 label="Status"
                                                 options={statusOptions}
@@ -1262,94 +1274,112 @@ export default function SpkIndex({
                                 accessibleName="Ekspor"
                                 className="spkTableHeaderExportBtn--finishing"
                             />
-                            <Button
-                                design="Default"
-                                icon={documentIcon}
-                                accessibleName="Riwayat Tanda Terima"
-                                tooltip="Riwayat Tanda Terima"
-                                className="spkTableHeaderExportBtn--finishing"
-                                onClick={() =>
-                                    setReceiptHistoryDialogOpen(true)
-                                }
-                            />
-                            <span
-                                className="spkTableHeaderDivider--finishing"
-                                aria-hidden="true"
-                            />
-                            <button
-                                type="button"
-                                className="spkReceiptPrintBtn"
-                                aria-label={
-                                    selectedIds.length > 0
-                                        ? `Print Tanda Terima (${selectedIds.length} SPK)`
-                                        : 'Print Tanda Terima'
-                                }
-                                title={
-                                    selectedIds.length > 0
-                                        ? `Print Tanda Terima (${selectedIds.length} SPK)`
-                                        : 'Print Tanda Terima'
-                                }
-                                onClick={openReceiptPrintDialog}
-                            >
-                                <Icon name={printIcon} mode="Decorative" />
-                                <span>Tanda Terima</span>
-                                {selectedIds.length > 0 ? (
+                            {!isReparasiIndex ? (
+                                <>
+                                    <Button
+                                        design="Default"
+                                        icon={documentIcon}
+                                        accessibleName="Riwayat Tanda Terima"
+                                        tooltip="Riwayat Tanda Terima"
+                                        className="spkTableHeaderExportBtn--finishing"
+                                        onClick={() =>
+                                            setReceiptHistoryDialogOpen(true)
+                                        }
+                                    />
                                     <span
-                                        className="spkReceiptPrintCount"
+                                        className="spkTableHeaderDivider--finishing"
                                         aria-hidden="true"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="spkReceiptPrintBtn"
+                                        aria-label={
+                                            selectedIds.length > 0
+                                                ? `Print Tanda Terima (${selectedIds.length} SPK)`
+                                                : 'Print Tanda Terima'
+                                        }
+                                        title={
+                                            selectedIds.length > 0
+                                                ? `Print Tanda Terima (${selectedIds.length} SPK)`
+                                                : 'Print Tanda Terima'
+                                        }
+                                        onClick={openReceiptPrintDialog}
                                     >
-                                        {selectedIds.length}
-                                    </span>
-                                ) : null}
-                            </button>
-                            <button
-                                type="button"
-                                className="spkCreateBtn"
-                                aria-label="Tambah SPK"
-                                onClick={() => router.visit(spkCreate.url())}
-                            >
-                                <Icon name={addIcon} mode="Decorative" />
-                                <span>Tambah</span>
-                            </button>
+                                        <Icon
+                                            name={printIcon}
+                                            mode="Decorative"
+                                        />
+                                        <span>Tanda Terima</span>
+                                        {selectedIds.length > 0 ? (
+                                            <span
+                                                className="spkReceiptPrintCount"
+                                                aria-hidden="true"
+                                            >
+                                                {selectedIds.length}
+                                            </span>
+                                        ) : null}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="spkCreateBtn"
+                                        aria-label="Tambah SPK"
+                                        onClick={() =>
+                                            router.visit(spkCreate.url())
+                                        }
+                                    >
+                                        <Icon
+                                            name={addIcon}
+                                            mode="Decorative"
+                                        />
+                                        <span>Tambah</span>
+                                    </button>
+                                </>
+                            ) : null}
                         </div>
                     </div>
 
-                    <div className="spkStoreStockRequestBar">
-                        <Button
-                            className="spkStoreStockRequestBtn"
-                            design="Default"
-                            icon={retailStoreIcon}
-                            accessibleName={`Permintaan Stok Toko: ${storeStockRequestCountLabel} permintaan approved`}
-                            tooltip="Permintaan stok toko yang sudah di-approve"
-                            onClick={() => setStoreStockRequestDialogOpen(true)}
-                        >
-                            Permintaan Stok Toko
-                            <span
-                                className="spkStoreStockRequestCount"
-                                aria-hidden="true"
+                    {!isReparasiIndex ? (
+                        <div className="spkStoreStockRequestBar">
+                            <Button
+                                className="spkStoreStockRequestBtn"
+                                design="Default"
+                                icon={retailStoreIcon}
+                                accessibleName={`Permintaan Stok Toko: ${storeStockRequestCountLabel} permintaan approved`}
+                                tooltip="Permintaan stok toko yang sudah di-approve"
+                                onClick={() =>
+                                    setStoreStockRequestDialogOpen(true)
+                                }
                             >
-                                {storeStockRequestCount === undefined
-                                    ? '…'
-                                    : storeStockRequestCountLabel}
-                            </span>
-                        </Button>
-                        <Button
-                            className="spkStoreStockRequestBtn"
-                            design="Default"
-                            icon={salesOrderIcon}
-                            accessibleName={`Permintaan Pesanan Toko: ${storeOrderRequestCountLabel} pesanan belum dibuatkan SPK`}
-                            tooltip="Pesanan toko yang belum dibuatkan SPK"
-                            onClick={() => setStoreOrderRequestDialogOpen(true)}
-                        >
-                            Permintaan Pesanan Toko
-                            <span
-                                className="spkStoreStockRequestCount"
-                                aria-hidden="true"
+                                Permintaan Stok Toko
+                                <span
+                                    className="spkStoreStockRequestCount"
+                                    aria-hidden="true"
+                                >
+                                    {storeStockRequestCount === undefined
+                                        ? '…'
+                                        : storeStockRequestCountLabel}
+                                </span>
+                            </Button>
+                            <Button
+                                className="spkStoreStockRequestBtn"
+                                design="Default"
+                                icon={salesOrderIcon}
+                                accessibleName={`Permintaan Pesanan Toko: ${storeOrderRequestCountLabel} pesanan belum dibuatkan SPK`}
+                                tooltip="Pesanan toko yang belum dibuatkan SPK"
+                                onClick={() =>
+                                    setStoreOrderRequestDialogOpen(true)
+                                }
                             >
-                                {storeOrderRequestCountLabel}
-                            </span>
-                        </Button>
-                    </div>
+                                Permintaan Pesanan Toko
+                                <span
+                                    className="spkStoreStockRequestCount"
+                                    aria-hidden="true"
+                                >
+                                    {storeOrderRequestCountLabel}
+                                </span>
+                            </Button>
+                        </div>
+                    ) : null}
 
                     <ActiveFilterSummary
                         filters={[
@@ -1397,13 +1427,14 @@ export default function SpkIndex({
                                         page: 1,
                                     }),
                             },
-                            filters.type.length > 0 && {
-                                key: 'type',
-                                label: 'Tipe',
-                                value: filters.type.join(', '),
-                                onRemove: () =>
-                                    visitIndex({ type: [], page: 1 }),
-                            },
+                            !isReparasiIndex &&
+                                filters.type.length > 0 && {
+                                    key: 'type',
+                                    label: 'Tipe',
+                                    value: filters.type.join(', '),
+                                    onRemove: () =>
+                                        visitIndex({ type: [], page: 1 }),
+                                },
                             filters.status.length > 0 && {
                                 key: 'status',
                                 label: 'Status',
@@ -1761,7 +1792,7 @@ export default function SpkIndex({
                     <div className="spkTableFooter">
                         <div className="spkTableTotal">
                             Total {productions.total.toLocaleString('id-ID')}{' '}
-                            SPK
+                            {isReparasiIndex ? 'Reparasi' : 'SPK'}
                         </div>
                         <div className="spkPagination">
                             <button
@@ -1805,7 +1836,13 @@ export default function SpkIndex({
                 open={statusListDialogOpen}
                 onOpenChange={setStatusListDialogOpen}
                 listUrl={
-                    statusListAlert ? statusList.url(statusListAlert.key) : null
+                    statusListAlert
+                        ? statusList.url(statusListAlert.key, {
+                              query: isReparasiIndex
+                                  ? { scope: 'reparasi' }
+                                  : undefined,
+                          })
+                        : null
                 }
                 requestId={statusListDialog?.requestId ?? 0}
                 title={

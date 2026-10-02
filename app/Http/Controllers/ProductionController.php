@@ -101,12 +101,35 @@ class ProductionController extends Controller
     ) {}
 
     /**
-     * Display a listing of SPK productions.
+     * Display a listing of SPK productions (excluding Reparasi).
      */
     public function index(Request $request): Response
     {
+        return $this->renderSpkIndex($request, reparasiOnly: false);
+    }
+
+    /**
+     * Display a listing of Reparasi SPK productions only.
+     */
+    public function reparasiIndex(Request $request): Response
+    {
+        return $this->renderSpkIndex($request, reparasiOnly: true);
+    }
+
+    /**
+     * Display a listing of SPK productions.
+     */
+    private function renderSpkIndex(Request $request, bool $reparasiOnly): Response
+    {
+        $allowedTypes = $reparasiOnly
+            ? [SpkService::REPARATION_TYPE]
+            : SpkService::standardIndexTypes();
         $search = $request->string('search')->trim()->toString();
-        $typeFilters = $this->resolveIndexMultiFilter($request->input('type'), SpkService::TYPES);
+        $typeFilters = $this->resolveIndexMultiFilter($request->input('type'), $allowedTypes);
+
+        if ($reparasiOnly) {
+            $typeFilters = $typeFilters === [] ? [SpkService::REPARATION_TYPE] : $typeFilters;
+        }
         $statusLabels = array_values(SpkDashboardAnalytics::BACKLOG_STATUS_LABELS);
         array_splice($statusLabels, 4, 0, ['Done']);
         $statusFilters = $this->resolveIndexMultiFilter($request->input('status'), $statusLabels);
@@ -134,8 +157,8 @@ class ProductionController extends Controller
 
         $perPage = $request->integer('per_page', 50);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
-        $typeCounts = $this->activeTypeCounts();
-        $statusCounts = $this->activeStatusCounts();
+        $typeCounts = $this->activeTypeCounts($reparasiOnly);
+        $statusCounts = $this->activeStatusCounts($reparasiOnly);
 
         if ($dateFrom !== null && $dateTo !== null && $dateTo < $dateFrom) {
             $dateTo = $dateFrom;
@@ -148,6 +171,7 @@ class ProductionController extends Controller
         $productions = Production::query()
             ->with(['sku', 'categoryPrefix'])
             ->notDeleted()
+            ->tap(fn (Builder $query) => $this->applyIndexTypeScope($query, $reparasiOnly))
             ->when($dateFrom !== null, function ($query) use ($dateFrom): void {
                 $query->whereDate('created_date', '>=', $dateFrom);
             })
@@ -220,9 +244,10 @@ class ProductionController extends Controller
 
         $user = $request->user();
 
-        return Inertia::render('spk/index', [
+        return Inertia::render($reparasiOnly ? 'reparasi/index' : 'spk/index', [
+            'indexContext' => $reparasiOnly ? 'reparasi' : 'spk',
             'productions' => $productions,
-            'types' => SpkService::TYPES,
+            'types' => $allowedTypes,
             'typeCounts' => $typeCounts,
             'statusCounts' => $statusCounts,
             'statusLabels' => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS,
@@ -476,7 +501,11 @@ class ProductionController extends Controller
             abort(404);
         }
 
-        $query = Production::query()->notDeleted();
+        $reparasiOnly = $request->string('scope')->toString() === 'reparasi';
+
+        $query = Production::query()
+            ->notDeleted()
+            ->tap(fn (Builder $builder) => $this->applyIndexTypeScope($builder, $reparasiOnly));
 
         $this->applyBacklogStatusFilter($query, $statusKey);
 
@@ -675,18 +704,33 @@ class ProductionController extends Controller
     }
 
     /**
+     * @param  Builder<Production>  $query
+     */
+    private function applyIndexTypeScope(Builder $query, bool $reparasiOnly): void
+    {
+        if ($reparasiOnly) {
+            $query->where('spk_type', SpkService::REPARATION_TYPE);
+        } else {
+            $query->where('spk_type', '!=', SpkService::REPARATION_TYPE);
+        }
+    }
+
+    /**
      * @return array{all: int, byType: array<string, int>}
      */
-    private function activeTypeCounts(): array
+    private function activeTypeCounts(bool $reparasiOnly = false): array
     {
         $allIds = Production::query()
             ->notDeleted()
+            ->tap(fn (Builder $query) => $this->applyIndexTypeScope($query, $reparasiOnly))
             ->pluck('row_id')
             ->all();
 
         $doneIds = SpkDashboardAnalytics::completedProductionSpkIds($allIds);
 
-        $query = Production::query()->notDeleted();
+        $query = Production::query()
+            ->notDeleted()
+            ->tap(fn (Builder $builder) => $this->applyIndexTypeScope($builder, $reparasiOnly));
 
         if ($doneIds !== []) {
             $query->whereNotIn('row_id', $doneIds);
@@ -700,9 +744,10 @@ class ProductionController extends Controller
             ->map(fn (mixed $count): int => (int) $count)
             ->all();
 
+        $types = $reparasiOnly ? [SpkService::REPARATION_TYPE] : SpkService::standardIndexTypes();
         $byType = [];
 
-        foreach (SpkService::TYPES as $type) {
+        foreach ($types as $type) {
             $byType[$type] = $countsByType[$type] ?? 0;
         }
 
@@ -715,10 +760,11 @@ class ProductionController extends Controller
     /**
      * @return array{draft: int, pendingManager: int, confirmed: int, inProgress: int, done: int}
      */
-    private function activeStatusCounts(): array
+    private function activeStatusCounts(bool $reparasiOnly = false): array
     {
         $allProductions = Production::query()
             ->notDeleted()
+            ->tap(fn (Builder $query) => $this->applyIndexTypeScope($query, $reparasiOnly))
             ->get(['row_id', 'status', 'is_inprocess', 'last_process']);
 
         $doneIds = array_flip(SpkDashboardAnalytics::completedProductionSpkIds(
@@ -1583,9 +1629,16 @@ class ProductionController extends Controller
             'previousUrl' => $previousRowId !== null ? $urlForRowId((int) $previousRowId) : null,
             'nextUrl' => $nextRowId !== null ? $urlForRowId((int) $nextRowId) : null,
             'backUrl' => $statusKey !== null
-                ? route('spk.index', ['status' => $this->backlogStatusFilterLabel($statusKey)])
-                : route('spk.index'),
+                ? route($this->indexRouteNameFor($production), ['status' => $this->backlogStatusFilterLabel($statusKey)])
+                : route($this->indexRouteNameFor($production)),
         ];
+    }
+
+    private function indexRouteNameFor(Production $production): string
+    {
+        return $production->spk_type === SpkService::REPARATION_TYPE
+            ? 'reparasi.index'
+            : 'spk.index';
     }
 
     private function normalizedBacklogStatusKey(?string $value): ?string
