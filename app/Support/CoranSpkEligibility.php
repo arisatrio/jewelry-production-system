@@ -12,7 +12,7 @@ class CoranSpkEligibility
     public const PROCESS_KEY = 'Coran';
 
     /**
-     * SPK yang sudah selesai Resin tetapi belum punya dokumen coran.
+     * SPK approved yang belum punya dokumen coran.
      *
      * @param  Builder<Production>  $query
      * @return Builder<Production>
@@ -22,7 +22,7 @@ class CoranSpkEligibility
         return $query
             ->where('is_deleted', 0)
             ->whereNotNull('spk_no')
-            ->tap(fn (Builder $builder) => app(ResinSpkEligibility::class)->applyCompletedScope($builder))
+            ->where('status', SpkApprovalService::STATUS_DONE)
             ->whereNotIn('row_id', $this->assignedSpkIdsSubquery());
     }
 

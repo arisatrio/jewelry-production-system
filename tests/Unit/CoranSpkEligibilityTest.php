@@ -3,31 +3,34 @@
 use App\Models\Coran;
 use App\Models\CoranSpk;
 use App\Models\Production;
-use App\Models\Resin;
-use App\Models\ResinDetail;
 use App\Support\CoranApprovalService;
 use App\Support\CoranSpkEligibility;
-use App\Support\ResinApprovalService;
 use App\Support\ResinSpkEligibility;
+use App\Support\SpkApprovalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
-test('coran eligible scope counts spk completed resin without coran', function () {
+test('coran eligible scope counts approved spk without coran document', function () {
     $spk = Production::factory()->create([
         'spk_no' => '2026/PRD/COREL'.Str::upper(Str::random(4)),
-        'last_process' => ResinSpkEligibility::PROCESS_KEY,
-        'is_inprocess' => 1,
+        'status' => SpkApprovalService::STATUS_DONE,
     ]);
-    $resin = Resin::factory()->create([
-        'spk_id' => $spk->row_id,
-        'status' => ResinApprovalService::STATUS_DONE,
-    ]);
-    ResinDetail::factory()->create([
-        'row_id' => $resin->row_id,
-        'spk_id' => $spk->row_id,
+
+    $matches = Production::query()
+        ->tap(fn ($query) => app(CoranSpkEligibility::class)->applyEligibleScope($query))
+        ->where('row_id', $spk->row_id)
+        ->exists();
+
+    expect($matches)->toBeTrue();
+});
+
+test('coran eligible scope does not require completed resin', function () {
+    $spk = Production::factory()->create([
+        'spk_no' => '2026/PRD/COREN'.Str::upper(Str::random(4)),
+        'status' => SpkApprovalService::STATUS_DONE,
     ]);
 
     $matches = Production::query()
@@ -41,14 +44,7 @@ test('coran eligible scope counts spk completed resin without coran', function (
 test('coran eligible scope excludes spk already assigned to coran', function () {
     $spk = Production::factory()->create([
         'spk_no' => '2026/PRD/COREX'.Str::upper(Str::random(4)),
-    ]);
-    $resin = Resin::factory()->create([
-        'spk_id' => $spk->row_id,
-        'status' => ResinApprovalService::STATUS_DONE,
-    ]);
-    ResinDetail::factory()->create([
-        'row_id' => $resin->row_id,
-        'spk_id' => $spk->row_id,
+        'status' => SpkApprovalService::STATUS_DONE,
     ]);
     $coran = Coran::factory()->create([
         'status' => null,
