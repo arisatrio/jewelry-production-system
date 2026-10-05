@@ -695,6 +695,62 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     min-height: 0;
 }
 
+.dashChartBoard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.dashTopChartRow,
+.dashLowerChartRow {
+    display: grid;
+    gap: 0.65rem;
+    min-width: 0;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.dashTopChartRow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex: 0 0 auto;
+}
+
+.dashLowerChartRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex: 1 1 auto;
+}
+
+.dashTopChartRow > .dashPanel,
+.dashLowerChartRow > .dashPanel {
+    height: 100%;
+    min-width: 0;
+}
+
+.dashTopChartRow .dashPiePanel.is-compact .dashPieChart,
+.dashTopChartRow .dashCreatedDailyChart {
+    height: auto;
+    min-height: 10.5rem;
+    flex: 1 1 auto;
+}
+
+.dashCreatedDailyPanel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 0.65rem 0.75rem 0.4rem;
+}
+
+.dashCreatedDailyChart {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 10.5rem;
+    height: 10.5rem;
+}
+
 .dashKpiGrid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -722,6 +778,12 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     min-height: 8.5rem;
     height: 8.5rem;
     flex: 0 0 auto;
+}
+
+.dashTopChartRow > .dashPiePanel.is-compact,
+.dashTopChartRow > .dashCreatedDailyPanel {
+    height: 100%;
+    flex: 1 1 auto;
 }
 
 .dashPiePanel .dashPanelHeader,
@@ -1631,6 +1693,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     .dashHeroGrid,
     .dashHeroMain,
     .dashPieRow,
+    .dashChartBoard,
     .dashPieColumn,
     .dashForecastColumn {
         overflow: visible;
@@ -1670,6 +1733,16 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     .dashPiePanel.is-compact .dashPieChart {
         min-height: 8.5rem;
         height: 8.5rem;
+    }
+
+    .dashTopChartRow,
+    .dashLowerChartRow {
+        grid-template-columns: 1fr;
+    }
+
+    .dashCreatedDailyChart {
+        min-height: 12rem;
+        height: 12rem;
     }
 
     .dashStatusRow {

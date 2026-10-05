@@ -12,6 +12,7 @@ import {
 import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-arrow.js';
 import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
 import { Button } from '@ui5/webcomponents-react/Button';
+import { CreatedDailyBarChart } from '@/components/dashboard/created-daily-bar-chart';
 import { DistributionPieChart } from '@/components/dashboard/distribution-pie-chart';
 import { ForecastClusteredBarChart } from '@/components/dashboard/forecast-clustered-bar-chart';
 import { InProgressProcessBarChart } from '@/components/dashboard/in-progress-process-bar-chart';
@@ -217,6 +218,15 @@ export type DashboardAnalytics = {
             pending: number;
         }>;
     };
+    createdDaily: {
+        total: number;
+        days: Array<{
+            date: string;
+            label: string;
+            dateLabel: string;
+            total: number;
+        }>;
+    };
 };
 
 type WelcomeProps = {
@@ -244,6 +254,7 @@ export default function Welcome({ analytics, filters, navigation }: WelcomeProps
         period,
         backlogYear,
         inProgressByProcess,
+        createdDaily,
     } = analytics;
     const [openList, setOpenList] = useState<DashboardListKey | null>(null);
     const [listSortKey, setListSortKey] = useState<DashboardSortKey | null>(
@@ -722,8 +733,8 @@ export default function Welcome({ analytics, filters, navigation }: WelcomeProps
                             ))}
                         </section>
 
-                        <div className="dashPieRow">
-                            <div className="dashPieColumn">
+                        <div className="dashChartBoard">
+                            <div className="dashTopChartRow">
                                 <article className="dashPanel dashPiePanel is-compact">
                                     <header className="dashPanelHeader is-with-action">
                                         <div className="dashPanelHeaderText">
@@ -753,6 +764,59 @@ export default function Welcome({ analytics, filters, navigation }: WelcomeProps
                                     />
                                 </article>
 
+                                    <article className="dashPanel dashPiePanel is-compact">
+                                        <header className="dashPanelHeader is-with-action">
+                                            <div className="dashPanelHeaderText">
+                                                <h2 className="dashPanelTitle">
+                                                    Item Produksi
+                                                </h2>
+                                                <p className="dashPanelMeta">
+                                                    Dibuat atau estimasi
+                                                    selesai {period.label}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="dashKpiFileBtn dashPanelDetailBtn"
+                                                aria-label="Lihat daftar Item Produksi"
+                                                title="Lihat daftar SPK"
+                                                onClick={() =>
+                                                    setOpenList(
+                                                        'itemDistribution',
+                                                    )
+                                                }
+                                            >
+                                                <Eye aria-hidden="true" />
+                                            </button>
+                                        </header>
+                                        <DistributionPieChart
+                                            items={analytics.itemDistribution}
+                                            legendMetric="spk"
+                                        />
+                                    </article>
+
+                                    <article className="dashPanel dashCreatedDailyPanel">
+                                        <header className="dashPanelHeader">
+                                            <div className="dashPanelHeaderText">
+                                                <h2 className="dashPanelTitle">
+                                                    Permintaan SPK per Hari
+                                                </h2>
+                                                <p className="dashPanelMeta">
+                                                    Dibuat {period.label} ·{' '}
+                                                    {createdDaily.total.toLocaleString(
+                                                        'id-ID',
+                                                    )}{' '}
+                                                    SPK
+                                                </p>
+                                            </div>
+                                        </header>
+                                        <CreatedDailyBarChart
+                                            days={createdDaily.days}
+                                        />
+                                    </article>
+                            </div>
+
+                            <div className="dashLowerChartRow">
                                 <article className="dashPanel dashProcessBarPanel">
                                     <header className="dashPanelHeader is-with-action">
                                         <div className="dashPanelHeaderText">
@@ -782,37 +846,6 @@ export default function Welcome({ analytics, filters, navigation }: WelcomeProps
                                     </header>
                                     <InProgressProcessBarChart
                                         items={inProgressByProcess}
-                                    />
-                                </article>
-                            </div>
-
-                            <div className="dashForecastColumn">
-                                <article className="dashPanel dashPiePanel is-compact">
-                                    <header className="dashPanelHeader is-with-action">
-                                        <div className="dashPanelHeaderText">
-                                            <h2 className="dashPanelTitle">
-                                                Item Produksi
-                                            </h2>
-                                            <p className="dashPanelMeta">
-                                                Dibuat atau estimasi selesai{' '}
-                                                {period.label}
-                                            </p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="dashKpiFileBtn dashPanelDetailBtn"
-                                            aria-label="Lihat daftar Item Produksi"
-                                            title="Lihat daftar SPK"
-                                            onClick={() =>
-                                                setOpenList('itemDistribution')
-                                            }
-                                        >
-                                            <Eye aria-hidden="true" />
-                                        </button>
-                                    </header>
-                                    <DistributionPieChart
-                                        items={analytics.itemDistribution}
-                                        legendMetric="spk"
                                     />
                                 </article>
 

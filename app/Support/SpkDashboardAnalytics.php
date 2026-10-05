@@ -471,6 +471,7 @@ class SpkDashboardAnalytics
         $craftsmen = $this->resolveCraftsmanRanking();
         $forecast = $this->resolveProductionForecast();
         $planningDaily = $this->resolvePlanningDaily();
+        $createdDaily = $this->resolveCreatedDaily();
         $today = $this->resolveTodayMetrics();
         $weekTarget = $this->resolveWeekTargetMetrics();
         $needsAttentionSpk = count($this->resolveNeedsAttentionSpkIds());
@@ -537,6 +538,7 @@ class SpkDashboardAnalytics
             'stone' => $stone,
             'forecast' => $forecast,
             'planningDaily' => $planningDaily,
+            'createdDaily' => $createdDaily,
         ];
     }
 
@@ -2109,6 +2111,70 @@ class SpkDashboardAnalytics
             'doneTotal' => $doneTotal,
             'pendingTotal' => $pendingTotal,
             'days' => $days,
+        ];
+    }
+
+    /**
+     * Jumlah SPK yang dibuat per tanggal pada bulan terpilih.
+     *
+     * @return array{
+     *     total: int,
+     *     days: list<array{date: string, label: string, dateLabel: string, total: int}>
+     * }
+     */
+    private function resolveCreatedDaily(): array
+    {
+        $days = [];
+        $cursor = $this->periodStart->copy()->startOfDay();
+        $end = $this->periodEnd->copy()->startOfDay();
+
+        while ($cursor->lte($end)) {
+            $days[$cursor->toDateString()] = [
+                'date' => $cursor->toDateString(),
+                'label' => $cursor->format('j'),
+                'dateLabel' => $cursor->format('d-M-Y'),
+                'total' => 0,
+            ];
+            $cursor->addDay();
+        }
+
+        if (
+            ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'created_date')
+        ) {
+            return [
+                'total' => 0,
+                'days' => array_values($days),
+            ];
+        }
+
+        $rows = $this->spkBase()
+            ->whereNotNull('created_date')
+            ->whereBetween('created_date', [
+                $this->periodStart->toDateTimeString(),
+                $this->periodEnd->toDateTimeString(),
+            ])
+            ->selectRaw('DATE(created_date) as created_day, COUNT(*) as total_count')
+            ->groupByRaw('DATE(created_date)')
+            ->get();
+
+        $total = 0;
+
+        foreach ($rows as $row) {
+            $date = Carbon::parse((string) $row->created_day)->toDateString();
+            $count = (int) $row->total_count;
+
+            if (! array_key_exists($date, $days)) {
+                continue;
+            }
+
+            $days[$date]['total'] = $count;
+            $total += $count;
+        }
+
+        return [
+            'total' => $total,
+            'days' => array_values($days),
         ];
     }
 

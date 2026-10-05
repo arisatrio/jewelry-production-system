@@ -28,6 +28,8 @@ test('work order dashboard includes analytics payload', function () {
             ->has('analytics.productionTypes')
             ->has('analytics.inProgressByProcess')
             ->has('analytics.forecast.byItemType')
+            ->has('analytics.createdDaily.total')
+            ->has('analytics.createdDaily.days')
             ->has('filters.month')
             ->has('navigation.previousMonth')
             ->has('navigation.currentMonth')

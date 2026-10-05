@@ -27,6 +27,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         'stone',
         'forecast',
         'planningDaily',
+        'createdDaily',
         'today',
         'weekTarget',
         'needsAttention',
@@ -764,3 +765,35 @@ test('done rangka is not returned when polishframe done but pasang batu or poles
     'pasang batu unload' => ['diamondunload', 'TEST-DU-LATER-'],
     'poles chrome' => ['polishfinishedgood', 'TEST-PFG-LATER-'],
 ]);
+
+test('spk dashboard analytics counts created spk per day in the selected month', function () {
+    $month = Carbon::parse('2026-10-01');
+    $before = (new SpkDashboardAnalytics($month))->summarize()['createdDaily'];
+
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'is_deleted' => 0,
+        'created_date' => Carbon::parse('2026-10-05 09:15:00'),
+    ]);
+    $deleted = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'is_deleted' => 1,
+        'created_date' => Carbon::parse('2026-10-05 11:00:00'),
+    ]);
+
+    $after = (new SpkDashboardAnalytics($month))->summarize()['createdDaily'];
+    $beforeDay = collect($before['days'])->firstWhere('date', '2026-10-05');
+    $afterDay = collect($after['days'])->firstWhere('date', '2026-10-05');
+
+    expect($after['days'])->toHaveCount(31)
+        ->and($beforeDay)->not->toBeNull()
+        ->and($afterDay)->not->toBeNull()
+        ->and($afterDay['label'])->toBe('5')
+        ->and($afterDay['dateLabel'])->toBe('05-Oct-2026')
+        ->and($afterDay['total'])->toBe($beforeDay['total'] + 1)
+        ->and($after['total'])->toBe($before['total'] + 1)
+        ->and(collect($after['days'])->sum('total'))->toBe($after['total']);
+
+    $production->delete();
+    $deleted->delete();
+});
