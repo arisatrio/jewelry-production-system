@@ -1589,14 +1589,18 @@ export default function SpkIndex({
                                     productions.data.map((row) => {
                                         const reference =
                                             row.orderReference?.trim() ?? '';
+                                        const requestStockNo =
+                                            row.requestStockNo?.trim() ?? '';
                                         const customer =
                                             row.customer?.trim() ?? '';
                                         const orderInfo =
                                             reference !== ''
                                                 ? reference
-                                                : customer !== '-'
-                                                  ? customer
-                                                  : '';
+                                                : requestStockNo !== ''
+                                                  ? requestStockNo
+                                                  : customer !== '-'
+                                                    ? customer
+                                                    : '';
                                         const targetHint =
                                             row.targetDaysLeft !== null &&
                                             isListRowIncomplete(row.status)

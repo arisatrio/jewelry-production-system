@@ -858,6 +858,30 @@ test('spk index page shows request order number with customer name and payment s
     DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
 });
 
+test('spk index page shows the request stock number under a stock spk', function () {
+    $requestStockNo = 'RS-'.strtoupper(fake()->unique()->bothify('????????'));
+
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'request_stock_no' => $requestStockNo,
+        'customer_name' => null,
+        'status' => '',
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.index', ['search' => $requestStockNo]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.rowId', (int) $production->row_id)
+            ->where('productions.data.0.tipeProduksi', 'Stock')
+            ->where('productions.data.0.requestStockNo', $requestStockNo)
+            ->where('productions.data.0.orderReference', null)
+        );
+
+    $production->delete();
+});
+
 test('spk index page marks pesanan as belum lunas when request order is not fully paid', function () {
     $docNo = 'DP-TEST-'.strtoupper(fake()->unique()->bothify('????????'));
 

@@ -280,9 +280,11 @@ function SpkStatusListBody({
                                                         }
                                                     />
                                                 </div>
-                                                {row.orderReference ? (
+                                                {row.orderReference ||
+                                                row.requestStockNo ? (
                                                     <span className="spkTableDocMeta">
-                                                        {row.orderReference}
+                                                        {row.orderReference ||
+                                                            row.requestStockNo}
                                                     </span>
                                                 ) : null}
                                                 {row.documentNo ? (

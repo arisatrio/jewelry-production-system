@@ -219,6 +219,7 @@ class ProductionController extends Controller
                     $query->where('spk_no', 'like', "%{$search}%")
                         ->orWhere('spk_type', 'like', "%{$search}%")
                         ->orWhere('request_order_no', 'like', "%{$search}%")
+                        ->orWhere('request_stock_no', 'like', "%{$search}%")
                         ->orWhere('customer_name', 'like', "%{$search}%")
                         ->orWhere('item_name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%")
@@ -632,6 +633,7 @@ class ProductionController extends Controller
                 $query->where(function ($query) use ($search): void {
                     $query->where('spk_no', 'like', "%{$search}%")
                         ->orWhere('request_order_no', 'like', "%{$search}%")
+                        ->orWhere('request_stock_no', 'like', "%{$search}%")
                         ->orWhere('customer_name', 'like', "%{$search}%")
                         ->orWhere('item_name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
@@ -1406,6 +1408,7 @@ class ProductionController extends Controller
                 $query->where('spk_no', 'like', $like)
                     ->orWhere('spk_type', 'like', $like)
                     ->orWhere('request_order_no', 'like', $like)
+                    ->orWhere('request_stock_no', 'like', $like)
                     ->orWhere('customer_name', 'like', $like)
                     ->orWhere('item_name', 'like', $like)
                     ->orWhere('description', 'like', $like)
@@ -2143,6 +2146,9 @@ class ProductionController extends Controller
             ...$row,
             'rowId' => (int) $production->row_id,
             'orderReference' => $orderReference,
+            'requestStockNo' => filled($production->request_stock_no)
+                ? (string) $production->request_stock_no
+                : null,
             'paymentStatus' => $paymentStatus,
             'orderType' => $orderType,
             'skuCode' => filled($production->sku?->sku_code)
