@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $spk_no
  * @property string|null $spk_type
  * @property string|null $request_order_no
+ * @property string|null $request_stock_no
  * @property int|null $ref_spk_id
  * @property string|null $customer_name
  * @property string|null $item_name
@@ -64,6 +65,7 @@ use Illuminate\Support\Carbon;
     'spk_no',
     'spk_type',
     'request_order_no',
+    'request_stock_no',
     'ref_spk_id',
     'customer_name',
     'item_name',

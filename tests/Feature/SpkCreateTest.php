@@ -4,6 +4,8 @@ use App\Models\Production;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Support\RequestOrderRepository;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 /**
@@ -43,6 +45,64 @@ function validSpkStorePayload(array $overrides = []): array
         ...$overrides,
     ];
 }
+
+test('spk create prefills dates and sku from store stock request', function () {
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $skuCode = 'RG-STOCK-'.strtoupper(fake()->unique()->bothify('??##??'));
+    $sku = SkuMaster::factory()->create([
+        'sku_code' => $skuCode,
+        'category_prefix_id' => $category->id,
+        'item_original' => 'EAR ELECTA OVAL',
+    ]);
+
+    $this->get(route('spk.create', [
+        'order_date' => '2026-09-23',
+        'estimated_delivery_time' => '2026-10-23',
+        'sku' => strtolower($skuCode),
+        'gold_weight' => '4.64',
+        'request_stock_no' => 'rs-0000033',
+        'store_notes' => 'Ukuran 16, finish glossy',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/form')
+            ->where('production.isNew', true)
+            ->where('production.requestStockNo', 'RS-0000033')
+            ->where('production.notes', 'Catatan dari Toko: Ukuran 16, finish glossy')
+            ->where('production.goldWeight', '4.64')
+            ->where('production.orderDate', '2026-09-23')
+            ->where('production.estimatedDeliveryTime', '2026-10-23')
+            ->where('production.categoryPrefixId', (string) $category->id)
+            ->where('production.itemTypeId', (string) $category->id)
+            ->where('production.skuId', (string) $sku->id)
+        );
+});
+
+test('spk create keeps a blank sku when the stock request sku is unknown', function () {
+    $this->travelTo('2026-10-05');
+
+    $this->get(route('spk.create', [
+        'order_date' => 'not-a-date',
+        'estimated_delivery_time' => '2026-13-40',
+        'sku' => 'MISSING-SKU-CODE',
+        'request_stock_no' => 'bukan-nomor',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('production.requestStockNo', null)
+            ->where('production.orderDate', '2026-10-05')
+            ->where('production.estimatedDeliveryTime', '')
+            ->where('production.categoryPrefixId', '')
+            ->where('production.skuId', '')
+            ->where('stones', [])
+        );
+});
 
 test('spk create page shows form without generating number', function () {
     $this->get(route('spk.create'))
@@ -145,6 +205,118 @@ test('spk stock can be created with form details and generated number', function
     $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->delete();
+});
+
+function fakeStoreSpkNumberUpdate(int $status = 200): void
+{
+    config([
+        'services.store_api.base_url' => 'https://store.test/api/public',
+        'services.store_api.key' => 'test-store-key',
+    ]);
+
+    Http::preventStrayRequests();
+    Http::fake([
+        'store.test/api/public/production/spk/update-spk-no' => Http::response(['message' => 'ok'], $status),
+    ]);
+}
+
+test('spk create from request stock keeps the production type as stock', function () {
+    fakeStoreSpkNumberUpdate();
+
+    $payload = validSpkStorePayload([
+        'spk_type' => 'Pesanan',
+        'request_order_no' => 'DP-NOT-USED',
+        'request_stock_no' => 'RS-0000077',
+        'description' => 'Locked stock type',
+    ]);
+
+    $this->post(route('spk.store'), $payload)->assertRedirect();
+
+    $production = Production::query()
+        ->notDeleted()
+        ->where('description', 'Locked stock type')
+        ->orderByDesc('row_id')
+        ->first();
+
+    expect($production)->not->toBeNull()
+        ->and($production->spk_type)->toBe('Stock')
+        ->and($production->request_stock_no)->toBe('RS-0000077')
+        ->and($production->request_order_no)->toBeNull();
+
+    $production->delete();
+});
+
+test('spk create stores request stock number beside the order number', function () {
+    fakeStoreSpkNumberUpdate();
+
+    $payload = validSpkStorePayload([
+        'description' => 'Stock with request stock no',
+        'request_stock_no' => 'rs-0000044',
+    ]);
+
+    $this->post(route('spk.store'), $payload)->assertRedirect();
+
+    $production = Production::query()
+        ->notDeleted()
+        ->where('description', 'Stock with request stock no')
+        ->orderByDesc('row_id')
+        ->first();
+
+    expect($production)->not->toBeNull()
+        ->and($production->request_stock_no)->toBe('RS-0000044');
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+        && $request->url() === 'https://store.test/api/public/production/spk/update-spk-no'
+        && $request->hasHeader('X-API-KEY', 'test-store-key')
+        && $request->data() === [
+            'doc_no' => 'RS-0000044',
+            'spk_no' => $production->spk_no,
+            'modified_by' => 'system',
+        ]);
+
+    $this->get(route('spk.form', $production->row_id))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('production.requestStockNo', 'RS-0000044')
+        );
+
+    $production->delete();
+});
+
+test('spk create from request stock rolls back when the store api rejects the spk number', function () {
+    fakeStoreSpkNumberUpdate(500);
+
+    $payload = validSpkStorePayload([
+        'description' => 'Store sync failed',
+        'request_stock_no' => 'RS-0000099',
+    ]);
+
+    $this->from(route('spk.create'))
+        ->post(route('spk.store'), $payload)
+        ->assertRedirect(route('spk.create'))
+        ->assertSessionHasErrors([
+            'request_stock_no' => 'Gagal mengirim nomor SPK ke Store. Silakan coba lagi.',
+        ]);
+
+    expect(Production::query()->where('description', 'Store sync failed')->exists())->toBeFalse();
+});
+
+test('spk create without a request stock number does not call the store api', function () {
+    Http::preventStrayRequests();
+
+    $payload = validSpkStorePayload([
+        'description' => 'Stock without store sync',
+    ]);
+
+    $this->post(route('spk.store'), $payload)->assertRedirect();
+
+    Http::assertNothingSent();
+
+    Production::query()
+        ->where('description', 'Stock without store sync')
+        ->orderByDesc('row_id')
+        ->first()
+        ?->delete();
 });
 
 test('spk create copies sku master image filename to file name', function () {
@@ -268,10 +440,29 @@ test('spk create validates required type and form fields', function () {
             'sku_id',
             'qty',
             'satuan',
-            'diameter_length_ringsize',
             'gold_weight',
             'gold_color',
         ]);
+});
+
+test('spk create allows an empty diameter length ring size', function () {
+    $payload = validSpkStorePayload([
+        'description' => 'Stock without ukuran',
+    ]);
+    unset($payload['diameter_length_ringsize']);
+
+    $this->post(route('spk.store'), $payload)->assertRedirect();
+
+    $production = Production::query()
+        ->notDeleted()
+        ->where('description', 'Stock without ukuran')
+        ->orderByDesc('row_id')
+        ->first();
+
+    expect($production)->not->toBeNull()
+        ->and($production->diameter_length_ringsize)->toBeNull();
+
+    $production->delete();
 });
 
 test('spk create stores selected sku_id as product item reference', function () {

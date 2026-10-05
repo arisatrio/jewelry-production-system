@@ -69,6 +69,7 @@ export function SpkInformasiProduksiPanel({
     approvalFooter,
 }: SpkInformasiProduksiPanelProps) {
     const spkType = displayValue(production.tipeProduksi);
+    const requestStockNo = displayValue(production.requestStockNo);
 
     const pesananLabel = displayValue(
         production.requestOrderLabel ??
@@ -101,6 +102,11 @@ export function SpkInformasiProduksiPanel({
                 <table className="spkShowMetaTable">
                     <tbody>
                         <MetaRow label="Tipe Produksi">{spkType}</MetaRow>
+                        {requestStockNo !== '-' ? (
+                            <MetaRow label="Request Stok No">
+                                {requestStockNo}
+                            </MetaRow>
+                        ) : null}
                         <MetaRow label="Pesanan">{pesananLabel}</MetaRow>
                         {spkType === 'Pesanan' ? (
                             <MetaRow label="Tanggal Pesanan Dibuat">

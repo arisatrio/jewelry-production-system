@@ -17,7 +17,7 @@ class DashboardController extends Controller
      */
     public function index(Request $request): Response
     {
-        return $this->workOrderKanban($request);
+        return $this->cards($request);
     }
 
     /**

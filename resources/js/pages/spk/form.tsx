@@ -120,6 +120,7 @@ type ProductionForm = {
     spkNo: string | null;
     spkType: string;
     requestOrderNo: string | null;
+    requestStockNo?: string | null;
     requestOrderLabel?: string | null;
     customerName: string | null;
     itemName: string | null;
@@ -551,8 +552,11 @@ export default function SpkFormPage({
             : splitUkuranLabel(production.diameterLengthRingsize || '');
 
     const { data, setData, post, processing, errors, transform } = useForm({
-        spk_type: production.spkType || 'Stock',
+        spk_type: production.requestStockNo
+            ? 'Stock'
+            : production.spkType || 'Stock',
         request_order_no: production.requestOrderNo ?? '',
+        request_stock_no: production.requestStockNo ?? '',
         ref_spk_id:
             production.refSpkId !== null ? String(production.refSpkId) : '',
         order_date: production.orderDate,
@@ -1291,12 +1295,18 @@ export default function SpkFormPage({
 
                                     <FormItem
                                         labelContent={
-                                            <Label showColon required={isNew}>
+                                            <Label
+                                                showColon
+                                                required={
+                                                    isNew &&
+                                                    !production.requestStockNo
+                                                }
+                                            >
                                                 Tipe Produksi
                                             </Label>
                                         }
                                     >
-                                        {isNew ? (
+                                        {isNew && !production.requestStockNo ? (
                                             <Select
                                                 accessibleName="Tipe Produksi"
                                                 valueState={fieldState(
@@ -1327,8 +1337,13 @@ export default function SpkFormPage({
                                             </Select>
                                         ) : (
                                             <Input
-                                                value={production.spkType}
+                                                value={
+                                                    production.requestStockNo
+                                                        ? 'Stock'
+                                                        : production.spkType
+                                                }
                                                 readonly
+                                                accessibleName="Tipe Produksi"
                                             />
                                         )}
                                         {errors.spk_type ? (
@@ -1547,6 +1562,24 @@ export default function SpkFormPage({
                                         </FormItem>
                                     ) : null}
 
+                                    {production.requestStockNo ? (
+                                        <FormItem
+                                            labelContent={
+                                                <Label showColon>
+                                                    Request Stok No
+                                                </Label>
+                                            }
+                                        >
+                                            <Input
+                                                value={
+                                                    production.requestStockNo
+                                                }
+                                                readonly
+                                                accessibleName="Request Stok No"
+                                            />
+                                        </FormItem>
+                                    ) : null}
+
                                     <FormItem
                                         labelContent={
                                             <Label showColon required>
@@ -1554,21 +1587,32 @@ export default function SpkFormPage({
                                             </Label>
                                         }
                                     >
-                                        <DatePicker
-                                            value={data.order_date}
-                                            valueFormat="yyyy-MM-dd"
-                                            displayFormat="dd/MM/yyyy"
-                                            required
-                                            valueState={fieldState(
-                                                errors.order_date,
-                                            )}
-                                            onChange={(event) =>
-                                                setData(
-                                                    'order_date',
-                                                    event.target.value ?? '',
-                                                )
-                                            }
-                                        />
+                                        {production.requestStockNo ? (
+                                            <Input
+                                                value={formatDisplayDate(
+                                                    data.order_date,
+                                                )}
+                                                readonly
+                                                accessibleName="Tanggal Permintaan"
+                                            />
+                                        ) : (
+                                            <DatePicker
+                                                value={data.order_date}
+                                                valueFormat="yyyy-MM-dd"
+                                                displayFormat="dd/MM/yyyy"
+                                                required
+                                                valueState={fieldState(
+                                                    errors.order_date,
+                                                )}
+                                                onChange={(event) =>
+                                                    setData(
+                                                        'order_date',
+                                                        event.target.value ??
+                                                            '',
+                                                    )
+                                                }
+                                            />
+                                        )}
                                         {errors.order_date ? (
                                             <Text className="spkFioriError">
                                                 {errors.order_date}

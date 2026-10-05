@@ -11,6 +11,17 @@ use Illuminate\Validation\Validator;
 
 class StoreProductionRequest extends UpdateProductionRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('request_stock_no')) {
+            $this->merge([
+                'spk_type' => 'Stock',
+            ]);
+        }
+
+        parent::prepareForValidation();
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

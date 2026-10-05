@@ -10,6 +10,16 @@ test('spk table has category_prefix_id column on third connection', function () 
     expect(Schema::connection('third')->hasColumn('spk', 'category_prefix_id'))->toBeTrue();
 });
 
+test('spk table has request_stock_no after request_order_no', function () {
+    $columns = Schema::connection('third')->getColumns('spk');
+    $names = array_column($columns, 'name');
+    $requestOrderIndex = array_search('request_order_no', $names, true);
+    $requestStockIndex = array_search('request_stock_no', $names, true);
+
+    expect($requestOrderIndex)->not->toBeFalse()
+        ->and($requestStockIndex)->toBe($requestOrderIndex + 1);
+});
+
 test('spk store saves category_prefix_id for selected tipe item', function () {
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
         ?? SkuPrefixCategory::query()->create([

@@ -71,6 +71,9 @@ class UpdateProductionRequest extends FormRequest
         }
 
         $merge = [
+            'request_stock_no' => $this->filled('request_stock_no')
+                ? strtoupper($this->string('request_stock_no')->trim()->toString())
+                : null,
             'sku_id' => filled($skuId) ? $skuId : null,
             'category_prefix_id' => filled($categoryPrefixId) ? $categoryPrefixId : null,
             'diameter' => $this->filled('diameter')
@@ -137,12 +140,13 @@ class UpdateProductionRequest extends FormRequest
             'frame_id' => ['nullable'],
             'qty' => ['required', 'integer', 'min:1'],
             'satuan' => ['required', 'string', Rule::in(SpkService::UNITS)],
-            'diameter_length_ringsize' => ['required', 'string', 'max:100'],
+            'diameter_length_ringsize' => ['nullable', 'string', 'max:100'],
             'gold_weight' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'gold_color' => ['required', 'string', Rule::in(GoldColorOptions::all())],
             'gold_content' => ['nullable', 'string', 'max:100'],
             'jwcad_3d' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:4000'],
+            'request_stock_no' => ['nullable', 'string', 'max:50', 'regex:/^RS-[A-Z0-9]+$/'],
             'diameter' => ['nullable', 'string', 'max:100'],
             'dimensi' => ['nullable', 'string', 'max:100'],
             'ring_size' => ['nullable', 'string', 'max:100'],
@@ -196,7 +200,6 @@ class UpdateProductionRequest extends FormRequest
             'qty.required' => 'Qty wajib diisi.',
             'satuan.required' => 'Satuan wajib dipilih.',
             'satuan.in' => 'Satuan harus Pcs, Pasang, atau Setengah Pasang.',
-            'diameter_length_ringsize.required' => 'Diameter/Length/Ring size wajib diisi.',
             'gold_weight.required' => 'Gold weight wajib diisi.',
             'gold_color.required' => 'Gold color wajib dipilih.',
             'stones.*.shape_id.exists' => 'Bentuk batu tidak valid.',

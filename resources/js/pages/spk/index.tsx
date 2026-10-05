@@ -38,7 +38,9 @@ import {
 import { SpkReceiptHistoryDialog } from '@/components/spk/spk-receipt-history-dialog';
 import { SpkReceiptPrintDialog } from '@/components/spk/spk-receipt-print-dialog';
 import {
+    shouldShowSpkRowManagerApproveButton,
     shouldShowSpkRowSendButton,
+    SpkRowManagerApproveButton,
     SpkRowSendButton,
 } from '@/components/spk/spk-row-approval-buttons';
 import { SpkRowPrintButton } from '@/components/spk/spk-row-print-button';
@@ -1608,6 +1610,11 @@ export default function SpkIndex({
                                                 bulkActions.canSubmit,
                                                 bulkActions.canApprove,
                                             );
+                                        const showRowManagerApprove =
+                                            shouldShowSpkRowManagerApproveButton(
+                                                row.status,
+                                                bulkActions.canManagerApprove,
+                                            );
                                         const rowActionsDisabled =
                                             rowActionProcessing ||
                                             bulkSubmitting;
@@ -1665,6 +1672,22 @@ export default function SpkIndex({
                                                                     }
                                                                     action={
                                                                         rowSendAction
+                                                                    }
+                                                                    disabled={
+                                                                        rowActionsDisabled
+                                                                    }
+                                                                    onProcessingChange={
+                                                                        setRowActionProcessing
+                                                                    }
+                                                                />
+                                                            ) : null}
+                                                            {showRowManagerApprove ? (
+                                                                <SpkRowManagerApproveButton
+                                                                    rowId={
+                                                                        row.rowId
+                                                                    }
+                                                                    spkNo={
+                                                                        row.produksiNo
                                                                     }
                                                                     disabled={
                                                                         rowActionsDisabled

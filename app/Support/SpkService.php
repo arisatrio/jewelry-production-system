@@ -43,6 +43,7 @@ class SpkService
         private SpkStatusOrder $statusOrder,
         private GoogleCloudStorageService $gcs,
         private SkuMasterSpkSynchronizer $skuMasterSynchronizer,
+        private StoreStockRequestRepository $storeStockRequests,
     ) {}
 
     /**
@@ -113,6 +114,9 @@ class SpkService
                 'gold_content' => ($data['gold_content'] ?? null) ?: null,
                 'jwcad_3d' => $this->resolveJwcadFile($data, $sku),
                 'notes' => ($data['notes'] ?? null) ?: null,
+                'request_stock_no' => filled($data['request_stock_no'] ?? null)
+                    ? (string) $data['request_stock_no']
+                    : null,
                 'status' => '',
                 'is_deleted' => 0,
                 'is_coran' => 0,
@@ -160,7 +164,17 @@ class SpkService
             $this->syncStones($production, $data['stones'] ?? [], $actor);
             $this->skuMasterSynchronizer->sync($sku, $data, $actor, $uploadedImageFileName);
 
-            return $production->refresh();
+            $production = $production->refresh();
+
+            if (filled($production->request_stock_no)) {
+                $this->storeStockRequests->assignSpkNumber(
+                    (string) $production->request_stock_no,
+                    (string) $production->spk_no,
+                    $actor,
+                );
+            }
+
+            return $production;
         });
     }
 
@@ -345,6 +359,9 @@ class SpkService
                 'gold_content' => ($data['gold_content'] ?? null) ?: null,
                 'jwcad_3d' => $this->resolveJwcadFile($data, $sku),
                 'notes' => ($data['notes'] ?? null) ?: null,
+                'request_stock_no' => filled($data['request_stock_no'] ?? null)
+                    ? (string) $data['request_stock_no']
+                    : null,
                 'modified_date' => now(),
                 'modified_by' => $actor,
             ];

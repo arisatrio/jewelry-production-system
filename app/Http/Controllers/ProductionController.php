@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\StoreStockSpkSyncException;
 use App\Http\Requests\BulkUpdateSpkStatusRequest;
 use App\Http\Requests\PrintSpkReceiptRequest;
 use App\Http\Requests\SpkApprovalDecisionRequest;
@@ -809,9 +810,11 @@ class ProductionController extends Controller
      */
     public function create(Request $request): Response
     {
+        [$production, $stones] = $this->createFormPayload($request);
+
         return Inertia::render('spk/form', [
-            'production' => $this->emptyFormData(),
-            'stones' => [],
+            'production' => $production,
+            'stones' => $stones,
             'options' => $this->formOptions(),
             'formDocumentNo' => (string) config('spk.form_document_no'),
             'productionImageBaseUrl' => (string) config('spk.production_image_base_url'),
@@ -1065,6 +1068,10 @@ class ProductionController extends Controller
                 $this->actorName($request),
                 $request->file('file'),
             );
+        } catch (StoreStockSpkSyncException $exception) {
+            return back()->withErrors([
+                'request_stock_no' => $exception->getMessage(),
+            ]);
         } catch (RuntimeException $exception) {
             return back()->withErrors([
                 'file' => $exception->getMessage(),
@@ -2178,6 +2185,9 @@ class ProductionController extends Controller
             'customer' => $this->customerName($production),
             'status' => $production->status ?: '-',
             'requestOrderNo' => $production->request_order_no ?? '-',
+            'requestStockNo' => filled($production->request_stock_no)
+                ? (string) $production->request_stock_no
+                : null,
             'requestOrderLabel' => $this->requestOrderLabel($production),
             'requestOrderCreatedDate' => $this->requestOrderCreatedDate($production),
             'refSpkNo' => $refSpkNo,
@@ -2415,6 +2425,158 @@ class ProductionController extends Controller
     }
 
     /**
+     * @return array{0: array<string, mixed>, 1: list<array<string, mixed>>}
+     */
+    private function createFormPayload(Request $request): array
+    {
+        $production = $this->emptyFormData();
+        $orderDate = $this->queryDate($request, 'order_date');
+        $estimatedDelivery = $this->queryDate($request, 'estimated_delivery_time');
+
+        if ($orderDate !== null) {
+            $production['orderDate'] = $orderDate;
+        }
+
+        if ($estimatedDelivery !== null) {
+            $production['estimatedDeliveryTime'] = $estimatedDelivery;
+        }
+
+        $requestStockNo = $this->queryRequestStockNo($request);
+
+        if ($requestStockNo !== null) {
+            $production['requestStockNo'] = $requestStockNo;
+        }
+
+        $storeNotes = $this->queryStoreNotes($request);
+
+        if ($storeNotes !== null) {
+            $production['notes'] = $storeNotes;
+        }
+
+        $sku = $this->skuFromCreateQuery($request);
+
+        if ($sku === null) {
+            return [$production, []];
+        }
+
+        $categoryId = $sku->category_prefix_id !== null
+            ? (string) $sku->category_prefix_id
+            : '';
+        $description = trim($this->descriptionExtractor->extract($sku));
+        $production['itemTypeId'] = $categoryId;
+        $production['categoryPrefixId'] = $categoryId;
+        $production['skuId'] = (string) $sku->id;
+        $production['description'] = $description !== '' ? $description : $sku->displayName();
+        $production['goldColor'] = (string) ($sku->resolvedGoldColor() ?? '');
+        $production['goldWeight'] = $this->skuMasterGoldWeight($sku)
+            ?? $this->queryGoldWeight($request)
+            ?? '0';
+        $production['jwcad3d'] = (string) ($sku->resolvedJwcadFile() ?? '');
+
+        return [$production, $this->stoneRowsFromSku($sku)];
+    }
+
+    private function queryDate(Request $request, string $key): ?string
+    {
+        $value = $request->string($key)->trim()->toString();
+
+        if (! Carbon::hasFormat($value, 'Y-m-d')) {
+            return null;
+        }
+
+        $date = Carbon::createFromFormat('!Y-m-d', $value);
+
+        if ($date === false || $date->format('Y-m-d') !== $value) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function queryStoreNotes(Request $request): ?string
+    {
+        $notes = trim($request->string('store_notes')->toString());
+
+        if ($notes === '') {
+            return null;
+        }
+
+        return mb_substr('Catatan dari Toko: '.$notes, 0, 4000);
+    }
+
+    private function queryRequestStockNo(Request $request): ?string
+    {
+        $value = strtoupper($request->string('request_stock_no')->trim()->toString());
+
+        if (preg_match('/^RS-[A-Z0-9]+$/', $value) !== 1 || strlen($value) > 40) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function queryGoldWeight(Request $request): ?string
+    {
+        $value = $request->string('gold_weight')->trim()->toString();
+
+        if (! is_numeric($value) || (float) $value <= 0) {
+            return null;
+        }
+
+        return number_format((float) $value, 2, '.', '');
+    }
+
+    private function skuFromCreateQuery(Request $request): ?SkuMaster
+    {
+        $code = strtoupper($request->string('sku')->trim()->toString());
+
+        if ($code === '') {
+            return null;
+        }
+
+        return SkuMaster::query()
+            ->active()
+            ->with([
+                'categoryPrefix',
+                'namePrefix',
+                'sizePrefix',
+                'stoneShapePrefix',
+                'stoneTypePrefix',
+                'diamondTypePrefix',
+                'goldColorPrefix',
+                'diamonds' => fn ($query) => $query->notDeleted()->orderBy('line_id'),
+            ])
+            ->whereRaw('UPPER(TRIM(sku_code)) = ?', [$code])
+            ->first();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function stoneRowsFromSku(SkuMaster $sku): array
+    {
+        return collect($this->diamondMapper->toFormStones($sku->diamonds))
+            ->values()
+            ->map(function (array $stone, int $index): array {
+                $pcs = is_numeric($stone['pcs']) ? (int) $stone['pcs'] : 0;
+                $carat = is_numeric($stone['caratPerPcs']) ? (float) $stone['caratPerPcs'] : 0.0;
+
+                return [
+                    'id' => 'sku-stone-'.$index,
+                    'positionId' => $stone['positionId'],
+                    'positionName' => $stone['positionNama'],
+                    'shape' => $stone['shapeName'] !== '' ? $stone['shapeName'] : '-',
+                    'shapeId' => $stone['shapeId'],
+                    'pcs' => $pcs,
+                    'carat' => $carat,
+                    'totalCarat' => round($pcs * $carat, 3),
+                    'size' => $stone['size'] !== '' ? $stone['size'] : '-',
+                ];
+            })
+            ->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function emptyFormData(): array
@@ -2425,6 +2587,7 @@ class ProductionController extends Controller
             'spkNo' => null,
             'spkType' => 'Stock',
             'requestOrderNo' => null,
+            'requestStockNo' => null,
             'customerName' => null,
             'itemName' => null,
             'refSpkId' => null,
@@ -2468,6 +2631,9 @@ class ProductionController extends Controller
             'spkNo' => (string) $production->spk_no,
             'spkType' => (string) ($production->spk_type ?? ''),
             'requestOrderNo' => $production->request_order_no,
+            'requestStockNo' => filled($production->request_stock_no)
+                ? (string) $production->request_stock_no
+                : null,
             'requestOrderLabel' => $this->requestOrderLabel($production),
             'customerName' => $production->customer_name,
             'itemName' => $production->item_name,

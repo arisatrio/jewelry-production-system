@@ -167,7 +167,6 @@ test('spk form save validates required fields', function () {
             'sku_id',
             'qty',
             'satuan',
-            'diameter_length_ringsize',
             'gold_weight',
             'gold_color',
         ]);

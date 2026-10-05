@@ -1350,6 +1350,23 @@ test('spk show page displays production detail', function () {
         );
 });
 
+test('spk show page displays the request stock number when the spk came from a stock request', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'request_stock_no' => 'RS-0000033',
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('production.requestStockNo', 'RS-0000033')
+        );
+
+    $production->delete();
+});
+
 test('status card route opens first spk for selected status', function () {
     $draft = Production::factory()->create([
         'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(86000, 86999)),
@@ -1625,7 +1642,9 @@ test('spk store stock requests proxies approved requests from store api', functi
                 'rowId' => 33,
                 'docNo' => 'RS-0000033',
                 'transDate' => '23-Sep-2026',
+                'transDateIso' => '2026-09-23',
                 'estimatedDate' => '23-Oct-2026',
+                'estimatedDateIso' => '2026-10-23',
                 'targetDaysLeft' => 3,
                 'store' => 'Plaza Indonesia',
                 'item' => 'EAR ELECTA OVAL 0.3 RG',
@@ -1636,12 +1655,15 @@ test('spk store stock requests proxies approved requests from store api', functi
                 'notes' => null,
                 'imageUrl' => 'https://storage.test/sku.png',
                 'goldInfo' => 'ROSE GOLD · 750 · 4.64 gr',
+                'goldWeight' => '4.64',
                 'createdBy' => 'Annisa Fitrie',
             ], [
                 'rowId' => 32,
                 'docNo' => 'RS-0000032',
                 'transDate' => '-',
+                'transDateIso' => null,
                 'estimatedDate' => '-',
+                'estimatedDateIso' => null,
                 'targetDaysLeft' => null,
                 'store' => '-',
                 'item' => '-',
@@ -1652,6 +1674,7 @@ test('spk store stock requests proxies approved requests from store api', functi
                 'notes' => null,
                 'imageUrl' => null,
                 'goldInfo' => null,
+                'goldWeight' => null,
                 'createdBy' => null,
             ]],
             'meta' => ['currentPage' => 2, 'lastPage' => 3, 'perPage' => 25, 'total' => 51],

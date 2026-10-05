@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Exceptions\StoreStockSpkSyncException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Carbon;
@@ -49,7 +51,7 @@ class StoreStockRequestRepository
      * Daftar request stok approved dari Store (API Store) untuk modal di halaman index SPK.
      *
      * @return array{
-     *     data: list<array{rowId: int, docNo: string, transDate: string, estimatedDate: string, targetDaysLeft: int|null, store: string, item: string, refSku: string|null, typeOrder: string|null, status: string|null, approvedAt: string|null, notes: string|null, imageUrl: string|null, goldInfo: string|null, createdBy: string|null}>,
+     *     data: list<array{rowId: int, docNo: string, transDate: string, transDateIso: string|null, estimatedDate: string, estimatedDateIso: string|null, targetDaysLeft: int|null, store: string, item: string, refSku: string|null, typeOrder: string|null, status: string|null, approvedAt: string|null, notes: string|null, imageUrl: string|null, goldInfo: string|null, goldWeight: string|null, createdBy: string|null}>,
      *     meta: array{currentPage: int, lastPage: int, perPage: int, total: int}
      * }
      *
@@ -111,6 +113,33 @@ class StoreStockRequestRepository
     }
 
     /**
+     * Kirim nomor SPK yang baru dibuat ke dokumen request stok di Store.
+     *
+     * @throws StoreStockSpkSyncException
+     */
+    public function assignSpkNumber(string $docNo, string $spkNo, string $modifiedBy): void
+    {
+        try {
+            $this->client()
+                ->connectTimeout(3)
+                ->post('production/spk/update-spk-no', [
+                    'doc_no' => $docNo,
+                    'spk_no' => $spkNo,
+                    'modified_by' => $modifiedBy,
+                ])
+                ->throw();
+        } catch (ConnectionException|RequestException|RuntimeException $exception) {
+            Log::warning('Gagal mengirim nomor SPK ke API Store.', [
+                'doc_no' => $docNo,
+                'spk_no' => $spkNo,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw StoreStockSpkSyncException::failed($exception);
+        }
+    }
+
+    /**
      * @throws RuntimeException
      */
     private function client(): PendingRequest
@@ -130,7 +159,7 @@ class StoreStockRequestRepository
 
     /**
      * @param  array<string, mixed>  $row
-     * @return array{rowId: int, docNo: string, transDate: string, estimatedDate: string, targetDaysLeft: int|null, store: string, item: string, refSku: string|null, typeOrder: string|null, status: string|null, approvedAt: string|null, notes: string|null, imageUrl: string|null, goldInfo: string|null, createdBy: string|null}
+     * @return array{rowId: int, docNo: string, transDate: string, transDateIso: string|null, estimatedDate: string, estimatedDateIso: string|null, targetDaysLeft: int|null, store: string, item: string, refSku: string|null, typeOrder: string|null, status: string|null, approvedAt: string|null, notes: string|null, imageUrl: string|null, goldInfo: string|null, goldWeight: string|null, createdBy: string|null}
      */
     private function toListRow(array $row): array
     {
@@ -138,7 +167,9 @@ class StoreStockRequestRepository
             'rowId' => (int) ($row['row_id'] ?? 0),
             'docNo' => (string) ($row['doc_no'] ?? '-'),
             'transDate' => $this->displayDate($row['trans_date'] ?? null),
+            'transDateIso' => $this->isoDate($row['trans_date'] ?? null),
             'estimatedDate' => $this->displayDate($row['estimated_date'] ?? null),
+            'estimatedDateIso' => $this->isoDate($row['estimated_date'] ?? null),
             'targetDaysLeft' => $this->daysLeft($row['estimated_date'] ?? null),
             'store' => $this->filledString(data_get($row, 'store.name')) ?? '-',
             'item' => $this->filledString($row['nama_item'] ?? null) ?? '-',
@@ -149,6 +180,9 @@ class StoreStockRequestRepository
             'notes' => $this->filledString($row['notes'] ?? null),
             'imageUrl' => $this->filledString($row['photo_file'] ?? null) ?? $this->filledString(data_get($row, 'sku.image_url')),
             'goldInfo' => $this->goldInfo($row),
+            'goldWeight' => is_numeric($row['berat_emas'] ?? null) && (float) $row['berat_emas'] > 0
+                ? number_format((float) $row['berat_emas'], 2, '.', '')
+                : null,
             'createdBy' => $this->filledString($row['created_by'] ?? null),
         ];
     }
@@ -258,6 +292,21 @@ class StoreStockRequestRepository
             return Carbon::parse($date)->format('d-M-Y');
         } catch (Throwable) {
             return $date;
+        }
+    }
+
+    private function isoDate(mixed $value): ?string
+    {
+        $date = $this->filledString($value);
+
+        if ($date === null) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($date)->toDateString();
+        } catch (Throwable) {
+            return null;
         }
     }
 }

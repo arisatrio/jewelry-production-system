@@ -1,5 +1,7 @@
+import { Link } from '@inertiajs/react';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
+import addIcon from '@ui5/webcomponents-icons/dist/add.js';
 import { useEffect, useState } from 'react';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import { targetDaysLeftHint } from '@/components/spk/spk-list-cells';
@@ -10,13 +12,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { storeStockRequests } from '@/routes/spk';
+import { create as spkCreate, storeStockRequests } from '@/routes/spk';
 
 type StoreStockRequestRow = {
     rowId: number;
     docNo: string;
     transDate: string;
+    transDateIso: string | null;
     estimatedDate: string;
+    estimatedDateIso: string | null;
     targetDaysLeft: number | null;
     store: string;
     item: string;
@@ -27,6 +31,7 @@ type StoreStockRequestRow = {
     notes: string | null;
     imageUrl: string | null;
     goldInfo: string | null;
+    goldWeight: string | null;
     createdBy: string | null;
 };
 
@@ -50,6 +55,36 @@ type SpkStoreStockRequestDialogProps = {
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
+
+function createSpkUrl(row: StoreStockRequestRow): string {
+    const query: Record<string, string> = {};
+
+    if (row.transDateIso) {
+        query.order_date = row.transDateIso;
+    }
+
+    if (row.estimatedDateIso) {
+        query.estimated_delivery_time = row.estimatedDateIso;
+    }
+
+    if (row.refSku) {
+        query.sku = row.refSku;
+    }
+
+    if (row.goldWeight) {
+        query.gold_weight = row.goldWeight;
+    }
+
+    if (row.docNo !== '' && row.docNo !== '-') {
+        query.request_stock_no = row.docNo;
+    }
+
+    if (row.notes) {
+        query.store_notes = row.notes;
+    }
+
+    return spkCreate.url({ query });
+}
 
 export function SpkStoreStockRequestDialog({
     open,
@@ -193,7 +228,19 @@ function SpkStoreStockRequestBody() {
                             {rows.map((row) => (
                                 <tr key={row.rowId}>
                                     <td className="spkAlertModalTableIdentifier whitespace-nowrap">
-                                        {row.docNo}
+                                        <div className="flex flex-col items-start gap-1.5">
+                                            <span>{row.docNo}</span>
+                                            <Link
+                                                href={createSpkUrl(row)}
+                                                className="spkCreateBtn"
+                                            >
+                                                <Icon
+                                                    name={addIcon}
+                                                    mode="Decorative"
+                                                />
+                                                Buat SPK
+                                            </Link>
+                                        </div>
                                     </td>
                                     <td className="spkReceiptHistoryColWrap">
                                         <div className="flex items-start gap-3">

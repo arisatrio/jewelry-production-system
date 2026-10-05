@@ -27,6 +27,7 @@ class ProductionFactory extends Factory
             ),
             'spk_type' => fake()->randomElement(['Stock', 'Pesanan', 'Refund']),
             'request_order_no' => null,
+            'request_stock_no' => null,
             'ref_spk_id' => null,
             'customer_name' => fake()->optional(0.6)->name(),
             'item_name' => fake()->randomElement(['Bangle', 'Pendant', 'Ladies Ring', 'Necklace', 'Earring']),

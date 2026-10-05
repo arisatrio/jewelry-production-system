@@ -63,6 +63,7 @@ export type SpkWorkflowStatus = {
 
 export type SpkDetail = SpkRow & {
     requestOrderNo: string;
+    requestStockNo?: string | null;
     requestOrderLabel?: string;
     requestOrderCreatedDate?: string;
     refSpkNo: string;
