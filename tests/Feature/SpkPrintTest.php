@@ -277,9 +277,27 @@ test('spk detail and print label pesanan with the sales name', function () {
                 return ($document['info']['orderDate'] ?? null) === '01-Aug-2026'
                     && ($document['info']['requestOrderCreatedDate'] ?? null) === '01-Aug-2026'
                     && ($document['info']['spkCreatedDate'] ?? null) === '28-Sep-2026'
-                    && ($document['approval'][0]['date'] ?? null) === '28-Sep-2026';
+                    && ($document['approval'][0]['date'] ?? null) === '28-Sep-2026 10:15:00';
             })
+            ->assertSee('28-Sep-2026 10:15:00', false)
             ->assertSeeInOrder(['Tanggal SPK Dibuat', '28-Sep-2026'], false);
+
+        $this->postJson(route('spk.print'), [
+            'document' => [
+                'info' => [
+                    'spkType' => 'Pesanan',
+                    'requestOrderNo' => $docNo,
+                ],
+                'item' => [
+                    'productionId' => (string) $production->row_id,
+                ],
+                'approval' => [
+                    ['title' => 'Dibuat Oleh', 'name' => 'Tester', 'date' => '28-Sep-2026'],
+                ],
+            ],
+        ])
+            ->assertOk()
+            ->assertSee('28-Sep-2026 10:15:00', false);
     } finally {
         $production?->delete();
 

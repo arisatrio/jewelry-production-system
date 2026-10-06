@@ -835,6 +835,7 @@ class ProductionController extends Controller
         if ($request->isMethod('post')) {
             $payload = $request->input('document', $request->json('document'));
             $payload = is_array($payload) ? $payload : [];
+            $payload = $this->withStoredPrintApproval($payload);
         }
 
         return view('spk.print', [
@@ -3219,8 +3220,47 @@ class ProductionController extends Controller
             'detailUrl' => $this->resolvePrintQrUrl(
                 route('spk.show', $production, absolute: true),
             ),
-            'approval' => app(SpkApprovalService::class)->footerColumns($production),
+            'approval' => $this->printApprovalFooter($production),
         ], $request);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function withStoredPrintApproval(array $payload): array
+    {
+        $item = is_array($payload['item'] ?? null) ? $payload['item'] : [];
+        $productionId = $item['productionId'] ?? null;
+
+        if (! is_numeric($productionId)) {
+            return $payload;
+        }
+
+        $production = Production::query()
+            ->notDeleted()
+            ->where('row_id', (int) $productionId)
+            ->first();
+
+        if ($production === null) {
+            return $payload;
+        }
+
+        $payload['approval'] = $this->printApprovalFooter($production);
+
+        return $payload;
+    }
+
+    /**
+     * @return list<array{title: string, name: string, date: string}>
+     */
+    private function printApprovalFooter(Production $production): array
+    {
+        return app(SpkApprovalService::class)->footerColumns(
+            $production,
+            '-',
+            'd-M-Y H:i:s',
+        );
     }
 
     /**

@@ -44,7 +44,7 @@ return [
 
     'issue_no' => '01',
 
-    'revision' => '03',
+    'revision' => '04',
 
     'issue_date' => '14/08/2026',
 
