@@ -326,12 +326,14 @@ test('spk form includes the request order sales name', function () {
             ->assertInertia(fn ($page) => $page
                 ->component('spk/form')
                 ->where('production.salesName', $salesName)
+                ->where('production.orderDate', '2026-08-01')
             );
 
         $this->getJson(route('spk.select.request-orders', ['search' => $docNo]))
             ->assertOk()
             ->assertJsonPath('data.0.sales', $salesName)
-            ->assertJsonPath('data.0.docNo', $docNo);
+            ->assertJsonPath('data.0.docNo', $docNo)
+            ->assertJsonPath('data.0.transDate', '2026-08-01');
     } finally {
         $production?->delete();
 
@@ -341,6 +343,80 @@ test('spk form includes the request order sales name', function () {
 
         if ($salesId !== null) {
             DB::connection('second')->table('sysuser')->where('row_id', $salesId)->delete();
+        }
+    }
+});
+
+test('spk pesanan update keeps tanggal permintaan on the request order trans date', function () {
+    $docNo = 'DP-TEST-'.Str::upper(Str::random(8));
+    $orderId = null;
+    $production = null;
+
+    try {
+        $orderId = DB::connection('second')->table('request_order')->insertGetId([
+            'company_id' => 1,
+            'doc_no' => $docNo,
+            'trans_date' => '2026-06-15 00:00:00',
+            'estimated_date' => '2026-09-30',
+            'type_order' => 'CUSTOM',
+            'online_offline' => 'OFFLINE',
+            'is_sales_saved' => 0,
+            'is_submitted' => 0,
+            'is_deleted' => 0,
+            'is_fully_paid' => 1,
+            'created_date' => now(),
+            'created_by' => 'system',
+        ]);
+        $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+            ?? SkuPrefixCategory::query()->create([
+                'category' => 'TEST '.fake()->unique()->lexify('????'),
+                'prefix' => strtoupper(fake()->unique()->lexify('???')),
+                'usage_count' => 0,
+                'is_active' => 1,
+            ]);
+        $sku = SkuMaster::factory()->create([
+            'category_prefix_id' => $category->id,
+        ]);
+        $production = Production::factory()->create([
+            'spk_type' => 'Pesanan',
+            'request_order_no' => $docNo,
+            'order_date' => '2026-08-03',
+            'status' => '',
+            'is_deleted' => 0,
+        ]);
+
+        $this->get(route('spk.form', $production->row_id))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('production.estimatedDeliveryTime', '2026-09-30')
+            );
+
+        $this->post(route('spk.update', $production->row_id), [
+            'spk_type' => 'Pesanan',
+            'request_order_no' => 'DP-OTHER-ORDER',
+            'order_date' => '2026-01-06',
+            'estimated_delivery_time' => '2026-06-20',
+            'description' => 'Pesanan date locked',
+            'category_prefix_id' => $category->id,
+            'sku_id' => $sku->id,
+            'qty' => 1,
+            'satuan' => 'Pcs',
+            'gold_weight' => 1.5,
+            'gold_color' => 'Yellow Gold',
+        ])->assertRedirect(route('spk.show', $production->spk_no));
+
+        $production->refresh();
+
+        expect($production->order_date?->toDateString())->toBe('2026-06-15')
+            ->and($production->estimated_delivery_time?->toDateString())->toBe('2026-09-30')
+            ->and($production->request_order_no)->toBe($docNo);
+
+        $sku->delete();
+    } finally {
+        $production?->delete();
+
+        if ($orderId !== null) {
+            DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
         }
     }
 });

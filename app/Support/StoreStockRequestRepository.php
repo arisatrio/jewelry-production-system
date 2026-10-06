@@ -113,6 +113,34 @@ class StoreStockRequestRepository
     }
 
     /**
+     * Tanggal target pengiriman request stok (estimated_date) sebagai Y-m-d.
+     */
+    public function estimatedDateByDocNo(string $docNo): ?string
+    {
+        $docNo = strtoupper(trim($docNo));
+
+        if ($docNo === '') {
+            return null;
+        }
+
+        try {
+            $rows = $this->paginatePendingSpk($docNo)['data'];
+        } catch (Throwable) {
+            return null;
+        }
+
+        foreach ($rows as $row) {
+            if (strtoupper($row['docNo']) !== $docNo || blank($row['estimatedDateIso'])) {
+                continue;
+            }
+
+            return $row['estimatedDateIso'];
+        }
+
+        return null;
+    }
+
+    /**
      * Kirim nomor SPK yang baru dibuat ke dokumen request stok di Store.
      *
      * @throws StoreStockSpkSyncException

@@ -4,10 +4,13 @@ namespace App\Http\Requests;
 
 use App\Models\MsPosition;
 use App\Models\MsShape;
+use App\Models\Production;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Support\GoldColorOptions;
+use App\Support\RequestOrderRepository;
 use App\Support\SpkService;
+use App\Support\StoreStockRequestRepository;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
@@ -28,6 +31,9 @@ class UpdateProductionRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $this->applyPesananRequestDate();
+        $this->applyStockRequestTargetDate();
+
         $skuId = $this->input('sku_id');
         $categoryPrefixId = $this->input('category_prefix_id');
 
@@ -102,6 +108,81 @@ class UpdateProductionRequest extends FormRequest
         }
 
         $this->merge($merge);
+    }
+
+    /**
+     * Pesanan dates follow the request order: trans_date and estimated_date.
+     */
+    private function applyPesananRequestDate(): void
+    {
+        $type = (string) $this->input('spk_type');
+        $docNo = trim((string) $this->input('request_order_no'));
+        $rowId = $this->route('rowId');
+
+        if (is_numeric($rowId)) {
+            $production = Production::query()
+                ->notDeleted()
+                ->where('row_id', (int) $rowId)
+                ->first(['spk_type', 'request_order_no']);
+
+            if ($production !== null) {
+                $type = (string) $production->spk_type;
+                $docNo = trim((string) $production->request_order_no);
+            }
+        }
+
+        if ($type !== 'Pesanan' || $docNo === '') {
+            return;
+        }
+
+        $requestOrders = app(RequestOrderRepository::class);
+        $dates = [];
+        $orderDate = $requestOrders->orderDateByDocNo($docNo);
+        $estimatedDate = $requestOrders->estimatedDateByDocNo($docNo);
+
+        if ($orderDate !== null) {
+            $dates['order_date'] = $orderDate;
+        }
+
+        if ($estimatedDate !== null) {
+            $dates['estimated_delivery_time'] = $estimatedDate;
+        }
+
+        if ($dates === []) {
+            return;
+        }
+
+        $this->merge($dates);
+    }
+
+    /**
+     * Tanggal Target Selesai for a store stock request follows its target delivery.
+     */
+    private function applyStockRequestTargetDate(): void
+    {
+        $docNo = strtoupper(trim((string) $this->input('request_stock_no')));
+        $rowId = $this->route('rowId');
+
+        if ($docNo === '' && is_numeric($rowId)) {
+            $docNo = strtoupper(trim((string) Production::query()
+                ->notDeleted()
+                ->where('row_id', (int) $rowId)
+                ->value('request_stock_no')));
+        }
+
+        if ($docNo === '') {
+            return;
+        }
+
+        $estimatedDate = app(StoreStockRequestRepository::class)->estimatedDateByDocNo($docNo);
+
+        if ($estimatedDate === null) {
+            return;
+        }
+
+        $this->merge([
+            'estimated_delivery_time' => $estimatedDate,
+        ]);
     }
 
     /**

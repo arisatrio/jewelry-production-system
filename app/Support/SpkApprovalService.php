@@ -199,13 +199,13 @@ class SpkApprovalService
     /**
      * @return list<array{title: string, name: string, date: string}>
      */
-    public function footerColumns(Production $production, string $fallbackCreator = '-'): array
+    public function footerColumns(Production $production, string $fallbackCreator = '-', string $dateFormat = 'd-M-Y'): array
     {
         $history = $this->history($production);
         $createdBy = filled($production->created_by)
             ? (string) $production->created_by
             : $fallbackCreator;
-        $createdAt = $production->created_date?->format('d/m/Y H:i') ?? '-';
+        $createdAt = $production->created_date?->format($dateFormat) ?? '-';
 
         $submit = collect($history)->last(
             fn (array $row): bool => strtoupper($row['approve']) === self::APPROVE_OK
@@ -226,12 +226,12 @@ class SpkApprovalService
             [
                 'title' => 'Disetujui Oleh',
                 'name' => $this->historyActorName($submit),
-                'date' => $this->historyActorDate($submit),
+                'date' => $this->historyActorDate($submit, $dateFormat),
             ],
             [
                 'title' => 'Manager Produksi',
                 'name' => $this->historyActorName($managerApprove),
-                'date' => $this->historyActorDate($managerApprove),
+                'date' => $this->historyActorDate($managerApprove, $dateFormat),
             ],
         ];
     }
@@ -492,13 +492,13 @@ class SpkApprovalService
     /**
      * @param  array{createdBy?: string|null, createdAt?: string|null}|false|null  $row
      */
-    private function historyActorDate(array|false|null $row): string
+    private function historyActorDate(array|false|null $row, string $format = 'd-M-Y'): string
     {
         if (! is_array($row) || blank($row['createdAt'] ?? null)) {
             return '-';
         }
 
-        return $this->formatFooterDate((string) $row['createdAt']);
+        return $this->formatFooterDate((string) $row['createdAt'], $format);
     }
 
     private function timelineSortKey(?string $createdAt): string
@@ -514,10 +514,10 @@ class SpkApprovalService
         }
     }
 
-    private function formatFooterDate(string $value): string
+    private function formatFooterDate(string $value, string $format = 'd-M-Y'): string
     {
         try {
-            return Carbon::parse($value)->format('d/m/Y H:i');
+            return Carbon::parse($value)->format($format);
         } catch (\Throwable) {
             return $value;
         }

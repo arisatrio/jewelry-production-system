@@ -5,6 +5,7 @@ use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Support\RequestOrderRepository;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -122,7 +123,7 @@ test('spk create page shows form without generating number', function () {
             ->has('approvalFooter', 3)
             ->where('approvalFooter.0.title', 'Dibuat Oleh')
             ->where('approvalFooter.0.name', 'system')
-            ->where('approvalFooter.0.date', fn ($date) => is_string($date) && preg_match('/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/', $date) === 1)
+            ->where('approvalFooter.0.date', fn ($date) => is_string($date) && preg_match('/^\d{2}-[A-Z][a-z]{2}-\d{4}$/', $date) === 1)
             ->where('approvalFooter.1.title', 'Disetujui Oleh')
             ->where('approvalFooter.1.name', '-')
             ->where('approvalFooter.1.date', '-')
@@ -219,6 +220,51 @@ function fakeStoreSpkNumberUpdate(int $status = 200): void
         'store.test/api/public/production/spk/update-spk-no' => Http::response(['message' => 'ok'], $status),
     ]);
 }
+
+test('spk from request stock stores the store target delivery date', function () {
+    config([
+        'services.store_api.base_url' => 'https://store.test/api/public',
+        'services.store_api.key' => 'test-store-key',
+    ]);
+    Http::preventStrayRequests();
+    Http::fake([
+        'store.test/api/public/request/stock/list/approved' => Http::response([
+            'data' => [[
+                'row_id' => 32,
+                'doc_no' => 'RS-0000032',
+                'trans_date' => '2026-08-20',
+                'estimated_date' => '2026-10-20',
+            ]],
+            'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 25, 'total' => 1],
+        ]),
+        'store.test/api/public/production/spk/update-spk-no' => Http::response(['message' => 'ok']),
+    ]);
+
+    $payload = validSpkStorePayload([
+        'request_stock_no' => 'RS-0000032',
+        'order_date' => '2026-08-20',
+        'estimated_delivery_time' => '2026-08-27',
+        'description' => 'Stock target from store '.Str::random(6),
+    ]);
+
+    $this->post(route('spk.store'), $payload)->assertRedirect();
+
+    $production = Production::query()
+        ->where('description', $payload['description'])
+        ->first();
+
+    expect($production)->not->toBeNull()
+        ->and($production->estimated_delivery_time?->toDateString())->toBe('2026-10-20');
+
+    $this->get(route('spk.form', $production->row_id))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('production.requestStockNo', 'RS-0000032')
+            ->where('production.estimatedDeliveryTime', '2026-10-20')
+        );
+
+    $production->delete();
+});
 
 test('spk create from request stock keeps the production type as stock', function () {
     fakeStoreSpkNumberUpdate();
@@ -380,9 +426,55 @@ test('spk pesanan can be created from request order', function () {
         ->and($production->customer_name)->not->toBeNull()
         ->and($production->description)->toBe('Pesanan create full');
 
+    if (filled($order['transDate'] ?? null)) {
+        expect($production->order_date?->toDateString())->toBe($order['transDate']);
+    }
+
     $response->assertRedirect(route('spk.show', $production->spk_no));
 
     $production->delete();
+});
+
+test('spk pesanan stores tanggal permintaan from the request order trans date', function () {
+    $docNo = 'DP-TEST-'.Str::upper(Str::random(8));
+    $orderId = DB::connection('second')->table('request_order')->insertGetId([
+        'company_id' => 1,
+        'doc_no' => $docNo,
+        'trans_date' => '2026-06-15 08:30:00',
+        'estimated_date' => '2026-09-30',
+        'type_order' => 'CUSTOM',
+        'online_offline' => 'OFFLINE',
+        'is_sales_saved' => 0,
+        'is_submitted' => 0,
+        'is_deleted' => 0,
+        'is_fully_paid' => 1,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ]);
+    $production = null;
+
+    try {
+        $payload = validSpkStorePayload([
+            'spk_type' => 'Pesanan',
+            'request_order_no' => $docNo,
+            'order_date' => '2026-08-03',
+            'estimated_delivery_time' => '2026-08-10',
+            'description' => 'Pesanan date from trans date '.Str::random(6),
+        ]);
+
+        $this->post(route('spk.store'), $payload)->assertRedirect();
+
+        $production = Production::query()
+            ->where('description', $payload['description'])
+            ->first();
+
+        expect($production)->not->toBeNull()
+            ->and($production->order_date?->toDateString())->toBe('2026-06-15')
+            ->and($production->estimated_delivery_time?->toDateString())->toBe('2026-09-30');
+    } finally {
+        $production?->delete();
+        DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
+    }
 });
 
 test('spk exchange can be created from approved reference', function () {

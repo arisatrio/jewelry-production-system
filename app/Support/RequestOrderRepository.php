@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use stdClass;
@@ -15,7 +16,7 @@ class RequestOrderRepository
      * Uses the same joins as legacy vw_request_orderlist because the view
      * may be unavailable when the MySQL definer account is missing.
      *
-     * @return Collection<int, array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, paymentStatusLabel: string|null}>
+     * @return Collection<int, array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null}>
      */
     public function search(string $search = '', int $limit = 25): Collection
     {
@@ -42,7 +43,7 @@ class RequestOrderRepository
     /**
      * Find a single request order by document number.
      *
-     * @return array{rowId: int, docNo: string, customer: string|null, item: string|null, sales: string|null, itemId: int|null, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string}|null
+     * @return array{rowId: int, docNo: string, customer: string|null, item: string|null, sales: string|null, itemId: int|null, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null}|null
      */
     public function findByDocNo(string $docNo): ?array
     {
@@ -68,6 +69,8 @@ class RequestOrderRepository
                 filled($row->customer_name) ? (string) $row->customer_name : '-',
                 $row->is_fully_paid,
             ),
+            'transDate' => $this->orderDate($row->trans_date ?? null),
+            'estimatedDate' => $this->orderDate($row->estimated_date ?? null),
         ];
     }
 
@@ -199,6 +202,32 @@ class RequestOrderRepository
     }
 
     /**
+     * Request order transaction date as Y-m-d for SPK Tanggal Permintaan.
+     */
+    public function orderDateByDocNo(string $docNo): ?string
+    {
+        return $this->orderDate($this->transDateByDocNo($docNo));
+    }
+
+    /**
+     * Request order estimated date as Y-m-d for SPK Tanggal Target Selesai.
+     */
+    public function estimatedDateByDocNo(string $docNo): ?string
+    {
+        if ($docNo === '') {
+            return null;
+        }
+
+        $value = DB::connection('second')
+            ->table('request_order')
+            ->where('doc_no', $docNo)
+            ->where('is_deleted', 0)
+            ->value('estimated_date');
+
+        return $this->orderDate($value);
+    }
+
+    /**
      * Resolve request order context for SPK priority display.
      *
      * @return array{typeOrder: string, isFullyPaid: bool|null}|null
@@ -267,6 +296,8 @@ class RequestOrderRepository
                 'ro.item_id',
                 'ro.ref_sku',
                 'ro.is_fully_paid',
+                'ro.trans_date',
+                'ro.estimated_date',
                 'ro.type_order',
                 'c.name as customer_name',
                 'su.name as sales_name',
@@ -275,7 +306,7 @@ class RequestOrderRepository
     }
 
     /**
-     * @return array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string}
+     * @return array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null}
      */
     private function toSelectorItem(stdClass $row): array
     {
@@ -292,6 +323,21 @@ class RequestOrderRepository
                 filled($row->customer_name) ? (string) $row->customer_name : '—',
                 $row->is_fully_paid,
             ),
+            'transDate' => $this->orderDate($row->trans_date ?? null),
+            'estimatedDate' => $this->orderDate($row->estimated_date ?? null),
         ];
+    }
+
+    private function orderDate(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse((string) $value)->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

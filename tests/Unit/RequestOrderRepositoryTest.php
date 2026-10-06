@@ -30,6 +30,7 @@ test('request order repository resolves display label by doc no', function () {
         'company_id' => 1,
         'doc_no' => $docNo,
         'trans_date' => '2026-08-01',
+        'estimated_date' => '2026-09-30',
         'type_order' => 'CUSTOM',
         'online_offline' => 'OFFLINE',
         'is_sales_saved' => 0,
@@ -40,13 +41,18 @@ test('request order repository resolves display label by doc no', function () {
         'created_by' => 'system',
     ]);
 
-    $label = app(RequestOrderRepository::class)->displayLabelByDocNo($docNo, 'Vera');
-    $rows = app(RequestOrderRepository::class)->rowsByDocNos([$docNo, 'MISSING-DOC']);
+    $repository = app(RequestOrderRepository::class);
+    $label = $repository->displayLabelByDocNo($docNo, 'Vera');
+    $rows = $repository->rowsByDocNos([$docNo, 'MISSING-DOC']);
 
     expect($label)->toBe("{$docNo} (Vera) (Lunas)")
         ->and($rows)->toHaveKey($docNo)
         ->and($rows)->not->toHaveKey('MISSING-DOC')
-        ->and((string) $rows[$docNo]->doc_no)->toBe($docNo);
+        ->and((string) $rows[$docNo]->doc_no)->toBe($docNo)
+        ->and($repository->orderDateByDocNo($docNo))->toBe('2026-08-01')
+        ->and($repository->orderDateByDocNo(''))->toBeNull()
+        ->and($repository->estimatedDateByDocNo($docNo))->toBe('2026-09-30')
+        ->and($repository->estimatedDateByDocNo(''))->toBeNull();
 
     DB::connection('second')->table('request_order')->where('row_id', $rowId)->delete();
 });

@@ -45,7 +45,7 @@ test('spk print preview page renders document header', function () {
         ->assertSee('spkPrintBottom', false)
         ->assertSee('Dibuat Oleh', false)
         ->assertSee('Deskripsi Item', false)
-        ->assertSee('Pesanan', false)
+        ->assertSee('Nomor Pesanan', false)
         ->assertSee('Tanggal Pesanan Dibuat', false)
         ->assertSee('Tanggal Diterima Produksi', false)
         ->assertDontSee('>No. Pesanan</th>', false)
@@ -74,6 +74,7 @@ test('spk print preview accepts form document payload', function () {
                 'priority' => 'NO',
                 'statusOrder' => 'Repeat Order',
                 'requestOrderNo' => 'DP-0009303',
+                'requestStockNo' => 'RS-0000033',
                 'customerName' => 'Vera',
                 'itemType' => 'Bracelet',
                 'itemVariance' => 'ETERNA',
@@ -117,8 +118,14 @@ test('spk print preview accepts form document payload', function () {
         ->assertViewIs('spk.print')
         ->assertSee('Stock', false)
         ->assertDontSee('Stock (Repeat Order)', false)
-        ->assertSee('DP-0009303 (Vera)', false)
+        ->assertSee('Nomor Request Stok', false)
+        ->assertSee('RS-0000033', false)
+        ->assertDontSee('Nomor Pesanan', false)
+        ->assertDontSee('DP-0009303 (Vera)', false)
         ->assertDontSee('Tanggal Pesanan Dibuat', false)
+        ->assertSee('Tanggal Permintaan', false)
+        ->assertSee('Tanggal SPK Dibuat', false)
+        ->assertDontSee('*Target Sales', false)
         ->assertSee('Tanggal Diterima Produksi', false)
         ->assertSee('LDR | LR ATARA FLOW 0.7 CT', false)
         ->assertSee('spkPrintFieldSku', false)
@@ -241,10 +248,38 @@ test('spk detail and print label pesanan with the sales name', function () {
                 ->where('production.pesananHeading', $heading)
             );
 
+        $production->update([
+            'order_date' => '2026-09-26',
+            'created_date' => '2026-09-28 10:15:00',
+        ]);
+
+        $this->get(route('spk.show', $production))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('production.orderDate', '01-Aug-2026')
+                ->where('production.requestOrderCreatedDate', '01-Aug-2026')
+                ->where('approvalFooter.0.date', '28-Sep-2026 10:15:00')
+            );
+
         $this->get(route('spk.print.show', $production->row_id))
             ->assertOk()
             ->assertSee($heading, false)
-            ->assertSee("{$docNo} (Linda Nur Laili) (Lunas)", false);
+            ->assertSee("{$docNo} (Linda Nur Laili) (Lunas)", false)
+            ->assertSee('Nomor Pesanan', false)
+            ->assertDontSee('Nomor Request Stok', false)
+            ->assertSee('Tanggal SPK Dibuat', false)
+            ->assertDontSee('Tanggal Permintaan', false)
+            ->assertSee('Tanggal Target Selesai', false)
+            ->assertDontSee('Tanggal Estimasi Selesai', false)
+            ->assertSee('*Target Sales', false)
+            ->assertSeeInOrder(['.spkPrintTargetSales {', 'font-size: 6pt'], false)
+            ->assertViewHas('document', function (array $document): bool {
+                return ($document['info']['orderDate'] ?? null) === '01-Aug-2026'
+                    && ($document['info']['requestOrderCreatedDate'] ?? null) === '01-Aug-2026'
+                    && ($document['info']['spkCreatedDate'] ?? null) === '28-Sep-2026'
+                    && ($document['approval'][0]['date'] ?? null) === '28-Sep-2026';
+            })
+            ->assertSeeInOrder(['Tanggal SPK Dibuat', '28-Sep-2026'], false);
     } finally {
         $production?->delete();
 
@@ -326,6 +361,31 @@ test('spk print preview shows low priority banner for nabung bareng pesanan', fu
         ->assertSee('spkPrintPage--priority-low', false);
 
     DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
+});
+
+test('spk print formats production dates as day short month year', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'order_date' => '2026-09-01',
+        'estimated_delivery_time' => '2026-09-26',
+        'created_date' => '2026-09-28 10:15:00',
+        'request_stock_no' => 'RS-PRINT01',
+    ]);
+
+    $this->get(route('spk.print.show', $production->row_id))
+        ->assertOk()
+        ->assertSee('01-Sep-2026', false)
+        ->assertSee('26-Sep-2026', false)
+        ->assertSee('28-Sep-2026', false)
+        ->assertSeeInOrder(['Tanggal Permintaan', 'Tanggal SPK Dibuat'], false)
+        ->assertSee('Nomor Request Stok', false)
+        ->assertSee('RS-PRINT01', false)
+        ->assertDontSee('Nomor Pesanan', false)
+        ->assertDontSee('*Target Sales', false)
+        ->assertDontSee('01/09/2026', false)
+        ->assertDontSee('26/09/2026', false);
+
+    $production->delete();
 });
 
 test('spk print page for existing production renders document body', function () {

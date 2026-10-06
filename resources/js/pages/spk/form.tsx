@@ -80,6 +80,8 @@ type RequestOrderOption = {
     refSku: string | null;
     paymentStatusLabel?: string | null;
     displayLabel?: string;
+    transDate?: string | null;
+    estimatedDate?: string | null;
 };
 
 type RequestOrderLabelState = {
@@ -264,6 +266,36 @@ function formatDisplayDate(isoDate: string): string {
     }
 
     return `${day}/${month}/${year}`;
+}
+
+const printMonthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+];
+
+function formatPrintDate(isoDate: string): string {
+    if (!isoDate) {
+        return '';
+    }
+
+    const [year, month, day] = isoDate.split('-');
+    const monthName = printMonthNames[Number(month) - 1];
+
+    if (!year || !monthName || !day) {
+        return isoDate;
+    }
+
+    return `${day}-${monthName}-${year}`;
 }
 
 function countWorkingDaysBetween(startDate: string, endDate: string): number | null {
@@ -838,9 +870,6 @@ export default function SpkFormPage({
         };
     }, [isNew, referenceOpen, referenceSearch]);
 
-    const estimatedDeliveryLabel = data.estimated_delivery_time
-        ? formatDisplayDate(data.estimated_delivery_time)
-        : '';
     const calculatedWorkEstimated = countWorkingDaysBetween(
         data.order_date,
         data.estimated_delivery_time,
@@ -1103,15 +1132,18 @@ export default function SpkFormPage({
                 spkType: data.spk_type || '-',
                 requestOrderNo:
                     data.request_order_no || requestOrderLabel?.docNo || '',
+                requestStockNo: data.request_stock_no || '',
                 refSpkNo: referenceLabel?.spkNo || production.refSpkNo || '',
                 customerName:
                     requestOrderLabel?.customer ||
                     referenceLabel?.customer ||
                     production.customerName ||
                     '',
-                orderDate: formatDisplayDate(data.order_date),
-                workEstimated: estimatedDeliveryLabel,
-                estimatedDelivery: estimatedDeliveryLabel,
+                orderDate: formatPrintDate(data.order_date),
+                workEstimated: formatPrintDate(data.estimated_delivery_time),
+                estimatedDelivery: formatPrintDate(
+                    data.estimated_delivery_time,
+                ),
                 itemType: itemTypeText || production.itemName || '',
                 itemVariance: selectedSku?.label || productItemText || '',
                 qty: qtyLabel,
@@ -1606,7 +1638,8 @@ export default function SpkFormPage({
                                             </Label>
                                         }
                                     >
-                                        {production.requestStockNo ? (
+                                        {production.requestStockNo ||
+                                        data.spk_type === 'Pesanan' ? (
                                             <Input
                                                 value={formatDisplayDate(
                                                     data.order_date,
@@ -1642,28 +1675,40 @@ export default function SpkFormPage({
                                     <FormItem
                                         labelContent={
                                             <Label showColon required>
-                                                Tanggal Estimasi Selesai
+                                                Tanggal Target Selesai
                                             </Label>
                                         }
                                     >
                                         <div className="spkFioriDateWithHint">
-                                            <DatePicker
-                                                value={
-                                                    data.estimated_delivery_time
-                                                }
-                                                valueFormat="yyyy-MM-dd"
-                                                displayFormat="dd/MM/yyyy"
-                                                required
-                                                valueState={fieldState(
-                                                    errors.estimated_delivery_time,
-                                                )}
-                                                onChange={(event) =>
-                                                    setData(
-                                                        'estimated_delivery_time',
-                                                        event.target.value ?? '',
-                                                    )
-                                                }
-                                            />
+                                            {data.spk_type === 'Pesanan' ||
+                                            production.requestStockNo ? (
+                                                <Input
+                                                    value={formatDisplayDate(
+                                                        data.estimated_delivery_time,
+                                                    )}
+                                                    readonly
+                                                    accessibleName="Tanggal Target Selesai"
+                                                />
+                                            ) : (
+                                                <DatePicker
+                                                    value={
+                                                        data.estimated_delivery_time
+                                                    }
+                                                    valueFormat="yyyy-MM-dd"
+                                                    displayFormat="dd/MM/yyyy"
+                                                    required
+                                                    valueState={fieldState(
+                                                        errors.estimated_delivery_time,
+                                                    )}
+                                                    onChange={(event) =>
+                                                        setData(
+                                                            'estimated_delivery_time',
+                                                            event.target
+                                                                .value ?? '',
+                                                        )
+                                                    }
+                                                />
+                                            )}
                                             {workEstimatedText ? (
                                                 <Text className="spkFioriInlineHint">
                                                     {workEstimatedText}
@@ -2396,7 +2441,15 @@ export default function SpkFormPage({
                     );
 
                     if (selected) {
-                        setData('request_order_no', selected.docNo);
+                        setData({
+                            ...data,
+                            request_order_no: selected.docNo,
+                            order_date:
+                                selected.transDate?.trim() || data.order_date,
+                            estimated_delivery_time:
+                                selected.estimatedDate?.trim() ||
+                                data.estimated_delivery_time,
+                        });
                         setRequestOrderLabel({
                             docNo: selected.docNo,
                             customer: selected.customer,

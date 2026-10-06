@@ -452,6 +452,13 @@
             line-height: 1.3;
         }
 
+        .spkPrintTargetSales {
+            margin-left: 4px;
+            font-size: 6pt;
+            font-style: italic;
+            font-weight: 400;
+        }
+
         .spkPrintImagePlaceholder .spkPrintHint {
             max-width: 70%;
             font-size: 8pt;

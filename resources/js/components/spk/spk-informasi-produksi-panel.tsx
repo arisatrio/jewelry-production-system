@@ -2,6 +2,7 @@ import {
     SpkItemDetailCard,
     SpkStoneListCard,
 } from '@/components/spk/spk-stone-list';
+import type { ReactNode } from 'react';
 import type {
     SpkDetail,
     SpkItemDetail,
@@ -31,7 +32,13 @@ function displayValue(value: string | number | null | undefined): string {
     return text !== '' ? text : '-';
 }
 
-function MetaRow({ label, children }: { label: string; children: string }) {
+function spkCreatedDate(value: string | number | null | undefined): string {
+    const text = displayValue(value);
+
+    return text.split(' ')[0] ?? text;
+}
+
+function MetaRow({ label, children }: { label: string; children: ReactNode }) {
     return (
         <tr>
             <th scope="row">{label}</th>
@@ -111,12 +118,14 @@ export function SpkInformasiProduksiPanel({
                         <MetaRow label="Tipe Produksi">
                             {tipeProduksiLabel}
                         </MetaRow>
-                        {requestStockNo !== '-' ? (
-                            <MetaRow label="Request Stok No">
+                        {spkType === 'Pesanan' ? (
+                            <MetaRow label="Nomor Pesanan">{pesananLabel}</MetaRow>
+                        ) : null}
+                        {spkType === 'Stock' ? (
+                            <MetaRow label="Nomor Request Stok">
                                 {requestStockNo}
                             </MetaRow>
                         ) : null}
-                        <MetaRow label="Pesanan">{pesananLabel}</MetaRow>
                         {spkType === 'Pesanan' ? (
                             <MetaRow label="Tanggal Pesanan Dibuat">
                                 {displayValue(production.requestOrderCreatedDate)}
@@ -125,14 +134,30 @@ export function SpkInformasiProduksiPanel({
                         {refSpkNo !== '-' ? (
                             <MetaRow label="SPK Referensi">{refSpkNo}</MetaRow>
                         ) : null}
-                        <MetaRow label="Tanggal Permintaan">
-                            {displayValue(production.orderDate)}
-                        </MetaRow>
+                        {spkType === 'Pesanan' ? (
+                            <MetaRow label="Tanggal SPK Dibuat">
+                                {spkCreatedDate(production.createdDate)}
+                            </MetaRow>
+                        ) : (
+                            <MetaRow label="Tanggal Permintaan">
+                                {displayValue(production.orderDate)}
+                            </MetaRow>
+                        )}
+                        {spkType === 'Stock' ? (
+                            <MetaRow label="Tanggal SPK Dibuat">
+                                {spkCreatedDate(production.createdDate)}
+                            </MetaRow>
+                        ) : null}
                         <MetaRow label="Tanggal Diterima Produksi">
                             {displayValue(production.receivedByProductionDate)}
                         </MetaRow>
-                        <MetaRow label="Tanggal Estimasi Selesai">
+                        <MetaRow label="Tanggal Target Selesai">
                             {displayValue(production.estimatedDelivery)}
+                            {spkType === 'Stock' ? null : (
+                                <em className="spkShowTargetSales">
+                                    *Target Sales
+                                </em>
+                            )}
                         </MetaRow>
                     </tbody>
                 </table>
