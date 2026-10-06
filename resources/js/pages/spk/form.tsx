@@ -76,6 +76,7 @@ type RequestOrderOption = {
     docNo: string;
     customer: string;
     item: string;
+    sales: string;
     refSku: string | null;
     paymentStatusLabel?: string | null;
     displayLabel?: string;
@@ -84,10 +85,21 @@ type RequestOrderOption = {
 type RequestOrderLabelState = {
     docNo: string;
     customer: string;
+    sales: string;
     item: string;
     paymentStatusLabel?: string | null;
     displayLabel: string;
 };
+
+function pesananFieldLabel(sales: string | null | undefined): string {
+    const name = sales?.trim() ?? '';
+
+    if (name === '' || name === '—' || name === '-') {
+        return 'Pesanan';
+    }
+
+    return `Pesanan (Sales: ${name})`;
+}
 
 function formatRequestOrderLabel(
     docNo: string,
@@ -123,6 +135,7 @@ type ProductionForm = {
     requestStockNo?: string | null;
     requestOrderLabel?: string | null;
     customerName: string | null;
+    salesName: string | null;
     itemName: string | null;
     refSpkId: number | null;
     refSpkNo: string | null;
@@ -591,6 +604,7 @@ export default function SpkFormPage({
             ? {
                   docNo: production.requestOrderNo,
                   customer: production.customerName ?? '',
+                  sales: production.salesName ?? '',
                   item: production.itemName ?? '',
                   displayLabel:
                       production.requestOrderLabel ??
@@ -1357,7 +1371,9 @@ export default function SpkFormPage({
                                         <FormItem
                                             labelContent={
                                                 <Label showColon required>
-                                                    Pesanan
+                                                    {pesananFieldLabel(
+                                                        requestOrderLabel?.sales,
+                                                    )}
                                                 </Label>
                                             }
                                         >
@@ -1459,7 +1475,10 @@ export default function SpkFormPage({
                                             <FormItem
                                                 labelContent={
                                                     <Label showColon>
-                                                        Pesanan
+                                                        {pesananFieldLabel(
+                                                            production.salesName ||
+                                                                requestOrderLabel?.sales,
+                                                        )}
                                                     </Label>
                                                 }
                                             >
@@ -2381,6 +2400,7 @@ export default function SpkFormPage({
                         setRequestOrderLabel({
                             docNo: selected.docNo,
                             customer: selected.customer,
+                            sales: selected.sales,
                             item: selected.item,
                             paymentStatusLabel: selected.paymentStatusLabel,
                             displayLabel:

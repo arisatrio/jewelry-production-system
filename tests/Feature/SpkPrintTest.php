@@ -196,6 +196,68 @@ test('spk print preview shows high priority banner for paid custom pesanan', fun
     DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
 });
 
+test('spk detail and print label pesanan with the sales name', function () {
+    $salesName = 'Sales '.strtoupper(fake()->unique()->bothify('??????'));
+    $docNo = 'DP-TEST-'.strtoupper(fake()->unique()->bothify('????????'));
+    $salesId = null;
+    $orderId = null;
+    $production = null;
+
+    try {
+        $salesId = DB::connection('second')->table('sysuser')->insertGetId([
+            'company_id' => 1,
+            'name' => $salesName,
+            'is_login' => 0,
+            'is_deleted' => 0,
+        ]);
+        $orderId = DB::connection('second')->table('request_order')->insertGetId([
+            'company_id' => 1,
+            'doc_no' => $docNo,
+            'sales_id' => $salesId,
+            'trans_date' => '2026-08-01',
+            'type_order' => 'CUSTOM',
+            'online_offline' => 'OFFLINE',
+            'is_sales_saved' => 0,
+            'is_submitted' => 0,
+            'is_deleted' => 0,
+            'is_fully_paid' => 1,
+            'created_date' => now(),
+            'created_by' => 'system',
+        ]);
+        $production = Production::factory()->create([
+            'spk_type' => 'Pesanan',
+            'request_order_no' => $docNo,
+            'customer_name' => 'Linda Nur Laili',
+            'status' => '',
+            'is_deleted' => 0,
+        ]);
+        $heading = "Pesanan (Sales: {$salesName})";
+
+        $this->get(route('spk.show', $production))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('spk/show')
+                ->where('production.salesName', $salesName)
+                ->where('production.pesananHeading', $heading)
+            );
+
+        $this->get(route('spk.print.show', $production->row_id))
+            ->assertOk()
+            ->assertSee($heading, false)
+            ->assertSee("{$docNo} (Linda Nur Laili) (Lunas)", false);
+    } finally {
+        $production?->delete();
+
+        if ($orderId !== null) {
+            DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
+        }
+
+        if ($salesId !== null) {
+            DB::connection('second')->table('sysuser')->where('row_id', $salesId)->delete();
+        }
+    }
+});
+
 test('spk print preview shows medium priority banner for unpaid custom pesanan', function () {
     $docNo = 'DP-TEST-'.strtoupper(fake()->unique()->bothify('????????'));
 

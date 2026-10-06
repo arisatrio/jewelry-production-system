@@ -18,6 +18,8 @@
     $requestOrderNo = ($info['requestOrderNo'] ?? $empty) !== '' ? (string) ($info['requestOrderNo'] ?? $empty) : $empty;
     $customerName = ($info['customerName'] ?? $empty) !== '' ? (string) ($info['customerName'] ?? $empty) : $empty;
     $requestOrderLabel = trim((string) ($info['requestOrderLabel'] ?? ''));
+    $pesananHeading = trim((string) ($info['pesananHeading'] ?? ''));
+    $pesananHeading = $pesananHeading !== '' ? $pesananHeading : 'Pesanan';
     $pesananLabel = $requestOrderLabel !== '' && ! in_array($requestOrderLabel, ['-', '—'], true)
         ? $requestOrderLabel
         : ($requestOrderNo === $empty && $customerName === $empty
@@ -51,9 +53,9 @@
                 <th>Tipe Produksi</th>
                 <td>
                     @if ($blankTemplate)
-                        <span class="spkPrintHint">Jenis SPK: Stock, Pesanan, Exchange, Refund, atau Reparasi</span>
+                        <span class="spkPrintHint">Jenis SPK: Stock, Pesanan, Exchange, Refund, atau Reparasi. Untuk Pesanan, nama sales ditampilkan di sini. Contoh: Pesanan (Sales: Shasya)</span>
                     @else
-                        {{ $spkType }}
+                        {{ $spkType === 'Pesanan' && $pesananHeading !== 'Pesanan' ? $pesananHeading : $spkType }}
                     @endif
                 </td>
                 <td class="spkPrintQrCell" rowspan="{{ $infoRowCount }}">

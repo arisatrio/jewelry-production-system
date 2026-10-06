@@ -15,7 +15,7 @@ class RequestOrderRepository
      * Uses the same joins as legacy vw_request_orderlist because the view
      * may be unavailable when the MySQL definer account is missing.
      *
-     * @return Collection<int, array{rowId: int, docNo: string, customer: string, item: string, refSku: string|null, paymentStatusLabel: string|null}>
+     * @return Collection<int, array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, paymentStatusLabel: string|null}>
      */
     public function search(string $search = '', int $limit = 25): Collection
     {
@@ -42,7 +42,7 @@ class RequestOrderRepository
     /**
      * Find a single request order by document number.
      *
-     * @return array{rowId: int, docNo: string, customer: string|null, item: string|null, itemId: int|null, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string}|null
+     * @return array{rowId: int, docNo: string, customer: string|null, item: string|null, sales: string|null, itemId: int|null, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string}|null
      */
     public function findByDocNo(string $docNo): ?array
     {
@@ -59,6 +59,7 @@ class RequestOrderRepository
             'docNo' => (string) $row->doc_no,
             'customer' => filled($row->customer_name) ? (string) $row->customer_name : null,
             'item' => filled($row->item_name) ? (string) $row->item_name : null,
+            'sales' => filled($row->sales_name) ? (string) $row->sales_name : null,
             'itemId' => $row->item_id !== null ? (int) $row->item_id : null,
             'refSku' => filled($row->ref_sku) ? (string) $row->ref_sku : null,
             'paymentStatusLabel' => $this->paymentStatusLabel($row->is_fully_paid),
@@ -145,6 +146,17 @@ class RequestOrderRepository
         }
 
         return (int) $isFullyPaid === 1 ? 'Lunas' : 'Belum Lunas';
+    }
+
+    public function pesananHeading(?string $salesName): string
+    {
+        $name = trim((string) $salesName);
+
+        if ($name === '' || in_array($name, ['-', '—'], true)) {
+            return 'Pesanan';
+        }
+
+        return "Pesanan (Sales: {$name})";
     }
 
     public function pesananDisplayLabel(
@@ -247,6 +259,7 @@ class RequestOrderRepository
             ->table('request_order as ro')
             ->leftJoin('customer as c', 'c.row_id', '=', 'ro.customer_id')
             ->leftJoin('item as i', 'i.row_id', '=', 'ro.item_id')
+            ->leftJoin('sysuser as su', 'su.row_id', '=', 'ro.sales_id')
             ->where('ro.is_deleted', 0)
             ->select([
                 'ro.row_id',
@@ -256,12 +269,13 @@ class RequestOrderRepository
                 'ro.is_fully_paid',
                 'ro.type_order',
                 'c.name as customer_name',
+                'su.name as sales_name',
                 DB::raw('COALESCE(i.name, ro.nama_item) as item_name'),
             ]);
     }
 
     /**
-     * @return array{rowId: int, docNo: string, customer: string, item: string, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string}
+     * @return array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string}
      */
     private function toSelectorItem(stdClass $row): array
     {
@@ -270,6 +284,7 @@ class RequestOrderRepository
             'docNo' => (string) $row->doc_no,
             'customer' => filled($row->customer_name) ? (string) $row->customer_name : '—',
             'item' => filled($row->item_name) ? (string) $row->item_name : '—',
+            'sales' => filled($row->sales_name) ? (string) $row->sales_name : '—',
             'refSku' => filled($row->ref_sku) ? (string) $row->ref_sku : null,
             'paymentStatusLabel' => $this->paymentStatusLabel($row->is_fully_paid),
             'displayLabel' => $this->pesananDisplayLabel(

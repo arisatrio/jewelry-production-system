@@ -66,6 +66,8 @@ export type SpkDetail = SpkRow & {
     requestOrderNo: string;
     requestStockNo?: string | null;
     requestOrderLabel?: string;
+    salesName?: string | null;
+    pesananHeading?: string;
     requestOrderCreatedDate?: string;
     refSpkNo: string;
     description: string;

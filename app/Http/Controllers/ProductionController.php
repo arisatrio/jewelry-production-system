@@ -1964,6 +1964,17 @@ class ProductionController extends Controller
         return filled($production->customer_name) ? $production->customer_name : '-';
     }
 
+    private function requestOrderSalesName(Production $production): ?string
+    {
+        if (blank($production->request_order_no)) {
+            return null;
+        }
+
+        $order = app(RequestOrderRepository::class)->findByDocNo((string) $production->request_order_no);
+
+        return $order['sales'] ?? null;
+    }
+
     private function customerListLabel(Production $production): string
     {
         $customerName = filled($production->customer_name) ? (string) $production->customer_name : '';
@@ -2186,6 +2197,8 @@ class ProductionController extends Controller
             }
         }
 
+        $salesName = $this->requestOrderSalesName($production);
+
         return [
             ...$this->toListItem($production, $completedKind ?? false),
             'customer' => $this->customerName($production),
@@ -2195,6 +2208,8 @@ class ProductionController extends Controller
                 ? (string) $production->request_stock_no
                 : null,
             'requestOrderLabel' => $this->requestOrderLabel($production),
+            'salesName' => $salesName,
+            'pesananHeading' => app(RequestOrderRepository::class)->pesananHeading($salesName),
             'requestOrderCreatedDate' => $this->requestOrderCreatedDate($production),
             'refSpkNo' => $refSpkNo,
             'description' => $production->description ?? '-',
@@ -2595,6 +2610,7 @@ class ProductionController extends Controller
             'requestOrderNo' => null,
             'requestStockNo' => null,
             'customerName' => null,
+            'salesName' => null,
             'itemName' => null,
             'refSpkId' => null,
             'refSpkNo' => null,
@@ -2642,6 +2658,7 @@ class ProductionController extends Controller
                 : null,
             'requestOrderLabel' => $this->requestOrderLabel($production),
             'customerName' => $production->customer_name,
+            'salesName' => $this->requestOrderSalesName($production),
             'itemName' => $production->item_name,
             'refSpkId' => $production->ref_spk_id,
             'refSpkNo' => $reference?->spk_no,
@@ -2952,12 +2969,16 @@ class ProductionController extends Controller
             $requestOrderCustomer = '';
         }
 
+        $requestOrders = app(RequestOrderRepository::class);
         $requestOrderLabel = $rawSpkType === 'Pesanan' && $rawRequestOrderNo !== ''
-            ? app(RequestOrderRepository::class)->displayLabelByDocNo(
+            ? $requestOrders->displayLabelByDocNo(
                 $rawRequestOrderNo,
                 $requestOrderCustomer !== '' ? $requestOrderCustomer : null,
             )
             : '';
+        $salesName = $rawRequestOrderNo !== ''
+            ? $requestOrders->findByDocNo($rawRequestOrderNo)['sales'] ?? null
+            : null;
 
         return [
             'info' => [
@@ -2968,6 +2989,7 @@ class ProductionController extends Controller
                 'spkType' => $this->printText($info['spkType'] ?? null),
                 'requestOrderNo' => $this->printText($info['requestOrderNo'] ?? null),
                 'requestOrderLabel' => $this->printText($requestOrderLabel !== '' ? $requestOrderLabel : null),
+                'pesananHeading' => $requestOrders->pesananHeading($salesName),
                 'requestOrderCreatedDate' => $this->printText($info['requestOrderCreatedDate'] ?? null),
                 'refSpkNo' => $this->printText($info['refSpkNo'] ?? null),
                 'customerName' => $this->printText($info['customerName'] ?? null),

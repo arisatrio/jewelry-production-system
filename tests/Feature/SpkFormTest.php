@@ -1,9 +1,12 @@
 <?php
 
+use App\Models\Production;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Support\SpkApprovalService;
 use App\Support\SpkService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 test('spk form page is accessible', function () {
     $production = app(SpkService::class)->createStock('system');
@@ -280,6 +283,66 @@ test('spk can be soft deleted from form', function () {
         ->assertNotFound();
 
     $production->delete();
+});
+
+test('spk form includes the request order sales name', function () {
+    $salesName = 'Sales '.Str::upper(Str::random(6));
+    $docNo = 'DP-TEST-'.Str::upper(Str::random(8));
+    $salesId = null;
+    $orderId = null;
+    $production = null;
+
+    try {
+        $salesId = DB::connection('second')->table('sysuser')->insertGetId([
+            'company_id' => 1,
+            'name' => $salesName,
+            'is_login' => 0,
+            'is_deleted' => 0,
+        ]);
+        $orderId = DB::connection('second')->table('request_order')->insertGetId([
+            'company_id' => 1,
+            'doc_no' => $docNo,
+            'sales_id' => $salesId,
+            'trans_date' => '2026-08-01',
+            'type_order' => 'CUSTOM',
+            'online_offline' => 'OFFLINE',
+            'is_sales_saved' => 0,
+            'is_submitted' => 0,
+            'is_deleted' => 0,
+            'is_fully_paid' => 1,
+            'created_date' => now(),
+            'created_by' => 'system',
+        ]);
+        $production = Production::factory()->create([
+            'spk_type' => 'Pesanan',
+            'request_order_no' => $docNo,
+            'customer_name' => 'Linda Nur Laili',
+            'status' => '',
+            'is_deleted' => 0,
+        ]);
+
+        $this->get(route('spk.form', $production->row_id))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('spk/form')
+                ->where('production.salesName', $salesName)
+            );
+
+        $this->getJson(route('spk.select.request-orders', ['search' => $docNo]))
+            ->assertOk()
+            ->assertJsonPath('data.0.sales', $salesName)
+            ->assertJsonPath('data.0.docNo', $docNo);
+    } finally {
+        $production?->delete();
+
+        if ($orderId !== null) {
+            DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
+        }
+
+        if ($salesId !== null) {
+            DB::connection('second')->table('sysuser')->where('row_id', $salesId)->delete();
+        }
+    }
 });
 
 test('frame selector endpoint returns data', function () {
