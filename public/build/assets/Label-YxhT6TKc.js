@@ -1,1 +1,0 @@
-import"./Button-DyKeIsgS.js";import{pr as e}from"./app-C56h-W4e.js";var t=e(`ui5-label`,[`for`,`wrappingType`],[`required`,`showColon`],[],[]);t.displayName=`Label`;export{t};
