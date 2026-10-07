@@ -50,7 +50,14 @@ export const defaultPrimaryNavItems: ShellNavItem[] = [
 
 export const defaultModuleNavItems: ShellNavItem[] = [
     { text: 'SPK', href: spkIndex.url() },
-    { text: 'Reparasi', href: reparasiIndex.url() },
+    { text: 'SPK Reparasi', href: reparasiIndex.url() },
+    { text: 'JewelCAD', href: jewelCadIndex.url() },
+    { text: 'Resin', href: resinIndex.url() },
+    { text: 'Coran', href: coranIndex.url() },
+    { text: 'Finishing', href: finishingIndex.url() },
+    { text: 'Poles Rangka', href: polesRangkaIndex.url() },
+    { text: 'Pasang Batu', href: pasangBatuIndex.url() },
+    { text: 'Poles Chrome', href: polesChromeIndex.url() },
 ];
 
 export const defaultAnalyticsSubmenus: ShellNavItem[] = [
@@ -109,17 +116,15 @@ export const defaultMidDropdowns: ShellNavDropdown[] = [
 ];
 
 /** Dropdown menus rendered after SPK, before trailing module links. */
-export const defaultPostSpkDropdowns: ShellNavDropdown[] = [
-    { id: 'produksi', text: 'Produksi', items: defaultProduksiSubmenus },
+export const defaultPostSpkDropdowns: ShellNavDropdown[] = [];
+
+/** Dropdown menus rendered after trailing module links. */
+export const defaultTrailingDropdowns: ShellNavDropdown[] = [
     {
         id: 'pengerjaan-lanjutan',
         text: 'Pengerjaan Lanjutan',
         items: defaultPengerjaanLanjutanSubmenus,
     },
-];
-
-/** Dropdown menus rendered after trailing module links. */
-export const defaultTrailingDropdowns: ShellNavDropdown[] = [
     { id: 'inventory', text: 'Inventory', items: defaultInventorySubmenus },
     {
         id: 'master-data',
