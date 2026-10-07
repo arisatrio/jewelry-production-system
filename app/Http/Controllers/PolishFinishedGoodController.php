@@ -266,9 +266,11 @@ class PolishFinishedGoodController extends Controller
     {
         return Inertia::render('poles-chrome/create', [
             'formDocumentNo' => (string) config('spk.poles_chrome_form_document_no'),
+            'processOptions' => $this->processOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'statusItemOptions' => $this->statusItemOptions(),
             'form' => [
+                'processName' => 'General',
                 'sendCraftsmanDate' => now()->format('Y-m-d H:i'),
                 'receivedCraftsmanDate' => '',
                 'craftsmanId' => null,
@@ -483,11 +485,15 @@ class PolishFinishedGoodController extends Controller
 
         return Inertia::render('poles-chrome/edit', [
             'formDocumentNo' => (string) config('spk.poles_chrome_form_document_no'),
+            'processOptions' => $this->processOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'statusItemOptions' => $this->statusItemOptions(),
             'form' => [
                 'id' => (int) $polesChrome->row_id,
                 'docNo' => $polesChrome->doc_no,
+                'processName' => filled($polesChrome->process_name)
+                    ? (string) $polesChrome->process_name
+                    : 'General',
                 'sendCraftsmanDate' => $polesChrome->send_craftsman_date?->format('Y-m-d H:i') ?? '',
                 'receivedCraftsmanDate' => $polesChrome->received_craftsman_date?->format('Y-m-d H:i') ?? '',
                 'craftsmanId' => filled($polesChrome->craftsman_id) && (int) $polesChrome->craftsman_id > 0
@@ -1006,6 +1012,20 @@ class PolishFinishedGoodController extends Controller
         $document->forceFill([
             'shrink' => number_format($shrink, 2, '.', ''),
         ])->save();
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function processOptions(): array
+    {
+        return collect(PolishFinishedGood::processNameOptions())
+            ->map(fn (string $value): array => [
+                'value' => $value,
+                'label' => $value,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

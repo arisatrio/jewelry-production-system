@@ -270,11 +270,13 @@ class DiamondMountingController extends Controller
     {
         return Inertia::render('pasang-batu/create', [
             'formDocumentNo' => (string) config('spk.pasang_batu_form_document_no'),
+            'processOptions' => $this->processOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'stoneOptions' => $stoneSynchronizer->stoneOptions(),
             'shapeOptions' => $stoneSynchronizer->shapeOptions(),
             'diamondOptions' => $stoneSynchronizer->diamondOptions(),
             'form' => [
+                'processName' => 'Pasang Batu',
                 'sendCraftsmanDate' => now()->format('Y-m-d H:i'),
                 'receivedCraftsmanDate' => '',
                 'craftsmanId' => null,
@@ -402,7 +404,7 @@ class DiamondMountingController extends Controller
             $document = DiamondMounting::query()->create([
                 'doc_no' => $docNumberGenerator->generate(),
                 'trans_date' => $transDate,
-                'process_name' => 'Pasang Batu',
+                'process_name' => $validated['process_name'] ?? 'Pasang Batu',
                 'spk_id' => $validated['spk_id'],
                 'weight_frame' => $validated['weight_frame'] ?? null,
                 'weight_diamond' => $validated['weight_diamond'] ?? null,
@@ -507,6 +509,7 @@ class DiamondMountingController extends Controller
 
         return Inertia::render('pasang-batu/edit', [
             'formDocumentNo' => (string) config('spk.pasang_batu_form_document_no'),
+            'processOptions' => $this->processOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'stoneOptions' => $stoneSynchronizer->stoneOptions(),
             'shapeOptions' => $stoneSynchronizer->shapeOptions(),
@@ -514,6 +517,9 @@ class DiamondMountingController extends Controller
             'form' => [
                 'id' => (int) $pasangBatu->row_id,
                 'docNo' => $pasangBatu->doc_no,
+                'processName' => filled($pasangBatu->process_name)
+                    ? (string) $pasangBatu->process_name
+                    : 'Pasang Batu',
                 'sendCraftsmanDate' => $pasangBatu->send_craftsman_date?->format('Y-m-d H:i') ?? '',
                 'receivedCraftsmanDate' => $pasangBatu->received_craftsman_date?->format('Y-m-d H:i') ?? '',
                 'craftsmanId' => filled($pasangBatu->craftman_id) && (int) $pasangBatu->craftman_id > 0
@@ -645,7 +651,7 @@ class DiamondMountingController extends Controller
             $pasangBatu->update([
                 'spk_id' => $validated['spk_id'],
                 'trans_date' => $transDate,
-                'process_name' => $pasangBatu->process_name ?? 'Pasang Batu',
+                'process_name' => $validated['process_name'] ?? $pasangBatu->process_name ?? 'Pasang Batu',
                 'craftman_id' => $validated['craftsman_id'] ?? null,
                 'weight_frame' => $validated['weight_frame'] ?? null,
                 'weight_diamond' => $validated['weight_diamond'] ?? null,

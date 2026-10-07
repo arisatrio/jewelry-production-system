@@ -9,11 +9,13 @@ type OptionItem = {
 
 type PolesChromeEditProps = {
     formDocumentNo: string;
+    processOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
     statusItemOptions: OptionItem[];
     form: {
         id: number;
         docNo: string | null;
+        processName: string;
         sendCraftsmanDate: string;
         receivedCraftsmanDate: string;
         craftsmanId: number | null;
@@ -37,6 +39,7 @@ type PolesChromeEditProps = {
 
 export default function PolesChromeEdit({
     formDocumentNo,
+    processOptions,
     craftsmanOptions,
     statusItemOptions,
     form,
@@ -53,9 +56,11 @@ export default function PolesChromeEdit({
                 cancelHref={show.url(form.id)}
                 submitUrl={update.url(form.id)}
                 method="put"
+                processOptions={processOptions}
                 craftsmanOptions={craftsmanOptions}
                 statusItemOptions={statusItemOptions}
                 initialValues={{
+                    process_name: form.processName ?? 'General',
                     craftsman_id:
                         form.craftsmanId !== null
                             ? String(form.craftsmanId)

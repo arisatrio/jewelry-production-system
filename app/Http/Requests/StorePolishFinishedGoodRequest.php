@@ -24,6 +24,9 @@ class StorePolishFinishedGoodRequest extends FormRequest
         $spkId = $this->input('spk_id');
 
         $this->merge([
+            'process_name' => filled($this->input('process_name'))
+                ? trim((string) $this->input('process_name'))
+                : null,
             'spk_id' => filled($spkId) && (int) $spkId > 0
                 ? (int) $spkId
                 : null,
@@ -57,6 +60,11 @@ class StorePolishFinishedGoodRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'process_name' => [
+                'nullable',
+                'string',
+                Rule::in(PolishFinishedGood::processNameOptions()),
+            ],
             'spk_id' => [
                 'required',
                 'integer',

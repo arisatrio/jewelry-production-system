@@ -9,9 +9,11 @@ type OptionItem = {
 
 type PolesChromeCreateProps = {
     formDocumentNo: string;
+    processOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
     statusItemOptions: OptionItem[];
     form: {
+        processName: string;
         sendCraftsmanDate: string;
         receivedCraftsmanDate: string;
         craftsmanId: number | null;
@@ -25,6 +27,7 @@ type PolesChromeCreateProps = {
 
 export default function PolesChromeCreate({
     formDocumentNo,
+    processOptions,
     craftsmanOptions,
     statusItemOptions,
     form,
@@ -38,9 +41,11 @@ export default function PolesChromeCreate({
                 submitLabel="Simpan"
                 cancelHref={index.url()}
                 submitUrl={store.url()}
+                processOptions={processOptions}
                 craftsmanOptions={craftsmanOptions}
                 statusItemOptions={statusItemOptions}
                 initialValues={{
+                    process_name: form.processName ?? 'General',
                     craftsman_id:
                         form.craftsmanId !== null
                             ? String(form.craftsmanId)

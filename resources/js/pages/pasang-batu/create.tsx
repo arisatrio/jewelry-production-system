@@ -13,11 +13,13 @@ type OptionItem = {
 
 type PasangBatuCreateProps = {
     formDocumentNo: string;
+    processOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
     stoneOptions: PasangBatuStoneOption[];
     shapeOptions: PasangBatuStoneOption[];
     diamondOptions: PasangBatuDiamondOption[];
     form: {
+        processName: string;
         sendCraftsmanDate: string;
         receivedCraftsmanDate: string;
         craftsmanId: number | null;
@@ -61,6 +63,7 @@ function lineKey(prefix: string, index: number): string {
 
 export default function PasangBatuCreate({
     formDocumentNo,
+    processOptions,
     craftsmanOptions,
     stoneOptions,
     shapeOptions,
@@ -76,11 +79,13 @@ export default function PasangBatuCreate({
                 submitLabel="Simpan"
                 cancelHref={index.url()}
                 submitUrl={store.url()}
+                processOptions={processOptions}
                 craftsmanOptions={craftsmanOptions}
                 stoneOptions={stoneOptions}
                 shapeOptions={shapeOptions}
                 diamondOptions={diamondOptions}
                 initialValues={{
+                    process_name: form.processName ?? 'Pasang Batu',
                     craftsman_id:
                         form.craftsmanId !== null
                             ? String(form.craftsmanId)

@@ -13,6 +13,7 @@ type OptionItem = {
 
 type PasangBatuEditProps = {
     formDocumentNo: string;
+    processOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
     stoneOptions: PasangBatuStoneOption[];
     shapeOptions: PasangBatuStoneOption[];
@@ -20,6 +21,7 @@ type PasangBatuEditProps = {
     form: {
         id: number;
         docNo: string | null;
+        processName: string;
         sendCraftsmanDate: string;
         receivedCraftsmanDate: string;
         craftsmanId: number | null;
@@ -73,6 +75,7 @@ function lineKey(prefix: string, index: number): string {
 
 export default function PasangBatuEdit({
     formDocumentNo,
+    processOptions,
     craftsmanOptions,
     stoneOptions,
     shapeOptions,
@@ -91,11 +94,13 @@ export default function PasangBatuEdit({
                 cancelHref={show.url(form.id)}
                 submitUrl={update.url(form.id)}
                 method="put"
+                processOptions={processOptions}
                 craftsmanOptions={craftsmanOptions}
                 stoneOptions={stoneOptions}
                 shapeOptions={shapeOptions}
                 diamondOptions={diamondOptions}
                 initialValues={{
+                    process_name: form.processName ?? 'Pasang Batu',
                     craftsman_id:
                         form.craftsmanId !== null
                             ? String(form.craftsmanId)

@@ -47,6 +47,7 @@ type PasangBatuSpkForm = {
 };
 
 type PasangBatuFormValues = {
+    process_name: string;
     craftsman_id: string;
     send_craftsman_date: string;
     received_craftsman_date: string;
@@ -68,6 +69,7 @@ type PasangBatuFormProps = {
     cancelHref: string;
     submitUrl: string;
     method?: 'post' | 'put';
+    processOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
     stoneOptions: PasangBatuStoneOption[];
     shapeOptions: PasangBatuStoneOption[];
@@ -167,6 +169,7 @@ export function PasangBatuForm({
     cancelHref,
     submitUrl,
     method = 'post',
+    processOptions,
     craftsmanOptions,
     stoneOptions,
     shapeOptions,
@@ -198,6 +201,7 @@ export function PasangBatuForm({
         event.preventDefault();
 
         transform((formData) => ({
+            process_name: formData.process_name.trim() || null,
             spk_id:
                 formData.spk?.spk_id && formData.spk.spk_id.trim() !== ''
                     ? Number(formData.spk.spk_id)
@@ -468,6 +472,50 @@ export function PasangBatuForm({
                                             </FormItem>
                                         </>
                                     ) : null}
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon required>
+                                                Tipe Proses
+                                            </Label>
+                                        }
+                                    >
+                                        <div className="spkFioriFieldStack">
+                                            <Select
+                                                name="process_name"
+                                                valueState={fieldState(
+                                                    errors.process_name,
+                                                )}
+                                                disabled={processing}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'process_name',
+                                                        e.detail.selectedOption
+                                                            .dataset.value || '',
+                                                    )
+                                                }
+                                            >
+                                                {(processOptions ?? []).map((option) => (
+                                                    <Option
+                                                        key={option.value}
+                                                        value={option.value}
+                                                        data-value={option.value}
+                                                        selected={
+                                                            data.process_name ===
+                                                            option.value
+                                                        }
+                                                    >
+                                                        {option.label}
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                            {errors.process_name ? (
+                                                <Text className="spkFioriError">
+                                                    {errors.process_name}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </FormItem>
 
                                     <FormItem
                                         labelContent={
