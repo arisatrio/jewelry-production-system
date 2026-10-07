@@ -1346,39 +1346,53 @@ export default function SpkIndex({
                                 className="spkStoreStockRequestBtn"
                                 design="Default"
                                 icon={retailStoreIcon}
-                                accessibleName={`Permintaan Stok Toko: ${storeStockRequestCountLabel} permintaan approved`}
+                                accessibleName={
+                                    storeStockRequestCount !== undefined &&
+                                    storeStockRequestCount > 0
+                                        ? `Permintaan Stok Toko: ${storeStockRequestCountLabel} permintaan approved`
+                                        : 'Permintaan Stok Toko'
+                                }
                                 tooltip="Permintaan stok toko yang sudah di-approve"
                                 onClick={() =>
                                     setStoreStockRequestDialogOpen(true)
                                 }
                             >
                                 Permintaan Stok Toko
-                                <span
-                                    className="spkStoreStockRequestCount"
-                                    aria-hidden="true"
-                                >
-                                    {storeStockRequestCount === undefined
-                                        ? '…'
-                                        : storeStockRequestCountLabel}
-                                </span>
+                                {storeStockRequestCount !== undefined &&
+                                    storeStockRequestCount > 0 && (
+                                        <span
+                                            className="spkStoreStockRequestCount"
+                                            aria-hidden="true"
+                                        >
+                                            {storeStockRequestCountLabel}
+                                        </span>
+                                    )}
                             </Button>
                             <Button
                                 className="spkStoreStockRequestBtn"
                                 design="Default"
                                 icon={salesOrderIcon}
-                                accessibleName={`Permintaan Pesanan Toko: ${storeOrderRequestCountLabel} pesanan belum dibuatkan SPK`}
+                                accessibleName={
+                                    storeOrderRequestCount !== undefined &&
+                                    storeOrderRequestCount > 0
+                                        ? `Permintaan Pesanan Toko: ${storeOrderRequestCountLabel} pesanan belum dibuatkan SPK`
+                                        : 'Permintaan Pesanan Toko'
+                                }
                                 tooltip="Pesanan toko yang belum dibuatkan SPK"
                                 onClick={() =>
                                     setStoreOrderRequestDialogOpen(true)
                                 }
                             >
                                 Permintaan Pesanan Toko
-                                <span
-                                    className="spkStoreStockRequestCount"
-                                    aria-hidden="true"
-                                >
-                                    {storeOrderRequestCountLabel}
-                                </span>
+                                {storeOrderRequestCount !== undefined &&
+                                    storeOrderRequestCount > 0 && (
+                                        <span
+                                            className="spkStoreStockRequestCount"
+                                            aria-hidden="true"
+                                        >
+                                            {storeOrderRequestCountLabel}
+                                        </span>
+                                    )}
                             </Button>
                         </div>
                     ) : null}

@@ -857,12 +857,13 @@ class ProductionController extends Controller
     }
 
     /**
-     * Daftar request stok dari Store yang belum dibuatkan SPK untuk modal alert di halaman index.
+     * Daftar request stok dari Store yang sudah/belum dibuatkan SPK untuk modal alert di halaman index.
      */
     public function storeStockRequests(Request $request, StoreStockRequestRepository $stockRequests): JsonResponse
     {
         try {
-            return response()->json($stockRequests->paginatePendingSpk(
+            return response()->json($stockRequests->paginate(
+                $request->string('tab')->trim()->toString(),
                 $request->string('search')->trim()->toString(),
                 max(1, $request->integer('page', 1)),
             ));

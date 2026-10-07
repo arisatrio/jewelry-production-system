@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Exceptions\StoreStockSpkSyncException;
+use App\Models\Production;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -15,6 +16,12 @@ use Throwable;
 
 class StoreStockRequestRepository
 {
+    public const TAB_PENDING = 'pending';
+
+    public const TAB_WITH_SPK = 'with_spk';
+
+    public const TABS = [self::TAB_PENDING, self::TAB_WITH_SPK];
+
     private const PENDING_COUNT_CACHE_KEY = 'store-stock-requests:approved-count';
 
     private const PENDING_COUNT_CACHE_SECONDS = 60;
@@ -48,7 +55,130 @@ class StoreStockRequestRepository
     }
 
     /**
-     * Daftar request stok approved dari Store (API Store) untuk modal di halaman index SPK.
+     * Daftar request stok approved/submitted dari Store (API Store) untuk modal di halaman index SPK.
+     *
+     * @return array{
+     *     data: list<array{rowId: int, docNo: string, transDate: string, transDateIso: string|null, estimatedDate: string, estimatedDateIso: string|null, targetDaysLeft: int|null, store: string, item: string, refSku: string|null, typeOrder: string|null, status: string|null, approvedAt: string|null, notes: string|null, imageUrl: string|null, goldInfo: string|null, goldWeight: string|null, createdBy: string|null, spks: list<array{spkNo: string, status: string}>}>,
+     *     meta: array{currentPage: int, lastPage: int, perPage: int, total: int, tabCounts: array{pending: int, with_spk: int}}
+     * }
+     *
+     * @throws RuntimeException
+     */
+    public function paginate(string $tab = self::TAB_PENDING, string $search = '', int $page = 1, int $perPage = 25): array
+    {
+        $tab = in_array($tab, self::TABS, true) ? $tab : self::TAB_PENDING;
+
+        // Fetch data based on tab
+        $parameters = array_filter([
+            'page' => max(1, $page),
+            'per_page' => $perPage,
+            'search' => $search !== '' ? $search : null,
+            'sort_by' => 'created_date',
+            'sort_order' => 'desc',
+        ], fn (mixed $value): bool => $value !== null);
+
+        $payload = $tab === self::TAB_WITH_SPK
+            ? $this->fetchSubmitted($parameters)
+            : $this->fetchApproved($parameters);
+
+        $rows = data_get($payload, 'data', []);
+        $total = (int) data_get($payload, 'meta.total', 0);
+
+        // Transform rows
+        $transformedRows = array_values(array_map(
+            fn (array $row): array => $this->toListRow($row),
+            is_array($rows) ? array_filter($rows, is_array(...)) : [],
+        ));
+
+        // Get SPKs for submitted tab
+        if ($tab === self::TAB_WITH_SPK) {
+            $requestStockNos = array_values(array_filter(
+                array_map(fn (array $row): string => trim((string) ($row['docNo'] ?? '')), $transformedRows),
+                fn (string $docNo): bool => $docNo !== '',
+            ));
+
+            $spksByRequestStockNo = $this->spksByRequestStockNo($requestStockNos);
+
+            $transformedRows = array_values(array_map(
+                fn (array $row): array => [...$row, 'spks' => $spksByRequestStockNo[$row['docNo']] ?? []],
+                $transformedRows,
+            ));
+        } else {
+            // For pending tab, no SPKs
+            $transformedRows = array_values(array_map(
+                fn (array $row): array => [...$row, 'spks' => []],
+                $transformedRows,
+            ));
+        }
+
+        // Calculate tab counts
+        $pendingCount = $tab === self::TAB_PENDING
+            ? $total
+            : (int) data_get($this->fetchApproved(['page' => 1, 'per_page' => 1]), 'meta.total', 0);
+
+        $withSpkCount = $tab === self::TAB_WITH_SPK
+            ? $total
+            : (int) data_get($this->fetchSubmitted(['page' => 1, 'per_page' => 1]), 'meta.total', 0);
+
+        if ($search === '' && $tab === self::TAB_PENDING) {
+            Cache::put(self::PENDING_COUNT_CACHE_KEY, $total, self::PENDING_COUNT_CACHE_SECONDS);
+        }
+
+        return [
+            'data' => $transformedRows,
+            'meta' => [
+                'currentPage' => (int) data_get($payload, 'meta.current_page', $page),
+                'lastPage' => max(1, (int) data_get($payload, 'meta.last_page', 1)),
+                'perPage' => (int) data_get($payload, 'meta.per_page', $perPage),
+                'total' => $total,
+                'tabCounts' => [
+                    self::TAB_PENDING => $pendingCount,
+                    self::TAB_WITH_SPK => $withSpkCount,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * SPK aktif beserta label status per nomor request stock.
+     *
+     * @param  list<string>  $requestStockNos
+     * @return array<string, list<array{spkNo: string, status: string}>>
+     */
+    private function spksByRequestStockNo(array $requestStockNos): array
+    {
+        if ($requestStockNos === []) {
+            return [];
+        }
+
+        $requestStockNosUpper = array_map('strtoupper', array_map('trim', $requestStockNos));
+
+        $productions = Production::query()
+            ->notDeleted()
+            ->whereIn(Production::raw('UPPER(TRIM(request_stock_no))'), $requestStockNosUpper)
+            ->orderBy('spk_no')
+            ->get();
+        $doneKinds = SpkDashboardAnalytics::completedProductionKinds($productions->pluck('row_id')->all());
+
+        return $productions
+            ->groupBy(fn (Production $production): string => strtoupper(trim((string) $production->request_stock_no)))
+            ->map(fn ($productions): array => $productions
+                ->map(fn (Production $production): array => [
+                    'spkNo' => trim((string) $production->spk_no),
+                    'status' => SpkDashboardAnalytics::backlogStatusLabel(
+                        $production,
+                        $doneKinds[(int) $production->row_id] ?? false,
+                    ),
+                ])
+                ->values()
+                ->all())
+            ->all();
+    }
+
+    /**
+     * Backward compatibility: untuk UI lama yang masih menggunakan paginatePendingSpk.
+     *
+     * @deprecated Use paginate() instead
      *
      * @return array{
      *     data: list<array{rowId: int, docNo: string, transDate: string, transDateIso: string|null, estimatedDate: string, estimatedDateIso: string|null, targetDaysLeft: int|null, store: string, item: string, refSku: string|null, typeOrder: string|null, status: string|null, approvedAt: string|null, notes: string|null, imageUrl: string|null, goldInfo: string|null, goldWeight: string|null, createdBy: string|null}>,
@@ -99,6 +229,32 @@ class StoreStockRequestRepository
         try {
             $payload = $this->client()
                 ->post('request/stock/list/approved', $parameters)
+                ->throw()
+                ->json();
+        } catch (RequestException $exception) {
+            throw new RuntimeException('API Store merespons dengan error HTTP '.$exception->response->status().'.', previous: $exception);
+        }
+
+        if (! is_array($payload)) {
+            throw new RuntimeException('Respons API Store tidak valid.');
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Fetch request stock yang sudah di-submit ke Production (sudah ada SPK).
+     *
+     * @param  array<string, int|string>  $parameters
+     * @return array<string, mixed>
+     *
+     * @throws RuntimeException
+     */
+    private function fetchSubmitted(array $parameters): array
+    {
+        try {
+            $payload = $this->client()
+                ->post('request/stock/list/spk-submitted', $parameters)
                 ->throw()
                 ->json();
         } catch (RequestException $exception) {

@@ -7,7 +7,10 @@ import { Icon } from '@ui5/webcomponents-react/Icon';
 import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
 import { useEffect, useState } from 'react';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
-import { targetDaysLeftHint } from '@/components/spk/spk-list-cells';
+import {
+    statusBadgeClass,
+    targetDaysLeftHint,
+} from '@/components/spk/spk-list-cells';
 import { SpkStoreStockInputDialog } from '@/components/spk/spk-store-stock-input-dialog';
 import {
     Dialog,
@@ -37,13 +40,17 @@ type StoreStockRequestRow = {
     goldInfo: string | null;
     goldWeight: string | null;
     createdBy: string | null;
+    spks: { spkNo: string; status: string }[];
 };
+
+type StoreStockRequestTab = 'pending' | 'with_spk';
 
 type StoreStockRequestMeta = {
     currentPage: number;
     lastPage: number;
     perPage: number;
     total: number;
+    tabCounts: Record<StoreStockRequestTab, number>;
 };
 
 type StoreStockRequestResult = {
@@ -59,6 +66,12 @@ type SpkStoreStockRequestDialogProps = {
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
+
+const STORE_STOCK_REQUEST_TABS: { id: StoreStockRequestTab; label: string }[] =
+    [
+        { id: 'pending', label: 'Belum Dibuat SPK' },
+        { id: 'with_spk', label: 'Sudah Dibuat SPK' },
+    ];
 
 function createSpkUrl(row: StoreStockRequestRow): string {
     const query: Record<string, string> = {};
@@ -139,7 +152,8 @@ export function SpkStoreStockRequestDialog({
                     <DialogHeader>
                         <DialogTitle>Permintaan Stok Toko</DialogTitle>
                         <DialogDescription>
-                            Permintaan stok dari toko yang sudah di-approve.
+                            Permintaan stok dari toko, dipisahkan berdasarkan
+                            status pembuatan SPK.
                         </DialogDescription>
                     </DialogHeader>
                     {open ? (
@@ -177,11 +191,12 @@ function SpkStoreStockRequestBody({
     linkedMessage: string | null;
     onInputSpk: (row: StoreStockRequestRow) => void;
 }) {
+    const [tab, setTab] = useState<StoreStockRequestTab>('pending');
     const [page, setPage] = useState(1);
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
     const [result, setResult] = useState<StoreStockRequestResult | null>(null);
-    const requestKey = `${page}|${search}`;
+    const requestKey = `${tab}|${page}|${search}`;
     const loading = result?.requestKey !== requestKey;
     const rows = result?.rows ?? [];
     const meta = result?.meta ?? null;
@@ -200,6 +215,10 @@ function SpkStoreStockRequestBody({
     useEffect(() => {
         const controller = new AbortController();
         const query: Record<string, string | number> = {};
+
+        if (tab !== 'pending') {
+            query.tab = tab;
+        }
 
         if (page > 1) {
             query.page = page;
@@ -239,11 +258,48 @@ function SpkStoreStockRequestBody({
             });
 
         return () => controller.abort();
-    }, [page, search, requestKey, reloadKey]);
+    }, [tab, page, search, requestKey, reloadKey]);
+
+    const selectTab = (nextTab: StoreStockRequestTab) => {
+        setTab(nextTab);
+        setPage(1);
+    };
 
     return (
         <>
-            <div className="spkStatusListToolbar">
+            <div className="spkStatusListToolbar spkStoreOrderRequestToolbar">
+                <div
+                    className="spkSectionTabs spkStoreOrderRequestTabs"
+                    role="tablist"
+                    aria-label="Status pembuatan SPK"
+                >
+                    {STORE_STOCK_REQUEST_TABS.map((tabOption) => (
+                        <button
+                            key={tabOption.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === tabOption.id}
+                            className={[
+                                'spkSectionTab',
+                                tab === tabOption.id ? 'is-active' : '',
+                            ]
+                                .filter(Boolean)
+                                .join(' ')}
+                            onClick={() => selectTab(tabOption.id)}
+                        >
+                            <span className="spkSectionTabLabel">
+                                {tabOption.label}
+                                {meta !== null ? (
+                                    <span className="spkStoreOrderRequestTabCount">
+                                        {meta.tabCounts[
+                                            tabOption.id
+                                        ].toLocaleString('id-ID')}
+                                    </span>
+                                ) : null}
+                            </span>
+                        </button>
+                    ))}
+                </div>
                 <div
                     className="spkTableHeaderSearch--finishing spkStatusListSearch"
                     role="search"
@@ -251,7 +307,7 @@ function SpkStoreStockRequestBody({
                     <input
                         type="search"
                         className="spkTableHeaderSearchInput--finishing"
-                        placeholder="Cari No Request, item, SKU, store..."
+                        placeholder="Cari No Request, No SPK, item, SKU, store..."
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
                         aria-label="Cari request stok"
@@ -285,13 +341,16 @@ function SpkStoreStockRequestBody({
                     </p>
                 ) : rows.length === 0 ? (
                     <p className="spkAlertModalEmpty">
-                        Tidak ada request stok approved dari Store.
+                        {tab === 'with_spk'
+                            ? 'Tidak ada request stok yang sudah dibuatkan SPK.'
+                            : 'Tidak ada request stok approved dari Store.'}
                     </p>
                 ) : (
                     <table className="spkAlertModalTable spkReceiptHistoryTable">
                         <thead>
                             <tr>
                                 <th>No Request</th>
+                                <th>No SPK</th>
                                 <th>Item</th>
                                 <th>Tanggal</th>
                                 <th>Dibuat Oleh</th>
@@ -309,32 +368,45 @@ function SpkStoreStockRequestBody({
                                             <span className="whitespace-nowrap">
                                                 {row.docNo}
                                             </span>
-                                            <div className="spkStoreStockRequestActions">
-                                                <Link
-                                                    href={createSpkUrl(row)}
-                                                    className="spkCreateBtn"
-                                                >
-                                                    <Icon
-                                                        name={addIcon}
-                                                        mode="Decorative"
-                                                    />
-                                                    Tambah SPK Baru
-                                                </Link>
-                                                <button
-                                                    type="button"
-                                                    className="spkReceiptPrintBtn"
-                                                    onClick={() =>
-                                                        onInputSpk(row)
-                                                    }
-                                                >
-                                                    <Icon
-                                                        name={linkIcon}
-                                                        mode="Decorative"
-                                                    />
-                                                    Hubungkan ke SPK
-                                                </button>
-                                            </div>
+                                            {tab === 'pending' ? (
+                                                <div className="spkStoreStockRequestActions">
+                                                    <Link
+                                                        href={createSpkUrl(row)}
+                                                        className="spkCreateBtn"
+                                                    >
+                                                        <Icon
+                                                            name={addIcon}
+                                                            mode="Decorative"
+                                                        />
+                                                        Tambah SPK Baru
+                                                    </Link>
+                                                    <button
+                                                        type="button"
+                                                        className="spkReceiptPrintBtn"
+                                                        onClick={() =>
+                                                            onInputSpk(row)
+                                                        }
+                                                    >
+                                                        <Icon
+                                                            name={linkIcon}
+                                                            mode="Decorative"
+                                                        />
+                                                        Hubungkan ke SPK
+                                                    </button>
+                                                </div>
+                                            ) : null}
                                         </div>
+                                    </td>
+                                    <td className="whitespace-nowrap">
+                                        {row.spks.length > 0 ? (
+                                            <div className="flex flex-col gap-1">
+                                                {row.spks.map((spk) => (
+                                                    <span key={spk.spkNo}>
+                                                        {spk.spkNo}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : null}
                                     </td>
                                     <td className="spkReceiptHistoryColWrap">
                                         <div className="flex items-start gap-3">
@@ -379,14 +451,28 @@ function SpkStoreStockRequestBody({
                                         </div>
                                     </td>
                                     <td className="spkTableColCenter">
-                                        <div className="flex flex-col">
-                                            <span>{row.status ?? '—'}</span>
-                                            {row.approvedAt ? (
-                                                <span className="spkAlertModalTableSubText whitespace-nowrap">
-                                                    {row.approvedAt}
-                                                </span>
-                                            ) : null}
-                                        </div>
+                                        {tab === 'with_spk' &&
+                                        row.spks.length > 0 ? (
+                                            <div className="flex flex-col items-center gap-1">
+                                                {row.spks.map((spk) => (
+                                                    <span
+                                                        key={spk.spkNo}
+                                                        className={`spkTableBadge ${statusBadgeClass(spk.status)}`}
+                                                    >
+                                                        {spk.status}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col">
+                                                <span>{row.status ?? '—'}</span>
+                                                {row.approvedAt ? (
+                                                    <span className="spkAlertModalTableSubText whitespace-nowrap">
+                                                        {row.approvedAt}
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
