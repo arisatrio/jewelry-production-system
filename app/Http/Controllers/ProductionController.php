@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\StoreStockSpkSyncException;
+use App\Http\Requests\AssignStoreStockSpkRequest;
 use App\Http\Requests\BulkUpdateSpkStatusRequest;
 use App\Http\Requests\PrintSpkReceiptRequest;
 use App\Http\Requests\SpkApprovalDecisionRequest;
@@ -60,6 +61,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -566,6 +568,7 @@ class ProductionController extends Controller
         $query = Production::query()
             ->notDeleted()
             ->whereNotNull('spk_no')
+            ->whereNull('request_stock_no')
             ->when($exclude !== [], fn (Builder $query) => $query->whereNotIn('row_id', $exclude));
 
         return $this->spkListModalResponse(
@@ -870,6 +873,30 @@ class ProductionController extends Controller
                 'message' => 'Gagal mengambil data request stok dari Store. Silakan coba lagi.',
             ], 502);
         }
+    }
+
+    /**
+     * Hubungkan permintaan stok toko ke SPK yang sudah ada dan kirim nomor SPK ke Store.
+     */
+    public function assignStoreStockSpk(AssignStoreStockSpkRequest $request, SpkService $spkService): JsonResponse
+    {
+        try {
+            $production = $spkService->assignExistingToStoreStock(
+                $request->string('doc_no')->toString(),
+                $request->string('spk_no')->toString(),
+                $this->actorName($request),
+            );
+        } catch (StoreStockSpkSyncException $exception) {
+            throw ValidationException::withMessages([
+                'spk_no' => $exception->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => "SPK {$production->spk_no} berhasil dihubungkan ke {$production->request_stock_no}.",
+            'spkNo' => $production->spk_no,
+            'requestStockNo' => $production->request_stock_no,
+        ]);
     }
 
     /**

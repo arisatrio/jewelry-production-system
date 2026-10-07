@@ -1837,7 +1837,7 @@
 }
 
 .spkReceiptHistoryTable td.spkReceiptHistoryColWrap {
-    min-width: 10rem;
+    min-width: 24rem;
     white-space: normal;
 }
 
@@ -2003,6 +2003,17 @@
     width: 1rem;
     height: 1rem;
     color: currentColor;
+}
+
+.spkStoreStockRequestActions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.spkStoreStockRequestActions .spkReceiptPrintBtn {
+    margin-inline-end: 0;
 }
 
 .spkReceiptPrintBtn {

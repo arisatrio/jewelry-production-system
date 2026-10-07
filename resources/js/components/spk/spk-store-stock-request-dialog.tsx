@@ -1,10 +1,14 @@
 import { Link } from '@inertiajs/react';
+import addIcon from '@ui5/webcomponents-icons/dist/add.js';
+import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
+import linkIcon from '@ui5/webcomponents-icons/dist/chain-link.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
-import addIcon from '@ui5/webcomponents-icons/dist/add.js';
+import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
 import { useEffect, useState } from 'react';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import { targetDaysLeftHint } from '@/components/spk/spk-list-cells';
+import { SpkStoreStockInputDialog } from '@/components/spk/spk-store-stock-input-dialog';
 import {
     Dialog,
     DialogContent,
@@ -90,22 +94,89 @@ export function SpkStoreStockRequestDialog({
     open,
     onOpenChange,
 }: SpkStoreStockRequestDialogProps) {
+    const [inputRequest, setInputRequest] = useState<StoreStockRequestRow | null>(
+        null,
+    );
+    const [reloadKey, setReloadKey] = useState(0);
+    const [linkedMessage, setLinkedMessage] = useState<string | null>(null);
+    const inputOpen = inputRequest !== null;
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="spkAlertModal spkStatusListModal">
-                <DialogHeader>
-                    <DialogTitle>Permintaan Stok Toko</DialogTitle>
-                    <DialogDescription>
-                        Permintaan stok dari toko yang sudah di-approve.
-                    </DialogDescription>
-                </DialogHeader>
-                {open ? <SpkStoreStockRequestBody /> : null}
-            </DialogContent>
-        </Dialog>
+        <>
+            <Dialog
+                open={open}
+                onOpenChange={(nextOpen) => {
+                    if (!nextOpen && inputOpen) {
+                        return;
+                    }
+
+                    if (!nextOpen) {
+                        setLinkedMessage(null);
+                        setInputRequest(null);
+                    }
+
+                    onOpenChange(nextOpen);
+                }}
+            >
+                <DialogContent
+                    className="spkAlertModal spkStatusListModal"
+                    onPointerDownOutside={(event) => {
+                        if (inputOpen) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onInteractOutside={(event) => {
+                        if (inputOpen) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onEscapeKeyDown={(event) => {
+                        if (inputOpen) {
+                            event.preventDefault();
+                        }
+                    }}
+                >
+                    <DialogHeader>
+                        <DialogTitle>Permintaan Stok Toko</DialogTitle>
+                        <DialogDescription>
+                            Permintaan stok dari toko yang sudah di-approve.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {open ? (
+                        <SpkStoreStockRequestBody
+                            reloadKey={reloadKey}
+                            linkedMessage={linkedMessage}
+                            onInputSpk={setInputRequest}
+                        />
+                    ) : null}
+                </DialogContent>
+            </Dialog>
+            <SpkStoreStockInputDialog
+                request={inputRequest}
+                onOpenChange={(nextOpen) => {
+                    if (!nextOpen) {
+                        setInputRequest(null);
+                    }
+                }}
+                onAssigned={(message) => {
+                    setInputRequest(null);
+                    setLinkedMessage(message);
+                    setReloadKey((value) => value + 1);
+                }}
+            />
+        </>
     );
 }
 
-function SpkStoreStockRequestBody() {
+function SpkStoreStockRequestBody({
+    reloadKey,
+    linkedMessage,
+    onInputSpk,
+}: {
+    reloadKey: number;
+    linkedMessage: string | null;
+    onInputSpk: (row: StoreStockRequestRow) => void;
+}) {
     const [page, setPage] = useState(1);
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
@@ -168,7 +239,7 @@ function SpkStoreStockRequestBody() {
             });
 
         return () => controller.abort();
-    }, [page, search, requestKey]);
+    }, [page, search, requestKey, reloadKey]);
 
     return (
         <>
@@ -191,6 +262,12 @@ function SpkStoreStockRequestBody() {
                     />
                 </div>
             </div>
+
+            {linkedMessage !== null ? (
+                <MessageStrip design="Positive" hideCloseButton>
+                    {linkedMessage}
+                </MessageStrip>
+            ) : null}
 
             <div
                 className={[
@@ -227,19 +304,36 @@ function SpkStoreStockRequestBody() {
                         <tbody>
                             {rows.map((row) => (
                                 <tr key={row.rowId}>
-                                    <td className="spkAlertModalTableIdentifier whitespace-nowrap">
+                                    <td className="spkAlertModalTableIdentifier">
                                         <div className="flex flex-col items-start gap-1.5">
-                                            <span>{row.docNo}</span>
-                                            <Link
-                                                href={createSpkUrl(row)}
-                                                className="spkCreateBtn"
-                                            >
-                                                <Icon
-                                                    name={addIcon}
-                                                    mode="Decorative"
-                                                />
-                                                Buat SPK
-                                            </Link>
+                                            <span className="whitespace-nowrap">
+                                                {row.docNo}
+                                            </span>
+                                            <div className="spkStoreStockRequestActions">
+                                                <Link
+                                                    href={createSpkUrl(row)}
+                                                    className="spkCreateBtn"
+                                                >
+                                                    <Icon
+                                                        name={addIcon}
+                                                        mode="Decorative"
+                                                    />
+                                                    Tambah SPK Baru
+                                                </Link>
+                                                <button
+                                                    type="button"
+                                                    className="spkReceiptPrintBtn"
+                                                    onClick={() =>
+                                                        onInputSpk(row)
+                                                    }
+                                                >
+                                                    <Icon
+                                                        name={linkIcon}
+                                                        mode="Decorative"
+                                                    />
+                                                    Hubungkan ke SPK
+                                                </button>
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="spkReceiptHistoryColWrap">

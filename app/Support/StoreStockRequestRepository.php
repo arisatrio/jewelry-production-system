@@ -156,6 +156,8 @@ class StoreStockRequestRepository
                     'modified_by' => $modifiedBy,
                 ])
                 ->throw();
+
+            Cache::forget(self::PENDING_COUNT_CACHE_KEY);
         } catch (ConnectionException|RequestException|RuntimeException $exception) {
             Log::warning('Gagal mengirim nomor SPK ke API Store.', [
                 'doc_no' => $docNo,

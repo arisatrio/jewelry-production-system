@@ -11,6 +11,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class SpkService
@@ -175,6 +176,62 @@ class SpkService
             }
 
             return $production;
+        });
+    }
+
+    /**
+     * Hubungkan SPK yang sudah ada ke permintaan stok toko, lalu kirim nomor SPK ke Store.
+     *
+     * @throws ValidationException
+     */
+    public function assignExistingToStoreStock(string $docNo, string $spkNo, string $actor): Production
+    {
+        return DB::connection('third')->transaction(function () use ($docNo, $spkNo, $actor): Production {
+            $production = Production::query()
+                ->notDeleted()
+                ->where('spk_no', $spkNo)
+                ->lockForUpdate()
+                ->first();
+
+            if ($production === null || blank($production->spk_no)) {
+                throw ValidationException::withMessages([
+                    'spk_no' => 'Nomor SPK tidak ditemukan.',
+                ]);
+            }
+
+            $currentDocNo = strtoupper(trim((string) $production->request_stock_no));
+
+            if ($currentDocNo !== '' && $currentDocNo !== $docNo) {
+                throw ValidationException::withMessages([
+                    'spk_no' => "SPK {$production->spk_no} sudah terhubung ke permintaan stok {$currentDocNo}.",
+                ]);
+            }
+
+            $otherSpkNo = Production::query()
+                ->notDeleted()
+                ->where('request_stock_no', $docNo)
+                ->where('row_id', '!=', $production->row_id)
+                ->value('spk_no');
+
+            if (filled($otherSpkNo)) {
+                throw ValidationException::withMessages([
+                    'doc_no' => "Permintaan stok {$docNo} sudah terhubung ke SPK {$otherSpkNo}.",
+                ]);
+            }
+
+            $production->update([
+                'request_stock_no' => $docNo,
+                'modified_date' => now(),
+                'modified_by' => $actor,
+            ]);
+
+            $this->storeStockRequests->assignSpkNumber(
+                $docNo,
+                (string) $production->spk_no,
+                $actor,
+            );
+
+            return $production->refresh();
         });
     }
 
