@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\FinishingHandmade;
+use App\Models\FinishingShrinkAllowance;
 use App\Models\Production;
+use App\Support\FinishingShrinkAllowanceSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -51,7 +53,7 @@ test('finishing store creates document with spk', function () {
         ->and((string) $document->start_weight)->toBe('3.16')
         ->and((string) $document->finish_weight)->toBe('2.45')
         ->and((string) $document->shrink)->toBe('0.71')
-        ->and((string) $document->shrink_tolerance)->toBe('22.47')
+        ->and((string) $document->shrink_tolerance)->toBe(finishingShrinkAllowancePercent())
         ->and($document->notes)->toBe('Catatan store finishing');
 
     $production->refresh();
@@ -174,7 +176,7 @@ test('finishing store requires qc notes when qc is not ok', function () {
     }
 });
 
-test('finishing store calculates shrink tolerance from start weight and bahan', function () {
+test('finishing store calculates shrink from start weight and bahan', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/FINSTOL'.Str::upper(Str::random(3)),
     ]);
@@ -223,7 +225,7 @@ test('finishing store calculates shrink tolerance from start weight and bahan', 
     expect((string) $document->submit_materialgold)->toBe('0.10')
         ->and((string) $document->result_materialgold)->toBe('0.20')
         ->and((string) $document->shrink)->toBe('0.04')
-        ->and((string) $document->shrink_tolerance)->toBe('4.12');
+        ->and((string) $document->shrink_tolerance)->toBe(finishingShrinkAllowancePercent());
 
     $document->delete();
     $production->delete();
@@ -273,7 +275,7 @@ test('finishing store keeps surplus shrink as negative value', function () {
     expect((string) $document->submit_materialgold)->toBe('2.32')
         ->and((string) $document->result_materialgold)->toBe('0.66')
         ->and((string) $document->shrink)->toBe('-0.18')
-        ->and((string) $document->shrink_tolerance)->toBe('-5.13');
+        ->and((string) $document->shrink_tolerance)->toBe(finishingShrinkAllowancePercent());
 
     $document->delete();
     $production->delete();
@@ -316,7 +318,7 @@ test('finishing store sets shrink to zero when finish weight is zero', function 
 
     expect($document)->not->toBeNull()
         ->and((string) $document->shrink)->toBe('0.00')
-        ->and((string) $document->shrink_tolerance)->toBe('0.00');
+        ->and((string) $document->shrink_tolerance)->toBe(finishingShrinkAllowancePercent());
 
     $document->delete();
     $production->delete();
@@ -351,4 +353,116 @@ test('finishing search spks returns json', function () {
         ]);
 
     $production->delete();
+});
+
+test('finishing store and update save the configured shrink allowance', function () {
+    $settings = app(FinishingShrinkAllowanceSettings::class);
+    $cells = [
+        [
+            'work_category' => 'Pasang / Setting',
+            'work_type' => 'Pasang Batu',
+            'item_category' => 'Barang Besar',
+            'allowance_percent' => '1.75',
+        ],
+        [
+            'work_category' => 'Ukuran',
+            'work_type' => 'Resize Ukuran (HK)',
+            'item_category' => 'Barang Besar',
+            'allowance_percent' => '1.25',
+        ],
+    ];
+    $snapshots = [];
+
+    foreach ($cells as $cell) {
+        $existing = FinishingShrinkAllowance::query()
+            ->where('work_type', $cell['work_type'])
+            ->where('item_category', $cell['item_category'])
+            ->first();
+
+        $snapshots[] = $existing?->only([
+            'work_category',
+            'work_type',
+            'item_category',
+            'allowance_percent',
+            'updated_by',
+        ]);
+
+        FinishingShrinkAllowance::query()->updateOrCreate(
+            [
+                'work_type' => $cell['work_type'],
+                'item_category' => $cell['item_category'],
+            ],
+            [
+                'work_category' => $cell['work_category'],
+                'allowance_percent' => $cell['allowance_percent'],
+                'updated_by' => 'test',
+            ],
+        );
+    }
+
+    $settings->forgetCache();
+
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINTOLCFG'.Str::upper(Str::random(3)),
+    ]);
+    $document = null;
+
+    try {
+        $this->post(route('finishing.store'), validFinishingSerahPayload([
+            'spk_id' => $production->row_id,
+            'work_category' => 'Pasang / Setting',
+            'work_type' => 'Pasang Batu',
+            'item_category' => 'Barang Besar',
+            'start_weight' => '2.00',
+            'finish_weight' => '1.80',
+        ]));
+
+        $document = FinishingHandmade::query()
+            ->notDeleted()
+            ->where('spk_id', $production->row_id)
+            ->orderByDesc('row_id')
+            ->first();
+
+        expect($document)->not->toBeNull()
+            ->and((string) $document->shrink)->toBe('0.20')
+            ->and((string) $document->shrink_tolerance)->toBe('1.75');
+
+        $this->put(route('finishing.update', $document), validFinishingSerahPayload([
+            'spk_id' => $production->row_id,
+            'work_category' => 'Ukuran',
+            'work_type' => 'Resize Ukuran (HK)',
+            'item_category' => 'Barang Besar',
+            'start_weight' => '2.00',
+            'finish_weight' => '1.80',
+        ]))->assertRedirect(route('finishing.show', $document));
+
+        $document->refresh();
+
+        expect((string) $document->shrink_tolerance)->toBe('1.25');
+    } finally {
+        foreach ($cells as $index => $cell) {
+            $snapshot = $snapshots[$index];
+
+            if ($snapshot === null) {
+                FinishingShrinkAllowance::query()
+                    ->where('work_type', $cell['work_type'])
+                    ->where('item_category', $cell['item_category'])
+                    ->delete();
+
+                continue;
+            }
+
+            FinishingShrinkAllowance::query()->updateOrCreate(
+                [
+                    'work_type' => $cell['work_type'],
+                    'item_category' => $cell['item_category'],
+                ],
+                $snapshot,
+            );
+        }
+
+        $settings->forgetCache();
+        $document?->delete();
+        $production->delete();
+    }
 });

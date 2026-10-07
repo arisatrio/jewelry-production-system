@@ -76,6 +76,7 @@ type FinishingFormProps = {
     itemCategoryOptions: OptionItem[];
     workCategoryOptions: OptionItem[];
     workTypeOptionsByCategory: Record<string, string[]>;
+    shrinkAllowanceMatrix: Record<string, Record<string, string>>;
     craftsmanOptions: OptionItem[];
     materialOptions: FinishingMaterialOption[];
     qcNoteOptions: string[];
@@ -145,6 +146,7 @@ export function FinishingForm({
     itemCategoryOptions,
     workCategoryOptions,
     workTypeOptionsByCategory,
+    shrinkAllowanceMatrix,
     craftsmanOptions,
     materialOptions,
     qcNoteOptions,
@@ -161,6 +163,18 @@ export function FinishingForm({
                 : [],
         [data.work_category, workTypeOptionsByCategory],
     );
+    const matchedWorkType = findMatchingOption(workTypeOptions, data.work_type);
+    const shrinkAllowancePercent =
+        matchedWorkType !== null && data.item_category !== ''
+            ? (shrinkAllowanceMatrix[matchedWorkType]?.[data.item_category] ??
+              null)
+            : null;
+    const shrinkAllowanceDisplay =
+        shrinkAllowancePercent !== null
+            ? `${Number(shrinkAllowancePercent).toLocaleString('id-ID', {
+                  maximumFractionDigits: 2,
+              })}%`
+            : '';
 
     const handleSelectedSpk = (selected: FinishingSelectedSpk) => {
         const { lastWeight, ...spk } = selected;
@@ -783,6 +797,26 @@ export function FinishingForm({
                                                 </Text>
                                             ) : null}
                                         </div>
+                                    </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon>
+                                                Toleransi Jatah Susut
+                                            </Label>
+                                        }
+                                    >
+                                        <Input
+                                            accessibleName="Toleransi jatah susut"
+                                            value={shrinkAllowanceDisplay}
+                                            placeholder={
+                                                data.item_category === '' ||
+                                                data.work_type.trim() === ''
+                                                    ? 'Pilih kategori barang & jenis pekerjaan'
+                                                    : 'Tidak ada di matrix jatah susut'
+                                            }
+                                            readonly
+                                        />
                                     </FormItem>
 
                                     <FormItem

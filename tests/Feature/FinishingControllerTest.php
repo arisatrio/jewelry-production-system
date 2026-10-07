@@ -93,6 +93,7 @@ test('finishing index lists document weights and status labels', function () {
         'result_materialgold' => '0.52',
         'shrink' => '0.22',
         'shrink_tolerance' => '6.90',
+        'work_type' => 'Finishing 1',
         'notes' => 'Catatan finishing list',
         'send_craftsman_date' => '2026-08-25 10:16:58',
         'received_craftsman_date' => '2026-08-26 14:30:00',
@@ -119,10 +120,44 @@ test('finishing index lists document weights and status labels', function () {
             ->where('documents.data.0.resultMaterial', '0.52')
             ->where('documents.data.0.shrink', '0.22')
             ->where('documents.data.0.shrinkTolerance', '6.90')
+            ->where('documents.data.0.workType', 'Finishing 1')
+            ->where('documents.data.0.shrinkToleranceStatus', 'ok')
             ->where('documents.data.0.statusLabel', 'Completed')
             ->where('documents.data.0.notes', 'Catatan finishing list')
             ->where('documents.data.0.transDate', '2026-08-25')
             ->where('filters.search', 'FIN9999911')
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
+test('finishing index marks shrink above tolerance as not ok', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINIDXOVER',
+    ]);
+
+    $document = FinishingHandmade::factory()->create([
+        'doc_no' => 'FIN9999920',
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'start_weight' => '1.00',
+        'finish_weight' => '0.80',
+        'submit_materialgold' => '0.00',
+        'result_materialgold' => '0.00',
+        'shrink' => '0.20',
+        'shrink_tolerance' => '5.00',
+        'work_type' => 'Pasang Batu',
+    ]);
+
+    $this->get(route('finishing.index', ['search' => 'FIN9999920', 'status' => 'all']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('documents.data.0.id', $document->row_id)
+            ->where('documents.data.0.workType', 'Pasang Batu')
+            ->where('documents.data.0.shrink', '0.20')
+            ->where('documents.data.0.shrinkTolerance', '5.00')
+            ->where('documents.data.0.shrinkToleranceStatus', 'not-ok')
         );
 
     $document->delete();
@@ -526,6 +561,8 @@ test('finishing show page is accessible', function () {
             ->where('finishingItem.resultMaterial', '0.40')
             ->where('finishingItem.shrink', '0.10')
             ->where('finishingItem.shrinkPercent', '2.00%')
+            ->where('finishingItem.shrinkTolerance', '5.00')
+            ->where('finishingItem.shrinkToleranceStatus', 'ok')
             ->where('finishingItem.notes', 'Catatan detail finishing')
             ->where('finishingItem.spk.spkNo', '2026/PRD/FINSHOW')
             ->where('workflowStatus.key', 'done')
@@ -567,6 +604,7 @@ test('finishing show displays negative shrink with plus sign', function () {
             ->where('finishingItem.shrinkPercent', '+5.13%')
             ->where('finishingItem.shrinkTolerance', '+5.13')
             ->where('finishingItem.shrinkToleranceWeight', '+0.18')
+            ->where('finishingItem.shrinkToleranceStatus', 'ok')
             ->where('finishingItem.hasWeightGain', true)
         );
 
@@ -598,6 +636,36 @@ test('finishing show displays shrink percent of start weight plus bahan and tole
             ->where('finishingItem.shrinkPercent', '1.90%')
             ->where('finishingItem.shrinkTolerance', '1.90')
             ->where('finishingItem.shrinkToleranceWeight', '0.07')
+            ->where('finishingItem.shrinkToleranceStatus', 'ok')
+        );
+
+    $document->delete();
+    $production->delete();
+});
+
+test('finishing show marks shrink above tolerance as not ok', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/FINOVER',
+    ]);
+
+    $document = FinishingHandmade::factory()->done()->create([
+        'doc_no' => 'FIN9999917',
+        'spk_id' => $production->row_id,
+        'process_name' => 'Finishing',
+        'start_weight' => '1.00',
+        'finish_weight' => '0.80',
+        'submit_materialgold' => '0.00',
+        'result_materialgold' => '0.00',
+        'shrink' => '0.20',
+        'shrink_tolerance' => '5.00',
+    ]);
+
+    $this->get(route('finishing.show', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('finishingItem.shrinkPercent', '20.00%')
+            ->where('finishingItem.shrinkTolerance', '5.00')
+            ->where('finishingItem.shrinkToleranceStatus', 'not-ok')
         );
 
     $document->delete();
@@ -626,8 +694,9 @@ test('finishing show and index display zero shrink when start or finish weight i
         ->assertInertia(fn ($page) => $page
             ->where('finishingItem.shrink', '0.00')
             ->where('finishingItem.shrinkPercent', '0.00%')
-            ->where('finishingItem.shrinkTolerance', '0.00')
+            ->where('finishingItem.shrinkTolerance', '+30.28')
             ->where('finishingItem.shrinkToleranceWeight', '0.00')
+            ->where('finishingItem.shrinkToleranceStatus', null)
             ->where('finishingItem.hasWeightGain', false)
         );
 
@@ -637,6 +706,7 @@ test('finishing show and index display zero shrink when start or finish weight i
             ->where('documents.data.0.docNo', 'FIN9999916')
             ->where('documents.data.0.shrink', '0.00')
             ->where('documents.data.0.shrinkTolerance', '0.00')
+            ->where('documents.data.0.shrinkToleranceStatus', null)
             ->where('documents.data.0.hasWeightGain', false)
         );
 

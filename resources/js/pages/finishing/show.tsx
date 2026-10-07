@@ -58,6 +58,8 @@ type FinishingShowProps = {
         sendCraftsmanDate: string | null;
         receivedCraftsmanDate: string | null;
         itemCategory: string | null;
+        workCategory: string | null;
+        workType: string | null;
         notes: string | null;
         startWeight: string | null;
         finishWeight: string | null;
@@ -66,6 +68,7 @@ type FinishingShowProps = {
         shrink: string | null;
         shrinkTolerance: string | null;
         shrinkToleranceWeight: string | null;
+        shrinkToleranceStatus: 'ok' | 'not-ok' | null;
         shrinkPercent: string | null;
         hasWeightGain: boolean;
         koreksiQc: number | null;

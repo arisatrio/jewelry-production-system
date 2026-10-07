@@ -61,12 +61,14 @@ type FinishingRow = {
     craftsmanName: string | null;
     sendCraftsmanDate: string | null;
     receivedCraftsmanDate: string | null;
+    workType: string | null;
     startWeight: string | null;
     finishWeight: string | null;
     submitMaterial: string | null;
     resultMaterial: string | null;
     shrink: string | null;
     shrinkTolerance: string | null;
+    shrinkToleranceStatus: 'ok' | 'not-ok' | null;
     hasWeightGain: boolean;
     notes: string | null;
 };
@@ -277,11 +279,22 @@ function parseNumericValue(value: string | null | undefined): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function formatShrinkTolerance(value: string | null): string {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed === '') {
+        return '—';
+    }
+
+    return trimmed.endsWith('%') ? trimmed : `${trimmed}%`;
+}
+
 function formatShrinkCell(
     shrink: string | null,
     startWeight: string | null,
     submitMaterial: string | null,
     hasWeightGain: boolean,
+    shrinkToleranceStatus: 'ok' | 'not-ok' | null,
 ): ReactNode {
     const grams = formatWeightValue(shrink);
 
@@ -293,11 +306,12 @@ function formatShrinkCell(
     const goldIn =
         (parseNumericValue(startWeight) ?? 0) +
         (parseNumericValue(submitMaterial) ?? 0);
-    const toneClass = hasWeightGain
-        ? 'is-gain'
-        : shrinkValue !== null && Math.abs(shrinkValue) >= 0.0005
-          ? 'is-loss'
-          : '';
+    const toneClass =
+        shrinkToleranceStatus === 'ok'
+            ? 'is-ok'
+            : shrinkToleranceStatus === 'not-ok'
+              ? 'is-nok'
+              : '';
     const cellClassName = ['spkTableShrinkCell', toneClass]
         .filter(Boolean)
         .join(' ');
@@ -1452,11 +1466,17 @@ export default function FinishingIndex({
                                     <th className="spkTableColCraftsmanDate spkTableColCenter">
                                         Tanggal Serah Terima
                                     </th>
+                                    <th className="spkTableColWorkType--finishing">
+                                        Jenis Pekerjaan
+                                    </th>
                                     <th className="spkTableColWeight spkTableColWeight--finishing spkTableColCenter">
                                         Berat (g)
                                     </th>
                                     <th className="spkTableColWeight spkTableColCenter">
                                         Berat Bahan (g)
+                                    </th>
+                                    <th className="spkTableColTolerance--finishing spkTableColCenter">
+                                        Toleransi Susut
                                     </th>
                                     <th className="spkTableColCenter">
                                         Susut (g)
@@ -1472,7 +1492,7 @@ export default function FinishingIndex({
                             <tbody>
                                 {documents.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={11}>
+                                        <td colSpan={13}>
                                             Tidak ada data dokumen finishing.
                                         </td>
                                     </tr>
@@ -1602,6 +1622,9 @@ export default function FinishingIndex({
                                                     )}
                                                 </dl>
                                             </td>
+                                            <td className="spkTableColWorkType--finishing">
+                                                {item.workType ?? '—'}
+                                            </td>
                                             <td className="spkTableColWeight spkTableColWeight--finishing">
                                                 <dl className="spkTableWeightStack">
                                                     {WEIGHT_ROWS.map((row) => (
@@ -1645,12 +1668,18 @@ export default function FinishingIndex({
                                                     )}
                                                 </dl>
                                             </td>
+                                            <td className="spkTableColTolerance--finishing spkTableColCenter">
+                                                {formatShrinkTolerance(
+                                                    item.shrinkTolerance,
+                                                )}
+                                            </td>
                                             <td className="spkTableColCenter">
                                                 {formatShrinkCell(
                                                     item.shrink,
                                                     item.startWeight,
                                                     item.submitMaterial,
                                                     item.hasWeightGain,
+                                                    item.shrinkToleranceStatus,
                                                 )}
                                             </td>
                                             <td className="spkTableColNotes spkTableColCenter">

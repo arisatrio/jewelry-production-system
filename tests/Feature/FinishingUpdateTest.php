@@ -212,7 +212,7 @@ test('finishing update changes document fields', function () {
         ->and((string) $document->start_weight)->toBe('2.50')
         ->and((string) $document->finish_weight)->toBe('2.00')
         ->and((string) $document->shrink)->toBe('0.50')
-        ->and((string) $document->shrink_tolerance)->toBe('20.00')
+        ->and((string) $document->shrink_tolerance)->toBe(finishingShrinkAllowancePercent())
         ->and($document->notes)->toBe('Sesudah update')
         ->and($document->item_category)->toBe('Barang Kecil');
 

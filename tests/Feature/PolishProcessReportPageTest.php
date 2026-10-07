@@ -2,6 +2,7 @@
 
 use App\Models\PolishFinishedGood;
 use App\Models\PolishFrame;
+use App\Support\SpkService;
 use Illuminate\Support\Facades\DB;
 
 test('poles rangka report page defaults to the current month', function () {
@@ -95,6 +96,11 @@ test('poles rangka report page summarizes approved documents per craftsman', fun
                 ->where('summary.startWeight', '15.00')
                 ->where('summary.shrink', '1.00')
                 ->where('summary.shrinkPercent', '6.67%')
+                ->where('summary.spkCount', 0)
+                ->where('summary.averageShrinkPerProcess', '0.50')
+                ->where('summary.averageShrinkPercentPerProcess', '7.50%')
+                ->where('summary.averageShrinkPerSpk', null)
+                ->where('summary.averageShrinkPercentPerSpk', null)
                 ->where('summary.qcNotOkCount', 1)
                 ->has('rows', 2)
                 ->where('rows.0.docNo', 'PRKRPT0002')
@@ -167,6 +173,11 @@ test('poles chrome report page summarizes approved documents per craftsman', fun
                 ->where('summary.craftsmanCount', 2)
                 ->where('summary.startWeight', '15.00')
                 ->where('summary.shrink', '1.00')
+                ->where('summary.spkCount', 0)
+                ->where('summary.averageShrinkPerProcess', '0.50')
+                ->where('summary.averageShrinkPercentPerProcess', '7.50%')
+                ->where('summary.averageShrinkPerSpk', null)
+                ->where('summary.averageShrinkPercentPerSpk', null)
                 ->where('summary.qcNotOkCount', 1)
                 ->has('rows', 2)
                 ->where('rows.0.docNo', 'PFGRPT0002')
@@ -177,5 +188,141 @@ test('poles chrome report page summarizes approved documents per craftsman', fun
             );
     } finally {
         $documents->each->delete();
+    }
+});
+
+test('poles rangka report page averages shrink per process and per spk', function () {
+    $craftsman = DB::connection('third')
+        ->table('mscraftsman')
+        ->whereNotNull('name')
+        ->where('name', '!=', '')
+        ->orderBy('name')
+        ->first(['row_id']);
+
+    if ($craftsman === null) {
+        $this->markTestSkipped('Butuh minimal satu pengrajin di mscraftsman.');
+    }
+
+    $spkService = app(SpkService::class);
+    $firstProduction = $spkService->createStock('system');
+    $secondProduction = $spkService->createStock('system');
+
+    $documents = collect([
+        PolishFrame::factory()->done()->create([
+            'doc_no' => 'PRKAVG0001',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-07-02 08:00:00',
+            'start_weight' => '10.00',
+            'finish_weight' => '9.60',
+            'shrink' => '0.40',
+            'spk_id' => $firstProduction->row_id,
+        ]),
+        PolishFrame::factory()->done()->create([
+            'doc_no' => 'PRKAVG0002',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-07-03 08:00:00',
+            'start_weight' => '10.00',
+            'finish_weight' => '9.40',
+            'shrink' => '0.60',
+            'spk_id' => $firstProduction->row_id,
+        ]),
+        PolishFrame::factory()->done()->create([
+            'doc_no' => 'PRKAVG0003',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-07-04 08:00:00',
+            'start_weight' => '10.00',
+            'finish_weight' => '9.80',
+            'shrink' => '0.20',
+            'spk_id' => $secondProduction->row_id,
+        ]),
+    ]);
+
+    try {
+        $this->get(route('poles-rangka.report', [
+            'date_from' => '1998-07-01',
+            'date_to' => '1998-07-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('summary.documentCount', 3)
+                ->where('summary.spkCount', 2)
+                ->where('summary.shrink', '1.20')
+                ->where('summary.averageShrinkPerProcess', '0.40')
+                ->where('summary.averageShrinkPercentPerProcess', '4.00%')
+                ->where('summary.averageShrinkPerSpk', '0.60')
+                ->where('summary.averageShrinkPercentPerSpk', '3.50%')
+            );
+    } finally {
+        $documents->each->delete();
+        $firstProduction->delete();
+        $secondProduction->delete();
+    }
+});
+
+test('poles chrome report page averages shrink per process and per spk', function () {
+    $craftsman = DB::connection('third')
+        ->table('mscraftsman')
+        ->whereNotNull('name')
+        ->where('name', '!=', '')
+        ->orderBy('name')
+        ->first(['row_id']);
+
+    if ($craftsman === null) {
+        $this->markTestSkipped('Butuh minimal satu pengrajin di mscraftsman.');
+    }
+
+    $spkService = app(SpkService::class);
+    $firstProduction = $spkService->createStock('system');
+    $secondProduction = $spkService->createStock('system');
+
+    $documents = collect([
+        PolishFinishedGood::factory()->done()->create([
+            'doc_no' => 'PFGAVG0001',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-08-02 08:00:00',
+            'start_weight' => '10.00',
+            'finish_weight' => '9.60',
+            'shrink' => '0.40',
+            'spk_id' => $firstProduction->row_id,
+        ]),
+        PolishFinishedGood::factory()->done()->create([
+            'doc_no' => 'PFGAVG0002',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-08-03 08:00:00',
+            'start_weight' => '10.00',
+            'finish_weight' => '9.40',
+            'shrink' => '0.60',
+            'spk_id' => $firstProduction->row_id,
+        ]),
+        PolishFinishedGood::factory()->done()->create([
+            'doc_no' => 'PFGAVG0003',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-08-04 08:00:00',
+            'start_weight' => '10.00',
+            'finish_weight' => '9.80',
+            'shrink' => '0.20',
+            'spk_id' => $secondProduction->row_id,
+        ]),
+    ]);
+
+    try {
+        $this->get(route('poles-chrome.report', [
+            'date_from' => '1998-08-01',
+            'date_to' => '1998-08-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('summary.documentCount', 3)
+                ->where('summary.spkCount', 2)
+                ->where('summary.shrink', '1.20')
+                ->where('summary.averageShrinkPerProcess', '0.40')
+                ->where('summary.averageShrinkPercentPerProcess', '4.00%')
+                ->where('summary.averageShrinkPerSpk', '0.60')
+                ->where('summary.averageShrinkPercentPerSpk', '3.50%')
+            );
+    } finally {
+        $documents->each->delete();
+        $firstProduction->delete();
+        $secondProduction->delete();
     }
 });

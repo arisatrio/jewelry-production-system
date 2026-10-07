@@ -19,6 +19,7 @@ type FinishingEditProps = {
     itemCategoryOptions: OptionItem[];
     workCategoryOptions: OptionItem[];
     workTypeOptionsByCategory: Record<string, string[]>;
+    shrinkAllowanceMatrix: Record<string, Record<string, string>>;
     craftsmanOptions: OptionItem[];
     materialOptions: MaterialOption[];
     qcNoteOptions: string[];
@@ -63,6 +64,7 @@ export default function FinishingEdit({
     itemCategoryOptions,
     workCategoryOptions,
     workTypeOptionsByCategory,
+    shrinkAllowanceMatrix,
     craftsmanOptions,
     materialOptions,
     qcNoteOptions,
@@ -82,6 +84,7 @@ export default function FinishingEdit({
                 itemCategoryOptions={itemCategoryOptions}
                 workCategoryOptions={workCategoryOptions}
                 workTypeOptionsByCategory={workTypeOptionsByCategory}
+                shrinkAllowanceMatrix={shrinkAllowanceMatrix}
                 craftsmanOptions={craftsmanOptions}
                 materialOptions={materialOptions}
                 qcNoteOptions={qcNoteOptions}

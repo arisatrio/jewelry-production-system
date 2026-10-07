@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import activityItemsIcon from '@ui5/webcomponents-icons/dist/activity-items.js';
+import documentTextIcon from '@ui5/webcomponents-icons/dist/document-text.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import inboxIcon from '@ui5/webcomponents-icons/dist/inbox.js';
 import outboxIcon from '@ui5/webcomponents-icons/dist/outbox.js';
@@ -82,7 +83,14 @@ type ReportFilters = {
 type PolesChromeReportProps = {
     filters: ReportFilters;
     craftsmanOptions: { value: string; label: string }[];
-    summary: ReportAggregate & { craftsmanCount: number };
+    summary: ReportAggregate & {
+        craftsmanCount: number;
+        spkCount: number;
+        averageShrinkPerProcess: string | null;
+        averageShrinkPercentPerProcess: string | null;
+        averageShrinkPerSpk: string | null;
+        averageShrinkPercentPerSpk: string | null;
+    };
     monthlyShrink: {
         year: number;
         months: MonthlyShrinkPoint[];
@@ -750,6 +758,13 @@ export default function PolesChromeReport({
             tone: 'blue',
         },
         {
+            label: 'Total SPK',
+            value: summary.spkCount.toLocaleString('id-ID'),
+            hint: 'SPK unik pada periode ini',
+            icon: documentTextIcon,
+            tone: 'blue',
+        },
+        {
             label: 'Berat Masuk',
             value: formatGram(
                 Number(summary.startWeight) + Number(summary.submitMaterial),
@@ -772,6 +787,22 @@ export default function PolesChromeReport({
             value: formatGram(summary.shrink),
             subvalue: summary.shrinkPercent ?? undefined,
             hint: 'Persentase = susut / berat masuk',
+            icon: trendDownIcon,
+            tone: 'orange',
+        },
+        {
+            label: 'Rata-rata Susut per Proses',
+            value: formatGram(summary.averageShrinkPerProcess),
+            subvalue: summary.averageShrinkPercentPerProcess ?? undefined,
+            hint: 'Rata-rata gram dan persentase tiap proses',
+            icon: trendDownIcon,
+            tone: 'orange',
+        },
+        {
+            label: 'Rata-rata Susut per SPK',
+            value: formatGram(summary.averageShrinkPerSpk),
+            subvalue: summary.averageShrinkPercentPerSpk ?? undefined,
+            hint: 'Susut tiap SPK dijumlahkan, lalu dirata-rata',
             icon: trendDownIcon,
             tone: 'orange',
         },
@@ -863,7 +894,7 @@ export default function PolesChromeReport({
                 </header>
 
                 <section
-                    className="dashKpiGrid is-five"
+                    className="dashKpiGrid is-eight"
                     aria-label="Ringkasan laporan poles chrome"
                 >
                     {kpiCards.map((card) => (

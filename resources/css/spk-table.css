@@ -417,6 +417,16 @@
     padding-inline: 0.35rem;
 }
 
+.spkTable th.spkTableColWorkType--finishing,
+.spkTable td.spkTableColWorkType--finishing {
+    width: 8.5rem;
+    min-width: 7.5rem;
+    max-width: 11rem;
+    white-space: normal;
+    line-height: 1.3;
+    vertical-align: middle;
+}
+
 .spkTable th.spkTableColTolerance--finishing,
 .spkTable td.spkTableColTolerance--finishing {
     width: 4.75rem;
@@ -425,6 +435,7 @@
     white-space: normal;
     line-height: 1.25;
     padding-inline: 0.45rem;
+    vertical-align: middle;
 }
 
 .spkTableHeaderBar--finishing {
@@ -2695,12 +2706,16 @@
 }
 
 .spkTableShrinkCell.is-loss,
-.spkShrinkTone.is-loss {
+.spkShrinkTone.is-loss,
+.spkTableShrinkCell.is-nok,
+.spkShrinkTone.is-nok {
     color: #b91c1c;
 }
 
 .spkTableShrinkCell.is-gain,
-.spkShrinkTone.is-gain {
+.spkShrinkTone.is-gain,
+.spkTableShrinkCell.is-ok,
+.spkShrinkTone.is-ok {
     color: #047857;
 }
 

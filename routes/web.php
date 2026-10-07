@@ -7,6 +7,7 @@ use App\Http\Controllers\DiamondCrtMatrixController;
 use App\Http\Controllers\DiamondDossierController;
 use App\Http\Controllers\DiamondMountingController;
 use App\Http\Controllers\FinishingController;
+use App\Http\Controllers\FinishingShrinkAllowanceController;
 use App\Http\Controllers\GoldMaterialTransactionController;
 use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MaterialGoldController;
@@ -352,6 +353,11 @@ Route::middleware(['auth'])->group(function () {
             ->name('spk-process-sla.edit');
         Route::put('spk-process-sla', [SpkProcessSlaController::class, 'update'])
             ->name('spk-process-sla.update');
+
+        Route::get('jatah-susut-finishing', [FinishingShrinkAllowanceController::class, 'edit'])
+            ->name('finishing-shrink-allowance.edit');
+        Route::put('jatah-susut-finishing', [FinishingShrinkAllowanceController::class, 'update'])
+            ->name('finishing-shrink-allowance.update');
 
         Route::get('matrix-crt-dossier', [DiamondCrtMatrixController::class, 'edit'])
             ->name('diamond-crt-matrix.edit');

@@ -109,6 +109,11 @@ test('finishing report page summarizes approved documents per craftsman', functi
                 ->where('summary.submitMaterial', '1.00')
                 ->where('summary.shrink', '1.00')
                 ->where('summary.shrinkPercent', '6.67%')
+                ->where('summary.spkCount', 1)
+                ->where('summary.averageShrinkPerProcess', '0.50')
+                ->where('summary.averageShrinkPercentPerProcess', '7.50%')
+                ->where('summary.averageShrinkPerSpk', '0.50')
+                ->where('summary.averageShrinkPercentPerSpk', '5.00%')
                 ->where('summary.qcNotOkCount', 1)
                 ->has('byCraftsman', 2)
                 ->where('byCraftsman.0.craftsmanName', (string) $firstCraftsman->name)
@@ -292,5 +297,79 @@ test('finishing report page charts year to date shrink by month', function () {
             );
     } finally {
         $documents->each->delete();
+    }
+});
+
+test('finishing report page averages shrink per process and per spk', function () {
+    $craftsman = DB::connection('third')
+        ->table('mscraftsman')
+        ->whereNotNull('name')
+        ->where('name', '!=', '')
+        ->orderBy('name')
+        ->first(['row_id']);
+
+    if ($craftsman === null) {
+        $this->markTestSkipped('Butuh minimal satu pengrajin di mscraftsman.');
+    }
+
+    $spkService = app(SpkService::class);
+    $firstProduction = $spkService->createStock('system');
+    $secondProduction = $spkService->createStock('system');
+
+    $documents = collect([
+        FinishingHandmade::factory()->done()->create([
+            'doc_no' => 'FINAVG0001',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-07-02 08:00:00',
+            'start_weight' => '10.00',
+            'submit_materialgold' => '0.00',
+            'finish_weight' => '9.60',
+            'result_materialgold' => '0.00',
+            'shrink' => '0.40',
+            'spk_id' => $firstProduction->row_id,
+        ]),
+        FinishingHandmade::factory()->done()->create([
+            'doc_no' => 'FINAVG0002',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-07-03 08:00:00',
+            'start_weight' => '10.00',
+            'submit_materialgold' => '0.00',
+            'finish_weight' => '9.40',
+            'result_materialgold' => '0.00',
+            'shrink' => '0.60',
+            'spk_id' => $firstProduction->row_id,
+        ]),
+        FinishingHandmade::factory()->done()->create([
+            'doc_no' => 'FINAVG0003',
+            'craftsman_id' => $craftsman->row_id,
+            'send_craftsman_date' => '1998-07-04 08:00:00',
+            'start_weight' => '10.00',
+            'submit_materialgold' => '0.00',
+            'finish_weight' => '9.80',
+            'result_materialgold' => '0.00',
+            'shrink' => '0.20',
+            'spk_id' => $secondProduction->row_id,
+        ]),
+    ]);
+
+    try {
+        $this->get(route('finishing.report', [
+            'date_from' => '1998-07-01',
+            'date_to' => '1998-07-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('summary.documentCount', 3)
+                ->where('summary.spkCount', 2)
+                ->where('summary.shrink', '1.20')
+                ->where('summary.averageShrinkPerProcess', '0.40')
+                ->where('summary.averageShrinkPercentPerProcess', '4.00%')
+                ->where('summary.averageShrinkPerSpk', '0.60')
+                ->where('summary.averageShrinkPercentPerSpk', '3.50%')
+            );
+    } finally {
+        $documents->each->delete();
+        $firstProduction->delete();
+        $secondProduction->delete();
     }
 });

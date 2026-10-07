@@ -15,6 +15,7 @@ import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
 import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { edit as diamondCrtMatrixEdit } from '@/routes/master-data/diamond-crt-matrix';
+import { edit as finishingShrinkAllowanceEdit } from '@/routes/master-data/finishing-shrink-allowance';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
 import { edit as spkProcessSlaEdit } from '@/routes/master-data/spk-process-sla';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
@@ -98,6 +99,7 @@ export const defaultMasterDataSubmenus: ShellNavItem[] = [
     { text: 'Master Item Product', href: varianItemIndex.url() },
     { text: 'Master SKU', href: masterSkuIndex.url() },
     { text: 'SLA Proses SPK', href: spkProcessSlaEdit.url() },
+    { text: 'Jatah Susut Finishing', href: finishingShrinkAllowanceEdit.url() },
     { text: 'Matrix CRT Dossier', href: diamondCrtMatrixEdit.url() },
 ];
 

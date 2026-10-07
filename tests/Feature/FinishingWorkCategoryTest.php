@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\FinishingHandmade;
+use App\Models\FinishingShrinkAllowance;
 use App\Models\Production;
+use App\Support\FinishingShrinkAllowanceSettings;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 test('finishing create page exposes work category options', function () {
@@ -13,6 +16,27 @@ test('finishing create page exposes work category options', function () {
             ->where('form.workCategory', null)
             ->where('form.workType', null)
         );
+});
+
+test('finishing create page exposes shrink allowance matrix from settings', function () {
+    Cache::forget(FinishingShrinkAllowanceSettings::CACHE_KEY);
+    FinishingShrinkAllowance::query()->delete();
+    FinishingShrinkAllowance::factory()->create([
+        'work_category' => 'Repair',
+        'work_type' => 'Repair Bolong',
+        'item_category' => 'Barang Kecil - lvl 1',
+        'allowance_percent' => '1.25',
+    ]);
+
+    $this->get(route('finishing.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('shrinkAllowanceMatrix.Repair Bolong.Barang Kecil - lvl 1', '1.25')
+            ->where('shrinkAllowanceMatrix.Finishing 1.Barang Besar - lvl 3', '2.00')
+        );
+
+    FinishingShrinkAllowance::query()->delete();
+    Cache::forget(FinishingShrinkAllowanceSettings::CACHE_KEY);
 });
 
 test('finishing store saves work category and work type', function () {

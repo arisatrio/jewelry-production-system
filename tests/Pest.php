@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Support\FinishingShrinkAllowanceSettings;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -156,6 +157,14 @@ function validFinishingSerahPayload(array $overrides = []): array
         'notes' => 'Catatan serah pengrajin',
         'materials' => [],
     ], $overrides);
+}
+
+function finishingShrinkAllowancePercent(
+    string $workType = 'Finishing 1',
+    string $itemCategory = 'Barang Kecil',
+): string {
+    return app(FinishingShrinkAllowanceSettings::class)->percentFor($workType, $itemCategory)
+        ?? throw new RuntimeException("Shrink allowance is not configured for {$workType} / {$itemCategory}.");
 }
 
 function ensureTestingEmployeeSchema(): void

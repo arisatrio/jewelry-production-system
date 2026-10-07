@@ -13,6 +13,7 @@ use App\Support\FinishingDocNumberGenerator;
 use App\Support\FinishingMaterialBreakdown;
 use App\Support\FinishingMaterialGoldSynchronizer;
 use App\Support\FinishingReportExport;
+use App\Support\FinishingShrinkAllowanceSettings;
 use App\Support\FinishingSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkApprovalRoles;
@@ -374,6 +375,11 @@ class FinishingController extends Controller
      * @return array{
      *     documentCount: int,
      *     craftsmanCount: int,
+     *     spkCount: int,
+     *     averageShrinkPerProcess: string|null,
+     *     averageShrinkPercentPerProcess: string|null,
+     *     averageShrinkPerSpk: string|null,
+     *     averageShrinkPercentPerSpk: string|null,
      *     startWeight: string,
      *     submitMaterial: string,
      *     finishWeight: string,
@@ -390,6 +396,72 @@ class FinishingController extends Controller
         return [
             ...$this->aggregateReportRows($rows),
             'craftsmanCount' => count(array_unique(array_filter(array_column($rows, 'craftsmanName')))),
+            ...$this->reportSpkShrinkAverages($rows),
+        ];
+    }
+
+    /**
+     * Unique SPK count plus the mean shrink of each process and of each SPK.
+     *
+     * @param  array<int, array{spkNo: string|null, startWeight: float|null, submitMaterial: float|null, shrink: float|null}>  $rows
+     * @return array{
+     *     spkCount: int,
+     *     averageShrinkPerProcess: string|null,
+     *     averageShrinkPercentPerProcess: string|null,
+     *     averageShrinkPerSpk: string|null,
+     *     averageShrinkPercentPerSpk: string|null
+     * }
+     */
+    private function reportSpkShrinkAverages(array $rows): array
+    {
+        $processCount = count($rows);
+        $processShrink = 0.0;
+        $processPercents = [];
+        /** @var array<string, array{shrink: float, goldIn: float}> $bySpk */
+        $bySpk = [];
+
+        foreach ($rows as $row) {
+            $shrink = $row['shrink'] ?? 0.0;
+            $goldIn = ($row['startWeight'] ?? 0.0) + ($row['submitMaterial'] ?? 0.0);
+            $processShrink += $shrink;
+
+            if (abs($goldIn) >= 0.0005) {
+                $processPercents[] = ($shrink / $goldIn) * 100;
+            }
+
+            $spkNo = $row['spkNo'] ?? null;
+
+            if (! is_string($spkNo) || $spkNo === '') {
+                continue;
+            }
+
+            $bySpk[$spkNo]['shrink'] = ($bySpk[$spkNo]['shrink'] ?? 0.0) + $shrink;
+            $bySpk[$spkNo]['goldIn'] = ($bySpk[$spkNo]['goldIn'] ?? 0.0) + $goldIn;
+        }
+
+        $spkCount = count($bySpk);
+        $spkPercents = [];
+
+        foreach ($bySpk as $spk) {
+            if (abs($spk['goldIn']) >= 0.0005) {
+                $spkPercents[] = ($spk['shrink'] / $spk['goldIn']) * 100;
+            }
+        }
+
+        return [
+            'spkCount' => $spkCount,
+            'averageShrinkPerProcess' => $processCount > 0
+                ? ($this->formatGainAwareDecimal($processShrink / $processCount) ?? '0.00')
+                : null,
+            'averageShrinkPercentPerProcess' => $processPercents === []
+                ? null
+                : $this->formatGainAwarePercent(array_sum($processPercents) / count($processPercents)),
+            'averageShrinkPerSpk' => $spkCount > 0
+                ? ($this->formatGainAwareDecimal(array_sum(array_column($bySpk, 'shrink')) / $spkCount) ?? '0.00')
+                : null,
+            'averageShrinkPercentPerSpk' => $spkPercents === []
+                ? null
+                : $this->formatGainAwarePercent(array_sum($spkPercents) / count($spkPercents)),
         ];
     }
 
@@ -571,14 +643,17 @@ class FinishingController extends Controller
     /**
      * Show the form for creating a new finishing document.
      */
-    public function create(FinishingMaterialGoldSynchronizer $materialSynchronizer): Response
-    {
+    public function create(
+        FinishingMaterialGoldSynchronizer $materialSynchronizer,
+        FinishingShrinkAllowanceSettings $shrinkAllowanceSettings,
+    ): Response {
         return Inertia::render('finishing/create', [
             'formDocumentNo' => (string) config('spk.finishing_form_document_no'),
             'processOptions' => $this->processOptions(),
             'itemCategoryOptions' => $this->itemCategoryOptions(),
             'workCategoryOptions' => $this->workCategoryOptions(),
             'workTypeOptionsByCategory' => FinishingHandmade::workTypesByCategory(),
+            'shrinkAllowanceMatrix' => $shrinkAllowanceSettings->matrix(),
             'qcNoteOptions' => $this->qcNoteOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'materialOptions' => $materialSynchronizer->materialOptions(),
@@ -697,6 +772,7 @@ class FinishingController extends Controller
         StoreFinishingRequest $request,
         FinishingDocNumberGenerator $docNumberGenerator,
         FinishingMaterialGoldSynchronizer $materialSynchronizer,
+        FinishingShrinkAllowanceSettings $shrinkAllowanceSettings,
     ): RedirectResponse {
         $validated = $request->validated();
         $actor = $this->actorName($request);
@@ -708,6 +784,7 @@ class FinishingController extends Controller
             $actor,
             $docNumberGenerator,
             $materialSynchronizer,
+            $shrinkAllowanceSettings,
         ): FinishingHandmade {
             $document = FinishingHandmade::query()->create([
                 'doc_no' => $docNumberGenerator->generate(),
@@ -755,7 +832,7 @@ class FinishingController extends Controller
             }
 
             $materialSynchronizer->sync($document, $materials, $actor);
-            $this->recalculateShrink($document->refresh());
+            $this->recalculateShrink($document->refresh(), $shrinkAllowanceSettings);
 
             return $document->refresh();
         });
@@ -806,6 +883,7 @@ class FinishingController extends Controller
         FinishingHandmade $finishing,
         FinishingApprovalService $approvalService,
         FinishingMaterialGoldSynchronizer $materialSynchronizer,
+        FinishingShrinkAllowanceSettings $shrinkAllowanceSettings,
     ): Response {
         abort_if($finishing->is_deleted === 1, 404);
         abort_unless(
@@ -829,6 +907,7 @@ class FinishingController extends Controller
             'itemCategoryOptions' => $this->itemCategoryOptions(),
             'workCategoryOptions' => $this->workCategoryOptions(),
             'workTypeOptionsByCategory' => FinishingHandmade::workTypesByCategory(),
+            'shrinkAllowanceMatrix' => $shrinkAllowanceSettings->matrix(),
             'qcNoteOptions' => $this->qcNoteOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
             'materialOptions' => $materialSynchronizer->materialOptions(),
@@ -1080,6 +1159,7 @@ class FinishingController extends Controller
         FinishingHandmade $finishing,
         FinishingApprovalService $approvalService,
         FinishingMaterialGoldSynchronizer $materialSynchronizer,
+        FinishingShrinkAllowanceSettings $shrinkAllowanceSettings,
     ): RedirectResponse {
         abort_if($finishing->is_deleted === 1, 404);
         abort_unless(
@@ -1098,6 +1178,7 @@ class FinishingController extends Controller
             $materials,
             $actor,
             $materialSynchronizer,
+            $shrinkAllowanceSettings,
         ): void {
             $finishing->update([
                 'spk_id' => $validated['spk_id'],
@@ -1135,7 +1216,7 @@ class FinishingController extends Controller
             }
 
             $materialSynchronizer->sync($finishing->refresh(), $materials, $actor);
-            $this->recalculateShrink($finishing->refresh());
+            $this->recalculateShrink($finishing->refresh(), $shrinkAllowanceSettings);
         });
 
         Inertia::flash('toast', [
@@ -1169,8 +1250,10 @@ class FinishingController extends Controller
      *     finishWeight: string|null,
      *     submitMaterial: string|null,
      *     resultMaterial: string|null,
+     *     workType: string|null,
      *     shrink: string|null,
      *     shrinkTolerance: string|null,
+     *     shrinkToleranceStatus: 'ok'|'not-ok'|null,
      *     hasWeightGain: bool,
      *     notes: string|null
      * }
@@ -1178,6 +1261,13 @@ class FinishingController extends Controller
     private function toListItem(FinishingHandmade $document, array $craftsmanNames = []): array
     {
         $craftsmanId = filled($document->craftsman_id) ? (int) $document->craftsman_id : 0;
+        $hasMissingWeight = $this->hasMissingWeight($document);
+        $shrinkValue = $hasMissingWeight ? null : $this->toFloat($document->shrink);
+        $goldIn = ($this->toFloat($document->start_weight) ?? 0.0)
+            + ($this->toFloat($document->submit_materialgold) ?? 0.0);
+        $shrinkPercentValue = $shrinkValue !== null && abs($goldIn) >= 0.0005
+            ? ($shrinkValue / $goldIn) * 100
+            : null;
 
         return [
             'id' => (int) $document->row_id,
@@ -1197,16 +1287,21 @@ class FinishingController extends Controller
                 : null,
             'sendCraftsmanDate' => $document->send_craftsman_date?->format('Y-m-d H:i'),
             'receivedCraftsmanDate' => $document->received_craftsman_date?->format('Y-m-d H:i'),
+            'workType' => filled($document->work_type) ? (string) $document->work_type : null,
             'startWeight' => $this->formatDecimal($document->start_weight),
             'finishWeight' => $this->formatDecimal($document->finish_weight),
             'submitMaterial' => $this->formatDecimal($document->submit_materialgold),
             'resultMaterial' => $this->formatDecimal($document->result_materialgold),
-            'shrink' => $this->hasMissingWeight($document)
+            'shrink' => $hasMissingWeight
                 ? '0.00'
                 : $this->formatGainAwareDecimal($document->shrink),
-            'shrinkTolerance' => $this->hasMissingWeight($document)
+            'shrinkTolerance' => $hasMissingWeight
                 ? '0.00'
                 : $this->formatGainAwareDecimal($document->shrink_tolerance, 2),
+            'shrinkToleranceStatus' => $this->shrinkToleranceStatus(
+                $shrinkPercentValue,
+                $hasMissingWeight ? null : $this->toFloat($document->shrink_tolerance),
+            ),
             'hasWeightGain' => $this->hasWeightGain($document),
             'notes' => filled($document->notes) ? (string) $document->notes : null,
         ];
@@ -1334,6 +1429,7 @@ class FinishingController extends Controller
      *     shrink: string|null,
      *     shrinkTolerance: string|null,
      *     shrinkToleranceWeight: string|null,
+     *     shrinkToleranceStatus: 'ok'|'not-ok'|null,
      *     shrinkPercent: string|null,
      *     hasWeightGain: bool,
      *     koreksiQc: int|null,
@@ -1364,16 +1460,19 @@ class FinishingController extends Controller
         $startWeight = $this->toFloat($document->start_weight);
         $shrink = $hasMissingWeight ? 0.0 : $this->toFloat($document->shrink);
         $goldIn = ($startWeight ?? 0.0) + ($this->toFloat($document->submit_materialgold) ?? 0.0);
-        $shrinkPercent = null;
+        $shrinkPercentValue = ! $hasMissingWeight && $shrink !== null && abs($goldIn) >= 0.0005
+            ? ($shrink / $goldIn) * 100
+            : null;
+        $shrinkPercent = $shrink !== null && abs($goldIn) >= 0.0005
+            ? $this->formatGainAwarePercent($hasMissingWeight ? 0.0 : $shrinkPercentValue ?? 0.0)
+            : null;
 
-        if ($shrink !== null && abs($goldIn) >= 0.0005) {
-            $shrinkPercent = $this->formatGainAwarePercent(($shrink / $goldIn) * 100);
-        }
-
-        $shrinkTolerance = $hasMissingWeight ? 0.0 : $this->toFloat($document->shrink_tolerance);
-        $shrinkToleranceWeight = $shrinkTolerance === null
-            ? null
-            : $this->formatGainAwareDecimal($shrinkTolerance / 100 * $goldIn);
+        $shrinkTolerance = $this->toFloat($document->shrink_tolerance);
+        $shrinkToleranceWeight = $hasMissingWeight
+            ? '0.00'
+            : ($shrinkTolerance === null
+                ? null
+                : $this->formatGainAwareDecimal($shrinkTolerance / 100 * $goldIn));
 
         $production = $document->production;
         $materials = $materialBreakdown->forIds([(int) $document->row_id])[(int) $document->row_id]
@@ -1410,6 +1509,7 @@ class FinishingController extends Controller
             'shrink' => $this->formatGainAwareDecimal($shrink),
             'shrinkTolerance' => $this->formatGainAwareDecimal($shrinkTolerance, 2),
             'shrinkToleranceWeight' => $shrinkToleranceWeight,
+            'shrinkToleranceStatus' => $this->shrinkToleranceStatus($shrinkPercentValue, $shrinkTolerance),
             'shrinkPercent' => $shrinkPercent,
             'hasWeightGain' => $this->hasWeightGain($document),
             'koreksiQc' => filled($document->koreksi_qc) ? (int) $document->koreksi_qc : null,
@@ -1425,6 +1525,18 @@ class FinishingController extends Controller
                     ...$this->productionSpkInfoFields($production),
                 ],
         ];
+    }
+
+    /**
+     * Susut masih dalam jatah jika persentasenya tidak melebihi toleransi.
+     */
+    private function shrinkToleranceStatus(?float $shrinkPercent, ?float $tolerance): ?string
+    {
+        if ($shrinkPercent === null || $tolerance === null) {
+            return null;
+        }
+
+        return abs($shrinkPercent) <= abs($tolerance) + 0.005 ? 'ok' : 'not-ok';
     }
 
     private function resolveCraftsmanName(mixed $craftsmanId): ?string
@@ -1470,8 +1582,10 @@ class FinishingController extends Controller
         return $resolved;
     }
 
-    private function recalculateShrink(FinishingHandmade $document): void
-    {
+    private function recalculateShrink(
+        FinishingHandmade $document,
+        FinishingShrinkAllowanceSettings $shrinkAllowanceSettings,
+    ): void {
         $start = $this->toFloat($document->start_weight) ?? 0.0;
         $finish = $this->toFloat($document->finish_weight) ?? 0.0;
         $submit = $this->toFloat($document->submit_materialgold) ?? 0.0;
@@ -1482,14 +1596,24 @@ class FinishingController extends Controller
             ? 0.0
             : round($inputWeight - ($finish + $result), 3);
 
-        $shrinkTolerance = abs($inputWeight) >= 0.0005
-            ? round(($shrink / $inputWeight) * 100, 2)
-            : 0.0;
-
         $document->forceFill([
             'shrink' => number_format($shrink, 2, '.', ''),
-            'shrink_tolerance' => number_format($shrinkTolerance, 2, '.', ''),
+            'shrink_tolerance' => $this->shrinkAllowancePercent($document, $shrinkAllowanceSettings),
         ])->save();
+    }
+
+    private function shrinkAllowancePercent(
+        FinishingHandmade $document,
+        FinishingShrinkAllowanceSettings $shrinkAllowanceSettings,
+    ): ?string {
+        $workType = filled($document->work_type) ? (string) $document->work_type : '';
+        $itemCategory = filled($document->item_category) ? (string) $document->item_category : '';
+
+        if ($workType === '' || $itemCategory === '') {
+            return null;
+        }
+
+        return $shrinkAllowanceSettings->percentFor($workType, $itemCategory);
     }
 
     /**

@@ -19,6 +19,7 @@ type FinishingCreateProps = {
     itemCategoryOptions: OptionItem[];
     workCategoryOptions: OptionItem[];
     workTypeOptionsByCategory: Record<string, string[]>;
+    shrinkAllowanceMatrix: Record<string, Record<string, string>>;
     craftsmanOptions: OptionItem[];
     materialOptions: MaterialOption[];
     qcNoteOptions: string[];
@@ -51,6 +52,7 @@ export default function FinishingCreate({
     itemCategoryOptions,
     workCategoryOptions,
     workTypeOptionsByCategory,
+    shrinkAllowanceMatrix,
     craftsmanOptions,
     materialOptions,
     qcNoteOptions,
@@ -69,6 +71,7 @@ export default function FinishingCreate({
                 itemCategoryOptions={itemCategoryOptions}
                 workCategoryOptions={workCategoryOptions}
                 workTypeOptionsByCategory={workTypeOptionsByCategory}
+                shrinkAllowanceMatrix={shrinkAllowanceMatrix}
                 craftsmanOptions={craftsmanOptions}
                 materialOptions={materialOptions}
                 qcNoteOptions={qcNoteOptions}

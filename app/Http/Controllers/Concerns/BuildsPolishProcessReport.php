@@ -231,6 +231,11 @@ trait BuildsPolishProcessReport
      * @return array{
      *     documentCount: int,
      *     craftsmanCount: int,
+     *     spkCount: int,
+     *     averageShrinkPerProcess: string|null,
+     *     averageShrinkPercentPerProcess: string|null,
+     *     averageShrinkPerSpk: string|null,
+     *     averageShrinkPercentPerSpk: string|null,
      *     startWeight: string,
      *     submitMaterial: string,
      *     finishWeight: string,
@@ -247,6 +252,72 @@ trait BuildsPolishProcessReport
         return [
             ...$this->aggregatePolishProcessReportRows($rows),
             'craftsmanCount' => count(array_unique(array_filter(array_column($rows, 'craftsmanName')))),
+            ...$this->polishProcessReportSpkShrinkAverages($rows),
+        ];
+    }
+
+    /**
+     * Unique SPK count plus the mean shrink of each process and of each SPK.
+     *
+     * @param  array<int, array{spkNo: string|null, startWeight: float|null, submitMaterial: float|null, shrink: float|null}>  $rows
+     * @return array{
+     *     spkCount: int,
+     *     averageShrinkPerProcess: string|null,
+     *     averageShrinkPercentPerProcess: string|null,
+     *     averageShrinkPerSpk: string|null,
+     *     averageShrinkPercentPerSpk: string|null
+     * }
+     */
+    private function polishProcessReportSpkShrinkAverages(array $rows): array
+    {
+        $processCount = count($rows);
+        $processShrink = 0.0;
+        $processPercents = [];
+        /** @var array<string, array{shrink: float, goldIn: float}> $bySpk */
+        $bySpk = [];
+
+        foreach ($rows as $row) {
+            $shrink = $row['shrink'] ?? 0.0;
+            $goldIn = ($row['startWeight'] ?? 0.0) + ($row['submitMaterial'] ?? 0.0);
+            $processShrink += $shrink;
+
+            if (abs($goldIn) >= 0.0005) {
+                $processPercents[] = ($shrink / $goldIn) * 100;
+            }
+
+            $spkNo = $row['spkNo'] ?? null;
+
+            if (! is_string($spkNo) || $spkNo === '') {
+                continue;
+            }
+
+            $bySpk[$spkNo]['shrink'] = ($bySpk[$spkNo]['shrink'] ?? 0.0) + $shrink;
+            $bySpk[$spkNo]['goldIn'] = ($bySpk[$spkNo]['goldIn'] ?? 0.0) + $goldIn;
+        }
+
+        $spkCount = count($bySpk);
+        $spkPercents = [];
+
+        foreach ($bySpk as $spk) {
+            if (abs($spk['goldIn']) >= 0.0005) {
+                $spkPercents[] = ($spk['shrink'] / $spk['goldIn']) * 100;
+            }
+        }
+
+        return [
+            'spkCount' => $spkCount,
+            'averageShrinkPerProcess' => $processCount > 0
+                ? ($this->formatGainAwareDecimal($processShrink / $processCount) ?? '0.00')
+                : null,
+            'averageShrinkPercentPerProcess' => $processPercents === []
+                ? null
+                : $this->formatGainAwarePercent(array_sum($processPercents) / count($processPercents)),
+            'averageShrinkPerSpk' => $spkCount > 0
+                ? ($this->formatGainAwareDecimal(array_sum(array_column($bySpk, 'shrink')) / $spkCount) ?? '0.00')
+                : null,
+            'averageShrinkPercentPerSpk' => $spkPercents === []
+                ? null
+                : $this->formatGainAwarePercent(array_sum($spkPercents) / count($spkPercents)),
         ];
     }
 

@@ -14,6 +14,7 @@ import type { SpkApprovalTimelineEvent } from '@/components/spk/spk-approval-tim
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 import { SpkQcStatusBadge } from '@/components/spk/spk-qc-status-badge';
+import type { QcStatus } from '@/components/spk/spk-qc-status-badge';
 
 type FinishingSpk = {
     spkId: number | null;
@@ -49,6 +50,7 @@ type FinishingDetailItem = {
     shrink: string | null;
     shrinkTolerance: string | null;
     shrinkToleranceWeight: string | null;
+    shrinkToleranceStatus: 'ok' | 'not-ok' | null;
     shrinkPercent: string | null;
     hasWeightGain: boolean;
     koreksiQc: number | null;
@@ -192,11 +194,23 @@ export function FinishingDetail({
     const shrinkMagnitude = Math.abs(
         Number.parseFloat(finishingItem.shrink?.replace('+', '') ?? '') || 0,
     );
-    const shrinkToneClass = finishingItem.hasWeightGain
-        ? 'is-gain'
-        : shrinkMagnitude >= 0.0005
-          ? 'is-loss'
-          : '';
+    const shrinkToleranceStatus = finishingItem.shrinkToleranceStatus;
+    const shrinkToneClass =
+        shrinkToleranceStatus === 'ok'
+            ? 'is-ok'
+            : shrinkToleranceStatus === 'not-ok'
+              ? 'is-nok'
+              : finishingItem.hasWeightGain
+                ? 'is-gain'
+                : shrinkMagnitude >= 0.0005
+                  ? 'is-loss'
+                  : '';
+    const shrinkToleranceQcStatus: QcStatus | null =
+        shrinkToleranceStatus === 'ok'
+            ? { variant: 'ok', label: 'OK' }
+            : shrinkToleranceStatus === 'not-ok'
+              ? { variant: 'not-ok', label: 'Not OK' }
+              : null;
 
     const submitToManager = () => {
         if (!submitUrl || !approval.canSubmit) {
@@ -620,6 +634,28 @@ export function FinishingDetail({
                                                                 </>
                                                             ) : null}
                                                         </span>
+                                                        {shrinkToleranceQcStatus ? (
+                                                            <>
+                                                                {' '}
+                                                                <SpkQcStatusBadge
+                                                                    status={
+                                                                        shrinkToleranceQcStatus
+                                                                    }
+                                                                />
+                                                            </>
+                                                        ) : null}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">
+                                                        Toleransi Susut (%)
+                                                    </th>
+                                                    <td>
+                                                        {finishingItem.shrinkTolerance
+                                                            ? formatShrinkPercentDisplay(
+                                                                  finishingItem.shrinkTolerance,
+                                                              )
+                                                            : '—'}
                                                     </td>
                                                 </tr>
                                             </tbody>
