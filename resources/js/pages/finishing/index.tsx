@@ -347,17 +347,14 @@ const CRAFTSMAN_DATE_ROWS = [
 
 const WEIGHT_ROWS = [
     { key: 'startWeight', label: 'Awal' },
+    { key: 'submitMaterial', label: 'Bahan' },
     { key: 'finishWeight', label: 'Akhir' },
+    { key: 'resultMaterial', label: 'Sisa Bahan' },
 ] as const satisfies ReadonlyArray<{
-    key: keyof Pick<FinishingRow, 'startWeight' | 'finishWeight'>;
-    label: string;
-}>;
-
-const MATERIAL_WEIGHT_ROWS = [
-    { key: 'submitMaterial', label: 'Bahan Serah' },
-    { key: 'resultMaterial', label: 'Bahan Sisa' },
-] as const satisfies ReadonlyArray<{
-    key: keyof Pick<FinishingRow, 'submitMaterial' | 'resultMaterial'>;
+    key: keyof Pick<
+        FinishingRow,
+        'startWeight' | 'submitMaterial' | 'finishWeight' | 'resultMaterial'
+    >;
     label: string;
 }>;
 
@@ -1472,9 +1469,6 @@ export default function FinishingIndex({
                                     <th className="spkTableColWeight spkTableColWeight--finishing spkTableColCenter">
                                         Berat (g)
                                     </th>
-                                    <th className="spkTableColWeight spkTableColCenter">
-                                        Berat Bahan (g)
-                                    </th>
                                     <th className="spkTableColTolerance--finishing spkTableColCenter">
                                         Toleransi Susut
                                     </th>
@@ -1492,7 +1486,7 @@ export default function FinishingIndex({
                             <tbody>
                                 {documents.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={13}>
+                                        <td colSpan={12}>
                                             Tidak ada data dokumen finishing.
                                         </td>
                                     </tr>
@@ -1642,30 +1636,6 @@ export default function FinishingIndex({
                                                             </dd>
                                                         </div>
                                                     ))}
-                                                </dl>
-                                            </td>
-                                            <td className="spkTableColWeight">
-                                                <dl className="spkTableWeightStack">
-                                                    {MATERIAL_WEIGHT_ROWS.map(
-                                                        (row) => (
-                                                            <div
-                                                                key={row.key}
-                                                                className="spkTableWeightRow spkTableWeightRow--material"
-                                                            >
-                                                                <dt>
-                                                                    {row.label}
-                                                                </dt>
-                                                                <dd>
-                                                                    {formatWeightValue(
-                                                                        item[
-                                                                            row
-                                                                                .key
-                                                                        ],
-                                                                    )}
-                                                                </dd>
-                                                            </div>
-                                                        ),
-                                                    )}
                                                 </dl>
                                             </td>
                                             <td className="spkTableColTolerance--finishing spkTableColCenter">

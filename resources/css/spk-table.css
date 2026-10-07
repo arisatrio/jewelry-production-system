@@ -1112,15 +1112,15 @@
 
 .spkTable th.spkTableColWeight.spkTableColWeight--finishing,
 .spkTable td.spkTableColWeight.spkTableColWeight--finishing {
-    width: 6.25rem;
-    min-width: 6rem;
-    max-width: 7rem;
+    width: 9.75rem;
+    min-width: 9.25rem;
+    max-width: 11rem;
     padding-inline: 0.55rem;
 }
 
 .spkTable td.spkTableColWeight.spkTableColWeight--finishing .spkTableWeightRow {
-    grid-template-columns: 2.75rem minmax(max-content, 1fr);
-    gap: 0.35rem;
+    grid-template-columns: max-content minmax(max-content, 1fr);
+    gap: 0.5rem;
 }
 
 .spkTable th.spkTableColCraftsmanDate,
