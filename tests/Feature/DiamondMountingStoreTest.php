@@ -103,16 +103,42 @@ test('pasang batu store allows null weight_finish_goods', function () {
     $production->delete();
 });
 
-test('pasang batu store rejects diamond weight with more than two decimals', function () {
+test('pasang batu store accepts diamond weight with up to three decimals', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/DMTDEC'.Str::upper(Str::random(3)),
+    ]);
+
+    $response = $this->post(route('pasang-batu.store'), [
+        'spk_id' => $production->row_id,
+        'weight_frame' => '3.16',
+        'weight_diamond' => '0.023',
+        'weight_finish_goods' => '3.10',
+    ]);
+
+    $document = DiamondMounting::query()
+        ->where('spk_id', $production->row_id)
+        ->where('is_deleted', 0)
+        ->latest('row_id')
+        ->first();
+
+    expect($document)->not->toBeNull();
+    $response->assertRedirect(route('pasang-batu.show', $document));
+    expect((float) $document->weight_diamond)->toBe(0.023);
+
+    $document->delete();
+    $production->delete();
+});
+
+test('pasang batu store rejects diamond weight with more than three decimals', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/DMTDE4'.Str::upper(Str::random(3)),
     ]);
 
     $this->from(route('pasang-batu.create'))
         ->post(route('pasang-batu.store'), [
             'spk_id' => $production->row_id,
             'weight_frame' => '3.16',
-            'weight_diamond' => '0.023',
+            'weight_diamond' => '0.0234',
         ])
         ->assertRedirect(route('pasang-batu.create'))
         ->assertSessionHasErrors(['weight_diamond']);
@@ -175,7 +201,7 @@ test('pasang batu show leaves shrink empty when finish weight is missing', funct
     $production->delete();
 });
 
-test('pasang batu show and edit display diamond weight with two decimals', function () {
+test('pasang batu show and edit display diamond weight with three decimals', function () {
     $production = Production::factory()->create([
         'spk_no' => '2026/PRD/DMTDSP'.Str::upper(Str::random(3)),
     ]);
@@ -187,13 +213,13 @@ test('pasang batu show and edit display diamond weight with two decimals', funct
     $this->get(route('pasang-batu.show', $document))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('diamondMountingItem.weightDiamond', '0.83')
+            ->where('diamondMountingItem.weightDiamond', '0.833')
         );
 
     $this->get(route('pasang-batu.edit', $document))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('form.weightDiamond', '0.83')
+            ->where('form.weightDiamond', '0.833')
         );
 
     $document->delete();

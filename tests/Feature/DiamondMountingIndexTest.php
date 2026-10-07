@@ -120,7 +120,7 @@ test('pasang batu index lists process, craftsman, handover dates and weight gain
             ->where('documents.data.0.sendCraftsmanDate', '2026-09-10 08:30')
             ->where('documents.data.0.receivedCraftsmanDate', '2026-09-11 15:45')
             ->where('documents.data.0.weightFrame', '2.00')
-            ->where('documents.data.0.weightDiamond', '0.10')
+            ->where('documents.data.0.weightDiamond', '0.100')
             ->where('documents.data.0.totalWeight', '2.10')
             ->where('documents.data.0.weightFinishGoods', '2.20')
             ->where('documents.data.0.shrink', '+0.10')

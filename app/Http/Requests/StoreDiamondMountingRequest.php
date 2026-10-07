@@ -82,7 +82,7 @@ class StoreDiamondMountingRequest extends FormRequest
             'received_craftsman_date' => ['nullable', 'date_format:Y-m-d H:i'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'weight_frame' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
-            'weight_diamond' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'weight_diamond' => ['nullable', 'numeric', 'min:0', 'decimal:0,3'],
             'weight_finish_goods' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'setting_stones' => ['nullable', 'array'],
             'setting_stones.*.stone_id' => ['required', 'integer', 'min:1'],
