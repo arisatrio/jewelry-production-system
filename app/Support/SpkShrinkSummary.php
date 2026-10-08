@@ -245,7 +245,7 @@ class SpkShrinkSummary
     {
         if ($shrinkColumn === 'computed_mounting') {
             return [
-                $this->nullableFloat($record->total_weigth_frame_diamond ?? null),
+                $this->nullableFloat($record->weight_frame ?? null),
                 $this->nullableFloat($record->weight_finish_goods ?? null),
             ];
         }
