@@ -106,6 +106,8 @@ test('spk create keeps a blank sku when the stock request sku is unknown', funct
 });
 
 test('spk create page shows form without generating number', function () {
+    $this->travelTo('2026-10-08');
+
     $this->get(route('spk.create'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -114,6 +116,9 @@ test('spk create page shows form without generating number', function () {
             ->where('production.id', null)
             ->where('production.spkNo', null)
             ->where('production.spkType', 'Stock')
+            ->where('production.requestStockNo', null)
+            ->where('production.orderDate', '2026-10-08')
+            ->where('production.estimatedDeliveryTime', '')
             ->where('production.priority', 'NO')
             ->where('production.qty', '1')
             ->where('formDocumentNo', 'WHOJ-PRD-FRM-001')

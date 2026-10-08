@@ -692,6 +692,9 @@ export default function SpkFormPage({
     const showReferenceInfo =
         (!isNew && Boolean(production.refSpkNo)) ||
         (isNew && Boolean(data.ref_spk_id));
+    // Pesanan / request stok: tanggal dari sumber eksternal. Stock biasa: DatePicker wajib.
+    const datesReadOnly =
+        spkType === 'Pesanan' || Boolean(production.requestStockNo);
 
     const skuOptionsForCategory = useMemo(() => {
         if (!data.category_prefix_id) {
@@ -1399,6 +1402,97 @@ export default function SpkFormPage({
                                         ) : null}
                                     </FormItem>
 
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon required>
+                                                Tanggal Permintaan
+                                            </Label>
+                                        }
+                                    >
+                                        {datesReadOnly ? (
+                                            <Input
+                                                value={formatDisplayDate(
+                                                    data.order_date,
+                                                )}
+                                                readonly
+                                                accessibleName="Tanggal Permintaan"
+                                            />
+                                        ) : (
+                                            <DatePicker
+                                                value={data.order_date}
+                                                valueFormat="yyyy-MM-dd"
+                                                displayFormat="dd/MM/yyyy"
+                                                required
+                                                valueState={fieldState(
+                                                    errors.order_date,
+                                                )}
+                                                onChange={(event) =>
+                                                    setData(
+                                                        'order_date',
+                                                        event.target.value ??
+                                                            '',
+                                                    )
+                                                }
+                                            />
+                                        )}
+                                        {errors.order_date ? (
+                                            <Text className="spkFioriError">
+                                                {errors.order_date}
+                                            </Text>
+                                        ) : null}
+                                    </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label showColon required>
+                                                Tanggal Target Selesai
+                                            </Label>
+                                        }
+                                    >
+                                        <div className="spkFioriDateWithHint">
+                                            {datesReadOnly ? (
+                                                <Input
+                                                    value={formatDisplayDate(
+                                                        data.estimated_delivery_time,
+                                                    )}
+                                                    readonly
+                                                    accessibleName="Tanggal Target Selesai"
+                                                />
+                                            ) : (
+                                                <DatePicker
+                                                    value={
+                                                        data.estimated_delivery_time
+                                                    }
+                                                    valueFormat="yyyy-MM-dd"
+                                                    displayFormat="dd/MM/yyyy"
+                                                    required
+                                                    valueState={fieldState(
+                                                        errors.estimated_delivery_time,
+                                                    )}
+                                                    onChange={(event) =>
+                                                        setData(
+                                                            'estimated_delivery_time',
+                                                            event.target
+                                                                .value ?? '',
+                                                        )
+                                                    }
+                                                />
+                                            )}
+                                            {workEstimatedText ? (
+                                                <Text className="spkFioriInlineHint">
+                                                    {workEstimatedText}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                        {errors.estimated_delivery_time ? (
+                                            <Text className="spkFioriError">
+                                                {
+                                                    errors.estimated_delivery_time
+                                                }
+                                            </Text>
+                                        ) : null}
+                                    </FormItem>
+
                                     {needsRequestOrder ? (
                                         <FormItem
                                             labelContent={
@@ -1630,99 +1724,6 @@ export default function SpkFormPage({
                                             />
                                         </FormItem>
                                     ) : null}
-
-                                    <FormItem
-                                        labelContent={
-                                            <Label showColon required>
-                                                Tanggal Permintaan
-                                            </Label>
-                                        }
-                                    >
-                                        {production.requestStockNo ||
-                                        data.spk_type === 'Pesanan' ? (
-                                            <Input
-                                                value={formatDisplayDate(
-                                                    data.order_date,
-                                                )}
-                                                readonly
-                                                accessibleName="Tanggal Permintaan"
-                                            />
-                                        ) : (
-                                            <DatePicker
-                                                value={data.order_date}
-                                                valueFormat="yyyy-MM-dd"
-                                                displayFormat="dd/MM/yyyy"
-                                                required
-                                                valueState={fieldState(
-                                                    errors.order_date,
-                                                )}
-                                                onChange={(event) =>
-                                                    setData(
-                                                        'order_date',
-                                                        event.target.value ??
-                                                            '',
-                                                    )
-                                                }
-                                            />
-                                        )}
-                                        {errors.order_date ? (
-                                            <Text className="spkFioriError">
-                                                {errors.order_date}
-                                            </Text>
-                                        ) : null}
-                                    </FormItem>
-
-                                    <FormItem
-                                        labelContent={
-                                            <Label showColon required>
-                                                Tanggal Target Selesai
-                                            </Label>
-                                        }
-                                    >
-                                        <div className="spkFioriDateWithHint">
-                                            {data.spk_type === 'Pesanan' ||
-                                            production.requestStockNo ? (
-                                                <Input
-                                                    value={formatDisplayDate(
-                                                        data.estimated_delivery_time,
-                                                    )}
-                                                    readonly
-                                                    accessibleName="Tanggal Target Selesai"
-                                                />
-                                            ) : (
-                                                <DatePicker
-                                                    value={
-                                                        data.estimated_delivery_time
-                                                    }
-                                                    valueFormat="yyyy-MM-dd"
-                                                    displayFormat="dd/MM/yyyy"
-                                                    required
-                                                    valueState={fieldState(
-                                                        errors.estimated_delivery_time,
-                                                    )}
-                                                    onChange={(event) =>
-                                                        setData(
-                                                            'estimated_delivery_time',
-                                                            event.target
-                                                                .value ?? '',
-                                                        )
-                                                    }
-                                                />
-                                            )}
-                                            {workEstimatedText ? (
-                                                <Text className="spkFioriInlineHint">
-                                                    {workEstimatedText}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                        {errors.estimated_delivery_time ? (
-                                            <Text className="spkFioriError">
-                                                {
-                                                    errors.estimated_delivery_time
-                                                }
-                                            </Text>
-                                        ) : null}
-                                    </FormItem>
                                 </FormGroup>
 
                                 <FormGroup className="spkFioriFormGroupContinuation">
