@@ -92,7 +92,7 @@ class PolishFrameApprovalService
 
     public function canEditForm(PolishFrame $document): bool
     {
-        return $document->is_deleted !== 1 && ! $this->isDone($document);
+        return $document->is_deleted !== 1;
     }
 
     public function canDelete(PolishFrame $document): bool

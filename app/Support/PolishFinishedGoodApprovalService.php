@@ -92,7 +92,7 @@ class PolishFinishedGoodApprovalService
 
     public function canEditForm(PolishFinishedGood $document): bool
     {
-        return $document->is_deleted !== 1 && ! $this->isDone($document);
+        return $document->is_deleted !== 1;
     }
 
     public function canDelete(PolishFinishedGood $document): bool

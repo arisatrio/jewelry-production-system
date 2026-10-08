@@ -910,10 +910,7 @@ class ResinController extends Controller
      */
     private function defaultStatusFilters(): array
     {
-        return array_values(array_diff(
-            array_keys($this->statusFilterCodes()),
-            [self::COMPLETED_STATUS_FILTER],
-        ));
+        return [];
     }
 
     /**
