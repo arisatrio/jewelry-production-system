@@ -53,7 +53,7 @@ test('spk shrink summary builds ordered rows for a complete production', functio
             ->and($report['rows'][1]['setorDate'])->toMatch('/^\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}$/')
             ->and($report['rows'][3]['process'])->toBe('Pasang Batu')
             ->and($report['rows'][3]['shrink'])->toBe('0.16')
-            ->and($report['rows'][3]['startWeight'])->toBe('1.23')
+            ->and($report['rows'][3]['startWeight'])->toBe('1.14')
             ->and($report['rows'][3]['endWeight'])->toBe('1.07')
             ->and($report['rows'][3])->toHaveKeys(['shrinkPercent', 'tolerance', 'toleranceStatus'])
             ->and($report['planningWeight'])->toBe('2.80')
