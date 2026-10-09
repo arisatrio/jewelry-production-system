@@ -102,6 +102,7 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                             <th className="spkShrinkColNo">No</th>
                             <th className="spkShrinkColProcess">Proses</th>
                             <th className="spkShrinkColDate">Tanggal Setor</th>
+                            <th className="spkShrinkColDate">Tanggal Terima</th>
                             <th className="spkShrinkColValue">
                                 Berat Awal (g)
                             </th>
@@ -116,7 +117,7 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                         {report.rows.length === 0 ? (
                             <tr>
                                 <td
-                                    colSpan={7}
+                                    colSpan={8}
                                     className="spkShrinkReportEmpty"
                                 >
                                     Belum ada data susut untuk SPK ini.
@@ -125,7 +126,7 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                         ) : (
                             report.rows.map((row) => (
                                 <tr
-                                    key={`${row.no}-${row.process}-${row.setorDate}`}
+                                    key={`${row.no}-${row.process}-${row.setorDate}-${row.receivedDate}`}
                                 >
                                     <td className="spkShrinkColNo">{row.no}</td>
                                     <td className="spkShrinkColProcess">
@@ -133,6 +134,9 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                                     </td>
                                     <td className="spkShrinkColDate">
                                         {row.setorDate}
+                                    </td>
+                                    <td className="spkShrinkColDate">
+                                        {row.receivedDate}
                                     </td>
                                     <td className="spkShrinkColValue">
                                         {row.startWeight === null

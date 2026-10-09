@@ -29,6 +29,8 @@ test('spk show page includes shrink report for laporan', function () {
             ->has('shrinkReport.totalLost')
             ->has('shrinkReport.totalLostPercent')
             ->has('shrinkReport.totalLabel')
+            ->has('shrinkReport.rows.0.setorDate')
+            ->has('shrinkReport.rows.0.receivedDate')
             ->has('shrinkReport.rows.0.shrinkPercent')
             ->has('shrinkReport.rows.0.tolerance')
             ->has('shrinkReport.rows.0.toleranceStatus')

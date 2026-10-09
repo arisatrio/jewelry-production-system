@@ -177,6 +177,7 @@ export type SpkShrinkReportRow = {
     no: number;
     process: string;
     setorDate: string;
+    receivedDate: string;
     startWeight: string | null;
     endWeight: string | null;
     shrink: string | null;

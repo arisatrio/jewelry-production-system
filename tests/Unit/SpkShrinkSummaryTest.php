@@ -42,6 +42,7 @@ test('spk shrink summary builds ordered rows for a complete production', functio
             ->and($report['rows'][0]['process'])->toBe('Cor')
             ->and($report['rows'][0]['endWeight'])->toBe('1.41')
             ->and($report['rows'][0]['setorDate'])->toBe('07-Aug-2024')
+            ->and($report['rows'][0]['receivedDate'])->toBe('—')
             ->and($report['rows'][0]['shrink'])->toBeNull()
             ->and($report['rows'][1]['process'])->toBe('Finishing / Handmade')
             ->and($report['rows'][1]['shrink'])->toBe('0.21')
@@ -50,12 +51,13 @@ test('spk shrink summary builds ordered rows for a complete production', functio
             ->and($report['rows'][1]['shrinkPercent'])->toBe('10.94')
             ->and($report['rows'][1]['tolerance'])->toBe('10.94')
             ->and($report['rows'][1]['toleranceStatus'])->toBe('OK')
-            ->and($report['rows'][1]['setorDate'])->toMatch('/^\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}$/')
+            ->and($report['rows'][1]['setorDate'])->toBe('12-Aug-2024 08:32')
+            ->and($report['rows'][1]['receivedDate'])->toBe('12-Aug-2024 14:00')
             ->and($report['rows'][3]['process'])->toBe('Pasang Batu')
             ->and($report['rows'][3]['shrink'])->toBe('0.16')
             ->and($report['rows'][3]['startWeight'])->toBe('1.14')
             ->and($report['rows'][3]['endWeight'])->toBe('1.07')
-            ->and($report['rows'][3])->toHaveKeys(['shrinkPercent', 'tolerance', 'toleranceStatus'])
+            ->and($report['rows'][3])->toHaveKeys(['shrinkPercent', 'tolerance', 'toleranceStatus', 'receivedDate'])
             ->and($report['planningWeight'])->toBe('2.80')
             ->and($report['startWeight'])->toBe('1.41')
             ->and($report['endWeight'])->toBe('2.23')
@@ -104,6 +106,7 @@ test('spk shrink summary adds a cor row with the total cast weight', function ()
                 'no' => 1,
                 'process' => 'Cor',
                 'setorDate' => '01-Sep-2026',
+                'receivedDate' => '—',
                 'startWeight' => null,
                 'endWeight' => '1.75',
                 'shrink' => null,

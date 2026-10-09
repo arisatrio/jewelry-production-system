@@ -21,6 +21,7 @@ class SpkShrinkSummary
      *         no: int,
      *         process: string,
      *         setorDate: string,
+     *         receivedDate: string,
      *         startWeight: string|null,
      *         endWeight: string|null,
      *         shrink: string|null,
@@ -71,6 +72,7 @@ class SpkShrinkSummary
                 'no' => $index + 1,
                 'process' => $row['process'],
                 'setorDate' => $row['setorDate'],
+                'receivedDate' => $row['receivedDate'],
                 'startWeight' => $this->formatNullableWeight($row['startWeight']),
                 'endWeight' => $this->formatNullableWeight($row['endWeight']),
                 'shrink' => $this->formatNullableWeight($row['shrinkValue']),
@@ -112,6 +114,7 @@ class SpkShrinkSummary
      * @return list<array{
      *     process: string,
      *     setorDate: string,
+     *     receivedDate: string,
      *     sortDate: string,
      *     startWeight: float|null,
      *     endWeight: float|null,
@@ -138,6 +141,8 @@ class SpkShrinkSummary
         }
 
         $hasTolerance = Schema::connection('third')->hasColumn($table, 'shrink_tolerance');
+        $hasReceivedColumn = Schema::connection('third')->hasColumn($table, 'received_craftsman_date');
+        $hasDateTo = Schema::connection('third')->hasColumn($table, 'date_to');
         $records = $query->get();
         $rows = [];
 
@@ -150,6 +155,7 @@ class SpkShrinkSummary
 
             $dateRaw = $record->{$source['date_column']} ?? null;
             $date = filled($dateRaw) ? Carbon::parse((string) $dateRaw) : null;
+            $receivedDate = $this->resolveReceivedDate($record, $hasReceivedColumn, $hasDateTo);
             [$startWeight, $endWeight] = $this->resolveRowWeights($record, $source['shrink_column']);
             $shrinkPercent = $this->resolveShrinkPercent(
                 $shrink,
@@ -165,6 +171,7 @@ class SpkShrinkSummary
             $rows[] = [
                 'process' => $source['label'],
                 'setorDate' => $date?->format('d-M-Y H:i') ?? '—',
+                'receivedDate' => $receivedDate?->format('d-M-Y H:i') ?? '—',
                 'sortDate' => $date?->format('Y-m-d H:i:s') ?? '9999-12-31',
                 'startWeight' => $startWeight,
                 'endWeight' => $endWeight,
@@ -188,6 +195,7 @@ class SpkShrinkSummary
      * @return list<array{
      *     process: string,
      *     setorDate: string,
+     *     receivedDate: string,
      *     sortDate: string,
      *     startWeight: float|null,
      *     endWeight: float|null,
@@ -212,6 +220,7 @@ class SpkShrinkSummary
             return [
                 'process' => 'Cor',
                 'setorDate' => $date?->format('d-M-Y') ?? '—',
+                'receivedDate' => '—',
                 'sortDate' => $date?->format('Y-m-d H:i:s') ?? '0000-01-01',
                 'startWeight' => null,
                 'endWeight' => $this->coranTotalWeight($record),
@@ -221,6 +230,30 @@ class SpkShrinkSummary
                 'toleranceStatus' => null,
             ];
         })->values()->all();
+    }
+
+    private function resolveReceivedDate(
+        object $record,
+        bool $hasReceivedColumn,
+        bool $hasDateTo,
+    ): ?Carbon {
+        if ($hasReceivedColumn) {
+            $receivedRaw = $record->received_craftsman_date ?? null;
+
+            if (filled($receivedRaw)) {
+                return Carbon::parse((string) $receivedRaw);
+            }
+        }
+
+        if ($hasDateTo) {
+            $dateToRaw = $record->date_to ?? null;
+
+            if (filled($dateToRaw)) {
+                return Carbon::parse((string) $dateToRaw);
+            }
+        }
+
+        return null;
     }
 
     private function coranTotalWeight(CoranSpk $record): ?float
