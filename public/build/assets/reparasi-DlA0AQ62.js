@@ -1,0 +1,1 @@
+import{i as e,r as t}from"./wayfinder-Bf_DXmfi.js";import n from"./spk-98is5APW.js";var r=t(),i=e();function a(e){let t=(0,r.c)(2),a;return t[0]===e?a=t[1]:(a=(0,i.jsx)(n,{...e}),t[0]=e,t[1]=a),a}a.layout={activeMenu:`Reparasi`,pageTitle:`Reparasi`};export{a as default};
