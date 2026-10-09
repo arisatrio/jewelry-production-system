@@ -3,11 +3,13 @@ export type PasangBatuStones = {
         batu: string;
         pcs: number | string | null;
         crt: number | string | null;
+        notes: string | null;
     }>;
     return: Array<{
         batu: string;
         pcs: number | string | null;
         crt: number | string | null;
+        notes: string | null;
     }>;
     diamonds: Array<{
         kode: string;
@@ -98,20 +100,22 @@ export function PasangBatuStoneTables({
             <div className="spkStoneBatchGrid">
                 <StoneBatchTable
                     title="Setting Batu"
-                    columns={['Batu', 'Pcs', 'Crt']}
+                    columns={['Batu', 'Pcs', 'Crt', 'Catatan']}
                     rows={stones.setting.map((row) => [
                         displayCell(row.batu),
                         displayCell(row.pcs),
                         displayCell(row.crt),
+                        displayCell(row.notes),
                     ])}
                 />
                 <StoneBatchTable
                     title="Retur Batu"
-                    columns={['Batu', 'Pcs', 'Crt']}
+                    columns={['Batu', 'Pcs', 'Crt', 'Catatan']}
                     rows={stones.return.map((row) => [
                         displayCell(row.batu),
                         displayCell(row.pcs),
                         displayCell(row.crt),
+                        displayCell(row.notes),
                     ])}
                 />
                 <StoneBatchTable

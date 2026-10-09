@@ -104,7 +104,16 @@ test('pasang batu store syncs setting and mounted stone details', function () {
             ->component('pasang-batu/show')
             ->has('diamondMountingItem.stones.setting', 1)
             ->has('diamondMountingItem.stones.mounted', 1)
+            ->where('diamondMountingItem.stones.setting.0.notes', 'Setting test')
             ->where('diamondMountingItem.stones.mounted.0.kode', 'B01')
+        );
+
+    $this->get(route('pasang-batu.edit', $document))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('pasang-batu/edit')
+            ->has('form.settingStones', 1)
+            ->where('form.settingStones.0.notes', 'Setting test')
         );
 
     // cleanup

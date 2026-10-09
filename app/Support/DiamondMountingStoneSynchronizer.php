@@ -148,8 +148,8 @@ class DiamondMountingStoneSynchronizer
 
     /**
      * @return array{
-     *     setting: list<array{batu: string, pcs: int|float|null, crt: float|null}>,
-     *     return: list<array{batu: string, pcs: int|float|null, crt: float|null}>,
+     *     setting: list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>,
+     *     return: list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>,
      *     diamonds: list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: float|null}>,
      *     mounted: list<array{kode: string, shape: string, pcs: int|float|null, crt: float|null, size: string}>
      * }
@@ -168,8 +168,8 @@ class DiamondMountingStoneSynchronizer
 
     /**
      * @return array{
-     *     setting: list<array{batu: string, pcs: int|float|null, crt: float|null}>,
-     *     return: list<array{batu: string, pcs: int|float|null, crt: float|null}>,
+     *     setting: list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>,
+     *     return: list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>,
      *     diamonds: list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: float|null}>,
      *     mounted: list<array{kode: string, shape: string, pcs: int|float|null, crt: float|null, size: string}>
      * }
@@ -309,7 +309,7 @@ class DiamondMountingStoneSynchronizer
 
     /**
      * @param  list<int>  $mountingIds
-     * @return array<int, list<array{batu: string, pcs: int|float|null, crt: float|null}>>
+     * @return array<int, list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>>
      */
     private function detailStoneLines(array $mountingIds, int $transtypeId): array
     {
@@ -339,7 +339,7 @@ class DiamondMountingStoneSynchronizer
 
         $lines = $query
             ->orderBy('t.row_id')
-            ->get(['t.ref_row_id', 't.pcs', 't.crt', 'm.name as stone_name']);
+            ->get(['t.ref_row_id', 't.pcs', 't.crt', 't.notes', 'm.name as stone_name']);
 
         $grouped = $empty;
 
@@ -350,10 +350,13 @@ class DiamondMountingStoneSynchronizer
                 continue;
             }
 
+            $notes = trim((string) ($line->notes ?? ''));
+
             $grouped[$mountingId][] = [
                 'batu' => filled($line->stone_name ?? null) ? (string) $line->stone_name : 'Batu',
                 'pcs' => $this->nullableNumeric($line->pcs),
                 'crt' => $this->nullableFloat($line->crt, 4),
+                'notes' => $notes !== '' ? $notes : null,
             ];
         }
 

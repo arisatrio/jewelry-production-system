@@ -281,6 +281,7 @@ function SettingStonePanel({
                         <th scope="col">Batu</th>
                         <th scope="col">Pcs</th>
                         <th scope="col">Crt</th>
+                        <th scope="col">Catatan</th>
                         <th scope="col" className="spkTableActionCol">
                             Aksi
                         </th>
@@ -289,7 +290,7 @@ function SettingStonePanel({
                 <tbody>
                     {lines.length === 0 ? (
                         <tr>
-                            <td colSpan={4} className="spkCoranBreakdownEmpty">
+                            <td colSpan={5} className="spkCoranBreakdownEmpty">
                                 Tidak ada data
                             </td>
                         </tr>
@@ -301,6 +302,8 @@ function SettingStonePanel({
                                 errors[`${errorPrefix}.${index}.pcs`];
                             const crtError =
                                 errors[`${errorPrefix}.${index}.crt`];
+                            const notesError =
+                                errors[`${errorPrefix}.${index}.notes`];
 
                             return (
                                 <tr key={line.key} className="spkCoranLineRow">
@@ -390,6 +393,37 @@ function SettingStonePanel({
                                             {crtError ? (
                                                 <Text className="spkFioriError">
                                                     {crtError}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div className="spkFioriFieldStack">
+                                            <Input
+                                                accessibleName={`${title} catatan`}
+                                                value={line.notes}
+                                                valueState={fieldState(
+                                                    notesError,
+                                                )}
+                                                placeholder="Catatan"
+                                                onInput={(event) =>
+                                                    onChange(
+                                                        updateSettingLine(
+                                                            lines,
+                                                            line.key,
+                                                            {
+                                                                notes:
+                                                                    event.target
+                                                                        .value ??
+                                                                    '',
+                                                            },
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                            {notesError ? (
+                                                <Text className="spkFioriError">
+                                                    {notesError}
                                                 </Text>
                                             ) : null}
                                         </div>
