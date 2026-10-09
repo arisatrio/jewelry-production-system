@@ -148,10 +148,10 @@ class DiamondMountingStoneSynchronizer
 
     /**
      * @return array{
-     *     setting: list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>,
-     *     return: list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>,
-     *     diamonds: list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: float|null}>,
-     *     mounted: list<array{kode: string, shape: string, pcs: int|float|null, crt: float|null, size: string}>
+     *     setting: list<array{batu: string, pcs: int|float|null, crt: string|null, notes: string|null}>,
+     *     return: list<array{batu: string, pcs: int|float|null, crt: string|null, notes: string|null}>,
+     *     diamonds: list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: string|null}>,
+     *     mounted: list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>
      * }
      */
     public function detailPayloadFor(DiamondMounting $document): array
@@ -168,10 +168,10 @@ class DiamondMountingStoneSynchronizer
 
     /**
      * @return array{
-     *     setting: list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>,
-     *     return: list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>,
-     *     diamonds: list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: float|null}>,
-     *     mounted: list<array{kode: string, shape: string, pcs: int|float|null, crt: float|null, size: string}>
+     *     setting: list<array{batu: string, pcs: int|float|null, crt: string|null, notes: string|null}>,
+     *     return: list<array{batu: string, pcs: int|float|null, crt: string|null, notes: string|null}>,
+     *     diamonds: list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: string|null}>,
+     *     mounted: list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>
      * }
      */
     public function emptyDetail(): array
@@ -246,7 +246,7 @@ class DiamondMountingStoneSynchronizer
                 return [
                     'stoneId' => $stoneId,
                     'pcs' => $this->formatNumber($row->pcs, 0),
-                    'crt' => $this->formatNumber($row->crt, 4),
+                    'crt' => $this->formatNumber($row->crt, 3),
                     'notes' => trim((string) ($row->notes ?? '')),
                 ];
             })
@@ -300,7 +300,7 @@ class DiamondMountingStoneSynchronizer
                     ? (int) $row->shape_id
                     : null,
                 'pcs' => $this->formatNumber($row->pcs, 0),
-                'crt' => $this->formatNumber($row->crt, 4),
+                'crt' => $this->formatNumber($row->crt, 3),
                 'size' => trim((string) ($row->size ?? '')),
             ])
             ->values()
@@ -309,7 +309,7 @@ class DiamondMountingStoneSynchronizer
 
     /**
      * @param  list<int>  $mountingIds
-     * @return array<int, list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>>
+     * @return array<int, list<array{batu: string, pcs: int|float|null, crt: string|null, notes: string|null}>>
      */
     private function detailStoneLines(array $mountingIds, int $transtypeId): array
     {
@@ -355,7 +355,7 @@ class DiamondMountingStoneSynchronizer
             $grouped[$mountingId][] = [
                 'batu' => filled($line->stone_name ?? null) ? (string) $line->stone_name : 'Batu',
                 'pcs' => $this->nullableNumeric($line->pcs),
-                'crt' => $this->nullableFloat($line->crt, 4),
+                'crt' => $this->formatCrt($line->crt),
                 'notes' => $notes !== '' ? $notes : null,
             ];
         }
@@ -365,7 +365,7 @@ class DiamondMountingStoneSynchronizer
 
     /**
      * @param  list<int>  $mountingIds
-     * @return array<int, list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: float|null}>>
+     * @return array<int, list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: string|null}>>
      */
     private function detailDiamondLines(array $mountingIds): array
     {
@@ -414,7 +414,7 @@ class DiamondMountingStoneSynchronizer
                 'diamond' => filled($line->diamond_type ?? null) ? (string) $line->diamond_type : '—',
                 'bentuk' => filled($line->shape_name ?? null) ? (string) $line->shape_name : '—',
                 'sertifikat' => filled($line->certificate ?? null) ? (string) $line->certificate : '—',
-                'crt' => $this->nullableFloat($line->crt, 4),
+                'crt' => $this->formatCrt($line->crt),
             ];
         }
 
@@ -423,7 +423,7 @@ class DiamondMountingStoneSynchronizer
 
     /**
      * @param  list<int>  $mountingIds
-     * @return array<int, list<array{kode: string, shape: string, pcs: int|float|null, crt: float|null, size: string}>>
+     * @return array<int, list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>>
      */
     private function detailMountedLines(array $mountingIds): array
     {
@@ -471,7 +471,7 @@ class DiamondMountingStoneSynchronizer
                 'kode' => filled($line->diamond_code ?? null) ? (string) $line->diamond_code : '—',
                 'shape' => filled($line->shape_name ?? null) ? (string) $line->shape_name : '—',
                 'pcs' => $this->nullableNumeric($line->pcs),
-                'crt' => $this->nullableFloat($line->crt, 4),
+                'crt' => $this->formatCrt($line->crt),
                 'size' => filled($line->size ?? null) ? (string) $line->size : '—',
             ];
         }
@@ -530,7 +530,7 @@ class DiamondMountingStoneSynchronizer
                 'stone_id' => $stoneId,
                 'spk_id' => $spkId,
                 'pcs' => $pcs,
-                'crt' => $crt !== null ? number_format($crt, 4, '.', '') : null,
+                'crt' => $crt !== null ? number_format($crt, 3, '.', '') : null,
                 'txt' => null,
                 'notes' => $notes !== '' ? $notes : null,
                 'is_used' => 0,
@@ -607,7 +607,7 @@ class DiamondMountingStoneSynchronizer
                 'diamond_code' => $diamondCode !== '' ? $diamondCode : null,
                 'shape_id' => $shapeId,
                 'pcs' => $pcs,
-                'crt' => $crt !== null ? number_format($crt, 4, '.', '') : null,
+                'crt' => $crt !== null ? number_format($crt, 3, '.', '') : null,
                 'size' => $size !== '' ? $size : null,
                 'is_deleted' => 0,
                 'created_date' => $now,
@@ -635,6 +635,15 @@ class DiamondMountingStoneSynchronizer
         return number_format($number, $precision, '.', '');
     }
 
+    private function formatCrt(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return number_format((float) $value, 3, '.', '');
+    }
+
     private function nullableNumeric(mixed $value): int|float|null
     {
         if ($value === null || $value === '') {
@@ -644,15 +653,6 @@ class DiamondMountingStoneSynchronizer
         $string = (string) $value;
 
         return str_contains($string, '.') ? (float) $value : (int) $value;
-    }
-
-    private function nullableFloat(mixed $value, int $precision): ?float
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        return round((float) $value, $precision);
     }
 
     private function toFloat(mixed $value): ?float

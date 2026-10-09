@@ -3,7 +3,10 @@ import { Link } from '@inertiajs/react';
 import { ArrowLeft, Check } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CoranMaterialBreakdownTables } from '@/components/coran/coran-material-breakdown';
-import { displayStoneWithNotes } from '@/components/pasang-batu/pasang-batu-stone-tables';
+import {
+    displayCrt,
+    displayStoneWithNotes,
+} from '@/components/pasang-batu/pasang-batu-stone-tables';
 import {
     formatProcessCellValue,
     hasProcessValue,
@@ -221,9 +224,11 @@ function DiamondMountingBatch({
                         row.pcs === null || row.pcs === undefined
                             ? '—'
                             : String(row.pcs),
-                        row.crt === null || row.crt === undefined
-                            ? '—'
-                            : String(row.crt),
+                        displayCrt(
+                            row.crt === null || row.crt === undefined
+                                ? null
+                                : String(row.crt),
+                        ),
                     ])}
                 />
                 <StoneBatchTable
@@ -241,9 +246,11 @@ function DiamondMountingBatch({
                         row.pcs === null || row.pcs === undefined
                             ? '—'
                             : String(row.pcs),
-                        row.crt === null || row.crt === undefined
-                            ? '—'
-                            : String(row.crt),
+                        displayCrt(
+                            row.crt === null || row.crt === undefined
+                                ? null
+                                : String(row.crt),
+                        ),
                     ])}
                 />
                 <StoneBatchTable
@@ -254,9 +261,11 @@ function DiamondMountingBatch({
                         String(row.diamond ?? '—'),
                         String(row.bentuk ?? '—'),
                         String(row.sertifikat ?? '—'),
-                        row.crt === null || row.crt === undefined
-                            ? '—'
-                            : String(row.crt),
+                        displayCrt(
+                            row.crt === null || row.crt === undefined
+                                ? null
+                                : String(row.crt),
+                        ),
                     ])}
                 />
                 <StoneBatchTable
@@ -268,9 +277,11 @@ function DiamondMountingBatch({
                         row.pcs === null || row.pcs === undefined
                             ? '—'
                             : String(row.pcs),
-                        row.crt === null || row.crt === undefined
-                            ? '—'
-                            : String(row.crt),
+                        displayCrt(
+                            row.crt === null || row.crt === undefined
+                                ? null
+                                : String(row.crt),
+                        ),
                         String(row.size ?? '—'),
                     ])}
                 />

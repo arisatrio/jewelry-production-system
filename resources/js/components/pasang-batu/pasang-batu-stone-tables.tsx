@@ -39,6 +39,26 @@ function displayCell(value: string | number | null | undefined): string {
     return text !== '' ? text : '—';
 }
 
+export function displayCrt(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+        return '—';
+    }
+
+    const text = String(value).trim().replace(',', '.');
+
+    if (text === '') {
+        return '—';
+    }
+
+    const number = Number(text);
+
+    if (!Number.isFinite(number)) {
+        return displayCell(value);
+    }
+
+    return number.toFixed(3);
+}
+
 export function displayStoneWithNotes(
     batu: string | null | undefined,
     notes: string | null | undefined,
@@ -145,7 +165,7 @@ export function PasangBatuStoneTables({
                     rows={stones.setting.map((row) => [
                         displayStoneWithNotes(row.batu, row.notes),
                         displayCell(row.pcs),
-                        displayCell(row.crt),
+                        displayCrt(row.crt),
                     ])}
                 />
                 <StoneBatchTable
@@ -154,7 +174,7 @@ export function PasangBatuStoneTables({
                     rows={stones.return.map((row) => [
                         displayStoneWithNotes(row.batu, row.notes),
                         displayCell(row.pcs),
-                        displayCell(row.crt),
+                        displayCrt(row.crt),
                     ])}
                 />
                 <StoneBatchTable
@@ -165,7 +185,7 @@ export function PasangBatuStoneTables({
                         displayCell(row.diamond),
                         displayCell(row.bentuk),
                         displayCell(row.sertifikat),
-                        displayCell(row.crt),
+                        displayCrt(row.crt),
                     ])}
                 />
                 <StoneBatchTable
@@ -175,7 +195,7 @@ export function PasangBatuStoneTables({
                         displayCell(row.kode),
                         displayCell(row.shape),
                         displayCell(row.pcs),
-                        displayCell(row.crt),
+                        displayCrt(row.crt),
                         displayCell(row.size),
                     ])}
                 />

@@ -1085,7 +1085,7 @@ class SpkProcessMapper
 
     /**
      * @param  list<int>  $mountingIds
-     * @return array<int, list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>>
+     * @return array<int, list<array{batu: string, pcs: int|float|null, crt: string|null, notes: string|null}>>
      */
     private function resolveMountingStoneLines(array $mountingIds, int $transtypeId): array
     {
@@ -1162,7 +1162,7 @@ class SpkProcessMapper
                     ? (str_contains((string) $line->pcs, '.') ? (float) $line->pcs : (int) $line->pcs)
                     : null,
                 'crt' => $line->crt !== null && $line->crt !== ''
-                    ? round((float) $line->crt, 4)
+                    ? number_format((float) $line->crt, 3, '.', '')
                     : null,
                 'notes' => $notes !== '' ? $notes : null,
             ];
@@ -1173,7 +1173,7 @@ class SpkProcessMapper
 
     /**
      * @param  list<int>  $mountingIds
-     * @return array<int, list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: float|null}>>
+     * @return array<int, list<array{kode: string, diamond: string, bentuk: string, sertifikat: string, crt: string|null}>>
      */
     private function resolveMountingDiamonds(array $mountingIds): array
     {
@@ -1230,7 +1230,7 @@ class SpkProcessMapper
                 'bentuk' => filled($line->shape_name ?? null) ? (string) $line->shape_name : '—',
                 'sertifikat' => filled($line->certificate ?? null) ? (string) $line->certificate : '—',
                 'crt' => $line->crt !== null && $line->crt !== ''
-                    ? round((float) $line->crt, 4)
+                    ? number_format((float) $line->crt, 3, '.', '')
                     : null,
             ];
         }
@@ -1240,7 +1240,7 @@ class SpkProcessMapper
 
     /**
      * @param  list<int>  $mountingIds
-     * @return array<int, list<array{kode: string, shape: string, pcs: int|float|null, crt: float|null, size: string}>>
+     * @return array<int, list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>>
      */
     private function resolveMountedStones(array $mountingIds): array
     {
@@ -1301,7 +1301,7 @@ class SpkProcessMapper
                     ? (str_contains((string) $line->pcs, '.') ? (float) $line->pcs : (int) $line->pcs)
                     : null,
                 'crt' => $line->crt !== null && $line->crt !== ''
-                    ? round((float) $line->crt, 4)
+                    ? number_format((float) $line->crt, 3, '.', '')
                     : null,
                 'size' => filled($line->size ?? null) ? (string) $line->size : '—',
             ];
