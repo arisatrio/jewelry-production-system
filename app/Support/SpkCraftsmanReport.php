@@ -104,6 +104,7 @@ class SpkCraftsmanReport
             $query->where('is_deleted', 0);
         }
 
+        $hasSendColumn = Schema::connection('third')->hasColumn($table, 'send_craftsman_date');
         $hasReceivedColumn = Schema::connection('third')->hasColumn($table, 'received_craftsman_date');
         $hasDateFrom = Schema::connection('third')->hasColumn($table, 'date_from');
         $hasDateTo = Schema::connection('third')->hasColumn($table, 'date_to');
@@ -119,7 +120,9 @@ class SpkCraftsmanReport
                 continue;
             }
 
-            $sentAt = $this->nullableDate($record->{$source['date_column']} ?? null);
+            $sentAt = $hasSendColumn
+                ? $this->nullableDate($record->send_craftsman_date ?? null)
+                : null;
             $receivedAt = $hasReceivedColumn
                 ? $this->nullableDate($record->received_craftsman_date ?? null)
                 : null;
