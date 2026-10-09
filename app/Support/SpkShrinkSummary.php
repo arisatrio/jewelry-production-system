@@ -31,6 +31,7 @@ class SpkShrinkSummary
      *     planningWeight: string|null,
      *     startWeight: string|null,
      *     endWeight: string|null,
+     *     finishedGoodsWithStone: string|null,
      *     goldIssued: string|null,
      *     goldReturned: string|null,
      *     goldUsed: string|null,
@@ -82,6 +83,7 @@ class SpkShrinkSummary
         $planningWeight = $this->nullableFloat($production->gold_weight);
         $startWeight = $this->resolveCoranStartWeight($spkId);
         $endWeight = $this->nullableFloat($production->last_weight);
+        $finishedGoodsWithStone = $this->resolveFinishedGoodsWithStone($spkId, $endWeight);
         $materialGold = $this->goldReport->totalsForSpk($spkId);
         $totalLost = $planningWeight !== null && $endWeight !== null
             ? round($planningWeight - $endWeight, 2)
@@ -92,6 +94,7 @@ class SpkShrinkSummary
             'planningWeight' => $this->formatNullableWeight($planningWeight),
             'startWeight' => $this->formatNullableWeight($startWeight),
             'endWeight' => $this->formatNullableWeight($endWeight),
+            'finishedGoodsWithStone' => $this->formatNullableWeight($finishedGoodsWithStone),
             'goldIssued' => $this->formatNullableWeight($materialGold['issued']),
             'goldReturned' => $this->formatNullableWeight($materialGold['returned']),
             'goldUsed' => $this->formatNullableWeight($materialGold['used']),
@@ -245,7 +248,7 @@ class SpkShrinkSummary
     {
         if ($shrinkColumn === 'computed_mounting') {
             return [
-                $this->nullableFloat($record->weight_frame ?? null),
+                $this->nullableFloat($record->total_weigth_frame_diamond ?? null),
                 $this->nullableFloat($record->weight_finish_goods ?? null),
             ];
         }
@@ -298,6 +301,50 @@ class SpkShrinkSummary
         $weight = $query->value('weight');
 
         return $this->nullableFloat($weight);
+    }
+
+    private function resolveFinishedGoodsWithStone(int $spkId, ?float $endWeight): ?float
+    {
+        if ($endWeight === null) {
+            return null;
+        }
+
+        $stoneWeight = $this->resolveDiamondMountingStoneWeight($spkId);
+
+        if ($stoneWeight === null) {
+            return null;
+        }
+
+        return round($endWeight + $stoneWeight, 2);
+    }
+
+    private function resolveDiamondMountingStoneWeight(int $spkId): ?float
+    {
+        if (
+            ! Schema::connection('third')->hasTable('diamondmounting')
+            || ! Schema::connection('third')->hasColumn('diamondmounting', 'weight_diamond')
+        ) {
+            return null;
+        }
+
+        $query = DB::connection('third')
+            ->table('diamondmounting')
+            ->where('spk_id', $spkId)
+            ->whereNotNull('weight_diamond');
+
+        if (Schema::connection('third')->hasColumn('diamondmounting', 'is_deleted')) {
+            $query->where('is_deleted', 0);
+        }
+
+        $total = $query->sum('weight_diamond');
+
+        if ($total === null || $total === '') {
+            return null;
+        }
+
+        $stoneWeight = round((float) $total, 3);
+
+        return abs($stoneWeight) < 0.0005 ? null : $stoneWeight;
     }
 
     private function resolveShrink(object $record, string $shrinkColumn): ?float

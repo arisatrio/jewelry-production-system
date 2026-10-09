@@ -2553,7 +2553,7 @@
 
 .spkShrinkSummaryGrid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 0.55rem;
 }
 
@@ -2572,7 +2572,7 @@
 .spkShrinkSummaryItem.is-shrink,
 .spkShrinkSummaryItem.is-lost,
 .spkShrinkSummaryItem.is-diff {
-    grid-column: span 3;
+    grid-column: span 4;
     border-color: #fecaca;
     background: #fef2f2;
 }

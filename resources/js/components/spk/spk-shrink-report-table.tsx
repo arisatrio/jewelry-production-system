@@ -49,6 +49,12 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
             percent: null,
         },
         {
+            key: 'finished-stone',
+            label: 'Berat Barang Jadi + Batu',
+            value: report.finishedGoodsWithStone,
+            percent: null,
+        },
+        {
             key: 'shrink',
             label: 'Total Susut Proses',
             value: report.totalShrink,

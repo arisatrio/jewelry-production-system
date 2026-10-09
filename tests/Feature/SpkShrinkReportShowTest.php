@@ -19,6 +19,7 @@ test('spk show page includes shrink report for laporan', function () {
             ->has('shrinkReport.planningWeight')
             ->has('shrinkReport.startWeight')
             ->has('shrinkReport.endWeight')
+            ->has('shrinkReport.finishedGoodsWithStone')
             ->has('shrinkReport.goldIssued')
             ->has('shrinkReport.goldReturned')
             ->has('shrinkReport.goldUsed')

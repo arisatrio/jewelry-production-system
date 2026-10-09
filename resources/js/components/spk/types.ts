@@ -198,6 +198,7 @@ export type SpkShrinkReport = {
     planningWeight: string | null;
     startWeight: string | null;
     endWeight: string | null;
+    finishedGoodsWithStone: string | null;
     goldIssued: string | null;
     goldReturned: string | null;
     goldUsed: string | null;
