@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 export type PasangBatuStones = {
     setting: Array<{
         batu: string;
@@ -37,6 +39,31 @@ function displayCell(value: string | number | null | undefined): string {
     return text !== '' ? text : '—';
 }
 
+export function displayStoneWithNotes(
+    batu: string | null | undefined,
+    notes: string | null | undefined,
+): ReactNode {
+    const name = displayCell(batu);
+    const note =
+        notes === null || notes === undefined ? '' : String(notes).trim();
+
+    if (note === '') {
+        return name;
+    }
+
+    const italicNote = <em className="spkStoneNote">{note}</em>;
+
+    if (name === '—') {
+        return <>({italicNote})</>;
+    }
+
+    return (
+        <>
+            {name} ({italicNote})
+        </>
+    );
+}
+
 function StoneBatchTable({
     title,
     columns,
@@ -44,12 +71,26 @@ function StoneBatchTable({
 }: {
     title: string;
     columns: string[];
-    rows: string[][];
+    rows: ReactNode[][];
 }) {
+    const isBatuPcsCrt =
+        columns.length === 3 &&
+        columns[0] === 'Batu' &&
+        columns[1] === 'Pcs' &&
+        columns[2] === 'Crt';
+
     return (
         <div className="spkStoneBatchPanel">
             <div className="spkCoranDetailLabel">{title}</div>
-            <table className="spkCoranMaterialTable">
+            <table
+                className={[
+                    'spkCoranMaterialTable',
+                    'spkStoneBatchTable',
+                    isBatuPcsCrt ? 'is-batu-pcs-crt' : '',
+                ]
+                    .filter(Boolean)
+                    .join(' ')}
+            >
                 <thead>
                     <tr>
                         {columns.map((column) => (
@@ -100,22 +141,20 @@ export function PasangBatuStoneTables({
             <div className="spkStoneBatchGrid">
                 <StoneBatchTable
                     title="Setting Batu"
-                    columns={['Batu', 'Pcs', 'Crt', 'Catatan']}
+                    columns={['Batu', 'Pcs', 'Crt']}
                     rows={stones.setting.map((row) => [
-                        displayCell(row.batu),
+                        displayStoneWithNotes(row.batu, row.notes),
                         displayCell(row.pcs),
                         displayCell(row.crt),
-                        displayCell(row.notes),
                     ])}
                 />
                 <StoneBatchTable
                     title="Retur Batu"
-                    columns={['Batu', 'Pcs', 'Crt', 'Catatan']}
+                    columns={['Batu', 'Pcs', 'Crt']}
                     rows={stones.return.map((row) => [
-                        displayCell(row.batu),
+                        displayStoneWithNotes(row.batu, row.notes),
                         displayCell(row.pcs),
                         displayCell(row.crt),
-                        displayCell(row.notes),
                     ])}
                 />
                 <StoneBatchTable

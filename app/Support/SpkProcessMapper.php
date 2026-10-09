@@ -1085,7 +1085,7 @@ class SpkProcessMapper
 
     /**
      * @param  list<int>  $mountingIds
-     * @return array<int, list<array{batu: string, pcs: int|float|null, crt: float|null}>>
+     * @return array<int, list<array{batu: string, pcs: int|float|null, crt: float|null, notes: string|null}>>
      */
     private function resolveMountingStoneLines(array $mountingIds, int $transtypeId): array
     {
@@ -1123,6 +1123,7 @@ class SpkProcessMapper
             't.ref_row_id',
             't.pcs',
             't.crt',
+            't.notes',
             'm.name as stone_name',
             'm.parcel',
             'm.stone_size',
@@ -1153,6 +1154,8 @@ class SpkProcessMapper
                     filled($line->stone_size ?? null) ? ((string) $line->stone_size).' MM' : null,
                 ])));
 
+            $notes = trim((string) ($line->notes ?? ''));
+
             $grouped[$mountingId][] = [
                 'batu' => $batu !== '' ? $batu : 'Batu',
                 'pcs' => $line->pcs !== null && $line->pcs !== ''
@@ -1161,6 +1164,7 @@ class SpkProcessMapper
                 'crt' => $line->crt !== null && $line->crt !== ''
                     ? round((float) $line->crt, 4)
                     : null,
+                'notes' => $notes !== '' ? $notes : null,
             ];
         }
 

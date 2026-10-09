@@ -3456,6 +3456,32 @@
     min-width: 0;
 }
 
+.spkStoneBatchTable.is-batu-pcs-crt th:nth-child(1),
+.spkStoneBatchTable.is-batu-pcs-crt td:nth-child(1) {
+    width: auto;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    padding-left: 0.65rem;
+}
+
+.spkStoneNote {
+    font-style: italic;
+}
+
+.spkStoneBatchTable.is-batu-pcs-crt th:nth-child(2),
+.spkStoneBatchTable.is-batu-pcs-crt td:nth-child(2) {
+    width: 3.25rem;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.spkStoneBatchTable.is-batu-pcs-crt th:nth-child(3),
+.spkStoneBatchTable.is-batu-pcs-crt td:nth-child(3) {
+    width: 4.25rem;
+}
+
 @media (max-width: 640px) {
     .spkStoneBatchGrid {
         grid-template-columns: 1fr;

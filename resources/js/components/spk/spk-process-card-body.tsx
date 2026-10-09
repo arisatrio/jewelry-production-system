@@ -1,7 +1,9 @@
 import { formatGram } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 import { ArrowLeft, Check } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { CoranMaterialBreakdownTables } from '@/components/coran/coran-material-breakdown';
+import { displayStoneWithNotes } from '@/components/pasang-batu/pasang-batu-stone-tables';
 import {
     formatProcessCellValue,
     hasProcessValue,
@@ -208,7 +210,14 @@ function DiamondMountingBatch({
                     title="Setting Batu"
                     columns={['Batu', 'Pcs', 'Crt']}
                     rows={setting.map((row) => [
-                        String(row.batu ?? '—'),
+                        displayStoneWithNotes(
+                            row.batu === null || row.batu === undefined
+                                ? null
+                                : String(row.batu),
+                            row.notes === null || row.notes === undefined
+                                ? null
+                                : String(row.notes),
+                        ),
                         row.pcs === null || row.pcs === undefined
                             ? '—'
                             : String(row.pcs),
@@ -221,7 +230,14 @@ function DiamondMountingBatch({
                     title="Retur Batu"
                     columns={['Batu', 'Pcs', 'Crt']}
                     rows={stoneReturn.map((row) => [
-                        String(row.batu ?? '—'),
+                        displayStoneWithNotes(
+                            row.batu === null || row.batu === undefined
+                                ? null
+                                : String(row.batu),
+                            row.notes === null || row.notes === undefined
+                                ? null
+                                : String(row.notes),
+                        ),
                         row.pcs === null || row.pcs === undefined
                             ? '—'
                             : String(row.pcs),
@@ -270,12 +286,26 @@ function StoneBatchTable({
 }: {
     title: string;
     columns: string[];
-    rows: string[][];
+    rows: ReactNode[][];
 }) {
+    const isBatuPcsCrt =
+        columns.length === 3 &&
+        columns[0] === 'Batu' &&
+        columns[1] === 'Pcs' &&
+        columns[2] === 'Crt';
+
     return (
         <div className="spkStoneBatchPanel">
             <div className="spkCoranDetailLabel">{title}</div>
-            <table className="spkCoranMaterialTable">
+            <table
+                className={[
+                    'spkCoranMaterialTable',
+                    'spkStoneBatchTable',
+                    isBatuPcsCrt ? 'is-batu-pcs-crt' : '',
+                ]
+                    .filter(Boolean)
+                    .join(' ')}
+            >
                 <thead>
                     <tr>
                         {columns.map((column) => (
