@@ -20,19 +20,53 @@ test('spk service generates yearly sequential number', function () {
     $prefix = "{$year}/PRD/";
 
     $latest = Production::query()
-        ->where('spk_no', 'like', $prefix.'%')
+        ->whereRaw('spk_no REGEXP ?', ["^{$year}/PRD/[0-9]{5}$"])
         ->orderByDesc('spk_no')
         ->value('spk_no');
 
     $expectedNext = 1;
 
-    if (is_string($latest) && preg_match('/\/(\d+)$/', $latest, $matches) === 1) {
+    if (is_string($latest) && preg_match('/\/(\d{5})$/', $latest, $matches) === 1) {
         $expectedNext = (int) $matches[1] + 1;
     }
 
     $number = $service->generateNumber(Carbon::parse("{$year}-06-01"));
 
     expect($number)->toBe(sprintf('%s%05d', $prefix, $expectedNext));
+});
+
+test('spk service ignores alphanumeric spk numbers when generating the next sequence', function () {
+    $service = app(SpkService::class);
+    $year = now()->format('Y');
+    $prefix = "{$year}/PRD/";
+
+    $noise = Production::factory()->create([
+        'spk_no' => $prefix.'ZZZZZ',
+        'spk_type' => 'Stock',
+    ]);
+
+    $latestNumeric = Production::query()
+        ->whereRaw('spk_no REGEXP ?', ["^{$year}/PRD/[0-9]{5}$"])
+        ->orderByDesc('spk_no')
+        ->value('spk_no');
+
+    $expectedNext = 1;
+
+    if (is_string($latestNumeric) && preg_match('/\/(\d{5})$/', $latestNumeric, $matches) === 1) {
+        $expectedNext = (int) $matches[1] + 1;
+    }
+
+    try {
+        $number = $service->generateNumber(Carbon::parse("{$year}-06-01"));
+
+        expect($number)->toBe(sprintf('%s%05d', $prefix, $expectedNext));
+
+        if (is_string($latestNumeric)) {
+            expect($number)->not->toBe($prefix.'00001');
+        }
+    } finally {
+        $noise->delete();
+    }
 });
 
 test('spk service creates stock header with empty status', function () {

@@ -1605,6 +1605,8 @@ export default function SpkIndex({
                                             row.orderReference?.trim() ?? '';
                                         const requestStockNo =
                                             row.requestStockNo?.trim() ?? '';
+                                        const requestStockDrkNo =
+                                            row.requestStockDrkNo?.trim() ?? '';
                                         const customer =
                                             row.customer?.trim() ?? '';
                                         const orderInfo =
@@ -1612,9 +1614,11 @@ export default function SpkIndex({
                                                 ? reference
                                                 : requestStockNo !== ''
                                                   ? requestStockNo
-                                                  : customer !== '-'
-                                                    ? customer
-                                                    : '';
+                                                  : requestStockDrkNo !== ''
+                                                    ? requestStockDrkNo
+                                                    : customer !== '-'
+                                                      ? customer
+                                                      : '';
                                         const targetHint =
                                             row.targetDaysLeft !== null &&
                                             isListRowIncomplete(row.status)

@@ -71,6 +71,14 @@ type StoneRow = {
 
 type SpkType = 'Pesanan' | 'Exchange' | 'Refund' | 'Reparasi' | 'Stock';
 
+function spkTypeDisplayLabel(type: string | null | undefined): string {
+    if (type === 'Stock') {
+        return 'Stock (Permintaan Direksi)';
+    }
+
+    return type?.trim() || '';
+}
+
 type RequestOrderOption = {
     rowId: number;
     docNo: string;
@@ -135,6 +143,7 @@ type ProductionForm = {
     spkType: string;
     requestOrderNo: string | null;
     requestStockNo?: string | null;
+    requestStockDrkNo?: string | null;
     requestOrderLabel?: string | null;
     customerName: string | null;
     salesName: string | null;
@@ -1379,7 +1388,9 @@ export default function SpkFormPage({
                                                                 type
                                                             }
                                                         >
-                                                            {type}
+                                                            {spkTypeDisplayLabel(
+                                                                type,
+                                                            )}
                                                         </Option>
                                                     ),
                                                 )}
@@ -1388,8 +1399,10 @@ export default function SpkFormPage({
                                             <Input
                                                 value={
                                                     production.requestStockNo
-                                                        ? 'Stock'
-                                                        : production.spkType
+                                                        ? 'Stock (Permintaan Toko)'
+                                                        : spkTypeDisplayLabel(
+                                                              production.spkType,
+                                                          )
                                                 }
                                                 readonly
                                                 accessibleName="Tipe Produksi"
@@ -1721,6 +1734,24 @@ export default function SpkFormPage({
                                                 }
                                                 readonly
                                                 accessibleName="Request Stok No"
+                                            />
+                                        </FormItem>
+                                    ) : null}
+
+                                    {production.requestStockDrkNo ? (
+                                        <FormItem
+                                            labelContent={
+                                                <Label showColon>
+                                                    Request Stok Direksi No
+                                                </Label>
+                                            }
+                                        >
+                                            <Input
+                                                value={
+                                                    production.requestStockDrkNo
+                                                }
+                                                readonly
+                                                accessibleName="Request Stok Direksi No"
                                             />
                                         </FormItem>
                                     ) : null}

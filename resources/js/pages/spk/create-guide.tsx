@@ -123,13 +123,13 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                             </Label>
                                         }
                                     >
-                                        <GuideField hint="Wajib saat create: Stock, Pesanan, Exchange, Refund, atau Reparasi. Saat edit, tipe terkunci.">
+                                        <GuideField hint="Wajib saat create: Stock (Permintaan Direksi), Pesanan, Exchange, Refund, atau Reparasi. Nilai yang disimpan untuk Stock tetap 'Stock'. Saat edit, tipe terkunci.">
                                             <Select
                                                 accessibleName="Tipe Produksi"
                                                 disabled
                                             >
                                                 <Option value="Stock" selected>
-                                                    Stock
+                                                    Stock (Permintaan Direksi)
                                                 </Option>
                                                 <Option value="Pesanan">
                                                     Pesanan

@@ -33,6 +33,7 @@ export type SpkIndexRow = SpkRow & {
     rowId: number;
     orderReference: string | null;
     requestStockNo?: string | null;
+    requestStockDrkNo?: string | null;
     paymentStatus: 'Lunas' | 'Belum Lunas' | null;
     orderType: string | null;
     skuCode: string | null;
@@ -65,6 +66,7 @@ export type SpkWorkflowStatus = {
 export type SpkDetail = SpkRow & {
     requestOrderNo: string;
     requestStockNo?: string | null;
+    requestStockDrkNo?: string | null;
     requestOrderLabel?: string;
     salesName?: string | null;
     pesananHeading?: string;

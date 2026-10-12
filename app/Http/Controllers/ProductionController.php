@@ -222,6 +222,7 @@ class ProductionController extends Controller
                         ->orWhere('spk_type', 'like', "%{$search}%")
                         ->orWhere('request_order_no', 'like', "%{$search}%")
                         ->orWhere('request_stock_no', 'like', "%{$search}%")
+                        ->orWhere('request_stock_drk_no', 'like', "%{$search}%")
                         ->orWhere('customer_name', 'like', "%{$search}%")
                         ->orWhere('item_name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%")
@@ -637,6 +638,7 @@ class ProductionController extends Controller
                     $query->where('spk_no', 'like', "%{$search}%")
                         ->orWhere('request_order_no', 'like', "%{$search}%")
                         ->orWhere('request_stock_no', 'like', "%{$search}%")
+                        ->orWhere('request_stock_drk_no', 'like', "%{$search}%")
                         ->orWhere('customer_name', 'like', "%{$search}%")
                         ->orWhere('item_name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
@@ -1438,6 +1440,7 @@ class ProductionController extends Controller
                     ->orWhere('spk_type', 'like', $like)
                     ->orWhere('request_order_no', 'like', $like)
                     ->orWhere('request_stock_no', 'like', $like)
+                    ->orWhere('request_stock_drk_no', 'like', $like)
                     ->orWhere('customer_name', 'like', $like)
                     ->orWhere('item_name', 'like', $like)
                     ->orWhere('description', 'like', $like)
@@ -2190,6 +2193,9 @@ class ProductionController extends Controller
             'requestStockNo' => filled($production->request_stock_no)
                 ? (string) $production->request_stock_no
                 : null,
+            'requestStockDrkNo' => filled($production->request_stock_drk_no)
+                ? (string) $production->request_stock_drk_no
+                : null,
             'paymentStatus' => $paymentStatus,
             'orderType' => $orderType,
             'skuCode' => filled($production->sku?->sku_code)
@@ -2237,6 +2243,9 @@ class ProductionController extends Controller
             'requestOrderNo' => $production->request_order_no ?? '-',
             'requestStockNo' => filled($production->request_stock_no)
                 ? (string) $production->request_stock_no
+                : null,
+            'requestStockDrkNo' => filled($production->request_stock_drk_no)
+                ? (string) $production->request_stock_drk_no
                 : null,
             'requestOrderLabel' => $this->requestOrderLabel($production),
             'salesName' => $salesName,
@@ -2709,6 +2718,7 @@ class ProductionController extends Controller
             'spkType' => 'Stock',
             'requestOrderNo' => null,
             'requestStockNo' => null,
+            'requestStockDrkNo' => null,
             'customerName' => null,
             'salesName' => null,
             'itemName' => null,
@@ -2755,6 +2765,9 @@ class ProductionController extends Controller
             'requestOrderNo' => $production->request_order_no,
             'requestStockNo' => filled($production->request_stock_no)
                 ? (string) $production->request_stock_no
+                : null,
+            'requestStockDrkNo' => filled($production->request_stock_drk_no)
+                ? (string) $production->request_stock_drk_no
                 : null,
             'requestOrderLabel' => $this->requestOrderLabel($production),
             'customerName' => $production->customer_name,
@@ -3101,6 +3114,7 @@ class ProductionController extends Controller
                 'spkType' => $this->printText($info['spkType'] ?? null),
                 'requestOrderNo' => $this->printText($info['requestOrderNo'] ?? null),
                 'requestStockNo' => $this->printText($info['requestStockNo'] ?? null),
+                'requestStockDrkNo' => $this->printText($info['requestStockDrkNo'] ?? null),
                 'requestOrderLabel' => $this->printText($requestOrderLabel !== '' ? $requestOrderLabel : null),
                 'pesananHeading' => $requestOrders->pesananHeading($salesName),
                 'requestOrderCreatedDate' => $requestOrderCreatedDate,
@@ -3205,6 +3219,9 @@ class ProductionController extends Controller
                 'requestOrderNo' => $production->request_order_no,
                 'requestStockNo' => filled($production->request_stock_no)
                     ? (string) $production->request_stock_no
+                    : null,
+                'requestStockDrkNo' => filled($production->request_stock_drk_no)
+                    ? (string) $production->request_stock_drk_no
                     : null,
                 'requestOrderCreatedDate' => $this->requestOrderCreatedDate($production, 'd-M-Y'),
                 'refSpkNo' => null,

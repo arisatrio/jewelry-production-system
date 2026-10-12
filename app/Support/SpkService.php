@@ -118,6 +118,9 @@ class SpkService
                 'request_stock_no' => filled($data['request_stock_no'] ?? null)
                     ? (string) $data['request_stock_no']
                     : null,
+                'request_stock_drk_no' => $type === 'Stock' && blank($data['request_stock_no'] ?? null)
+                    ? $this->generateRequestStockDrkNo()
+                    : null,
                 'status' => '',
                 'is_deleted' => 0,
                 'is_coran' => 0,
@@ -314,6 +317,9 @@ class SpkService
 
     /**
      * Generate next SPK number in format YYYY/PRD/00001.
+     *
+     * Only sequential numeric numbers (5 digits) are considered so test/manual
+     * alphanumeric suffixes do not reset the counter back to 00001.
      */
     public function generateNumber(?CarbonInterface $at = null): string
     {
@@ -321,18 +327,40 @@ class SpkService
         $prefix = "{$year}/PRD/";
 
         $latest = Production::query()
-            ->where('spk_no', 'like', $prefix.'%')
+            ->whereRaw('spk_no REGEXP ?', ["^{$year}/PRD/[0-9]{5}$"])
             ->lockForUpdate()
             ->orderByDesc('spk_no')
             ->value('spk_no');
 
         $next = 1;
 
-        if (is_string($latest) && preg_match('/\/(\d+)$/', $latest, $matches) === 1) {
+        if (is_string($latest) && preg_match('/\/(\d{5})$/', $latest, $matches) === 1) {
             $next = (int) $matches[1] + 1;
         }
 
         return sprintf('%s%05d', $prefix, $next);
+    }
+
+    /**
+     * Generate next permintaan stok direksi number in format RS-DRK-0001.
+     */
+    public function generateRequestStockDrkNo(): string
+    {
+        $prefix = 'RS-DRK-';
+
+        $latest = Production::query()
+            ->whereRaw('request_stock_drk_no REGEXP ?', ['^RS-DRK-[0-9]{4}$'])
+            ->lockForUpdate()
+            ->orderByDesc('request_stock_drk_no')
+            ->value('request_stock_drk_no');
+
+        $next = 1;
+
+        if (is_string($latest) && preg_match('/-(\d{4})$/', $latest, $matches) === 1) {
+            $next = (int) $matches[1] + 1;
+        }
+
+        return sprintf('%s%04d', $prefix, $next);
     }
 
     /**
@@ -892,6 +920,14 @@ class SpkService
     {
         return DB::connection('third')->transaction(function () use ($attributes, $actor): Production {
             $now = now();
+
+            if (
+                ($attributes['spk_type'] ?? null) === 'Stock'
+                && blank($attributes['request_stock_no'] ?? null)
+                && blank($attributes['request_stock_drk_no'] ?? null)
+            ) {
+                $attributes['request_stock_drk_no'] = $this->generateRequestStockDrkNo();
+            }
 
             return Production::query()->create([
                 ...$attributes,

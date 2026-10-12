@@ -77,13 +77,30 @@ export function SpkInformasiProduksiPanel({
 }: SpkInformasiProduksiPanelProps) {
     const spkType = displayValue(production.tipeProduksi);
     const salesHeading = production.pesananHeading?.trim() ?? '';
+    const requestStockNo = displayValue(production.requestStockNo);
+    const requestStockDrkNo = displayValue(production.requestStockDrkNo);
+    const isStockPermintaanToko =
+        spkType === 'Stock' && requestStockNo !== '-';
+    const isStockPermintaanDireksi =
+        spkType === 'Stock' && !isStockPermintaanToko;
     const tipeProduksiLabel =
         spkType === 'Pesanan' &&
         salesHeading !== '' &&
         salesHeading !== 'Pesanan'
             ? salesHeading
-            : spkType;
-    const requestStockNo = displayValue(production.requestStockNo);
+            : isStockPermintaanToko
+              ? 'Stock (Permintaan Toko)'
+              : isStockPermintaanDireksi
+                ? 'Stock (Permintaan Direksi)'
+                : spkType;
+    const requestStockLabel = isStockPermintaanDireksi
+        ? 'Nomor Request Stock Direksi'
+        : 'Nomor Request Stok';
+    const requestStockDisplay = isStockPermintaanToko
+        ? requestStockNo
+        : requestStockDrkNo !== '-'
+          ? requestStockDrkNo
+          : '-';
 
     const pesananLabel = displayValue(
         production.requestOrderLabel ??
@@ -122,8 +139,8 @@ export function SpkInformasiProduksiPanel({
                             <MetaRow label="Nomor Pesanan">{pesananLabel}</MetaRow>
                         ) : null}
                         {spkType === 'Stock' ? (
-                            <MetaRow label="Nomor Request Stok">
-                                {requestStockNo}
+                            <MetaRow label={requestStockLabel}>
+                                {requestStockDisplay}
                             </MetaRow>
                         ) : null}
                         {spkType === 'Pesanan' ? (

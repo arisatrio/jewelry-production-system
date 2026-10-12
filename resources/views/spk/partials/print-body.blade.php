@@ -26,13 +26,31 @@
             ? $empty
             : $requestOrderNo.' ('.$customerName.')');
 
+    $requestStockNo = trim((string) ($info['requestStockNo'] ?? ''));
+    $requestStockDrkNo = trim((string) ($info['requestStockDrkNo'] ?? ''));
+    $hasRequestStockNo = $requestStockNo !== '' && ! in_array($requestStockNo, ['-', '—'], true);
+    $hasRequestStockDrkNo = $requestStockDrkNo !== '' && ! in_array($requestStockDrkNo, ['-', '—'], true);
+    $isStockPermintaanToko = $spkType === 'Stock' && $hasRequestStockNo;
+    $isStockPermintaanDireksi = $spkType === 'Stock' && ! $isStockPermintaanToko;
+    $spkTypeDisplay = $spkType === 'Pesanan' && $pesananHeading !== 'Pesanan'
+        ? $pesananHeading
+        : ($isStockPermintaanToko
+            ? 'Stock (Permintaan Toko)'
+            : ($isStockPermintaanDireksi
+                ? 'Stock (Permintaan Direksi)'
+                : $spkType));
+    $requestStockLabel = $isStockPermintaanDireksi
+        ? 'Nomor Request Stock Direksi'
+        : 'Nomor Request Stok';
+    $requestStockDisplay = $isStockPermintaanToko
+        ? $requestStockNo
+        : ($hasRequestStockDrkNo ? $requestStockDrkNo : $empty);
+
     $showRefSpk = $blankTemplate || (($info['refSpkNo'] ?? '-') !== '-');
     $showRequestOrderCreatedDate = $blankTemplate || $spkType === 'Pesanan';
     $showNomorPesanan = $blankTemplate || $spkType === 'Pesanan';
     $showNomorRequestStok = $blankTemplate || $spkType === 'Stock';
     $showStockSpkCreatedDate = $blankTemplate || $spkType === 'Stock';
-    $requestStockNo = trim((string) ($info['requestStockNo'] ?? ''));
-    $requestStockNo = $requestStockNo !== '' ? $requestStockNo : $empty;
 @endphp
 
 <section class="spkPrintSection spkPrintSection--info">
@@ -61,9 +79,9 @@
                 <th>Tipe Produksi</th>
                 <td>
                     @if ($blankTemplate)
-                        <span class="spkPrintHint">Jenis SPK: Stock, Pesanan, Exchange, Refund, atau Reparasi. Untuk Pesanan, nama sales ditampilkan di sini. Contoh: Pesanan (Sales: Shasya)</span>
+                        <span class="spkPrintHint">Jenis SPK: Stock (Permintaan Direksi / Toko), Pesanan, Exchange, Refund, atau Reparasi. Untuk Pesanan, nama sales ditampilkan di sini. Contoh: Pesanan (Sales: Shasya)</span>
                     @else
-                        {{ $spkType === 'Pesanan' && $pesananHeading !== 'Pesanan' ? $pesananHeading : $spkType }}
+                        {{ $spkTypeDisplay }}
                     @endif
                 </td>
                 <td class="spkPrintQrCell" rowspan="{{ $infoRowCount }}">
@@ -100,12 +118,12 @@
             @endif
             @if ($showNomorRequestStok)
                 <tr>
-                    <th>Nomor Request Stok</th>
+                    <th>{{ $blankTemplate ? 'Nomor Request Stok / Stock Direksi' : $requestStockLabel }}</th>
                     <td>
                         @if ($blankTemplate)
-                            <span class="spkPrintHint">Nomor request stok toko, contoh RS-0000033. Khusus tipe Stock</span>
+                            <span class="spkPrintHint">Nomor request stok toko (RS-0000033) atau permintaan direksi (RS-DRK-0001). Khusus tipe Stock</span>
                         @else
-                            {{ $requestStockNo }}
+                            {{ $requestStockDisplay }}
                         @endif
                     </td>
                 </tr>

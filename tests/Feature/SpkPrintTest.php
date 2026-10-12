@@ -116,7 +116,7 @@ test('spk print preview accepts form document payload', function () {
     ])
         ->assertOk()
         ->assertViewIs('spk.print')
-        ->assertSee('Stock', false)
+        ->assertSee('Stock (Permintaan Toko)', false)
         ->assertDontSee('Stock (Repeat Order)', false)
         ->assertSee('Nomor Request Stok', false)
         ->assertSee('RS-0000033', false)
@@ -396,12 +396,31 @@ test('spk print formats production dates as day short month year', function () {
         ->assertSee('26-Sep-2026', false)
         ->assertSee('28-Sep-2026', false)
         ->assertSeeInOrder(['Tanggal Permintaan', 'Tanggal SPK Dibuat'], false)
+        ->assertSee('Stock (Permintaan Toko)', false)
         ->assertSee('Nomor Request Stok', false)
         ->assertSee('RS-PRINT01', false)
         ->assertDontSee('Nomor Pesanan', false)
         ->assertDontSee('*Target Sales', false)
         ->assertDontSee('01/09/2026', false)
         ->assertDontSee('26/09/2026', false);
+
+    $production->delete();
+});
+
+test('spk print shows stock permintaan direksi label and request stock drk no', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $production->update([
+        'request_stock_no' => null,
+        'request_stock_drk_no' => 'RS-DRK-0007',
+    ]);
+
+    $this->get(route('spk.print.show', $production->row_id))
+        ->assertOk()
+        ->assertSee('Stock (Permintaan Direksi)', false)
+        ->assertSee('Nomor Request Stock Direksi', false)
+        ->assertSee('RS-DRK-0007', false)
+        ->assertDontSee('Nomor Request Stok', false)
+        ->assertDontSee('Stock (Permintaan Toko)', false);
 
     $production->delete();
 });
