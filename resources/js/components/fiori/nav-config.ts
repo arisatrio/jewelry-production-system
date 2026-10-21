@@ -13,6 +13,7 @@ import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-
 import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
 import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
 import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
+import { index as componentTransactionsIndex } from '@/routes/inventory/component-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { edit as diamondCrtMatrixEdit } from '@/routes/master-data/diamond-crt-matrix';
 import { edit as finishingShrinkAllowanceEdit } from '@/routes/master-data/finishing-shrink-allowance';
@@ -98,6 +99,10 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
     {
         text: 'Transaksi Batu',
         href: stoneTransactionsIndex.url(),
+    },
+    {
+        text: 'Transaksi Komponen',
+        href: componentTransactionsIndex.url(),
     },
 ];
 

@@ -129,6 +129,7 @@ return [
         'trmaterialgold',
         'trstone',
         'trchain',
+        'trkomponen',
     ],
 
     /*

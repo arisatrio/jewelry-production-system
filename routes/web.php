@@ -27,6 +27,7 @@ use App\Http\Controllers\SkuOutputDashboardController;
 use App\Http\Controllers\SpkProcessSlaController;
 use App\Http\Controllers\SpkStoneStockController;
 use App\Http\Controllers\StoneTransactionController;
+use App\Http\Controllers\TrKomponenController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
@@ -327,6 +328,10 @@ Route::middleware(['auth'])->group(function () {
             ->name('stone-transactions.index');
         Route::post('transaksi-batu', [StoneTransactionController::class, 'store'])
             ->name('stone-transactions.store');
+
+        Route::resource('transaksi-komponen', TrKomponenController::class)
+            ->parameters(['transaksi-komponen' => 'trKomponen'])
+            ->names('component-transactions');
     });
 
     Route::prefix('master-data')->name('master-data.')->group(function () {
