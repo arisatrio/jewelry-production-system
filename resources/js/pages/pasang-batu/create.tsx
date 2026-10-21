@@ -1,9 +1,5 @@
 import { Head } from '@inertiajs/react';
 import { PasangBatuForm } from '@/components/pasang-batu/pasang-batu-form';
-import type {
-    PasangBatuDiamondOption,
-    PasangBatuStoneOption,
-} from '@/components/pasang-batu/pasang-batu-stone-editor';
 import { index, store } from '@/routes/pasang-batu';
 
 type OptionItem = {
@@ -15,9 +11,6 @@ type PasangBatuCreateProps = {
     formDocumentNo: string;
     processOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
-    stoneOptions: PasangBatuStoneOption[];
-    shapeOptions: PasangBatuStoneOption[];
-    diamondOptions: PasangBatuDiamondOption[];
     form: {
         processName: string;
         sendCraftsmanDate: string;
@@ -27,53 +20,21 @@ type PasangBatuCreateProps = {
         weightFrame: string;
         weightDiamond: string;
         weightFinishGoods: string;
-        settingStones?: Array<{
-            stoneId: number;
-            pcs: string;
-            crt: string;
-            notes: string;
-        }>;
-        returnStones?: Array<{
-            stoneId: number;
-            pcs: string;
-            crt: string;
-            notes: string;
-        }>;
-        diamonds?: Array<{
-            diamondId: number;
-        }>;
-        mountedStones?: Array<{
-            diamondCode: string;
-            shapeId: number | null;
-            pcs: string;
-            crt: string;
-            size: string;
-        }>;
         spk: null;
     };
 };
-
-function lineKey(prefix: string, index: number): string {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-        return `${prefix}-${crypto.randomUUID()}`;
-    }
-
-    return `${prefix}-${index}-${Math.random().toString(36).slice(2, 9)}`;
-}
 
 export default function PasangBatuCreate({
     formDocumentNo,
     processOptions,
     craftsmanOptions,
-    stoneOptions,
-    shapeOptions,
-    diamondOptions,
     form,
 }: PasangBatuCreateProps) {
     return (
         <>
             <Head title="Tambah Dokumen Pasang Batu" />
             <PasangBatuForm
+                pickSpkDiamond
                 title="Form Dokumen Pasang Batu"
                 formDocumentNo={formDocumentNo}
                 submitLabel="Simpan"
@@ -81,9 +42,6 @@ export default function PasangBatuCreate({
                 submitUrl={store.url()}
                 processOptions={processOptions}
                 craftsmanOptions={craftsmanOptions}
-                stoneOptions={stoneOptions}
-                shapeOptions={shapeOptions}
-                diamondOptions={diamondOptions}
                 initialValues={{
                     process_name: form.processName ?? 'Pasang Batu',
                     craftsman_id:
@@ -97,42 +55,13 @@ export default function PasangBatuCreate({
                     weight_diamond: form.weightDiamond ?? '',
                     weight_finish_goods: form.weightFinishGoods ?? '',
                     spk: null,
-                    setting_stones: (form.settingStones ?? []).map(
-                        (line, index) => ({
-                            key: lineKey('setting', index),
-                            stone_id: String(line.stoneId),
-                            pcs: line.pcs ?? '',
-                            crt: line.crt ?? '',
-                            notes: line.notes ?? '',
-                        }),
-                    ),
-                    return_stones: (form.returnStones ?? []).map(
-                        (line, index) => ({
-                            key: lineKey('return', index),
-                            stone_id: String(line.stoneId),
-                            pcs: line.pcs ?? '',
-                            crt: line.crt ?? '',
-                            notes: line.notes ?? '',
-                        }),
-                    ),
-                    diamonds: (form.diamonds ?? []).map((line, index) => ({
-                        key: lineKey('diamond', index),
-                        diamond_id: String(line.diamondId),
-                    })),
-                    mounted_stones: (form.mountedStones ?? []).map(
-                        (line, index) => ({
-                            key: lineKey('mounted', index),
-                            diamond_code: line.diamondCode ?? '',
-                            shape_id:
-                                line.shapeId !== null &&
-                                line.shapeId !== undefined
-                                    ? String(line.shapeId)
-                                    : '',
-                            pcs: line.pcs ?? '',
-                            crt: line.crt ?? '',
-                            size: line.size ?? '',
-                        }),
-                    ),
+                    spk_diamond_id: '',
+                    spk_diamond_no: '',
+                    setting_awal_lines: [],
+                    setting_stones: [],
+                    return_stones: [],
+                    diamonds: [],
+                    mounted_stones: [],
                 }}
             />
         </>

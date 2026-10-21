@@ -132,11 +132,15 @@ export type SpkStoneStock = {
     note: string | null;
 };
 
+export type SpkStoneStoneKind = 'dossier' | 'micro';
+
 export type SpkStoneItem = {
     id: string;
+    stoneKind?: SpkStoneStoneKind;
     positionId?: string;
     positionName?: string;
     shape: string;
+    shapeId?: string;
     shapeCode: string;
     shapeName: string;
     pcs: number;

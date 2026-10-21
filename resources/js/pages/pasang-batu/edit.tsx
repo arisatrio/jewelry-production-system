@@ -1,9 +1,5 @@
 import { Head } from '@inertiajs/react';
 import { PasangBatuForm } from '@/components/pasang-batu/pasang-batu-form';
-import type {
-    PasangBatuDiamondOption,
-    PasangBatuStoneOption,
-} from '@/components/pasang-batu/pasang-batu-stone-editor';
 import { show, update } from '@/routes/pasang-batu';
 
 type OptionItem = {
@@ -15,9 +11,6 @@ type PasangBatuEditProps = {
     formDocumentNo: string;
     processOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
-    stoneOptions: PasangBatuStoneOption[];
-    shapeOptions: PasangBatuStoneOption[];
-    diamondOptions: PasangBatuDiamondOption[];
     form: {
         id: number;
         docNo: string | null;
@@ -51,6 +44,8 @@ type PasangBatuEditProps = {
             crt: string;
             size: string;
         }>;
+        spkDiamondId?: number | null;
+        spkDiamondNo?: string | null;
         spk: {
             spkId: number;
             spkNo: string | null;
@@ -77,9 +72,6 @@ export default function PasangBatuEdit({
     formDocumentNo,
     processOptions,
     craftsmanOptions,
-    stoneOptions,
-    shapeOptions,
-    diamondOptions,
     form,
 }: PasangBatuEditProps) {
     return (
@@ -88,6 +80,11 @@ export default function PasangBatuEdit({
                 title={`Edit Dokumen Pasang Batu · ${form.docNo ?? form.id}`}
             />
             <PasangBatuForm
+                pickSpkDiamond={
+                    form.spkDiamondId !== null &&
+                    form.spkDiamondId !== undefined &&
+                    form.spkDiamondId > 0
+                }
                 title="Form Edit Dokumen Pasang Batu"
                 formDocumentNo={formDocumentNo}
                 submitLabel="Simpan"
@@ -96,9 +93,6 @@ export default function PasangBatuEdit({
                 method="put"
                 processOptions={processOptions}
                 craftsmanOptions={craftsmanOptions}
-                stoneOptions={stoneOptions}
-                shapeOptions={shapeOptions}
-                diamondOptions={diamondOptions}
                 initialValues={{
                     process_name: form.processName ?? 'Pasang Batu',
                     craftsman_id:
@@ -111,6 +105,14 @@ export default function PasangBatuEdit({
                     weight_frame: form.weightFrame ?? '',
                     weight_diamond: form.weightDiamond ?? '',
                     weight_finish_goods: form.weightFinishGoods ?? '',
+                    spk_diamond_id:
+                        form.spkDiamondId !== null &&
+                        form.spkDiamondId !== undefined &&
+                        form.spkDiamondId > 0
+                            ? String(form.spkDiamondId)
+                            : '',
+                    spk_diamond_no: form.spkDiamondNo ?? '',
+                    setting_awal_lines: [],
                     spk: form.spk
                         ? {
                               spk_id: String(form.spk.spkId),

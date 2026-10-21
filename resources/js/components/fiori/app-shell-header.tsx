@@ -265,10 +265,10 @@ export default function AppShellHeader({
     const ignoreProfileClickRef = useRef(false);
 
     const primaryModuleNavItems = moduleNavItems.filter(
-        (item) => item.text === 'SPK' || item.text === 'Reparasi',
+        (item) => item.text === 'SPK' || item.text === 'SPK Reparasi',
     );
     const trailingModuleNavItems = moduleNavItems.filter(
-        (item) => item.text !== 'SPK' && item.text !== 'Reparasi',
+        (item) => item.text !== 'SPK' && item.text !== 'SPK Reparasi',
     );
 
     useEffect(() => {

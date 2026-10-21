@@ -67,6 +67,16 @@ function createAvailableDossierDiamond(int $shapeId, string $crt): void
     ]);
 }
 
+test('stock source for stone follows dossier carat threshold', function () {
+    $checker = app(SpkStoneStockChecker::class);
+    $shapeId = stockTestShapeId('HS');
+
+    expect($checker->stockSourceForStone(stockTestStone(1, $shapeId, 1, '0.450')))
+        ->toBe(SpkStoneStockChecker::SOURCE_DOSSIER)
+        ->and($checker->stockSourceForStone(stockTestStone(2, $shapeId, 10, '0.500')))
+        ->toBe(SpkStoneStockChecker::SOURCE_MICRO);
+});
+
 test('stone with carat per pcs at least 0.18 uses dossier stock within the matrix range', function () {
     $checker = app(SpkStoneStockChecker::class);
     $shapeId = stockTestShapeId('HS');

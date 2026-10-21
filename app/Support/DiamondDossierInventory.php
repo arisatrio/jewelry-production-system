@@ -5,11 +5,14 @@ namespace App\Support;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class DiamondDossierInventory
 {
     public const STATUS_AVAILABLE = 'available';
+
+    public const STATUS_RESERVED = 'reserved';
 
     public const STATUS_USED = 'used';
 
@@ -64,9 +67,28 @@ class DiamondDossierInventory
      *
      * @return list<array{value: string, label: string, description: string, code: string|null, diamondType: string|null, shape: string|null, certificate: string|null, crt: string|null}>
      */
-    public function mountingOptions(?int $mountingId = null): array
+    public function mountingOptions(?int $mountingId = null, ?int $spkDiamondId = null): array
     {
-        return array_values($this->selectableForMountingQuery($mountingId)
+        return array_values($this->selectableForMountingQuery($mountingId, $spkDiamondId)
+            ->orderBy('diamond.doc_no')
+            ->orderBy('diamond.row_id')
+            ->get()
+            ->map(fn (object $diamond): array => $this->toMountingOption($diamond))
+            ->all());
+    }
+
+    /**
+     * Dossier options for SPK stone allocation (exclude other SPKs' reservations).
+     *
+     * @return list<array{value: string, label: string, description: string, code: string|null, diamondType: string|null, shape: string|null, certificate: string|null, crt: string|null}>
+     */
+    public function allocationOptions(int $spkId): array
+    {
+        if ($spkId <= 0) {
+            return [];
+        }
+
+        return array_values($this->selectableForSpkAllocationQuery($spkId)
             ->orderBy('diamond.doc_no')
             ->orderBy('diamond.row_id')
             ->get()
@@ -78,13 +100,33 @@ class DiamondDossierInventory
      * @param  list<int>  $diamondIds
      * @return list<int>
      */
-    public function selectableIdsForMounting(array $diamondIds, ?int $mountingId = null): array
-    {
+    public function selectableIdsForMounting(
+        array $diamondIds,
+        ?int $mountingId = null,
+        ?int $spkDiamondId = null,
+    ): array {
         if ($diamondIds === []) {
             return [];
         }
 
-        return array_values($this->selectableForMountingQuery($mountingId)
+        return array_values($this->selectableForMountingQuery($mountingId, $spkDiamondId)
+            ->whereIn('diamond.row_id', $diamondIds)
+            ->pluck('diamond.row_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all());
+    }
+
+    /**
+     * @param  list<int>  $diamondIds
+     * @return list<int>
+     */
+    public function selectableIdsForSpkAllocation(array $diamondIds, int $spkId): array
+    {
+        if ($diamondIds === [] || $spkId <= 0) {
+            return [];
+        }
+
+        return array_values($this->selectableForSpkAllocationQuery($spkId)
             ->whereIn('diamond.row_id', $diamondIds)
             ->pluck('diamond.row_id')
             ->map(fn (mixed $id): int => (int) $id)
@@ -151,14 +193,43 @@ class DiamondDossierInventory
         }
     }
 
-    private function selectableForMountingQuery(?int $mountingId): Builder
+    private function selectableForMountingQuery(?int $mountingId, ?int $spkDiamondId = null): Builder
     {
         return $this->filteredQuery('', null)
-            ->where(function (Builder $query) use ($mountingId): void {
+            ->where(function (Builder $query) use ($mountingId, $spkDiamondId): void {
                 $query->where(fn (Builder $availableQuery) => $this->whereAvailable($availableQuery));
 
                 if ($mountingId !== null) {
                     $query->orWhere('diamond.diamondmounting_id', $mountingId);
+                }
+
+                if (
+                    $spkDiamondId !== null
+                    && Schema::connection('third')->hasColumn('trdiamond', 'spk_diamond_id')
+                ) {
+                    $query->orWhere('diamond.spk_diamond_id', $spkDiamondId);
+                }
+            });
+    }
+
+    private function selectableForSpkAllocationQuery(int $spkId): Builder
+    {
+        $reservedStock = app(SpkAllocationReservedStock::class);
+        $otherReserved = $reservedStock->diamondIdsReservedByOtherSpks($spkId);
+        $thisReserved = $reservedStock->diamondIdsForSpk($spkId);
+
+        return $this->filteredQuery('', null)
+            ->where(function (Builder $query) use ($otherReserved, $thisReserved): void {
+                $query->where(function (Builder $availableQuery) use ($otherReserved): void {
+                    $this->whereAvailable($availableQuery);
+
+                    if ($otherReserved !== []) {
+                        $availableQuery->whereNotIn('diamond.row_id', $otherReserved);
+                    }
+                });
+
+                if ($thisReserved !== []) {
+                    $query->orWhereIn('diamond.row_id', $thisReserved);
                 }
             });
     }
@@ -192,10 +263,12 @@ class DiamondDossierInventory
     }
 
     /**
-     * @return array{id: int, code: string|null, diamondType: string|null, shape: string|null, color: string|null, crt: string|null, certificate: string|null, supplier: string|null, entryDate: string|null, outDate: string|null, status: string, mountingDocumentNo: string|null, createdBy: string|null, createdDate: string|null}
+     * @return array{id: int, code: string|null, diamondType: string|null, shape: string|null, color: string|null, crt: string|null, certificate: string|null, supplier: string|null, entryDate: string|null, outDate: string|null, status: string, allocationSpkNo: string|null, mountingDocumentNo: string|null, createdBy: string|null, createdDate: string|null}
      */
     private function toRow(object $diamond): array
     {
+        $allocationSpkNo = $this->nullableString($diamond->allocation_spk_no ?? null);
+
         return [
             'id' => (int) $diamond->row_id,
             'code' => $this->nullableString($diamond->doc_no),
@@ -209,13 +282,31 @@ class DiamondDossierInventory
             'supplier' => $this->nullableString($diamond->supplier),
             'entryDate' => $this->nullableString($diamond->entry_date),
             'outDate' => $this->nullableString($diamond->out_date),
-            'status' => (int) $diamond->is_used === 1
-                ? self::STATUS_USED
-                : self::STATUS_AVAILABLE,
+            'status' => $this->resolveStatus($diamond, $allocationSpkNo),
+            'allocationSpkNo' => $allocationSpkNo,
             'mountingDocumentNo' => $this->nullableString($diamond->mounting_doc_no),
             'createdBy' => $this->nullableString($diamond->created_by),
             'createdDate' => $this->nullableString($diamond->created_date),
         ];
+    }
+
+    private function resolveStatus(object $diamond, ?string $allocationSpkNo): string
+    {
+        if ((int) $diamond->is_used === 1) {
+            return self::STATUS_USED;
+        }
+
+        if ($allocationSpkNo !== null) {
+            return self::STATUS_RESERVED;
+        }
+
+        return self::STATUS_AVAILABLE;
+    }
+
+    private function hasAllocationTables(): bool
+    {
+        return Schema::connection('third')->hasTable('spk_allocation')
+            && Schema::connection('third')->hasTable('spk_allocation_diamond');
     }
 
     private function whereAvailable(Builder $query): Builder
@@ -226,16 +317,50 @@ class DiamondDossierInventory
 
     private function filteredQuery(string $search, ?string $status): Builder
     {
-        return DB::connection('third')
+        $query = DB::connection('third')
             ->table('trdiamond as diamond')
             ->leftJoin('msshape as shape', 'shape.row_id', '=', 'diamond.shape_id')
             ->leftJoin('diamondmounting as mounting_document', function ($join): void {
                 $join->on('mounting_document.row_id', '=', 'diamond.diamondmounting_id')
                     ->where('mounting_document.is_deleted', 0);
-            })
+            });
+
+        if ($this->hasAllocationTables()) {
+            $allocationSub = DB::connection('third')
+                ->table('spk_allocation_diamond as alloc_line')
+                ->join('spk_allocation as alloc_header', 'alloc_header.id', '=', 'alloc_line.spk_allocation_id')
+                ->where('alloc_line.is_deleted', 0)
+                ->where('alloc_header.is_deleted', 0)
+                ->groupBy('alloc_line.trdiamond_id')
+                ->select([
+                    'alloc_line.trdiamond_id',
+                    DB::raw('MAX(alloc_header.spk_no) as allocation_spk_no'),
+                ]);
+
+            $query->leftJoinSub($allocationSub, 'allocation', function ($join): void {
+                $join->on('allocation.trdiamond_id', '=', 'diamond.row_id');
+            });
+        }
+
+        return $query
             ->where('diamond.is_deleted', 0)
-            ->when($status === self::STATUS_AVAILABLE, fn (Builder $query) => $query
-                ->where(fn (Builder $innerQuery) => $this->whereAvailable($innerQuery)))
+            ->when($status === self::STATUS_AVAILABLE, function (Builder $query): void {
+                $query->where(fn (Builder $innerQuery) => $this->whereAvailable($innerQuery));
+
+                if ($this->hasAllocationTables()) {
+                    $query->whereNull('allocation.trdiamond_id');
+                }
+            })
+            ->when($status === self::STATUS_RESERVED, function (Builder $query): void {
+                if (! $this->hasAllocationTables()) {
+                    $query->whereRaw('0 = 1');
+
+                    return;
+                }
+
+                $query->where(fn (Builder $innerQuery) => $this->whereAvailable($innerQuery))
+                    ->whereNotNull('allocation.trdiamond_id');
+            })
             ->when($status === self::STATUS_USED, fn (Builder $query) => $query
                 ->where('diamond.is_used', 1))
             ->when($search !== '', function (Builder $query) use ($search): void {
@@ -249,6 +374,10 @@ class DiamondDossierInventory
                         ->orWhere('diamond.supplier', 'like', $like)
                         ->orWhere('shape.name', 'like', $like)
                         ->orWhere('mounting_document.doc_no', 'like', $like);
+
+                    if ($this->hasAllocationTables()) {
+                        $innerQuery->orWhere('allocation.allocation_spk_no', 'like', $like);
+                    }
                 });
             })
             ->select([
@@ -263,6 +392,9 @@ class DiamondDossierInventory
                 'diamond.entry_date',
                 'diamond.out_date',
                 'diamond.is_used',
+                ...($this->hasAllocationTables()
+                    ? ['allocation.allocation_spk_no']
+                    : []),
                 'mounting_document.doc_no as mounting_doc_no',
                 'diamond.created_by',
                 'diamond.created_date',

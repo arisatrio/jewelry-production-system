@@ -7,12 +7,14 @@ use App\Http\Requests\StoreDiamondMountingRequest;
 use App\Http\Requests\UpdateDiamondMountingRequest;
 use App\Models\DiamondMounting;
 use App\Models\Production;
+use App\Models\SpkDiamond;
 use App\Support\DiamondMountingApprovalService;
 use App\Support\DiamondMountingDocNumberGenerator;
 use App\Support\DiamondMountingSpkEligibility;
 use App\Support\DiamondMountingStoneSynchronizer;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkApprovalRoles;
+use App\Support\SpkDiamondMountingBridge;
 use App\Support\SpkItemImageUrl;
 use App\Support\SpkOrderReference;
 use App\Support\SpkQtyUnit;
@@ -266,15 +268,12 @@ class DiamondMountingController extends Controller
         return back();
     }
 
-    public function create(DiamondMountingStoneSynchronizer $stoneSynchronizer): Response
+    public function create(): Response
     {
         return Inertia::render('pasang-batu/create', [
             'formDocumentNo' => (string) config('spk.pasang_batu_form_document_no'),
             'processOptions' => $this->processOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
-            'stoneOptions' => $stoneSynchronizer->stoneOptions(),
-            'shapeOptions' => $stoneSynchronizer->shapeOptions(),
-            'diamondOptions' => $stoneSynchronizer->diamondOptions(),
             'form' => [
                 'processName' => 'Pasang Batu',
                 'sendCraftsmanDate' => now()->format('Y-m-d H:i'),
@@ -383,10 +382,12 @@ class DiamondMountingController extends Controller
         StoreDiamondMountingRequest $request,
         DiamondMountingDocNumberGenerator $docNumberGenerator,
         DiamondMountingStoneSynchronizer $stoneSynchronizer,
+        SpkDiamondMountingBridge $spkDiamondBridge,
     ): RedirectResponse {
         $validated = $request->validated();
         $stonePayload = $request->stonePayload();
         $actor = $this->actorName($request);
+        $spkDiamond = $this->resolveSubmittedSpkDiamond($validated['spk_diamond_id'] ?? null);
 
         $document = DB::connection('third')->transaction(function () use (
             $validated,
@@ -394,6 +395,8 @@ class DiamondMountingController extends Controller
             $actor,
             $docNumberGenerator,
             $stoneSynchronizer,
+            $spkDiamondBridge,
+            $spkDiamond,
         ): DiamondMounting {
             $sendDate = $validated['send_craftsman_date'] ?? null;
             $receivedDate = $validated['received_craftsman_date'] ?? null;
@@ -405,7 +408,8 @@ class DiamondMountingController extends Controller
                 'doc_no' => $docNumberGenerator->generate(),
                 'trans_date' => $transDate,
                 'process_name' => $validated['process_name'] ?? 'Pasang Batu',
-                'spk_id' => $validated['spk_id'],
+                'spk_id' => $spkDiamond !== null ? $spkDiamond->spk_id : $validated['spk_id'],
+                'spk_diamond_id' => $spkDiamond?->id,
                 'weight_frame' => $validated['weight_frame'] ?? null,
                 'weight_diamond' => $validated['weight_diamond'] ?? null,
                 'total_weigth_frame_diamond' => null,
@@ -428,9 +432,11 @@ class DiamondMountingController extends Controller
                 'modified_by' => $actor,
             ]);
 
+            $spkId = $spkDiamond !== null ? (int) $spkDiamond->spk_id : (int) $validated['spk_id'];
+
             $production = Production::query()
                 ->notDeleted()
-                ->where('row_id', $validated['spk_id'])
+                ->where('row_id', $spkId)
                 ->first();
 
             if ($production !== null) {
@@ -443,7 +449,27 @@ class DiamondMountingController extends Controller
                 );
             }
 
-            $stoneSynchronizer->sync($document->refresh(), $stonePayload, $actor);
+            if ($spkDiamond !== null) {
+                $spkDiamondBridge->linkMounting($spkDiamond, $document->refresh(), $actor);
+            }
+
+            $stoneSynchronizer->sync(
+                $document->refresh(),
+                $stonePayload,
+                $actor,
+                preserveSetting: $spkDiamond !== null,
+                preserveDiamonds: $spkDiamond !== null,
+            );
+
+            if ($spkDiamond !== null) {
+                $spkDiamondBridge->applySettingAwalOutcomes(
+                    $spkDiamond,
+                    $document->refresh(),
+                    $validated['setting_awal_lines'] ?? [],
+                    $actor,
+                );
+            }
+
             $this->recalculateWeights($document->refresh());
 
             return $document->refresh();
@@ -506,14 +532,14 @@ class DiamondMountingController extends Controller
 
         $production = $pasangBatu->production;
         $stoneForm = $stoneSynchronizer->formPayloadFor($pasangBatu);
+        $spkDiamond = filled($pasangBatu->spk_diamond_id)
+            ? SpkDiamond::query()->notDeleted()->find($pasangBatu->spk_diamond_id)
+            : null;
 
         return Inertia::render('pasang-batu/edit', [
             'formDocumentNo' => (string) config('spk.pasang_batu_form_document_no'),
             'processOptions' => $this->processOptions(),
             'craftsmanOptions' => $this->craftsmanOptions(),
-            'stoneOptions' => $stoneSynchronizer->stoneOptions(),
-            'shapeOptions' => $stoneSynchronizer->shapeOptions(),
-            'diamondOptions' => $stoneSynchronizer->diamondOptions($pasangBatu),
             'form' => [
                 'id' => (int) $pasangBatu->row_id,
                 'docNo' => $pasangBatu->doc_no,
@@ -533,6 +559,8 @@ class DiamondMountingController extends Controller
                 'returnStones' => $stoneForm['return'],
                 'diamonds' => $stoneForm['diamonds'],
                 'mountedStones' => $stoneForm['mounted'],
+                'spkDiamondId' => $spkDiamond?->id,
+                'spkDiamondNo' => $spkDiamond?->no_spk_diamond,
                 'spk' => $production === null ? null : [
                     'spkId' => (int) $production->row_id,
                     'spkNo' => $production->spk_no,
@@ -676,7 +704,29 @@ class DiamondMountingController extends Controller
                 );
             }
 
-            $stoneSynchronizer->sync($pasangBatu->refresh(), $stonePayload, $actor);
+            $fromSpkDiamond = filled($pasangBatu->spk_diamond_id);
+
+            $stoneSynchronizer->sync(
+                $pasangBatu->refresh(),
+                $stonePayload,
+                $actor,
+                preserveSetting: $fromSpkDiamond,
+                preserveDiamonds: $fromSpkDiamond,
+            );
+
+            if ($fromSpkDiamond) {
+                $spkDiamond = $this->resolveSubmittedSpkDiamond((int) $pasangBatu->spk_diamond_id);
+
+                if ($spkDiamond !== null) {
+                    app(SpkDiamondMountingBridge::class)->applySettingAwalOutcomes(
+                        $spkDiamond,
+                        $pasangBatu->refresh(),
+                        $validated['setting_awal_lines'] ?? [],
+                        $actor,
+                    );
+                }
+            }
+
             $this->recalculateWeights($pasangBatu->refresh());
         });
 
@@ -1291,5 +1341,23 @@ class DiamondMountingController extends Controller
                 ->tap(fn (Builder $builder) => $spkEligibility->applyCompletedScope($builder))
                 ->count(),
         ];
+    }
+
+    private function resolveSubmittedSpkDiamond(?int $spkDiamondId): ?SpkDiamond
+    {
+        if ($spkDiamondId === null || $spkDiamondId <= 0) {
+            return null;
+        }
+
+        $document = SpkDiamond::query()
+            ->notDeleted()
+            ->whereKey($spkDiamondId)
+            ->first();
+
+        if ($document === null || ! $document->isSubmitted()) {
+            throw new InvalidArgumentException('SPK Diamond tidak valid untuk Pasang Batu.');
+        }
+
+        return $document;
     }
 }

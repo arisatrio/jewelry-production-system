@@ -445,7 +445,27 @@ function SpkStoneStockCell({
     );
 }
 
-export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
+export function spkStoneKindLabel(
+    kind: SpkStoneItem['stoneKind'] | SpkStoneStock['source'] | undefined,
+): string {
+    if (kind === 'dossier') {
+        return 'Dossier';
+    }
+
+    if (kind === 'micro') {
+        return 'Mikro';
+    }
+
+    return '—';
+}
+
+export function SpkStoneListCard({
+    stones,
+    title = 'Daftar Batu',
+}: {
+    stones: SpkStoneItem[];
+    title?: string;
+}) {
     const [stockListStone, setStockListStone] = useState<SpkStoneItem | null>(
         null,
     );
@@ -463,7 +483,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
     return (
         <div className="spkItemStoneSection">
             <div className="spkStoneCardHeader">
-                <h2 className="spkFioriDetailBlockTitle">Daftar Batu</h2>
+                <h2 className="spkFioriDetailBlockTitle">{title}</h2>
                 <Text className="spkFioriDetailBlockMeta">
                     {stones.length} item
                 </Text>
@@ -482,6 +502,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                 <th>Bentuk</th>
                                 <th>Diameter / Dimensi PxL (mm)</th>
                                 <th>Carat per Butir (pcs)</th>
+                                <th>Jenis Batu</th>
                                 <th>Jumlah Butir (pcs)</th>
                                 <th>Total Carat</th>
                                 {showStock ? <th>Stok</th> : null}
@@ -527,6 +548,12 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                         />
                                     </td>
                                     <td>
+                                        {spkStoneKindLabel(
+                                            stone.stoneKind ??
+                                                stone.stock?.source,
+                                        )}
+                                    </td>
+                                    <td>
                                         {emptyDash(stone.pcs)}
                                         <MasterDiffHint
                                             current={stone.pcs}
@@ -551,7 +578,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                         </tbody>
                         <tfoot>
                             <tr className="spkStoneTableTotal">
-                                <td colSpan={4}>Total</td>
+                                <td colSpan={5}>Total</td>
                                 <td className="spkStoneTableTotalValue">
                                     {totalButir}
                                 </td>

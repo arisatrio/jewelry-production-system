@@ -76,10 +76,55 @@ test('micro stone index summarizes stock per stone from trstone', function () {
             ->where('stones.data.0.pcsIn', '20')
             ->where('stones.data.0.pcsOut', '5')
             ->where('stones.data.0.balancePcs', '15')
-            ->where('stones.data.0.balanceCrt', '0.1500')
+            ->where('stones.data.0.balanceCrt', '0.150')
             ->where('totals.pcs', '15')
-            ->where('totals.crt', '0.1500')
+            ->where('totals.crt', '0.150')
             ->has('activePeriod.id')
+        );
+});
+
+test('micro stone index shows allocated pcs from spk allocation', function () {
+    if (
+        ! Schema::connection('third')->hasTable('spk_allocation')
+        || ! Schema::connection('third')->hasTable('spk_allocation_stone')
+    ) {
+        $this->markTestSkipped('SPK allocation tables are not available.');
+    }
+
+    $prefix = 'Micro Stone Test '.Str::uuid();
+    $stoneId = createMicroStoneForTest($prefix.' Alloc');
+    createMicroStoneTransactionForTest($stoneId, StoneLedger::ADDITION_TRANSACTION_TYPE_ID, 50, '1.0000');
+
+    $allocationId = (int) DB::connection('third')->table('spk_allocation')->insertGetId([
+        'spk_id' => 999002,
+        'spk_no' => '2026/PRD/MS'.Str::upper(Str::random(4)),
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'tester',
+        'modified_date' => now(),
+        'modified_by' => 'tester',
+    ]);
+
+    DB::connection('third')->table('spk_allocation_stone')->insert([
+        'spk_allocation_id' => $allocationId,
+        'stone_id' => $stoneId,
+        'pcs' => '12',
+        'crt' => '0.2500',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'tester',
+        'modified_date' => now(),
+        'modified_by' => 'tester',
+    ]);
+
+    $this->get(route('inventory.micro-stones.index', ['search' => $prefix]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('stones.data', 1)
+            ->where('stones.data.0.allocatedPcs', '12')
+            ->where('stones.data.0.allocatedCrt', '0.250')
+            ->where('stones.data.0.netPcs', '38')
+            ->where('stones.data.0.netCrt', '0.750')
         );
 });
 

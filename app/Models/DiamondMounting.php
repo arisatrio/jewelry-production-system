@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $trans_date
  * @property string|null $process_name
  * @property int|null $spk_id
+ * @property int|null $spk_diamond_id
  * @property string|null $weight_frame
  * @property string|null $weight_diamond
  * @property string|null $total_weigth_frame_diamond
@@ -45,6 +46,7 @@ use Illuminate\Support\Carbon;
     'trans_date',
     'process_name',
     'spk_id',
+    'spk_diamond_id',
     'weight_frame',
     'weight_diamond',
     'total_weigth_frame_diamond',
@@ -126,6 +128,14 @@ class DiamondMounting extends Model
         return $this->belongsTo(Production::class, 'spk_id', 'row_id');
     }
 
+    /**
+     * @return BelongsTo<SpkDiamond, $this>
+     */
+    public function spkDiamond(): BelongsTo
+    {
+        return $this->belongsTo(SpkDiamond::class, 'spk_diamond_id');
+    }
+
     public function isDone(): bool
     {
         return app(DiamondMountingApprovalService::class)->isDone($this);
@@ -143,6 +153,7 @@ class DiamondMounting extends Model
     {
         return [
             'spk_id' => 'integer',
+            'spk_diamond_id' => 'integer',
             'craftman_id' => 'integer',
             'setting_id' => 'integer',
             'qc_id' => 'integer',

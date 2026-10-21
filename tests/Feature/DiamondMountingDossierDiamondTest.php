@@ -2,6 +2,7 @@
 
 use App\Models\DiamondMounting;
 use App\Models\Production;
+use App\Support\DiamondDossierInventory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -86,6 +87,25 @@ function dossierDiamondRow(int $diamondId): object
     return DB::connection('third')->table('trdiamond')->where('row_id', $diamondId)->first();
 }
 
+test('mounting options include diamonds reserved for spk diamond', function () {
+    if (! Schema::connection('third')->hasColumn('trdiamond', 'spk_diamond_id')) {
+        $this->markTestSkipped('spk_diamond_id column is not available.');
+    }
+
+    $spkDiamondId = 9_999_001;
+    $diamondId = createMountingDossierDiamondForTest([
+        'is_used' => 1,
+        'spk_diamond_id' => $spkDiamondId,
+        'doc_no' => 'T'.Str::upper(Str::random(8)),
+    ]);
+
+    $options = collect(app(DiamondDossierInventory::class)->mountingOptions(null, $spkDiamondId))
+        ->keyBy('value');
+
+    expect($options->has((string) $diamondId))->toBeTrue()
+        ->and($options->get((string) $diamondId)['code'])->not->toBeNull();
+});
+
 test('pasang batu store links selected dossier diamonds without creating new rows', function () {
     $production = createMountingProductionForTest();
     $diamondId = createMountingDossierDiamondForTest();
@@ -125,10 +145,7 @@ test('pasang batu update releases removed dossier diamonds and links new ones', 
         ->assertInertia(fn ($page) => $page
             ->component('pasang-batu/edit')
             ->where('form.diamonds', [['diamondId' => $firstDiamondId]])
-            ->where('diamondOptions', fn ($options) => collect($options)
-                ->pluck('value')
-                ->intersect([(string) $firstDiamondId, (string) $secondDiamondId])
-                ->count() === 2)
+            ->missing('diamondOptions')
         );
 
     $this->put(route('pasang-batu.update', $document), mountingPayloadForTest($production, [$secondDiamondId]))
@@ -161,16 +178,12 @@ test('pasang batu rejects dossier diamonds already used by another document', fu
         ->and((int) dossierDiamondRow($usedDiamondId)->diamondmounting_id)->toBe(999999);
 });
 
-test('pasang batu create page only offers available dossier diamonds', function () {
+test('dossier inventory mounting options only offers available diamonds', function () {
     $availableDiamondId = createMountingDossierDiamondForTest(['certificate' => 'GIA-TEST']);
     $usedDiamondId = createMountingDossierDiamondForTest(['is_used' => 1, 'diamondmounting_id' => 999999]);
     $deletedDiamondId = createMountingDossierDiamondForTest(['is_deleted' => 1]);
 
-    $response = $this->get(route('pasang-batu.create'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('pasang-batu/create')->has('diamondOptions'));
-
-    $options = collect($response->inertiaProps()['diamondOptions'])->keyBy('value');
+    $options = collect(app(DiamondDossierInventory::class)->mountingOptions())->keyBy('value');
     $availableOption = $options->get((string) $availableDiamondId);
 
     expect($availableOption)->not->toBeNull()

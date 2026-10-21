@@ -7,7 +7,7 @@ import { Select } from '@ui5/webcomponents-react/Select';
 import { useEffect, useMemo, useState } from 'react';
 import { index } from '@/routes/inventory/diamond-dossiers';
 
-type DiamondStatus = 'available' | 'used';
+type DiamondStatus = 'available' | 'reserved' | 'used';
 
 type DossierDiamond = {
     id: number;
@@ -21,6 +21,7 @@ type DossierDiamond = {
     entryDate: string | null;
     outDate: string | null;
     status: DiamondStatus;
+    allocationSpkNo: string | null;
     mountingDocumentNo: string | null;
     createdBy: string | null;
     createdDate: string | null;
@@ -52,6 +53,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 const STATUS_OPTIONS: { value: '' | DiamondStatus; label: string }[] = [
     { value: '', label: 'Semua status' },
     { value: 'available', label: 'Tersedia' },
+    { value: 'reserved', label: 'Dialokasi' },
     { value: 'used', label: 'Terpakai' },
 ];
 
@@ -71,7 +73,23 @@ function statusClass(status: DiamondStatus): string {
         return 'inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700';
     }
 
+    if (status === 'reserved') {
+        return 'inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800';
+    }
+
     return 'inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700';
+}
+
+function statusLabel(diamond: DossierDiamond): string {
+    if (diamond.status === 'used') {
+        return 'Terpakai';
+    }
+
+    if (diamond.status === 'reserved') {
+        return 'Dialokasi';
+    }
+
+    return 'Tersedia';
 }
 
 export default function DiamondDossierIndex({
@@ -260,15 +278,28 @@ export default function DiamondDossierIndex({
                                             <td>{diamond.entryDate ?? '—'}</td>
                                             <td>{diamond.outDate ?? '—'}</td>
                                             <td>
-                                                <span
-                                                    className={statusClass(
-                                                        diamond.status,
-                                                    )}
-                                                >
-                                                    {diamond.status === 'used'
-                                                        ? 'Terpakai'
-                                                        : 'Tersedia'}
-                                                </span>
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <span
+                                                        className={statusClass(
+                                                            diamond.status,
+                                                        )}
+                                                    >
+                                                        {statusLabel(diamond)}
+                                                    </span>
+                                                    {diamond.status ===
+                                                        'reserved' &&
+                                                    diamond.allocationSpkNo ? (
+                                                        <span
+                                                            className="text-xs text-muted-foreground"
+                                                            title="SPK produksi"
+                                                        >
+                                                            SPK{' '}
+                                                            {
+                                                                diamond.allocationSpkNo
+                                                            }
+                                                        </span>
+                                                    ) : null}
+                                                </div>
                                             </td>
                                             <td>
                                                 {diamond.mountingDocumentNo ??

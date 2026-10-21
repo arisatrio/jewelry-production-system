@@ -17,7 +17,7 @@ class DiamondMountingStoneSynchronizer
     /**
      * @return list<array{value: string, label: string, description: string, code: string|null, diamondType: string|null, shape: string|null, certificate: string|null, crt: string|null}>
      */
-    public function diamondOptions(?DiamondMounting $document = null): array
+    public function diamondOptions(?DiamondMounting $document = null, ?int $spkDiamondId = null): array
     {
         if (! Schema::connection('third')->hasTable('trdiamond')) {
             return [];
@@ -25,13 +25,26 @@ class DiamondMountingStoneSynchronizer
 
         return $this->diamondDossierInventory->mountingOptions(
             $document !== null ? (int) $document->row_id : null,
+            $spkDiamondId,
         );
+    }
+
+    /**
+     * @return list<array{value: string, label: string, description: string, code: string|null, diamondType: string|null, shape: string|null, certificate: string|null, crt: string|null}>
+     */
+    public function allocationDiamondOptions(int $spkId): array
+    {
+        if (! Schema::connection('third')->hasTable('trdiamond')) {
+            return [];
+        }
+
+        return $this->diamondDossierInventory->allocationOptions($spkId);
     }
 
     /**
      * @return list<array{value: string, label: string, stock: string}>
      */
-    public function stoneOptions(): array
+    public function stoneOptions(?int $excludeSpkIdFromReserved = null): array
     {
         if (! Schema::connection('third')->hasTable('msstone')) {
             return [];
@@ -84,15 +97,22 @@ class DiamondMountingStoneSynchronizer
             $columns[] = 'stone_stock.stock';
         }
 
+        $reservedByStone = $excludeSpkIdFromReserved !== null && $excludeSpkIdFromReserved > 0
+            ? app(SpkAllocationReservedStock::class)->pcsReservedByStoneExcludingSpk($excludeSpkIdFromReserved)
+            : [];
+
         return $query
             ->get($columns)
-            ->map(function (object $row): array {
+            ->map(function (object $row) use ($reservedByStone): array {
+                $stoneId = (int) $row->row_id;
                 $stock = (int) round((float) ($row->stock ?? 0));
+                $reserved = (int) round((float) ($reservedByStone[$stoneId] ?? 0));
+                $available = max(0, $stock - $reserved);
 
                 return [
-                    'value' => (string) $row->row_id,
+                    'value' => (string) $stoneId,
                     'label' => (string) $row->name,
-                    'stock' => (string) $stock,
+                    'stock' => (string) $available,
                 ];
             })
             ->values()
@@ -192,17 +212,24 @@ class DiamondMountingStoneSynchronizer
      *     mounted?: list<array<string, mixed>>
      * }  $payload
      */
-    public function sync(DiamondMounting $document, array $payload, string $actor): void
-    {
+    public function sync(
+        DiamondMounting $document,
+        array $payload,
+        string $actor,
+        bool $preserveSetting = false,
+        bool $preserveDiamonds = false,
+    ): void {
         $spkId = filled($document->spk_id) ? (int) $document->spk_id : null;
 
-        $this->syncStoneLines(
-            $document,
-            $spkId,
-            self::TRANSTYPE_SETTING,
-            $payload['setting'] ?? [],
-            $actor,
-        );
+        if (! $preserveSetting) {
+            $this->syncStoneLines(
+                $document,
+                $spkId,
+                self::TRANSTYPE_SETTING,
+                $payload['setting'] ?? [],
+                $actor,
+            );
+        }
         $this->syncStoneLines(
             $document,
             $spkId,
@@ -210,7 +237,11 @@ class DiamondMountingStoneSynchronizer
             $payload['return'] ?? [],
             $actor,
         );
-        $this->syncDiamondLines($document, $payload['diamonds'] ?? [], $actor);
+
+        if (! $preserveDiamonds) {
+            $this->syncDiamondLines($document, $payload['diamonds'] ?? [], $actor);
+        }
+
         $this->syncMountedLines($document, $payload['mounted'] ?? [], $actor);
     }
 

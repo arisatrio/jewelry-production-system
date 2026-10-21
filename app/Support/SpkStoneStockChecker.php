@@ -98,6 +98,13 @@ class SpkStoneStockChecker
         return $this->matchingStones($this->previewStone($shapeId, $pcs, $caratPerPcs, $size));
     }
 
+    public function stockSourceForStone(SpkStone $stone): string
+    {
+        return $this->caratPerPcs($stone) >= self::DOSSIER_MIN_CARAT_PER_PCS
+            ? self::SOURCE_DOSSIER
+            : self::SOURCE_MICRO;
+    }
+
     public function matchingStones(SpkStone $stone): array
     {
         $match = $this->resolveMatch($stone, $this->loadContext(collect([$stone])));

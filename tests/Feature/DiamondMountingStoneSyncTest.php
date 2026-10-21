@@ -131,20 +131,14 @@ test('pasang batu store syncs setting and mounted stone details', function () {
     $production->delete();
 });
 
-test('pasang batu create page exposes stone and shape options', function () {
-    $response = $this->get(route('pasang-batu.create'))
+test('pasang batu create page renders without detail batch editor props', function () {
+    $this->get(route('pasang-batu.create'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('pasang-batu/create')
-            ->has('stoneOptions')
-            ->has('shapeOptions')
-            ->has('form.settingStones')
-            ->has('form.mountedStones')
+            ->has('processOptions')
+            ->has('craftsmanOptions')
+            ->missing('stoneOptions')
+            ->missing('diamondOptions')
         );
-
-    $props = $response->inertiaProps();
-    $firstStone = $props['stoneOptions'][0] ?? null;
-
-    expect($firstStone)->toBeArray()
-        ->and($firstStone)->toHaveKeys(['value', 'label', 'stock']);
 });

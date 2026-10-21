@@ -15,16 +15,22 @@ import { Select } from '@ui5/webcomponents-react/Select';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { TextArea } from '@ui5/webcomponents-react/TextArea';
 import {
+    PasangBatuSelectSpkDiamondDialog,
+    type PasangBatuSelectedSpkDiamond,
+} from '@/components/pasang-batu/pasang-batu-select-spk-diamond-dialog';
+import {
     PasangBatuSelectSpkDialog,
     type PasangBatuSelectedSpk,
 } from '@/components/pasang-batu/pasang-batu-select-spk-dialog';
 import {
-    PasangBatuStoneEditor,
-    type DiamondLine,
-    type MountedStoneLine,
-    type PasangBatuDiamondOption,
-    type PasangBatuStoneOption,
-    type SettingStoneLine,
+    PasangBatuSettingAwalPanel,
+    type SettingAwalLine,
+} from '@/components/pasang-batu/pasang-batu-setting-awal-panel';
+import { buildMountedStonesFromSettingAwal } from '@/components/pasang-batu/setting-awal-mounted';
+import type {
+    DiamondLine,
+    MountedStoneLine,
+    SettingStoneLine,
 } from '@/components/pasang-batu/pasang-batu-stone-editor';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
@@ -56,6 +62,9 @@ type PasangBatuFormValues = {
     weight_diamond: string;
     weight_finish_goods: string;
     spk: PasangBatuSpkForm | null;
+    spk_diamond_id: string;
+    spk_diamond_no: string;
+    setting_awal_lines: SettingAwalLine[];
     setting_stones: SettingStoneLine[];
     return_stones: SettingStoneLine[];
     diamonds: DiamondLine[];
@@ -71,10 +80,8 @@ type PasangBatuFormProps = {
     method?: 'post' | 'put';
     processOptions: OptionItem[];
     craftsmanOptions: OptionItem[];
-    stoneOptions: PasangBatuStoneOption[];
-    shapeOptions: PasangBatuStoneOption[];
-    diamondOptions: PasangBatuDiamondOption[];
     initialValues: PasangBatuFormValues;
+    pickSpkDiamond?: boolean;
 };
 
 function normalizeNullableNumber(value: string): string | null {
@@ -171,16 +178,16 @@ export function PasangBatuForm({
     method = 'post',
     processOptions,
     craftsmanOptions,
-    stoneOptions,
-    shapeOptions,
-    diamondOptions,
     initialValues,
+    pickSpkDiamond = false,
 }: PasangBatuFormProps) {
     const { data, setData, post, put, processing, errors, transform } =
         useForm<PasangBatuFormValues>(initialValues);
     const [spkDialogOpen, setSpkDialogOpen] = useState(false);
+    const [spkDiamondDialogOpen, setSpkDiamondDialogOpen] = useState(false);
     const hasSelectedSpk =
         data.spk !== null && data.spk.spk_id.trim() !== '';
+    const hasSelectedSpkDiamond = data.spk_diamond_id.trim() !== '';
     const shrinkPreview = computeShrink(
         data.weight_frame,
         data.weight_diamond,
@@ -197,11 +204,113 @@ export function PasangBatuForm({
         });
     };
 
+    const handleSelectedSpkDiamond = (selected: PasangBatuSelectedSpkDiamond) => {
+        const prefill = selected.prefill;
+        const settingAwalLines: SettingAwalLine[] = (
+            prefill.settingAwalLines ?? []
+        ).map((line, index) => ({
+            key: `awal-${index}`,
+            sourceType: (line.sourceType as 'stone' | 'diamond') ?? 'stone',
+            sourceLineId: Number(line.sourceLineId ?? 0),
+            batu: String(line.batu ?? 'Batu'),
+            pcsAwal: line.pcsAwal as number | string | null,
+            crtAwal: line.crtAwal as number | string | null,
+            pcsTerpasang: null,
+            crtTerpasang: null,
+            pcsRetur: null,
+            crtRetur: null,
+            notes: (line.notes as string | null) ?? null,
+            stoneId: line.stoneId as number | undefined,
+            trdiamondId: line.trdiamondId as number | undefined,
+            shapeId: line.shapeId as number | undefined,
+            diamondCode: (line.diamondCode as string | null) ?? null,
+            size: (line.size as string | null) ?? null,
+        }));
+
+        setData({
+            ...data,
+            spk_diamond_id: String(selected.id),
+            spk_diamond_no: selected.noSpkDiamond,
+            spk: {
+                ...emptySpk(),
+                spk_id: String(prefill.spkId),
+                spk_no: prefill.spkNo ?? '',
+            },
+            weight_frame: prefill.weightFrame ?? '',
+            weight_diamond: prefill.weightStone ?? '',
+            notes: prefill.keterangan ?? data.notes,
+            setting_stones: [],
+            setting_awal_lines: settingAwalLines,
+            diamonds: [],
+            mounted_stones: [],
+        });
+    };
+
+    const applySettingAwalLines = (lines: SettingAwalLine[]) => {
+        const manualMounted = data.mounted_stones.filter(
+            (line) => !line.key.startsWith('awal-mounted-'),
+        );
+
+        setData({
+            ...data,
+            setting_awal_lines: lines,
+            mounted_stones: [
+                ...buildMountedStonesFromSettingAwal(lines),
+                ...manualMounted,
+            ],
+        });
+    };
+
     const submit = (event: FormEvent) => {
         event.preventDefault();
 
-        transform((formData) => ({
+        transform((formData) => {
+            const fromSpkDiamond = formData.spk_diamond_id.trim() !== '';
+
+            const awalReturns = formData.setting_awal_lines
+                .filter(
+                    (line) =>
+                        line.sourceType === 'stone' &&
+                        line.stoneId &&
+                        Number(line.pcsRetur ?? 0) > 0,
+                )
+                .map((line) => ({
+                    stone_id: Number(line.stoneId),
+                    pcs: String(line.pcsRetur ?? ''),
+                    crt: line.crtRetur !== null ? String(line.crtRetur) : null,
+                    notes: null,
+                }));
+
+            const mergedReturns = fromSpkDiamond
+                ? awalReturns
+                : [
+                      ...formData.return_stones
+                          .filter((line) => line.stone_id.trim() !== '')
+                          .map((line) => ({
+                              stone_id: Number(line.stone_id),
+                              pcs: normalizeNullableNumber(line.pcs),
+                              crt: normalizeNullableNumber(line.crt),
+                              notes:
+                                  line.notes.trim() !== ''
+                                      ? line.notes.trim()
+                                      : null,
+                          })),
+                      ...awalReturns,
+                  ];
+
+            const awalMounted = buildMountedStonesFromSettingAwal(
+                formData.setting_awal_lines,
+            );
+            const manualMounted = formData.mounted_stones.filter(
+                (line) => !line.key.startsWith('awal-mounted-'),
+            );
+
+            return {
             process_name: formData.process_name.trim() || null,
+            spk_diamond_id:
+                formData.spk_diamond_id.trim() !== ''
+                    ? Number(formData.spk_diamond_id)
+                    : null,
             spk_id:
                 formData.spk?.spk_id && formData.spk.spk_id.trim() !== ''
                     ? Number(formData.spk.spk_id)
@@ -225,30 +334,28 @@ export function PasangBatuForm({
             weight_finish_goods: normalizeWeightForSubmit(
                 formData.weight_finish_goods,
             ),
-            setting_stones: formData.setting_stones
-                .filter((line) => line.stone_id.trim() !== '')
-                .map((line) => ({
-                    stone_id: Number(line.stone_id),
-                    pcs: normalizeNullableNumber(line.pcs),
-                    crt: normalizeNullableNumber(line.crt),
-                    notes:
-                        line.notes.trim() !== '' ? line.notes.trim() : null,
-                })),
-            return_stones: formData.return_stones
-                .filter((line) => line.stone_id.trim() !== '')
-                .map((line) => ({
-                    stone_id: Number(line.stone_id),
-                    pcs: normalizeNullableNumber(line.pcs),
-                    crt: normalizeNullableNumber(line.crt),
-                    notes:
-                        line.notes.trim() !== '' ? line.notes.trim() : null,
-                })),
-            diamonds: formData.diamonds
-                .filter((line) => line.diamond_id.trim() !== '')
-                .map((line) => ({
-                    diamond_id: Number(line.diamond_id),
-                })),
-            mounted_stones: formData.mounted_stones
+            setting_stones: fromSpkDiamond
+                ? []
+                : formData.setting_stones
+                      .filter((line) => line.stone_id.trim() !== '')
+                      .map((line) => ({
+                          stone_id: Number(line.stone_id),
+                          pcs: normalizeNullableNumber(line.pcs),
+                          crt: normalizeNullableNumber(line.crt),
+                          notes:
+                              line.notes.trim() !== ''
+                                  ? line.notes.trim()
+                                  : null,
+                      })),
+            return_stones: mergedReturns,
+            diamonds: fromSpkDiamond
+                ? []
+                : formData.diamonds
+                      .filter((line) => line.diamond_id.trim() !== '')
+                      .map((line) => ({
+                          diamond_id: Number(line.diamond_id),
+                      })),
+            mounted_stones: (fromSpkDiamond ? awalMounted : [...awalMounted, ...manualMounted])
                 .filter(
                     (line) =>
                         line.diamond_code.trim() !== '' ||
@@ -268,7 +375,18 @@ export function PasangBatuForm({
                     size:
                         line.size.trim() !== '' ? line.size.trim() : null,
                 })),
-        }));
+            setting_awal_lines: formData.setting_awal_lines.map((line) => ({
+                source_type: line.sourceType,
+                source_line_id: line.sourceLineId,
+                stone_id: line.stoneId ?? null,
+                trdiamond_id: line.trdiamondId ?? null,
+                pcs_terpasang: line.pcsTerpasang,
+                crt_terpasang: line.crtTerpasang,
+                pcs_retur: line.pcsRetur,
+                crt_retur: line.crtRetur,
+            })),
+        };
+        });
 
         const options = {
             preserveScroll: true,
@@ -339,14 +457,37 @@ export function PasangBatuForm({
                                     <FormItem
                                         labelContent={
                                             <Label showColon required>
-                                                No. SPK
+                                                {pickSpkDiamond
+                                                    ? 'SPK Diamond'
+                                                    : 'No. SPK'}
                                             </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
                                             <div className="spkCreateSelectorRow">
                                                 <div className="spkCreateSelectorValue">
-                                                    {hasSelectedSpk ? (
+                                                    {pickSpkDiamond ? (
+                                                        hasSelectedSpkDiamond ? (
+                                                            <>
+                                                                <strong>
+                                                                    {
+                                                                        data.spk_diamond_no
+                                                                    }
+                                                                </strong>
+                                                                <span>
+                                                                    SPK produksi:{' '}
+                                                                    {data.spk
+                                                                        ?.spk_no ||
+                                                                        '—'}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span>
+                                                                Belum ada SPK
+                                                                Diamond dipilih
+                                                            </span>
+                                                        )
+                                                    ) : hasSelectedSpk ? (
                                                         <>
                                                             <strong>
                                                                 {data.spk
@@ -371,14 +512,52 @@ export function PasangBatuForm({
                                                     type="Button"
                                                     disabled={processing}
                                                     onClick={() =>
-                                                        setSpkDialogOpen(true)
+                                                        pickSpkDiamond
+                                                            ? setSpkDiamondDialogOpen(
+                                                                  true,
+                                                              )
+                                                            : setSpkDialogOpen(
+                                                                  true,
+                                                              )
                                                     }
                                                 >
-                                                    {hasSelectedSpk
-                                                        ? 'Ganti'
-                                                        : 'Pilih'}
+                                                    {pickSpkDiamond
+                                                        ? hasSelectedSpkDiamond
+                                                            ? 'Ganti'
+                                                            : 'Pilih'
+                                                        : hasSelectedSpk
+                                                          ? 'Ganti'
+                                                          : 'Pilih'}
                                                 </Button>
-                                                {hasSelectedSpk ? (
+                                                {pickSpkDiamond &&
+                                                hasSelectedSpkDiamond ? (
+                                                    <Button
+                                                        design="Transparent"
+                                                        type="Button"
+                                                        disabled={processing}
+                                                        onClick={() =>
+                                                            setData({
+                                                                ...data,
+                                                                spk_diamond_id:
+                                                                    '',
+                                                                spk_diamond_no:
+                                                                    '',
+                                                                spk: emptySpk(),
+                                                                setting_awal_lines:
+                                                                    [],
+                                                                weight_frame:
+                                                                    '',
+                                                                weight_diamond:
+                                                                    '',
+                                                                diamonds: [],
+                                                            })
+                                                        }
+                                                    >
+                                                        Hapus
+                                                    </Button>
+                                                ) : null}
+                                                {!pickSpkDiamond &&
+                                                hasSelectedSpk ? (
                                                     <Button
                                                         design="Transparent"
                                                         type="Button"
@@ -782,43 +961,35 @@ export function PasangBatuForm({
                                 </FormGroup>
                             </Form>
 
-                            <PasangBatuStoneEditor
-                                stoneOptions={stoneOptions}
-                                shapeOptions={shapeOptions}
-                                diamondOptions={diamondOptions}
-                                settingStones={data.setting_stones}
-                                returnStones={data.return_stones}
-                                diamonds={data.diamonds}
-                                mountedStones={data.mounted_stones}
-                                errors={errors}
-                                onSettingChange={(settingStones) =>
-                                    setData('setting_stones', settingStones)
-                                }
-                                onReturnChange={(returnStones) =>
-                                    setData('return_stones', returnStones)
-                                }
-                                onDiamondsChange={(diamonds) =>
-                                    setData('diamonds', diamonds)
-                                }
-                                onMountedChange={(mountedStones) =>
-                                    setData('mounted_stones', mountedStones)
-                                }
-                            />
+                            {pickSpkDiamond && hasSelectedSpkDiamond ? (
+                                <PasangBatuSettingAwalPanel
+                                    lines={data.setting_awal_lines}
+                                    onChange={applySettingAwalLines}
+                                />
+                            ) : null}
                         </section>
                     </form>
                 </div>
             </div>
 
-            <PasangBatuSelectSpkDialog
-                open={spkDialogOpen}
-                onOpenChange={setSpkDialogOpen}
-                excludeSpkIds={
-                    data.spk?.spk_id
-                        ? [Number(data.spk.spk_id)].filter((id) => id > 0)
-                        : []
-                }
-                onSelected={handleSelectedSpk}
-            />
+            {pickSpkDiamond ? (
+                <PasangBatuSelectSpkDiamondDialog
+                    open={spkDiamondDialogOpen}
+                    onClose={() => setSpkDiamondDialogOpen(false)}
+                    onSelect={handleSelectedSpkDiamond}
+                />
+            ) : (
+                <PasangBatuSelectSpkDialog
+                    open={spkDialogOpen}
+                    onOpenChange={setSpkDialogOpen}
+                    excludeSpkIds={
+                        data.spk?.spk_id
+                            ? [Number(data.spk.spk_id)].filter((id) => id > 0)
+                            : []
+                    }
+                    onSelected={handleSelectedSpk}
+                />
+            )}
         </>
     );
 }

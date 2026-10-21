@@ -109,6 +109,58 @@ test('diamond dossier index filters by status', function (string $status, string
     'used' => ['used', '1.200'],
 ]);
 
+test('diamond dossier index shows reserved status for spk allocation', function () {
+    if (
+        ! Schema::connection('third')->hasTable('spk_allocation')
+        || ! Schema::connection('third')->hasTable('spk_allocation_diamond')
+    ) {
+        $this->markTestSkipped('SPK allocation tables are not available.');
+    }
+
+    $certificate = 'CERT-'.Str::upper(Str::random(8));
+    $spkNo = '2026/PRD/DD'.Str::upper(Str::random(4));
+    $diamondId = createDossierDiamondForTest([
+        'certificate' => $certificate,
+        'crt' => '0.750',
+    ]);
+
+    $allocationId = (int) DB::connection('third')->table('spk_allocation')->insertGetId([
+        'spk_id' => 999001,
+        'spk_no' => $spkNo,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'tester',
+        'modified_date' => now(),
+        'modified_by' => 'tester',
+    ]);
+
+    DB::connection('third')->table('spk_allocation_diamond')->insert([
+        'spk_allocation_id' => $allocationId,
+        'trdiamond_id' => $diamondId,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'tester',
+    ]);
+
+    $this->get(route('inventory.diamond-dossiers.index', [
+        'search' => $certificate,
+        'status' => 'reserved',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('diamonds.data', 1)
+            ->where('diamonds.data.0.status', 'reserved')
+            ->where('diamonds.data.0.allocationSpkNo', $spkNo)
+            ->where('summary.crt', '0.750')
+        );
+
+    $this->get(route('inventory.diamond-dossiers.index', [
+        'search' => $spkNo,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('diamonds.data', 1));
+});
+
 test('diamond dossier index rejects unknown status', function () {
     $this->get(route('inventory.diamond-dossiers.index', ['status' => 'unknown']))
         ->assertSessionHasErrors('status');

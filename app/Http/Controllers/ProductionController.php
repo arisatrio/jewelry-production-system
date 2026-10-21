@@ -43,6 +43,7 @@ use App\Support\SpkOrderPriorityResolver;
 use App\Support\SpkOrderReference;
 use App\Support\SpkProcessMapper;
 use App\Support\SpkProductionControlReport;
+use App\Support\SpkProductionStoneList;
 use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
 use App\Support\SpkShrinkSummary;
@@ -1926,70 +1927,7 @@ class ProductionController extends Controller
      */
     private function toShowStones(Production $production): array
     {
-        $production->loadMissing([
-            'sku.diamonds' => fn ($query) => $query->notDeleted()->orderBy('line_id'),
-        ]);
-
-        $masterStones = $production->sku !== null
-            ? $this->diamondMapper->toFormStones($production->sku->diamonds)
-            : [];
-
-        $stones = $production->stones()
-            ->notDeleted()
-            ->with(['shape', 'position'])
-            ->orderBy('line_id')
-            ->get()
-            ->values();
-
-        $stockByLineId = $this->stoneStockChecker->forStones($stones);
-
-        return $stones
-            ->map(function (SpkStone $stone, int $index) use ($masterStones, $stockByLineId): array {
-                $item = $this->toStoneItem($stone);
-                $item['stock'] = $stockByLineId[(int) $stone->line_id] ?? null;
-                $master = $masterStones[$index] ?? null;
-
-                $item['master'] = $master === null
-                    ? null
-                    : [
-                        'positionName' => filled($master['positionNama']) ? $master['positionNama'] : null,
-                        'shapeName' => filled($master['shapeName']) ? $master['shapeName'] : null,
-                        'shapeId' => filled($master['shapeId']) ? $master['shapeId'] : null,
-                        'size' => filled($master['size']) ? $master['size'] : null,
-                        'caratPerPcs' => filled($master['caratPerPcs']) ? $master['caratPerPcs'] : null,
-                        'pcs' => filled($master['pcs']) ? $master['pcs'] : null,
-                    ];
-
-                return $item;
-            })
-            ->all();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function toStoneItem(SpkStone $stone): array
-    {
-        $pcs = (int) ($stone->pcs ?? 0);
-        $totalCarat = (float) ($stone->carat ?? 0);
-        $caratPerPcs = $pcs > 0 ? round($totalCarat / $pcs, 3) : 0;
-        $shapeName = $this->shapeDisplayName($stone->shape);
-
-        return [
-            'id' => (string) $stone->line_id,
-            'positionId' => $stone->position_id !== null
-                ? (string) $stone->position_id
-                : '',
-            'positionName' => $stone->position?->nama ?? '-',
-            'shape' => $stone->shape?->name ?? '-',
-            'shapeCode' => $stone->shape?->code ?? '-',
-            'shapeName' => $shapeName,
-            'pcs' => $pcs,
-            'carat' => $caratPerPcs,
-            'caratPerPcs' => number_format($caratPerPcs, 3, '.', ''),
-            'totalCarat' => number_format($totalCarat, 3, '.', ''),
-            'size' => $stone->size ?? '-',
-        ];
+        return app(SpkProductionStoneList::class)->forProduction($production, true);
     }
 
     private function customerName(Production $production): string

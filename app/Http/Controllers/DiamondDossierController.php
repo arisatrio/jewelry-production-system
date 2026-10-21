@@ -21,6 +21,7 @@ class DiamondDossierController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in([
                 DiamondDossierInventory::STATUS_AVAILABLE,
+                DiamondDossierInventory::STATUS_RESERVED,
                 DiamondDossierInventory::STATUS_USED,
             ])],
             'per_page' => ['nullable', 'integer'],

@@ -19,6 +19,10 @@ type MicroStone = {
     pcsOut: string;
     balancePcs: string;
     balanceCrt: string;
+    allocatedPcs: string;
+    allocatedCrt: string;
+    netPcs: string;
+    netCrt: string;
 };
 
 type StonesPaginator = {
@@ -63,11 +67,19 @@ function formatPcs(value: string): string {
 function formatCrt(value: string): string {
     const numeric = Number(value);
     const formatted = new Intl.NumberFormat('id-ID', {
-        minimumFractionDigits: 4,
-        maximumFractionDigits: 4,
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3,
     }).format(Math.abs(numeric));
 
     return numeric < 0 ? `(${formatted})` : formatted;
+}
+
+function allocatedClass(pcs: string, crt: string): string {
+    const hasAllocation = Number(pcs) > 0 || Number(crt) > 0;
+
+    return hasAllocation
+        ? 'font-semibold text-amber-700'
+        : 'text-slate-500';
 }
 
 function balanceClass(value: string): string {
@@ -242,14 +254,16 @@ export default function MicroStoneIndex({
                                     <th>Bentuk</th>
                                     <th className="text-right">Masuk (pcs)</th>
                                     <th className="text-right">Keluar (pcs)</th>
-                                    <th className="text-right">Saldo (pcs)</th>
-                                    <th className="text-right">Saldo (crt)</th>
+                                    <th className="text-right">Saldo Aktual (pcs)</th>
+                                    <th className="text-right">Saldo Aktual (crt)</th>
+                                    <th className="text-right">Dialokasikan</th>
+                                    <th className="text-right">Saldo</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {stones.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8}>
+                                        <td colSpan={10}>
                                             {activePeriod
                                                 ? 'Tidak ada batu mikro.'
                                                 : 'Periode batu aktif tidak tersedia.'}
@@ -287,6 +301,51 @@ export default function MicroStoneIndex({
                                             </td>
                                             <td className="text-right tabular-nums">
                                                 {formatCrt(stone.balanceCrt)}
+                                            </td>
+                                            <td className="text-right tabular-nums">
+                                                <div
+                                                    className={`flex flex-col items-end gap-0.5 ${allocatedClass(
+                                                        stone.allocatedPcs,
+                                                        stone.allocatedCrt,
+                                                    )}`}
+                                                >
+                                                    <span>
+                                                        {formatPcs(
+                                                            stone.allocatedPcs,
+                                                        )}{' '}
+                                                        pcs
+                                                    </span>
+                                                    <span className="text-xs">
+                                                        {formatCrt(
+                                                            stone.allocatedCrt,
+                                                        )}{' '}
+                                                        crt
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="text-right tabular-nums">
+                                                <div className="flex flex-col items-end gap-0.5">
+                                                    <span
+                                                        className={balanceClass(
+                                                            stone.netPcs,
+                                                        )}
+                                                    >
+                                                        {formatPcs(
+                                                            stone.netPcs,
+                                                        )}{' '}
+                                                        pcs
+                                                    </span>
+                                                    <span
+                                                        className={`text-xs ${balanceClass(
+                                                            stone.netCrt,
+                                                        )}`}
+                                                    >
+                                                        {formatCrt(
+                                                            stone.netCrt,
+                                                        )}{' '}
+                                                        crt
+                                                    </span>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))

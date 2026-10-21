@@ -26,6 +26,8 @@ createInertiaApp({
             case name.startsWith('coran/'):
             case name.startsWith('finishing/'):
             case name.startsWith('poles-rangka/'):
+            case name.startsWith('spk-diamond/'):
+            case name.startsWith('alokasi-batu/'):
             case name.startsWith('pasang-batu/'):
             case name.startsWith('poles-chrome/'):
             case name.startsWith('inventory/'):

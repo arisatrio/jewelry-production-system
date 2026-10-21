@@ -112,11 +112,19 @@ class StoneLedger
         ?string $stockStatus,
         int $perPage,
     ): LengthAwarePaginator {
+        $reservedStock = app(SpkAllocationReservedStock::class);
+        $allocatedPcsByStone = $reservedStock->pcsReservedByStoneExcludingSpk(null);
+        $allocatedCrtByStone = $reservedStock->crtReservedByStoneExcludingSpk(null);
+
         return $this->stockQuery($periodId, $search, $stockStatus)
             ->orderBy('stone.name')
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (object $stone): array => $this->toStockRow($stone));
+            ->through(fn (object $stone): array => $this->toStockRow(
+                $stone,
+                $allocatedPcsByStone,
+                $allocatedCrtByStone,
+            ));
     }
 
     /**
@@ -129,29 +137,52 @@ class StoneLedger
             return [];
         }
 
+        $reservedStock = app(SpkAllocationReservedStock::class);
+        $allocatedPcsByStone = $reservedStock->pcsReservedByStoneExcludingSpk(null);
+        $allocatedCrtByStone = $reservedStock->crtReservedByStoneExcludingSpk(null);
+
         return array_values($this->stockQuery($periodId, '', null)
             ->whereIn('stone.row_id', $stoneIds)
             ->orderBy('stone.name')
             ->get()
-            ->map(fn (object $stone): array => $this->toStockRow($stone))
+            ->map(fn (object $stone): array => $this->toStockRow(
+                $stone,
+                $allocatedPcsByStone,
+                $allocatedCrtByStone,
+            ))
             ->all());
     }
 
     /**
+     * @param  array<int, float>  $allocatedPcsByStone
+     * @param  array<int, float>  $allocatedCrtByStone
      * @return array<string, int|string|null>
      */
-    private function toStockRow(object $stone): array
-    {
+    private function toStockRow(
+        object $stone,
+        array $allocatedPcsByStone = [],
+        array $allocatedCrtByStone = [],
+    ): array {
+        $stoneId = (int) $stone->row_id;
+        $balancePcs = (float) ($stone->balance_pcs ?? 0);
+        $balanceCrt = (float) ($stone->balance_crt ?? 0);
+        $allocatedPcs = (float) ($allocatedPcsByStone[$stoneId] ?? 0);
+        $allocatedCrt = (float) ($allocatedCrtByStone[$stoneId] ?? 0);
+
         return [
-            'id' => (int) $stone->row_id,
+            'id' => $stoneId,
             'name' => (string) $stone->name,
             'parcel' => filled($stone->parcel) ? (string) $stone->parcel : null,
             'size' => filled($stone->stone_size) ? (string) $stone->stone_size : null,
             'shape' => filled($stone->shape_name) ? (string) $stone->shape_name : null,
             'pcsIn' => $this->formatPcs((float) ($stone->pcs_in ?? 0)),
             'pcsOut' => $this->formatPcs((float) ($stone->pcs_out ?? 0)),
-            'balancePcs' => $this->formatPcs((float) ($stone->balance_pcs ?? 0)),
-            'balanceCrt' => number_format((float) ($stone->balance_crt ?? 0), 4, '.', ''),
+            'balancePcs' => $this->formatPcs($balancePcs),
+            'balanceCrt' => number_format($balanceCrt, 3, '.', ''),
+            'allocatedPcs' => $this->formatPcs($allocatedPcs),
+            'allocatedCrt' => number_format($allocatedCrt, 3, '.', ''),
+            'netPcs' => $this->formatPcs($balancePcs - $allocatedPcs),
+            'netCrt' => number_format($balanceCrt - $allocatedCrt, 3, '.', ''),
         ];
     }
 
@@ -170,7 +201,7 @@ class StoneLedger
 
         return [
             'pcs' => $this->formatPcs((float) ($totals->total_pcs ?? 0)),
-            'crt' => number_format((float) ($totals->total_crt ?? 0), 4, '.', ''),
+            'crt' => number_format((float) ($totals->total_crt ?? 0), 3, '.', ''),
         ];
     }
 

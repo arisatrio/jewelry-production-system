@@ -4150,6 +4150,223 @@
     gap: 0.55rem;
 }
 
+.alokasiBatuFormSection {
+    padding: 0 1rem 1rem;
+}
+
+.alokasiBatuFormHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 0 0;
+}
+
+.alokasiBatuGuideStrip {
+    margin: 0.5rem 0 0.75rem;
+}
+
+.alokasiBatuStoneCardList {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.alokasiBatuStoneCard {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #fff;
+    overflow: hidden;
+}
+
+.alokasiBatuStoneCardZones {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+}
+
+@media (max-width: 1024px) {
+    .alokasiBatuStoneCardZones {
+        grid-template-columns: 1fr;
+    }
+}
+
+.alokasiBatuZone {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    min-height: 100%;
+}
+
+.alokasiBatuZone + .alokasiBatuZone {
+    border-left: 1px solid #eceff2;
+}
+
+@media (max-width: 1024px) {
+    .alokasiBatuZone + .alokasiBatuZone {
+        border-left: none;
+        border-top: 1px solid #eceff2;
+    }
+}
+
+.alokasiBatuZone--requirement {
+    background: #f9fafb;
+}
+
+.alokasiBatuZone--stock {
+    background: #f8fafc;
+}
+
+.alokasiBatuZone--allocation {
+    background: #fff;
+}
+
+.alokasiBatuZoneHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: space-between;
+}
+
+.alokasiBatuZoneBadge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #475569;
+    background: #e2e8f0;
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.25rem;
+}
+
+.alokasiBatuZoneBadge--stock {
+    color: #1e40af;
+    background: #dbeafe;
+}
+
+.alokasiBatuZoneBadge--allocation {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.alokasiBatuZoneMeta {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.alokasiBatuZoneTitle {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.35;
+}
+
+.alokasiBatuMetrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 0.75rem;
+    margin: 0;
+    font-size: 0.8125rem;
+}
+
+.alokasiBatuMetrics dt {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.alokasiBatuMetrics dd {
+    margin: 0;
+    color: #0f172a;
+}
+
+.alokasiBatuMetrics--compare dd strong {
+    color: #166534;
+}
+
+.alokasiBatuZoneDetail,
+.alokasiBatuZoneNote {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #334155;
+    line-height: 1.4;
+}
+
+.alokasiBatuZoneNote {
+    color: #64748b;
+    font-style: italic;
+}
+
+.alokasiBatuZoneEmpty {
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+.alokasiBatuZoneAction {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+}
+
+.alokasiBatuZoneActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.alokasiBatuOtherModal {
+    max-width: min(52rem, 96vw);
+}
+
+.alokasiBatuOtherModalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.alokasiBatuZoneError {
+    font-size: 0.75rem;
+}
+
+.alokasiBatuMatchBadge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.25rem;
+}
+
+.alokasiBatuMatchBadge.is-complete {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.alokasiBatuMatchBadge.is-partial {
+    color: #9a3412;
+    background: #ffedd5;
+}
+
+.alokasiBatuMatchBadge.is-over {
+    color: #991b1b;
+    background: #fee2e2;
+}
+
+.alokasiBatuMatchBadge.is-empty {
+    color: #64748b;
+    background: #f1f5f9;
+}
+
+.spkStoneAllocationSummary.is-compact {
+    margin-top: 0.25rem;
+}
+
+.spkStoneAllocationSummary.is-compact .spkCoranMaterialEditorTable {
+    font-size: 0.8125rem;
+}
+
 .spkItemStoneSection + .spkItemStoneSection {
     padding-top: 0.75rem;
 }

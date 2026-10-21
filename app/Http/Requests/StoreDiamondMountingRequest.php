@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\DiamondMounting;
 use App\Models\Production;
+use App\Models\SpkDiamond;
 use App\Support\DiamondDossierInventory;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
@@ -23,13 +24,26 @@ class StoreDiamondMountingRequest extends FormRequest
     {
         $craftsmanId = $this->input('craftsman_id');
         $spkId = $this->input('spk_id');
+        $spkDiamondId = $this->input('spk_diamond_id');
+
+        $resolvedSpkDiamondId = filled($spkDiamondId) && (int) $spkDiamondId > 0
+            ? (int) $spkDiamondId
+            : null;
+
+        if ($resolvedSpkDiamondId !== null && (! filled($spkId) || (int) $spkId <= 0)) {
+            $spkId = SpkDiamond::query()
+                ->notDeleted()
+                ->whereKey($resolvedSpkDiamondId)
+                ->value('spk_id');
+        }
 
         $this->merge([
-            'process_name' => filled($this->input('process_name'))
-                ? trim((string) $this->input('process_name'))
-                : null,
+            'spk_diamond_id' => $resolvedSpkDiamondId,
             'spk_id' => filled($spkId) && (int) $spkId > 0
                 ? (int) $spkId
+                : null,
+            'process_name' => filled($this->input('process_name'))
+                ? trim((string) $this->input('process_name'))
                 : null,
             'craftsman_id' => filled($craftsmanId) && (int) $craftsmanId > 0
                 ? (int) $craftsmanId
@@ -56,6 +70,7 @@ class StoreDiamondMountingRequest extends FormRequest
             'return_stones' => $this->normalizeStoneLines($this->input('return_stones', [])),
             'diamonds' => $this->normalizeDiamondLines($this->input('diamonds', [])),
             'mounted_stones' => $this->normalizeMountedLines($this->input('mounted_stones', [])),
+            'setting_awal_lines' => $this->normalizeSettingAwalLines($this->input('setting_awal_lines', [])),
         ]);
     }
 
@@ -70,8 +85,10 @@ class StoreDiamondMountingRequest extends FormRequest
                 'string',
                 Rule::in(DiamondMounting::processNameOptions()),
             ],
+            'spk_diamond_id' => ['nullable', 'integer', 'min:1'],
             'spk_id' => [
-                'required',
+                'required_without:spk_diamond_id',
+                'nullable',
                 'integer',
                 Rule::exists(Production::class, 'row_id')->where(
                     fn ($query) => $query->where('is_deleted', 0),
@@ -102,6 +119,15 @@ class StoreDiamondMountingRequest extends FormRequest
             'mounted_stones.*.pcs' => ['nullable', 'numeric', 'min:0'],
             'mounted_stones.*.crt' => ['nullable', 'numeric', 'min:0'],
             'mounted_stones.*.size' => ['nullable', 'string', 'max:50'],
+            'setting_awal_lines' => ['nullable', 'array'],
+            'setting_awal_lines.*.source_type' => ['nullable', 'string', 'max:20'],
+            'setting_awal_lines.*.source_line_id' => ['nullable', 'integer', 'min:1'],
+            'setting_awal_lines.*.stone_id' => ['nullable', 'integer', 'min:1'],
+            'setting_awal_lines.*.trdiamond_id' => ['nullable', 'integer', 'min:1'],
+            'setting_awal_lines.*.pcs_terpasang' => ['nullable', 'numeric', 'min:0'],
+            'setting_awal_lines.*.crt_terpasang' => ['nullable', 'numeric', 'min:0'],
+            'setting_awal_lines.*.pcs_retur' => ['nullable', 'numeric', 'min:0'],
+            'setting_awal_lines.*.crt_retur' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
@@ -148,12 +174,54 @@ class StoreDiamondMountingRequest extends FormRequest
                     }
                 }
 
+                $this->validateSpkDiamond($validator);
                 $this->validateStoneIds($validator, 'setting_stones');
                 $this->validateStoneIds($validator, 'return_stones');
                 $this->validateDiamondIds($validator);
                 $this->validateShapeIds($validator, 'mounted_stones');
             },
         ];
+    }
+
+    private function validateSpkDiamond(Validator $validator): void
+    {
+        $spkDiamondId = $this->integer('spk_diamond_id');
+
+        if ($spkDiamondId <= 0) {
+            return;
+        }
+
+        $spkDiamond = SpkDiamond::query()
+            ->notDeleted()
+            ->whereKey($spkDiamondId)
+            ->first();
+
+        if ($spkDiamond === null) {
+            $validator->errors()->add('spk_diamond_id', 'SPK Diamond tidak valid.');
+
+            return;
+        }
+
+        if (! $spkDiamond->isSubmitted()) {
+            $validator->errors()->add('spk_diamond_id', 'SPK Diamond harus berstatus kirim ke produksi.');
+
+            return;
+        }
+
+        $hasMounting = DiamondMounting::query()
+            ->notDeleted()
+            ->where('spk_diamond_id', $spkDiamondId)
+            ->exists();
+
+        if ($hasMounting) {
+            $validator->errors()->add('spk_diamond_id', 'SPK Diamond sudah memiliki dokumen Pasang Batu.');
+        }
+
+        $spkId = $this->integer('spk_id');
+
+        if ($spkId > 0 && $spkId !== (int) $spkDiamond->spk_id) {
+            $validator->errors()->add('spk_id', 'SPK produksi tidak sesuai dengan SPK Diamond.');
+        }
     }
 
     /**
@@ -279,6 +347,53 @@ class StoreDiamondMountingRequest extends FormRequest
         return $normalized;
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeSettingAwalLines(mixed $lines): array
+    {
+        if (! is_array($lines)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($lines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'source_type' => filled($line['source_type'] ?? null)
+                    ? strtolower(trim((string) $line['source_type']))
+                    : null,
+                'source_line_id' => filled($line['source_line_id'] ?? null)
+                    ? (int) $line['source_line_id']
+                    : null,
+                'stone_id' => filled($line['stone_id'] ?? null)
+                    ? (int) $line['stone_id']
+                    : null,
+                'trdiamond_id' => filled($line['trdiamond_id'] ?? null)
+                    ? (int) $line['trdiamond_id']
+                    : null,
+                'pcs_terpasang' => filled($line['pcs_terpasang'] ?? null)
+                    ? str_replace(',', '.', trim((string) $line['pcs_terpasang']))
+                    : null,
+                'crt_terpasang' => filled($line['crt_terpasang'] ?? null)
+                    ? str_replace(',', '.', trim((string) $line['crt_terpasang']))
+                    : null,
+                'pcs_retur' => filled($line['pcs_retur'] ?? null)
+                    ? str_replace(',', '.', trim((string) $line['pcs_retur']))
+                    : null,
+                'crt_retur' => filled($line['crt_retur'] ?? null)
+                    ? str_replace(',', '.', trim((string) $line['crt_retur']))
+                    : null,
+            ];
+        }
+
+        return $normalized;
+    }
+
     private function validateStoneIds(Validator $validator, string $key): void
     {
         $lines = collect($this->input($key, []));
@@ -329,6 +444,19 @@ class StoreDiamondMountingRequest extends FormRequest
 
     private function validateDiamondIds(Validator $validator): void
     {
+        if ($this->integer('spk_diamond_id') > 0) {
+            return;
+        }
+
+        $mountingDocument = $this->route('pasangBatu');
+
+        if (
+            $mountingDocument instanceof DiamondMounting
+            && filled($mountingDocument->spk_diamond_id)
+        ) {
+            return;
+        }
+
         $lines = $this->collect('diamonds');
 
         if ($lines->isEmpty()) {
@@ -348,7 +476,6 @@ class StoreDiamondMountingRequest extends FormRequest
             ->unique()
             ->all());
 
-        $mountingDocument = $this->route('pasangBatu');
         $mountingId = $mountingDocument instanceof DiamondMounting
             ? (int) $mountingDocument->row_id
             : null;

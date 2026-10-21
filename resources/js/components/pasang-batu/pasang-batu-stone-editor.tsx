@@ -57,6 +57,10 @@ type PasangBatuStoneEditorProps = {
     onReturnChange: (lines: SettingStoneLine[]) => void;
     onDiamondsChange: (lines: DiamondLine[]) => void;
     onMountedChange: (lines: MountedStoneLine[]) => void;
+    mode?: 'full' | 'spk-diamond';
+    blockTitle?: string;
+    showSettingPanel?: boolean;
+    showMountedPanel?: boolean;
 };
 
 function fieldState(error?: string): 'None' | 'Negative' {
@@ -187,7 +191,7 @@ function OptionComboBox({
     );
 }
 
-function emptySettingLine(): SettingStoneLine {
+export function emptySettingLine(): SettingStoneLine {
     return {
         key: newLineKey('setting'),
         stone_id: '',
@@ -197,7 +201,7 @@ function emptySettingLine(): SettingStoneLine {
     };
 }
 
-function emptyDiamondLine(): DiamondLine {
+export function emptyDiamondLine(): DiamondLine {
     return {
         key: newLineKey('diamond'),
         diamond_id: '',
@@ -245,13 +249,35 @@ function updateMountedLine(
     );
 }
 
-function SettingStonePanel({
+function sanitizeIntegerPcsInput(value: string): string {
+    return value.replace(/[^\d]/g, '');
+}
+
+function formatIntegerPcsValue(value: string): string {
+    const trimmed = value.trim();
+
+    if (trimmed === '') {
+        return '';
+    }
+
+    const parsed = Number(trimmed.replace(',', '.'));
+
+    if (!Number.isFinite(parsed)) {
+        return trimmed;
+    }
+
+    return String(Math.round(parsed));
+}
+
+export function SettingStonePanel({
     title,
     errorPrefix,
     lines,
     stoneOptions,
     errors,
     onChange,
+    integerPcs = false,
+    showHeader = true,
 }: {
     title: string;
     errorPrefix: string;
@@ -259,21 +285,27 @@ function SettingStonePanel({
     stoneOptions: PasangBatuStoneOption[];
     errors: Record<string, string>;
     onChange: (lines: SettingStoneLine[]) => void;
+    integerPcs?: boolean;
+    showHeader?: boolean;
 }) {
     return (
         <div className="spkStoneBatchPanel">
-            <div className="spkCoranMaterialEditorPanelHeader">
-                <div className="spkCoranDetailLabel">{title}</div>
-                <Button
-                    design="Emphasized"
-                    icon={addIcon}
-                    type="Button"
-                    accessibleName={`Tambah ${title}`}
-                    onClick={() => onChange([...lines, emptySettingLine()])}
-                >
-                    Tambah
-                </Button>
-            </div>
+            {showHeader ? (
+                <div className="spkCoranMaterialEditorPanelHeader">
+                    <div className="spkCoranDetailLabel">{title}</div>
+                    <Button
+                        design="Emphasized"
+                        icon={addIcon}
+                        type="Button"
+                        accessibleName={`Tambah ${title}`}
+                        onClick={() =>
+                            onChange([...lines, emptySettingLine()])
+                        }
+                    >
+                        Tambah
+                    </Button>
+                </div>
+            ) : null}
 
             <table className="spkCoranMaterialEditorTable">
                 <thead>
@@ -338,26 +370,36 @@ function SettingStonePanel({
                                     <td>
                                         <div className="spkFioriFieldStack">
                                             <Input
-                                                type="Number"
+                                                type={integerPcs ? 'Text' : 'Number'}
                                                 accessibleName={`${title} pcs`}
-                                                value={line.pcs}
+                                                value={
+                                                    integerPcs
+                                                        ? formatIntegerPcsValue(
+                                                              line.pcs,
+                                                          )
+                                                        : line.pcs
+                                                }
                                                 valueState={fieldState(
                                                     pcsError,
                                                 )}
-                                                onInput={(event) =>
+                                                onInput={(event) => {
+                                                    const raw =
+                                                        event.target.value ??
+                                                        '';
+                                                    const pcs = integerPcs
+                                                        ? sanitizeIntegerPcsInput(
+                                                              raw,
+                                                          )
+                                                        : raw;
+
                                                     onChange(
                                                         updateSettingLine(
                                                             lines,
                                                             line.key,
-                                                            {
-                                                                pcs:
-                                                                    event.target
-                                                                        .value ??
-                                                                    '',
-                                                            },
+                                                            { pcs },
                                                         ),
-                                                    )
-                                                }
+                                                    );
+                                                }}
                                             />
                                             {pcsError ? (
                                                 <Text className="spkFioriError">
@@ -455,16 +497,20 @@ function SettingStonePanel({
     );
 }
 
-function DiamondPanel({
+export function DiamondPanel({
     lines,
     diamondOptions,
     errors,
     onChange,
+    showHeader = true,
+    errorPrefix = 'diamonds',
 }: {
     lines: DiamondLine[];
     diamondOptions: PasangBatuDiamondOption[];
     errors: Record<string, string>;
     onChange: (lines: DiamondLine[]) => void;
+    showHeader?: boolean;
+    errorPrefix?: string;
 }) {
     const diamondOptionById = new Map(
         diamondOptions.map((option) => [option.value, option]),
@@ -472,18 +518,20 @@ function DiamondPanel({
 
     return (
         <div className="spkStoneBatchPanel">
-            <div className="spkCoranMaterialEditorPanelHeader">
-                <div className="spkCoranDetailLabel">Diamond</div>
-                <Button
-                    design="Emphasized"
-                    icon={addIcon}
-                    type="Button"
-                    accessibleName="Tambah Diamond"
-                    onClick={() => onChange([...lines, emptyDiamondLine()])}
-                >
-                    Tambah
-                </Button>
-            </div>
+            {showHeader ? (
+                <div className="spkCoranMaterialEditorPanelHeader">
+                    <div className="spkCoranDetailLabel">Diamond</div>
+                    <Button
+                        design="Emphasized"
+                        icon={addIcon}
+                        type="Button"
+                        accessibleName="Tambah Diamond"
+                        onClick={() => onChange([...lines, emptyDiamondLine()])}
+                    >
+                        Tambah
+                    </Button>
+                </div>
+            ) : null}
 
             <table className="spkCoranMaterialEditorTable">
                 <thead>
@@ -508,7 +556,7 @@ function DiamondPanel({
                     ) : (
                         lines.map((line, index) => {
                             const diamondError =
-                                errors[`diamonds.${index}.diamond_id`];
+                                errors[`${errorPrefix}.${index}.diamond_id`];
                             const selectedDiamond = diamondOptionById.get(
                                 line.diamond_id,
                             );
@@ -827,16 +875,21 @@ export function PasangBatuStoneEditor({
     onReturnChange,
     onDiamondsChange,
     onMountedChange,
+    mode = 'full',
+    blockTitle = 'Detail Batch Pasang Batu',
+    showSettingPanel = true,
+    showMountedPanel = false,
 }: PasangBatuStoneEditorProps) {
+    const isSpkDiamondMode = mode === 'spk-diamond';
+
     return (
         <div className="spkFioriDetailBlock">
             <div className="spkStoneCardHeader">
-                <div className="spkFioriDetailBlockTitle">
-                    Detail Batch Pasang Batu
-                </div>
+                <div className="spkFioriDetailBlockTitle">{blockTitle}</div>
             </div>
 
             <div className="spkStoneBatchGrid">
+                {showSettingPanel ? (
                 <SettingStonePanel
                     title="Setting Batu"
                     errorPrefix="setting_stones"
@@ -844,7 +897,10 @@ export function PasangBatuStoneEditor({
                     stoneOptions={stoneOptions}
                     errors={errors}
                     onChange={onSettingChange}
+                    integerPcs={isSpkDiamondMode}
                 />
+                ) : null}
+                {!isSpkDiamondMode ? (
                 <SettingStonePanel
                     title="Retur Batu"
                     errorPrefix="return_stones"
@@ -853,18 +909,21 @@ export function PasangBatuStoneEditor({
                     errors={errors}
                     onChange={onReturnChange}
                 />
+                ) : null}
                 <DiamondPanel
                     lines={diamonds}
                     diamondOptions={diamondOptions}
                     errors={errors}
                     onChange={onDiamondsChange}
                 />
+                {!isSpkDiamondMode || showMountedPanel ? (
                 <MountedStonePanel
                     lines={mountedStones}
                     shapeOptions={shapeOptions}
                     errors={errors}
                     onChange={onMountedChange}
                 />
+                ) : null}
             </div>
         </div>
     );

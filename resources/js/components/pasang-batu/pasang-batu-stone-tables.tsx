@@ -59,6 +59,28 @@ export function displayCrt(value: string | number | null | undefined): string {
     return number.toFixed(3);
 }
 
+export function displayPcs(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+        return '—';
+    }
+
+    const text = String(value).trim().replace(',', '.');
+
+    if (text === '') {
+        return '—';
+    }
+
+    const number = Number(text);
+
+    if (!Number.isFinite(number)) {
+        return displayCell(value);
+    }
+
+    return number.toLocaleString('id-ID', {
+        maximumFractionDigits: 0,
+    });
+}
+
 export function displayStoneWithNotes(
     batu: string | null | undefined,
     notes: string | null | undefined,
@@ -164,7 +186,7 @@ export function PasangBatuStoneTables({
                     columns={['Batu', 'Pcs', 'Crt']}
                     rows={stones.setting.map((row) => [
                         displayStoneWithNotes(row.batu, row.notes),
-                        displayCell(row.pcs),
+                        displayPcs(row.pcs),
                         displayCrt(row.crt),
                     ])}
                 />
@@ -173,7 +195,7 @@ export function PasangBatuStoneTables({
                     columns={['Batu', 'Pcs', 'Crt']}
                     rows={stones.return.map((row) => [
                         displayStoneWithNotes(row.batu, row.notes),
-                        displayCell(row.pcs),
+                        displayPcs(row.pcs),
                         displayCrt(row.crt),
                     ])}
                 />
@@ -194,7 +216,7 @@ export function PasangBatuStoneTables({
                     rows={stones.mounted.map((row) => [
                         displayCell(row.kode),
                         displayCell(row.shape),
-                        displayCell(row.pcs),
+                        displayPcs(row.pcs),
                         displayCrt(row.crt),
                         displayCell(row.size),
                     ])}

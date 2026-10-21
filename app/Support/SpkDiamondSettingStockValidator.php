@@ -1,0 +1,92 @@
+<?php
+
+namespace App\Support;
+
+use Illuminate\Contracts\Validation\Validator;
+
+class SpkDiamondSettingStockValidator
+{
+    public const INSUFFICIENT_STOCK_MESSAGE = 'Stok batu tidak mencukupi.';
+
+    public function __construct(
+        private StoneLedger $stoneLedger,
+        private SpkAllocationReservedStock $reservedStock,
+    ) {}
+
+    /**
+     * @param  list<array{stone_id?: int|string, pcs?: string|float|null}>  $lines
+     */
+    public function firstErrorForLines(array $lines, ?int $excludeSpkId = null): ?string
+    {
+        $requiredByStone = $this->requiredPcsByStone($lines);
+
+        if ($requiredByStone === []) {
+            return null;
+        }
+
+        $period = $this->stoneLedger->activePeriod();
+
+        if ($period === null) {
+            return 'Periode batu aktif tidak ditemukan.';
+        }
+
+        $balances = $this->stoneLedger->balancePcsByStone(
+            $period['id'],
+            array_keys($requiredByStone),
+        );
+
+        $reservedElsewhere = $this->reservedStock->pcsReservedByStoneExcludingSpk($excludeSpkId);
+
+        foreach ($requiredByStone as $stoneId => $requiredPcs) {
+            $balance = (float) ($balances[$stoneId] ?? 0);
+            $reserved = (float) ($reservedElsewhere[$stoneId] ?? 0);
+            $available = $balance - $reserved;
+
+            if ($available < $requiredPcs) {
+                return self::INSUFFICIENT_STOCK_MESSAGE;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array{stone_id?: int|string, pcs?: string|float|null}>  $lines
+     */
+    public function validateLines(array $lines, ?Validator $validator = null, ?int $excludeSpkId = null): void
+    {
+        $message = $this->firstErrorForLines($lines, $excludeSpkId);
+
+        if ($message === null || $validator === null) {
+            return;
+        }
+
+        $validator->errors()->add('setting_stones', $message);
+    }
+
+    /**
+     * @param  list<array{stone_id?: int|string, pcs?: string|float|null}>  $lines
+     * @return array<int, float>
+     */
+    private function requiredPcsByStone(array $lines): array
+    {
+        $requiredByStone = [];
+
+        foreach ($lines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $stoneId = (int) ($line['stone_id'] ?? 0);
+            $pcs = (float) str_replace(',', '.', trim((string) ($line['pcs'] ?? '0')));
+
+            if ($stoneId <= 0 || $pcs <= 0) {
+                continue;
+            }
+
+            $requiredByStone[$stoneId] = ($requiredByStone[$stoneId] ?? 0) + $pcs;
+        }
+
+        return $requiredByStone;
+    }
+}

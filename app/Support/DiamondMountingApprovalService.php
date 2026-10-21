@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\DiamondMounting;
+use App\Models\SpkDiamond;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -206,6 +207,17 @@ class DiamondMountingApprovalService
                 'modified_date' => now(),
                 'modified_by' => $actor,
             ]);
+
+            if (filled($document->spk_diamond_id)) {
+                $spkDiamond = SpkDiamond::query()
+                    ->notDeleted()
+                    ->whereKey($document->spk_diamond_id)
+                    ->first();
+
+                if ($spkDiamond !== null) {
+                    app(SpkDiamondMountingBridge::class)->markCompleted($spkDiamond, $actor);
+                }
+            }
 
             return $document->refresh();
         });

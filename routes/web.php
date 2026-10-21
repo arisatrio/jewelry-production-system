@@ -24,6 +24,8 @@ use App\Http\Controllers\ResinController;
 use App\Http\Controllers\ShopFloorDashboardController;
 use App\Http\Controllers\SkuMasterController;
 use App\Http\Controllers\SkuOutputDashboardController;
+use App\Http\Controllers\SpkAllocationController;
+use App\Http\Controllers\SpkDiamondController;
 use App\Http\Controllers\SpkProcessSlaController;
 use App\Http\Controllers\SpkStoneStockController;
 use App\Http\Controllers\StoneTransactionController;
@@ -253,6 +255,36 @@ Route::middleware(['auth'])->group(function () {
         ->whereNumber('polesRangka')
         ->name('poles-rangka.show');
 
+    Route::get('alokasi-batu', [SpkAllocationController::class, 'index'])->name('alokasi-batu.index');
+    Route::get('alokasi-batu/{production}', [SpkAllocationController::class, 'show'])
+        ->where('production', '.*')
+        ->name('alokasi-batu.show');
+    Route::put('alokasi-batu/{production}', [SpkAllocationController::class, 'update'])
+        ->where('production', '.*')
+        ->name('alokasi-batu.update');
+
+    Route::get('spk-diamond/select/spks', [SpkDiamondController::class, 'searchSpks'])
+        ->name('spk-diamond.select.spks');
+    Route::get('spk-diamond/select/spk-stones', [SpkDiamondController::class, 'spkStones'])
+        ->name('spk-diamond.select.spk-stones');
+    Route::get('spk-diamond/select/allocation', [SpkDiamondController::class, 'spkAllocation'])
+        ->name('spk-diamond.select.allocation');
+    Route::get('spk-diamond/create', [SpkDiamondController::class, 'create'])->name('spk-diamond.create');
+    Route::post('spk-diamond', [SpkDiamondController::class, 'store'])->name('spk-diamond.store');
+    Route::get('spk-diamond/{spkDiamond}/edit', [SpkDiamondController::class, 'edit'])
+        ->name('spk-diamond.edit');
+    Route::put('spk-diamond/{spkDiamond}', [SpkDiamondController::class, 'update'])
+        ->name('spk-diamond.update');
+    Route::post('spk-diamond/{spkDiamond}/submit', [SpkDiamondController::class, 'submit'])
+        ->name('spk-diamond.submit');
+    Route::get('spk-diamond/{spkDiamond}/prefill', [SpkDiamondController::class, 'prefill'])
+        ->name('spk-diamond.prefill');
+    Route::get('spk-diamond', [SpkDiamondController::class, 'index'])->name('spk-diamond.index');
+    Route::get('spk-diamond/{spkDiamond}', [SpkDiamondController::class, 'show'])
+        ->name('spk-diamond.show');
+
+    Route::get('pasang-batu/select/spk-diamonds', [SpkDiamondController::class, 'searchForPasangBatu'])
+        ->name('pasang-batu.select.spk-diamonds');
     Route::get('pasang-batu/select/spks', [DiamondMountingController::class, 'searchSpks'])
         ->name('pasang-batu.select.spks');
     Route::get('pasang-batu/create', [DiamondMountingController::class, 'create'])->name('pasang-batu.create');
