@@ -499,6 +499,42 @@
             color: #555;
         }
 
+        .spkPrintAccessoryPairSection {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .spkPrintAccessoryPairRow {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            align-items: start;
+            width: 100%;
+        }
+
+        .spkPrintAccessoryCol {
+            min-width: 0;
+        }
+
+        .spkPrintAccessoryCol .spkPrintSectionTitle {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .spkPrintAccessoryCol .spkPrintSectionTitle span {
+            font-size: 8.5pt;
+            font-weight: 400;
+            color: #555;
+        }
+
+        .spkPrintAccessoryTable th,
+        .spkPrintAccessoryTable td {
+            white-space: normal;
+            word-break: break-word;
+        }
+
         .spkPrintDetailGrid {
             display: grid;
             grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);

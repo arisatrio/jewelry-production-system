@@ -15,6 +15,8 @@ import type {
     SpkProcessTab,
     SpkProductionControlReport,
     SpkShrinkReport,
+    SpkChainItem,
+    SpkComponentItem,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -29,6 +31,8 @@ type SpkShowProps = {
     production: SpkDetail;
     item: SpkItemDetail;
     stones: SpkStoneItem[];
+    chains: SpkChainItem[];
+    components: SpkComponentItem[];
     processes: SpkProcessTab[];
     defaultProcessSelection: SpkDefaultProcessSelection;
     shrinkReport: SpkShrinkReport;
@@ -48,6 +52,8 @@ export default function SpkShow({
     production,
     item,
     stones,
+    chains,
+    components,
     processes,
     defaultProcessSelection,
     shrinkReport,
@@ -87,6 +93,8 @@ export default function SpkShow({
                     navigation={navigation}
                     detailUrl={detailUrl}
                     stones={stones}
+                    chains={chains}
+                    components={components}
                     processes={processes}
                     shrinkReport={shrinkReport}
                     craftsmanReport={craftsmanReport}

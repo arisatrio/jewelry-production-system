@@ -189,6 +189,22 @@ class Production extends Model
     }
 
     /**
+     * @return HasMany<SpkChain, $this>
+     */
+    public function chains(): HasMany
+    {
+        return $this->hasMany(SpkChain::class, 'row_id', 'row_id');
+    }
+
+    /**
+     * @return HasMany<SpkComponent, $this>
+     */
+    public function components(): HasMany
+    {
+        return $this->hasMany(SpkComponent::class, 'row_id', 'row_id');
+    }
+
+    /**
      * @return BelongsTo<MsItem, $this>
      */
     public function item(): BelongsTo

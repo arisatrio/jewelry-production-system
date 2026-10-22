@@ -4,6 +4,8 @@
     $info = $document['info'] ?? [];
     $item = $document['item'] ?? [];
     $stones = $document['stones'] ?? [];
+    $chains = $document['chains'] ?? [];
+    $components = $document['components'] ?? [];
     $detailUrl = trim((string) ($document['detailUrl'] ?? ''));
     $empty = $blankTemplate ? '' : '-';
     $totalButir = 0;
@@ -456,3 +458,9 @@
         </tbody>
     </table>
 </section>
+
+@include('spk.partials.print-accessory-pair', [
+    'chains' => $chains,
+    'components' => $components,
+    'blankTemplate' => $blankTemplate,
+])

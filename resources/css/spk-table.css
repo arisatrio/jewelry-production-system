@@ -4154,6 +4154,47 @@
     padding-top: 0.75rem;
 }
 
+.spkAccessoryPairRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.25rem;
+    width: 100%;
+    align-items: start;
+}
+
+.spkAccessoryPairRow > .spkItemStoneSection {
+    min-width: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.spkAccessoryPairRow > .spkItemStoneSection + .spkItemStoneSection {
+    padding-top: 0;
+    border-top: none;
+}
+
+.spkFioriDetailBlock .spkAccessoryPairRow {
+    margin-top: 0.65rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid #eceff2;
+}
+
+.spkFioriDetailBlock .spkAccessoryPairRow > .spkItemStoneSection {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.spkInformasiProduksiBody .spkAccessoryPairRow > .spkItemStoneSection {
+    margin-top: 0;
+}
+
+@media (max-width: 960px) {
+    .spkAccessoryPairRow {
+        grid-template-columns: 1fr;
+    }
+}
+
 .spkItemStoneBody > .spkItemStoneSection:last-child {
     padding-bottom: 0.75rem;
     margin-bottom: 0.15rem;
@@ -6160,17 +6201,23 @@
 .spkStoneTable--editable .spkStoneRowActionBtn {
     height: 1.85rem;
     padding: 0 0.65rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--sap-fiori-brand, #0070f2);
     border-radius: 0.35rem;
-    background: #f8fafc;
-    color: #111827;
+    background: var(--sap-fiori-brand, #0070f2);
+    color: #fff;
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
 }
 
-.spkStoneTable--editable .spkStoneRowActionBtn:hover {
-    background: #eef2f7;
+.spkStoneTable--editable .spkStoneRowActionBtn:hover:not(:disabled) {
+    background: #0054b6;
+    border-color: #0054b6;
+}
+
+.spkStoneTable--editable .spkStoneRowActionBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .spkStoneTable--editable .spkStoneRowActionBtn--danger {

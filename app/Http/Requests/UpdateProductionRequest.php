@@ -76,6 +76,72 @@ class UpdateProductionRequest extends FormRequest
             $stones = [];
         }
 
+        $chains = $this->input('chains');
+
+        if (is_array($chains)) {
+            $chains = collect($chains)
+                ->filter(fn ($chain): bool => is_array($chain))
+                ->map(function (array $chain): array {
+                    return [
+                        'category' => filled($chain['category'] ?? null)
+                            ? trim((string) $chain['category'])
+                            : null,
+                        'item' => filled($chain['item'] ?? null)
+                            ? trim((string) $chain['item'])
+                            : null,
+                        'color' => filled($chain['color'] ?? null)
+                            ? trim((string) $chain['color'])
+                            : null,
+                        'size' => filled($chain['size'] ?? null)
+                            ? trim((string) $chain['size'])
+                            : null,
+                    ];
+                })
+                ->filter(function (array $chain): bool {
+                    return filled($chain['category'])
+                        || filled($chain['item'])
+                        || filled($chain['color'])
+                        || filled($chain['size']);
+                })
+                ->values()
+                ->all();
+        } else {
+            $chains = [];
+        }
+
+        $components = $this->input('components');
+
+        if (is_array($components)) {
+            $components = collect($components)
+                ->filter(fn ($component): bool => is_array($component))
+                ->map(function (array $component): array {
+                    return [
+                        'category' => filled($component['category'] ?? null)
+                            ? trim((string) $component['category'])
+                            : null,
+                        'item' => filled($component['item'] ?? null)
+                            ? trim((string) $component['item'])
+                            : null,
+                        'color' => filled($component['color'] ?? null)
+                            ? trim((string) $component['color'])
+                            : null,
+                        'size' => filled($component['size'] ?? null)
+                            ? trim((string) $component['size'])
+                            : null,
+                    ];
+                })
+                ->filter(function (array $component): bool {
+                    return filled($component['category'])
+                        || filled($component['item'])
+                        || filled($component['color'])
+                        || filled($component['size']);
+                })
+                ->values()
+                ->all();
+        } else {
+            $components = [];
+        }
+
         $merge = [
             'request_stock_no' => $this->filled('request_stock_no')
                 ? strtoupper($this->string('request_stock_no')->trim()->toString())
@@ -92,6 +158,8 @@ class UpdateProductionRequest extends FormRequest
                 ? $this->string('ring_size')->trim()->toString()
                 : null,
             'stones' => $stones,
+            'chains' => $chains,
+            'components' => $components,
         ];
 
         if (
@@ -258,6 +326,16 @@ class UpdateProductionRequest extends FormRequest
                 'max:50',
                 'regex:/^\d+([.,]\d+)?([xX×]\d+([.,]\d+)?)?$/u',
             ],
+            'chains' => ['nullable', 'array'],
+            'chains.*.category' => ['nullable', 'string', 'max:255'],
+            'chains.*.item' => ['nullable', 'string', 'max:255'],
+            'chains.*.color' => ['nullable', 'string', 'max:100'],
+            'chains.*.size' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'components' => ['nullable', 'array'],
+            'components.*.category' => ['nullable', 'string', 'max:255'],
+            'components.*.item' => ['nullable', 'string', 'max:255'],
+            'components.*.color' => ['nullable', 'string', 'max:100'],
+            'components.*.size' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
         ];
     }
 
@@ -288,6 +366,10 @@ class UpdateProductionRequest extends FormRequest
             'stones.*.pcs.integer' => 'Jumlah butir harus berupa angka.',
             'stones.*.carat_per_pcs.numeric' => 'Carat per butir harus berupa angka.',
             'stones.*.size.regex' => 'Ukuran batu harus angka (mm) atau format PxL (contoh: 3.50x2.10).',
+            'chains.*.size.numeric' => 'Ukuran rantai harus berupa angka.',
+            'chains.*.size.min' => 'Ukuran rantai tidak boleh negatif.',
+            'components.*.size.numeric' => 'Ukuran komponen harus berupa angka.',
+            'components.*.size.min' => 'Ukuran komponen tidak boleh negatif.',
         ];
     }
 }

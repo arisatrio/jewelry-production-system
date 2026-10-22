@@ -6,6 +6,8 @@ use App\Models\Production;
 use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
+use App\Models\SpkChain;
+use App\Models\SpkComponent;
 use App\Models\SpkStone;
 use App\Support\SpkService;
 use Illuminate\Support\Facades\DB;
@@ -106,6 +108,22 @@ test('spk print preview accepts form document payload', function () {
                     'totalCarat' => '2.25',
                 ],
             ],
+            'chains' => [
+                [
+                    'category' => 'Bracelet Chain',
+                    'item' => 'Cable Chain',
+                    'color' => 'Yellow Gold',
+                    'size' => '40',
+                ],
+            ],
+            'components' => [
+                [
+                    'category' => 'Stopper',
+                    'item' => 'Silicone Stopper',
+                    'color' => 'White Gold',
+                    'size' => '2',
+                ],
+            ],
             'notes' => 'Catatan print uji',
             'approval' => [
                 ['title' => 'Dibuat Oleh', 'name' => 'Tester', 'date' => '05/08/2026 15:00'],
@@ -143,6 +161,13 @@ test('spk print preview accepts form document payload', function () {
         ->assertSee('>Posisi</th>', false)
         ->assertSee('Center', false)
         ->assertSee('Round', false)
+        ->assertSee('spkPrintAccessoryPairRow', false)
+        ->assertSee('Rantai', false)
+        ->assertSee('Komponen', false)
+        ->assertSee('Cable Chain', false)
+        ->assertSee('Silicone Stopper', false)
+        ->assertSee('40 cm', false)
+        ->assertSee('2 cm', false)
         ->assertDontSee('Round - R', false)
         ->assertSee('Catatan', false)
         ->assertSee('Tanggal Cor :', false)
@@ -556,6 +581,43 @@ test('spk print formats stone diameter size with two decimal places', function (
         ->assertSee('1.00', false);
 
     $production->stones()->delete();
+    $production->delete();
+});
+
+test('spk print page includes chains and components from production', function () {
+    $production = app(SpkService::class)->createStock('system');
+
+    SpkChain::factory()->create([
+        'row_id' => $production->row_id,
+        'category' => 'Pendant Chain',
+        'item' => 'Box Chain',
+        'color' => 'Rose Gold',
+        'size' => '45',
+    ]);
+
+    SpkComponent::factory()->create([
+        'row_id' => $production->row_id,
+        'category' => 'Komponen',
+        'item' => 'Clasp',
+        'color' => 'Yellow Gold',
+        'size' => '1.5',
+    ]);
+
+    $this->get(route('spk.print.show', $production->row_id))
+        ->assertOk()
+        ->assertSee('Box Chain', false)
+        ->assertSee('Clasp', false)
+        ->assertSee('45 cm', false)
+        ->assertSee('1.5 cm', false)
+        ->assertViewHas('document', function (array $document): bool {
+            return count($document['chains'] ?? []) === 1
+                && ($document['chains'][0]['item'] ?? null) === 'Box Chain'
+                && count($document['components'] ?? []) === 1
+                && ($document['components'][0]['size'] ?? null) === '1.5 cm';
+        });
+
+    SpkChain::query()->where('row_id', $production->row_id)->delete();
+    SpkComponent::query()->where('row_id', $production->row_id)->delete();
     $production->delete();
 });
 
