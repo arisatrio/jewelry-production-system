@@ -569,7 +569,7 @@ class ProductionController extends Controller
         $query = Production::query()
             ->notDeleted()
             ->whereNotNull('spk_no')
-            ->whereNull('request_stock_no')
+            // ->whereNull('request_stock_no')
             ->when($exclude !== [], fn (Builder $query) => $query->whereNotIn('row_id', $exclude));
 
         return $this->spkListModalResponse(
