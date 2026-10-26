@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\MsChain;
 use App\Models\MsPosition;
 use App\Models\MsShape;
 use App\Models\Production;
@@ -9,6 +10,7 @@ use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Support\GoldColorOptions;
 use App\Support\RequestOrderRepository;
+use App\Support\SpkChainPayloadNormalizer;
 use App\Support\SpkService;
 use App\Support\StoreStockRequestRepository;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -79,26 +81,20 @@ class UpdateProductionRequest extends FormRequest
         $chains = $this->input('chains');
 
         if (is_array($chains)) {
+            $normalizer = app(SpkChainPayloadNormalizer::class);
+
             $chains = collect($chains)
                 ->filter(fn ($chain): bool => is_array($chain))
-                ->map(function (array $chain): array {
-                    return [
-                        'category' => filled($chain['category'] ?? null)
-                            ? trim((string) $chain['category'])
-                            : null,
-                        'item' => filled($chain['item'] ?? null)
-                            ? trim((string) $chain['item'])
-                            : null,
-                        'color' => filled($chain['color'] ?? null)
-                            ? trim((string) $chain['color'])
-                            : null,
-                        'size' => filled($chain['size'] ?? null)
-                            ? trim((string) $chain['size'])
-                            : null,
-                    ];
-                })
+                ->map(fn (array $chain): array => $normalizer->normalize([
+                    'mschain_id' => $chain['mschain_id'] ?? null,
+                    'category' => $chain['category'] ?? null,
+                    'item' => $chain['item'] ?? null,
+                    'color' => $chain['color'] ?? null,
+                    'size' => $chain['size'] ?? null,
+                ]))
                 ->filter(function (array $chain): bool {
-                    return filled($chain['category'])
+                    return filled($chain['mschain_id'])
+                        || filled($chain['category'])
                         || filled($chain['item'])
                         || filled($chain['color'])
                         || filled($chain['size']);
@@ -327,6 +323,11 @@ class UpdateProductionRequest extends FormRequest
                 'regex:/^\d+([.,]\d+)?([xX×]\d+([.,]\d+)?)?$/u',
             ],
             'chains' => ['nullable', 'array'],
+            'chains.*.mschain_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(MsChain::class, 'row_id')->where(fn ($query) => $query->where('is_deleted', 0)),
+            ],
             'chains.*.category' => ['nullable', 'string', 'max:255'],
             'chains.*.item' => ['nullable', 'string', 'max:255'],
             'chains.*.color' => ['nullable', 'string', 'max:100'],

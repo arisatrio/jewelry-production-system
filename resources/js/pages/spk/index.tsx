@@ -1347,7 +1347,8 @@ export default function SpkIndex({
                                 design="Default"
                                 icon={retailStoreIcon}
                                 accessibleName={
-                                    storeStockRequestCount !== undefined &&
+                                    typeof storeStockRequestCount ===
+                                        'number' &&
                                     storeStockRequestCount > 0
                                         ? `Permintaan Stok Toko: ${storeStockRequestCountLabel} permintaan approved`
                                         : 'Permintaan Stok Toko'
@@ -1358,7 +1359,7 @@ export default function SpkIndex({
                                 }
                             >
                                 Permintaan Stok Toko
-                                {storeStockRequestCount !== undefined &&
+                                {typeof storeStockRequestCount === 'number' &&
                                     storeStockRequestCount > 0 && (
                                         <span
                                             className="spkStoreStockRequestCount"

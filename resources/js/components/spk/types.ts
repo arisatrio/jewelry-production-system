@@ -132,6 +132,14 @@ export type SpkStoneStock = {
     note: string | null;
 };
 
+export type SpkMsChainOption = {
+    value: string;
+    label: string;
+    category: string;
+    item: string;
+    size: string;
+};
+
 export type SpkChainItem = {
     id: string;
     category: string;

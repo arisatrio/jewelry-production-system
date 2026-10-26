@@ -128,7 +128,7 @@ return [
     'shared_tables' => [
         'trmaterialgold',
         'trstone',
-        'trchain',
+        'trxchain',
     ],
 
     /*

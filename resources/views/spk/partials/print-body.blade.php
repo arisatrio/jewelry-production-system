@@ -52,7 +52,6 @@
     $showRequestOrderCreatedDate = $blankTemplate || $spkType === 'Pesanan';
     $showNomorPesanan = $blankTemplate || $spkType === 'Pesanan';
     $showNomorRequestStok = $blankTemplate || $spkType === 'Stock';
-    $showStockSpkCreatedDate = $blankTemplate || $spkType === 'Stock';
 @endphp
 
 <section class="spkPrintSection spkPrintSection--info">
@@ -68,18 +67,23 @@
         </div>
     </div>
     @php
-        $infoRowCount = 4
+        $infoRowCount = 1
             + ($showNomorPesanan ? 1 : 0)
             + ($showNomorRequestStok ? 1 : 0)
-            + ($showRefSpk ? 1 : 0)
             + ($showRequestOrderCreatedDate ? 1 : 0)
-            + ($showStockSpkCreatedDate ? 1 : 0);
+            + ($showRefSpk ? 1 : 0)
+            + 1;
     @endphp
     <table class="spkPrintMetaTable spkPrintMetaTable--info">
+        <colgroup>
+            <col class="spkPrintMetaCol spkPrintMetaCol--infoLabel">
+            <col class="spkPrintMetaCol spkPrintMetaCol--infoValue" span="3">
+            <col class="spkPrintMetaCol spkPrintMetaCol--qr">
+        </colgroup>
         <tbody>
             <tr>
                 <th>Tipe Produksi</th>
-                <td>
+                <td colspan="3">
                     @if ($blankTemplate)
                         <span class="spkPrintHint">Jenis SPK: Stock (Permintaan Direksi / Toko), Pesanan, Exchange, Refund, atau Reparasi. Untuk Pesanan, nama sales ditampilkan di sini. Contoh: Pesanan (Sales: Shasya)</span>
                     @else
@@ -109,7 +113,7 @@
             @if ($showNomorPesanan)
                 <tr>
                     <th>Nomor Pesanan</th>
-                    <td>
+                    <td colspan="3">
                         @if ($blankTemplate)
                             <span class="spkPrintHint">Nomor request order, nama customer, dan status lunas. Contoh: DP-0009303 (Vera) (Lunas). Khusus tipe Pesanan</span>
                         @else
@@ -121,7 +125,7 @@
             @if ($showNomorRequestStok)
                 <tr>
                     <th>{{ $blankTemplate ? 'Nomor Request Stok / Stock Direksi' : $requestStockLabel }}</th>
-                    <td>
+                    <td colspan="3">
                         @if ($blankTemplate)
                             <span class="spkPrintHint">Nomor request stok toko (RS-0000033) atau permintaan direksi (RS-DRK-0001). Khusus tipe Stock</span>
                         @else
@@ -133,7 +137,7 @@
             @if ($showRequestOrderCreatedDate)
                 <tr>
                     <th>Tanggal Pesanan Dibuat</th>
-                    <td>
+                    <td colspan="3">
                         @if ($blankTemplate)
                             <span class="spkPrintHint">Tanggal pesanan dibuat di request order (khusus tipe Pesanan)</span>
                         @else
@@ -145,7 +149,7 @@
             @if ($showRefSpk)
                 <tr>
                     <th>SPK Referensi</th>
-                    <td>
+                    <td colspan="3">
                         @if ($blankTemplate)
                             <span class="spkPrintHint">Nomor SPK sumber untuk Exchange, Refund, atau Reparasi</span>
                         @else
@@ -154,51 +158,63 @@
                     </td>
                 </tr>
             @endif
-            <tr>
-                <th>{{ ! $blankTemplate && $spkType === 'Pesanan' ? 'Tanggal SPK Dibuat' : 'Tanggal Permintaan' }}</th>
-                <td>
-                    @if ($blankTemplate)
-                        <span class="spkPrintHint">Tanggal permintaan produksi (01-Sep-2026)</span>
-                    @elseif ($spkType === 'Pesanan')
-                        {{ $info['spkCreatedDate'] ?? $empty }}
-                    @else
-                        {{ $info['orderDate'] ?? $empty }}
-                    @endif
-                </td>
-            </tr>
-            @if ($showStockSpkCreatedDate)
-                <tr>
-                    <th>Tanggal SPK Dibuat</th>
-                    <td>
-                        @if ($blankTemplate)
-                            <span class="spkPrintHint">Tanggal SPK dibuat (01-Sep-2026). Khusus tipe Stock, di bawah Tanggal Permintaan</span>
-                        @else
-                            {{ $info['spkCreatedDate'] ?? $empty }}
-                        @endif
-                    </td>
-                </tr>
-            @endif
-            <tr>
-                <th>Tanggal Diterima Produksi</th>
-                <td>
-                    @if ($blankTemplate)
-                        <span class="spkPrintHint">Tanggal approve Manager Produksi (01-Sep-2026)</span>
-                    @else
-                        {{ $info['receivedByProductionDate'] ?? '' }}
-                    @endif
-                </td>
-            </tr>
-            <tr>
-                <th>Tanggal Target Selesai</th>
-                <td>
-                    @if ($blankTemplate)
-                        <span class="spkPrintHint">Tanggal target selesai (01-Sep-2026)</span>
-                    @else
-                        {{ $info['estimatedDelivery'] ?? $info['workEstimated'] ?? $empty }}
-                        @if ($spkType !== 'Stock')
-                            <em class="spkPrintTargetSales">*Target Sales</em>
-                        @endif
-                    @endif
+            <tr class="spkPrintMetaTableRow--dates">
+                <td colspan="4" class="spkPrintDatesWrap">
+                    <table class="spkPrintMetaTable spkPrintDatesTable">
+                        <colgroup>
+                            <col class="spkPrintMetaCol spkPrintMetaCol--dateLabel">
+                            <col class="spkPrintMetaCol spkPrintMetaCol--dateValue">
+                            <col class="spkPrintMetaCol spkPrintMetaCol--dateLabel">
+                            <col class="spkPrintMetaCol spkPrintMetaCol--dateValue">
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <th scope="row">Tanggal Permintaan</th>
+                                <td>
+                                    @if ($blankTemplate)
+                                        <span class="spkPrintHint">Tanggal permintaan produksi (01-Sep-2026)</span>
+                                    @else
+                                        {{ $info['orderDate'] ?? $empty }}
+                                    @endif
+                                </td>
+                                <th scope="row">Tanggal SPK Dibuat</th>
+                                <td>
+                                    @if ($blankTemplate)
+                                        <span class="spkPrintHint">Tanggal SPK dibuat (28-Sep-2026)</span>
+                                    @else
+                                        {{ $info['spkCreatedDate'] ?? $empty }}
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Tanggal Diterima Produksi</th>
+                                <td>
+                                    @if ($blankTemplate)
+                                        <span class="spkPrintHint">Tanggal approve Manager Produksi (01-Sep-2026)</span>
+                                    @else
+                                        {{ $info['receivedByProductionDate'] ?? '' }}
+                                    @endif
+                                </td>
+                                <th scope="row">Tanggal Target Selesai</th>
+                                <td>
+                                    @if ($blankTemplate)
+                                        <span class="spkPrintHint">Tanggal target selesai (26-Sep-2026)</span>
+                                    @else
+                                        {{ $info['estimatedDelivery'] ?? $info['workEstimated'] ?? $empty }}
+                                        @if ($spkType !== 'Stock')
+                                            <em class="spkPrintTargetSales">*Target Sales</em>
+                                        @endif
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr class="spkPrintCorFields">
+                                <th scope="row">Tanggal Cor</th>
+                                <td></td>
+                                <th scope="row">No Form Cor</th>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </td>
             </tr>
         </tbody>

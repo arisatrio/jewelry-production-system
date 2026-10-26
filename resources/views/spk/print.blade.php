@@ -371,22 +371,111 @@
             vertical-align: middle;
         }
 
-        .spkPrintMetaTable--info th {
-            width: 28%;
+        .spkPrintMetaTable--info col.spkPrintMetaCol--infoLabel {
+            width: 38%;
         }
 
-        .spkPrintMetaTable--info td:nth-child(2) {
+        .spkPrintMetaTable--info col.spkPrintMetaCol--infoValue {
             width: auto;
         }
 
-        .spkPrintMetaTable--info .spkPrintQrCell {
-            width: 120px;
-            max-width: 120px;
-            padding: 4px;
-            overflow: hidden;
+        .spkPrintMetaTable--info col.spkPrintMetaCol--qr {
+            width: 85px;
+        }
+
+        .spkPrintMetaTable--info > tbody > tr:not(.spkPrintMetaTableRow--dates) > th {
+            width: 38%;
+            background: #f3f4f6;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .spkPrintMetaTable--info .spkPrintDatesWrap {
+            padding: 0;
+            vertical-align: top;
+            border: none;
+            border-left: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .spkPrintMetaTable--info > tbody > tr:has(+ .spkPrintMetaTableRow--dates) > th,
+        .spkPrintMetaTable--info > tbody > tr:has(+ .spkPrintMetaTableRow--dates) > td {
+            border-bottom: none;
+        }
+
+        .spkPrintDatesTable {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin: 0;
+        }
+
+        .spkPrintDatesTable col:nth-child(1) {
+            width: 24%;
+        }
+
+        .spkPrintDatesTable col:nth-child(2) {
+            width: 26%;
+        }
+
+        .spkPrintDatesTable col:nth-child(3) {
+            width: 24%;
+        }
+
+        .spkPrintDatesTable col:nth-child(4) {
+            width: 26%;
+        }
+
+        .spkPrintDatesTable th,
+        .spkPrintDatesTable td {
+            padding: 1px 4px;
+            font-size: 8pt;
+            line-height: 1.2;
             vertical-align: middle;
+        }
+
+        .spkPrintDatesTable th {
+            background: #f3f4f6;
+            font-weight: 700;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .spkPrintDatesTable td {
+            background: #fff;
+            white-space: nowrap;
+        }
+
+        .spkPrintDatesTable td .spkPrintHint {
+            white-space: normal;
+        }
+
+        .spkPrintDatesTable tr > :first-child {
+            border-left: none;
+        }
+
+        .spkPrintDatesTable tr > :last-child {
+            border-right: none;
+        }
+
+        .spkPrintDatesTable tbody tr:last-child > th,
+        .spkPrintDatesTable tbody tr:last-child > td {
+            border-bottom: none;
+        }
+
+        .spkPrintMetaTable--info .spkPrintQrCell {
+            width: 85px;
+            max-width: 85px;
+            padding: 2px;
+            overflow: hidden;
+            vertical-align: top;
             text-align: center;
             background: #fff;
+            border-left: 1px solid #ccc;
+        }
+
+        .spkPrintMetaTable--info > tbody > tr:not(.spkPrintMetaTableRow--dates) > td[colspan='3'] {
+            border-right: none;
         }
 
         .spkPrintSection--info .spkPrintSectionHeading {
@@ -401,16 +490,16 @@
             display: block;
             box-sizing: border-box;
             width: 100%;
-            max-width: 110px;
-            margin: 0 auto;
-            padding: 0;
+            max-width: 85px;
+            margin: 0 0 0 0;
+            padding: 2px 0 0 0;
             background: #fff;
         }
 
         .spkPrintQr {
             display: block;
             width: 100%;
-            max-width: 110px;
+            max-width: 85px;
             aspect-ratio: 1 / 1;
             margin: 0 auto;
             overflow: hidden;
@@ -428,7 +517,7 @@
             align-items: center;
             justify-content: center;
             width: 100%;
-            max-width: 110px;
+            max-width: 85px;
             aspect-ratio: 1 / 1;
             margin: 0 auto;
             border: 1px dashed #ccc;
@@ -617,9 +706,9 @@
             background: transparent;
         }
 
-        .spkPrintCorFields {
-            width: 100%;
-            margin: 0 0 6px;
+        tr.spkPrintCorFields th,
+        tr.spkPrintCorFields td {
+            padding: 1px 4px;
         }
 
         .spkPrintMetaTable--cor th,
@@ -640,7 +729,6 @@
 
         .spkPrintMetaTable--cor td {
             width: 34%;
-            min-height: 18px;
             background: #fff;
         }
 
@@ -844,6 +932,17 @@
 
         .spkPrintApprovalMeta span {
             color: #555;
+        }
+
+        .spkPrintPrintedAt {
+            margin: 4px 0 0;
+            padding: 0;
+            font-size: 7pt;
+            font-style: italic;
+            font-weight: 400;
+            color: #6b7280;
+            line-height: 1.2;
+            text-align: left;
         }
 
         @media print {

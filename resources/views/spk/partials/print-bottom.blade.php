@@ -6,19 +6,6 @@
 @endphp
 
 <div class="spkPrintBottom">
-    <section class="spkPrintSection spkPrintCorFields" aria-label="Form cor">
-        <table class="spkPrintMetaTable spkPrintMetaTable--cor">
-            <tbody>
-                <tr>
-                    <th>Tanggal Cor</th>
-                    <td>&nbsp;</td>
-                    <th>No Form Cor</th>
-                    <td>&nbsp;</td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
-
     <section class="spkPrintSection spkPrintNotesSection">
         <h2 class="spkPrintSectionTitle">Catatan</h2>
         <div class="spkPrintNotes">@if ($blankTemplate)<span class="spkPrintHint">Catatan produksi tambahan (opsional)</span>@else{{ $notes !== '' && $notes !== '-' ? $notes : '-' }}@endif</div>
@@ -38,4 +25,6 @@
             </div>
         @endforeach
     </footer>
+
+    <p class="spkPrintPrintedAt">Dicetak pada {{ now()->format('d-M-Y H:i:s') }}</p>
 </div>

@@ -10,7 +10,19 @@ use App\Models\SpkChain;
 use App\Models\SpkComponent;
 use App\Models\SpkStone;
 use App\Support\SpkService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+
+test('spk print shows printed at timestamp below approval', function () {
+    Carbon::setTestNow('2026-10-22 16:08:05');
+
+    $this->get(route('spk.print'))
+        ->assertOk()
+        ->assertSee('spkPrintPrintedAt', false)
+        ->assertSee('Dicetak pada 22-Oct-2026 16:08:05', false);
+
+    Carbon::setTestNow();
+});
 
 test('spk print preview page renders document header', function () {
     $response = $this->get(route('spk.print'));
@@ -293,7 +305,7 @@ test('spk detail and print label pesanan with the sales name', function () {
             ->assertSee('Nomor Pesanan', false)
             ->assertDontSee('Nomor Request Stok', false)
             ->assertSee('Tanggal SPK Dibuat', false)
-            ->assertDontSee('Tanggal Permintaan', false)
+            ->assertSee('Tanggal Permintaan', false)
             ->assertSee('Tanggal Target Selesai', false)
             ->assertDontSee('Tanggal Estimasi Selesai', false)
             ->assertSee('*Target Sales', false)
@@ -305,7 +317,10 @@ test('spk detail and print label pesanan with the sales name', function () {
                     && ($document['approval'][0]['date'] ?? null) === '28-Sep-2026 10:15:00';
             })
             ->assertSee('28-Sep-2026 10:15:00', false)
-            ->assertSeeInOrder(['Tanggal SPK Dibuat', '28-Sep-2026'], false);
+            ->assertSeeInOrder(
+                ['Tanggal Permintaan', '01-Aug-2026', 'Tanggal SPK Dibuat', '28-Sep-2026'],
+                false,
+            );
 
         $this->postJson(route('spk.print'), [
             'document' => [
@@ -730,6 +745,7 @@ test('spk print template page renders blank form format', function () {
         ->assertSee('Dibuat Oleh', false)
         ->assertSee('Disetujui Oleh', false)
         ->assertSee('Manager Produksi', false)
+        ->assertSee('Dicetak pada', false)
         ->assertDontSee(now()->format('Y').'/PRD/00000', false)
         ->assertDontSee('Tidak ada batu pada varian ini.', false)
         ->assertDontSee('0 item', false)

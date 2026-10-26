@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\MsChain;
 use App\Models\Production;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
 use App\Models\SpkChain;
 use App\Support\SpkService;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -153,4 +155,59 @@ test('spk form save replaces chain list', function () {
     SpkChain::query()->where('row_id', $production->row_id)->delete();
     $production->delete();
     $sku->delete();
+});
+
+test('spk chain save stores mschain id and item name from master', function () {
+    if (
+        ! Schema::connection('third')->hasTable('mschain')
+        || ! Schema::connection('third')->hasColumn('spk_chains', 'mschain_id')
+    ) {
+        $this->markTestSkipped('mschain or spk_chains.mschain_id is not available.');
+    }
+
+    $master = MsChain::factory()->create([
+        'chain_category' => MsChain::CATEGORY_PENDANT,
+        'item' => 'Chain Classic',
+        'item_code' => 'TEST-'.Str::upper(Str::random(8)),
+        'length' => '45.00',
+        'item_name' => 'Chain Classic - TEST - 45 cm',
+    ]);
+
+    $description = 'SPK mschain '.Str::upper(Str::random(6));
+
+    $this->post(route('spk.store'), validSpkChainPayload([
+        'description' => $description,
+        'chains' => [
+            [
+                'mschain_id' => $master->row_id,
+                'category' => 'Ignored category',
+                'item' => 'Ignored item',
+                'color' => 'Yellow Gold',
+                'size' => '1',
+            ],
+        ],
+    ]))->assertRedirect();
+
+    $production = Production::query()
+        ->notDeleted()
+        ->where('description', $description)
+        ->first();
+
+    expect($production)->not->toBeNull();
+
+    $chain = SpkChain::query()
+        ->notDeleted()
+        ->where('row_id', $production->row_id)
+        ->first();
+
+    expect($chain)->not->toBeNull()
+        ->and($chain->mschain_id)->toBe($master->row_id)
+        ->and($chain->item)->toBe('Chain Classic - TEST - 45 cm')
+        ->and($chain->category)->toBe(MsChain::CATEGORY_PENDANT)
+        ->and($chain->size)->toBe('45')
+        ->and($chain->color)->toBe('Yellow Gold');
+
+    SpkChain::query()->where('row_id', $production->row_id)->delete();
+    $production->delete();
+    $master->delete();
 });

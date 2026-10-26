@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $line_id
  * @property int $row_id
+ * @property int|null $mschain_id
  * @property string|null $category
  * @property string|null $item
  * @property string|null $color
@@ -25,9 +26,11 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_date
  * @property string|null $deleted_by
  * @property-read Production|null $production
+ * @property-read MsChain|null $msChain
  */
 #[Fillable([
     'row_id',
+    'mschain_id',
     'category',
     'item',
     'color',
@@ -100,12 +103,21 @@ class SpkChain extends Model
     }
 
     /**
+     * @return BelongsTo<MsChain, $this>
+     */
+    public function msChain(): BelongsTo
+    {
+        return $this->belongsTo(MsChain::class, 'mschain_id', 'row_id');
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'row_id' => 'integer',
+            'mschain_id' => 'integer',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',
             'modified_date' => 'datetime',

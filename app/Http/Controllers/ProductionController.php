@@ -10,6 +10,7 @@ use App\Http\Requests\SpkApprovalDecisionRequest;
 use App\Http\Requests\StoreProductionRequest;
 use App\Http\Requests\UpdateProductionRequest;
 use App\Models\Employee;
+use App\Models\MsChain;
 use App\Models\MsPosition;
 use App\Models\MsShape;
 use App\Models\PolishFinishedGood;
@@ -63,6 +64,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Inertia\Inertia;
@@ -1176,18 +1178,7 @@ class ProductionController extends Controller
             })
             ->values();
 
-        $chains = $production->chains()
-            ->notDeleted()
-            ->orderBy('line_id')
-            ->get()
-            ->map(fn (SpkChain $chain): array => [
-                'id' => (string) $chain->line_id,
-                'category' => $chain->category ?? '',
-                'item' => $chain->item ?? '',
-                'color' => $chain->color ?? '',
-                'size' => $chain->size ?? '',
-            ])
-            ->values();
+        $chains = collect($this->toFormChains($production));
 
         $components = $production->components()
             ->notDeleted()
@@ -2004,12 +1995,30 @@ class ProductionController extends Controller
      */
     private function toShowChains(Production $production): array
     {
+        return $this->toFormChains($production);
+    }
+
+    /**
+     * @return list<array{
+     *     id: string,
+     *     chainId: string,
+     *     category: string,
+     *     item: string,
+     *     color: string,
+     *     size: string
+     * }>
+     */
+    private function toFormChains(Production $production): array
+    {
         return $production->chains()
             ->notDeleted()
             ->orderBy('line_id')
             ->get()
             ->map(fn (SpkChain $chain): array => [
                 'id' => (string) $chain->line_id,
+                'chainId' => $chain->mschain_id !== null
+                    ? (string) $chain->mschain_id
+                    : '',
                 'category' => (string) ($chain->category ?? ''),
                 'item' => (string) ($chain->item ?? ''),
                 'color' => (string) ($chain->color ?? ''),
@@ -2554,7 +2563,72 @@ class ProductionController extends Controller
                 ->values()
                 ->all(),
             'skus' => $this->skuFormOptions(),
+            'chainOptions' => $this->msChainFormOptions(),
         ];
+    }
+
+    /**
+     * @return list<array{
+     *     value: string,
+     *     label: string,
+     *     category: string,
+     *     item: string,
+     *     size: string
+     * }>
+     */
+    private function msChainFormOptions(): array
+    {
+        if (! Schema::connection('third')->hasTable('mschain')) {
+            return [];
+        }
+
+        return MsChain::query()
+            ->notDeleted()
+            ->orderBy('chain_category')
+            ->orderBy('item')
+            ->orderBy('item_code')
+            ->orderBy('length')
+            ->get([
+                'row_id',
+                'chain_category',
+                'item',
+                'item_code',
+                'length',
+                'item_name',
+            ])
+            ->map(fn (MsChain $chain): array => [
+                'value' => (string) $chain->row_id,
+                'label' => filled($chain->item_name)
+                    ? trim((string) $chain->item_name)
+                    : trim(sprintf(
+                        '%s - %s - %s cm',
+                        $chain->item,
+                        $chain->item_code,
+                        $chain->length,
+                    )),
+                'category' => trim((string) $chain->chain_category),
+                'item' => trim((string) $chain->item),
+                'size' => $this->formatChainLengthForForm($chain->length),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function formatChainLengthForForm(mixed $length): string
+    {
+        if ($length === null || $length === '') {
+            return '';
+        }
+
+        $numeric = (float) $length;
+
+        if ($numeric <= 0) {
+            return '';
+        }
+
+        $formatted = number_format($numeric, 2, '.', '');
+
+        return rtrim(rtrim($formatted, '0'), '.');
     }
 
     /**

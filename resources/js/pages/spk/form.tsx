@@ -81,6 +81,7 @@ type StoneRow = {
 
 type ChainRow = {
     id: string;
+    chainId?: string;
     category: string;
     item: string;
     color: string;
@@ -264,6 +265,13 @@ type SpkFormProps = {
         skus?: SkuOption[];
         shapeOptions?: OptionItem[];
         positionOptions?: OptionItem[];
+        chainOptions?: Array<{
+            value: string;
+            label: string;
+            category: string;
+            item: string;
+            size: string;
+        }>;
     };
 };
 
@@ -717,6 +725,7 @@ export default function SpkFormPage({
     const [ukuran, setUkuran] = useState(() => initialUkuran);
     const shapeOptions = options.shapeOptions ?? [];
     const positionOptions = options.positionOptions ?? [];
+    const chainOptions = options.chainOptions ?? [];
     const [itemTypeText, setItemTypeText] = useState(
         () => initialCategory?.label ?? '',
     );
@@ -1097,6 +1106,7 @@ export default function SpkFormPage({
                 size: stone.size,
             })),
             chains: formChains.map((chain) => ({
+                mschain_id: chain.chainId || null,
                 category: chain.category,
                 item: chain.item,
                 color: chain.color,
@@ -1249,6 +1259,7 @@ export default function SpkFormPage({
                 };
             }),
             chains: formChains.map((chain) => ({
+                mschain_id: chain.chainId || null,
                 category: chain.category,
                 item: chain.item,
                 color: chain.color,
@@ -2459,6 +2470,7 @@ export default function SpkFormPage({
                                 <div className="spkAccessoryPairRow">
                                     <SpkFormChainListCard
                                         chains={formChains}
+                                        chainOptions={chainOptions}
                                         onChange={setFormChains}
                                         errors={errors}
                                     />

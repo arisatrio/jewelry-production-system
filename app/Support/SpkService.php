@@ -947,6 +947,9 @@ class SpkService
 
             SpkChain::query()->create([
                 'row_id' => $production->row_id,
+                'mschain_id' => filled($chain['mschain_id'] ?? null)
+                    ? (int) $chain['mschain_id']
+                    : null,
                 'category' => filled($chain['category'] ?? null)
                     ? trim((string) $chain['category'])
                     : null,
