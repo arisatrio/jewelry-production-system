@@ -25,6 +25,7 @@ use App\Http\Controllers\ResinController;
 use App\Http\Controllers\ShopFloorDashboardController;
 use App\Http\Controllers\SkuMasterController;
 use App\Http\Controllers\SkuOutputDashboardController;
+use App\Http\Controllers\SpkChainStockController;
 use App\Http\Controllers\SpkProcessSlaController;
 use App\Http\Controllers\SpkStoneStockController;
 use App\Http\Controllers\StoneTransactionController;
@@ -130,6 +131,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('spk/stones/{spkStone}/stock', [SpkStoneStockController::class, 'show'])
         ->whereNumber('spkStone')
         ->name('spk.stones.stock');
+    Route::get('spk/chains/{spkChain}/allocation-units', [SpkChainStockController::class, 'allocationUnits'])
+        ->whereNumber('spkChain')
+        ->name('spk.chains.allocation-units');
+    Route::post('spk/chains/{spkChain}/fulfillment', [SpkChainStockController::class, 'advanceFulfillment'])
+        ->whereNumber('spkChain')
+        ->name('spk.chains.fulfillment');
     Route::get('spk/{production}', [ProductionController::class, 'show'])
         ->where('production', '.*')
         ->name('spk.show');

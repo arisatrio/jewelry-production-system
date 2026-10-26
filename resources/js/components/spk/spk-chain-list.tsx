@@ -1,6 +1,13 @@
 import { Text } from '@ui5/webcomponents-react/Text';
+import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import type { SpkChainItem, SpkMsChainOption } from '@/components/spk/types';
+import { SpkChainAllocateDialog } from '@/components/spk/spk-chain-allocate-dialog';
+import type {
+    SpkChainFulfillmentStatus,
+    SpkChainItem,
+    SpkMsChainOption,
+} from '@/components/spk/types';
+import { fulfillment as advanceChainFulfillment } from '@/routes/spk/chains';
 
 export type SpkFormChainRow = {
     id: string;
@@ -638,7 +645,130 @@ function emptyDash(value: string | number | null | undefined): string {
     return text !== '' ? text : '-';
 }
 
-export function SpkChainListCard({ chains }: { chains: SpkChainItem[] }) {
+function spkChainFulfillmentBadgeClass(
+    status?: SpkChainFulfillmentStatus,
+): string {
+    const base = 'spkStoneStockBadge';
+
+    switch (status) {
+        case 'allocated':
+            return `${base} is-available`;
+        case 'sent_to_workshop':
+        case 'received_by_workshop':
+            return `${base} spkChainFulfillmentBadge--progress`;
+        case 'installed':
+            return `${base} spkChainFulfillmentBadge--done`;
+        case 'not_allocated':
+            return `${base} is-unavailable`;
+        default:
+            return `${base} spkChainFulfillmentBadge--muted`;
+    }
+}
+
+function SpkChainFulfillmentStatusCell({
+    allocation,
+}: {
+    allocation?: SpkChainItem['allocation'];
+}) {
+    if (!allocation) {
+        return <>-</>;
+    }
+
+    if (allocation.status === 'unlinked') {
+        return <span className="spkStoneStockMeta">{allocation.label}</span>;
+    }
+
+    return (
+        <span
+            className={spkChainFulfillmentBadgeClass(allocation.status)}
+        >
+            {allocation.label}
+        </span>
+    );
+}
+
+type SpkChainListCardProps = {
+    chains: SpkChainItem[];
+    spk?: {
+        rowId: number;
+        produksiNo: string;
+    };
+};
+
+function SpkChainFulfillmentActionButton({
+    chain,
+    disabled,
+    onAllocate,
+}: {
+    chain: SpkChainItem;
+    disabled?: boolean;
+    onAllocate: () => void;
+}) {
+    const allocation = chain.allocation;
+    const nextAction = allocation?.nextAction;
+    const label = allocation?.nextActionLabel;
+
+    const [processing, setProcessing] = useState(false);
+
+    if (
+        allocation === undefined ||
+        allocation === null ||
+        nextAction === null ||
+        nextAction === undefined ||
+        label === null ||
+        label === ''
+    ) {
+        return <span className="spkStoneStockMeta">—</span>;
+    }
+
+    if (nextAction === 'allocate') {
+        return (
+            <button
+                type="button"
+                className="spkStoneRowActionBtn"
+                disabled={disabled || processing}
+                title={
+                    disabled
+                        ? 'Stok tidak tersedia atau master belum terhubung'
+                        : 'Alokasikan unit chain ke SPK ini'
+                }
+                onClick={onAllocate}
+            >
+                {label}
+            </button>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            className="spkStoneRowActionBtn"
+            disabled={processing}
+            onClick={() => {
+                setProcessing(true);
+                router.post(
+                    advanceChainFulfillment.url(Number(chain.id)),
+                    { action: nextAction },
+                    {
+                        preserveScroll: true,
+                        onFinish: () => {
+                            setProcessing(false);
+                        },
+                    },
+                );
+            }}
+        >
+            {processing ? 'Memproses…' : label}
+        </button>
+    );
+}
+
+export function SpkChainListCard({ chains, spk }: SpkChainListCardProps) {
+    const showWorkflow = spk !== undefined;
+    const [allocateChain, setAllocateChain] = useState<SpkChainItem | null>(
+        null,
+    );
+
     return (
         <div className="spkItemStoneSection">
             <div className="spkStoneCardHeader">
@@ -661,21 +791,69 @@ export function SpkChainListCard({ chains }: { chains: SpkChainItem[] }) {
                                 <th>Jenis Item Chain</th>
                                 <th>Warna</th>
                                 <th>Ukuran (cm)</th>
+                                {showWorkflow ? <th>Status</th> : null}
+                                {showWorkflow ? (
+                                    <th className="spkStoneTableActionCol">
+                                        Aksi
+                                    </th>
+                                ) : null}
                             </tr>
                         </thead>
                         <tbody>
-                            {chains.map((chain) => (
-                                <tr key={chain.id}>
-                                    <td>{emptyDash(chain.category)}</td>
-                                    <td>{emptyDash(chain.item)}</td>
-                                    <td>{emptyDash(chain.color)}</td>
-                                    <td>{formatChainSizeDisplay(chain.size)}</td>
-                                </tr>
-                            ))}
+                            {chains.map((chain) => {
+                                const canAllocate =
+                                    chain.allocation?.nextAction ===
+                                        'allocate' &&
+                                    chain.stock?.status === 'available';
+
+                                return (
+                                    <tr key={chain.id}>
+                                        <td>{emptyDash(chain.category)}</td>
+                                        <td>{emptyDash(chain.item)}</td>
+                                        <td>{emptyDash(chain.color)}</td>
+                                        <td>
+                                            {formatChainSizeDisplay(chain.size)}
+                                        </td>
+                                        {showWorkflow ? (
+                                            <td>
+                                                <SpkChainFulfillmentStatusCell
+                                                    allocation={
+                                                        chain.allocation
+                                                    }
+                                                />
+                                            </td>
+                                        ) : null}
+                                        {showWorkflow ? (
+                                            <td>
+                                                <SpkChainFulfillmentActionButton
+                                                    chain={chain}
+                                                    disabled={!canAllocate}
+                                                    onAllocate={() =>
+                                                        setAllocateChain(chain)
+                                                    }
+                                                />
+                                            </td>
+                                        ) : null}
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
             )}
+
+            {showWorkflow && spk !== undefined ? (
+                <SpkChainAllocateDialog
+                    chain={allocateChain}
+                    spk={spk}
+                    open={allocateChain !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setAllocateChain(null);
+                        }
+                    }}
+                />
+            ) : null}
         </div>
     );
 }

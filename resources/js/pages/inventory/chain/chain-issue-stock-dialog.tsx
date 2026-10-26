@@ -27,12 +27,17 @@ type ChainIssueStockDialogProps = {
     unit: ChainIssueUnit | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    fixedSpk?: {
+        rowId: number;
+        produksiNo: string;
+    };
 };
 
 export function ChainIssueStockDialog({
     unit,
     open,
     onOpenChange,
+    fixedSpk,
 }: ChainIssueStockDialogProps) {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -40,7 +45,7 @@ export function ChainIssueStockDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Kurangi stok chain</DialogTitle>
+                    <DialogTitle>Alokasikan stok chain</DialogTitle>
                     <DialogDescription>
                         {unit !== null
                             ? `Unit: ${unit.unitNo ?? unit.id} · ${unit.name} · ${unit.chainLength} cm${
@@ -75,7 +80,23 @@ export function ChainIssueStockDialog({
                                     <InputError message={errors.out_date} />
                                 </div>
 
-                                <ChainIssueSpkPicker error={errors.spk_id} />
+                                {fixedSpk !== undefined ? (
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">SPK</Label>
+                                        <input
+                                            type="hidden"
+                                            name="spk_id"
+                                            value={fixedSpk.rowId}
+                                        />
+                                        <p className="text-sm font-medium">
+                                            {fixedSpk.produksiNo}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <ChainIssueSpkPicker
+                                        error={errors.spk_id}
+                                    />
+                                )}
 
                                 <DialogFooter className="gap-2 sm:gap-0">
                                     <Button

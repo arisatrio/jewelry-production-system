@@ -141,12 +141,45 @@ export type SpkMsChainOption = {
     size: string;
 };
 
+export type SpkChainStock = {
+    status: 'available' | 'unavailable';
+    requiredUnits: number;
+    availableUnits: number;
+    balanceLength: string | null;
+    note: string | null;
+};
+
+export type SpkChainFulfillmentStatus =
+    | 'not_allocated'
+    | 'allocated'
+    | 'sent_to_workshop'
+    | 'received_by_workshop'
+    | 'installed'
+    | 'unlinked';
+
+export type SpkChainFulfillmentAction =
+    | 'allocate'
+    | 'send_to_workshop'
+    | 'receive_workshop'
+    | 'mark_installed';
+
+export type SpkChainAllocation = {
+    status: SpkChainFulfillmentStatus;
+    label: string;
+    allocatedUnits: number;
+    nextAction: SpkChainFulfillmentAction | null;
+    nextActionLabel: string | null;
+};
+
 export type SpkChainItem = {
     id: string;
+    chainId?: string;
     category: string;
     item: string;
     color: string;
     size: string;
+    stock?: SpkChainStock | null;
+    allocation?: SpkChainAllocation | null;
 };
 
 export type SpkComponentItem = {

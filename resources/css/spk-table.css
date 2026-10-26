@@ -2321,6 +2321,17 @@
     min-width: 0;
 }
 
+.spkInformasiProduksiBody .spkShowSection--full {
+    width: 100%;
+}
+
+.spkInformasiProduksiBody .spkShowSection--full > .spkItemStoneSection {
+    width: 100%;
+    min-width: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+
 .spkShowSectionTitle {
     margin: 0;
     color: #111827;
@@ -5063,6 +5074,21 @@ button.spkItemImagePreview--clickable:focus-visible {
 .spkStoneStockBadge.is-unavailable {
     background: #fee2e2;
     color: #b91c1c;
+}
+
+.spkChainFulfillmentBadge--progress {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.spkChainFulfillmentBadge--done {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+.spkChainFulfillmentBadge--muted {
+    background: #f3f4f6;
+    color: #6b7280;
 }
 
 .spkStoneStockMeta {
