@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\StoreStockSpkSyncException;
 use App\Http\Requests\AssignStoreStockSpkRequest;
 use App\Http\Requests\BulkUpdateSpkStatusRequest;
+use App\Http\Requests\PrintSpkChainReceiptRequest;
 use App\Http\Requests\PrintSpkReceiptRequest;
 use App\Http\Requests\SpkApprovalDecisionRequest;
 use App\Http\Requests\StoreProductionRequest;
@@ -15,6 +16,7 @@ use App\Models\MsPosition;
 use App\Models\MsShape;
 use App\Models\PolishFinishedGood;
 use App\Models\Production;
+use App\Models\SerahTerimaChain;
 use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
@@ -33,11 +35,13 @@ use App\Support\PolishFrameSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\RequestOrderRepository;
 use App\Support\ResinSpkEligibility;
+use App\Support\SerahTerimaChainDocNumberGenerator;
 use App\Support\SerahTerimaSpkDocNumberGenerator;
 use App\Support\SkuMasterDescriptionExtractor;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkApprovalRoles;
 use App\Support\SpkApprovalService;
+use App\Support\SpkChainReceiptBuilder;
 use App\Support\SpkChainStockChecker;
 use App\Support\SpkCraftsmanReport;
 use App\Support\SpkDashboardAnalytics;
@@ -1055,6 +1059,92 @@ class ProductionController extends Controller
     }
 
     /**
+     * Simpan tanda terima serah terima rantai ke workshop dari detail SPK.
+     */
+    public function storeChainReceipt(
+        PrintSpkChainReceiptRequest $request,
+        SerahTerimaChainDocNumberGenerator $docNumberGenerator,
+        SpkChainReceiptBuilder $receiptBuilder,
+    ): JsonResponse {
+        $spkRowId = (int) $request->validated('spk_row_id');
+
+        $production = Production::query()
+            ->notDeleted()
+            ->where('row_id', $spkRowId)
+            ->firstOrFail();
+
+        /** @var list<int> $lineIds */
+        $lineIds = array_map(
+            intval(...),
+            $request->validated('chain_line_ids') ?? [],
+        );
+
+        $receiptDate = Carbon::createFromFormat(
+            'Y-m-d',
+            $request->validated('tanggal') ?? now()->toDateString(),
+        )->startOfDay();
+
+        $items = $receiptBuilder->buildItems(
+            $production,
+            $lineIds,
+            $this->customerListLabel($production),
+        );
+
+        $receipt = DB::connection('third')->transaction(fn (): SerahTerimaChain => SerahTerimaChain::query()->create([
+            'doc_no' => $docNumberGenerator->generate($receiptDate),
+            'tanggal' => $receiptDate->toDateString(),
+            'dari' => $this->nullableTrimmed($request->validated('dari')),
+            'untuk' => $this->nullableTrimmed($request->validated('untuk')),
+            'diserahkan_oleh' => $this->nullableTrimmed($request->validated('diserahkan_oleh')),
+            'diterima_oleh' => $this->nullableTrimmed($request->validated('diterima_oleh')),
+            'diketahui_oleh' => $this->nullableTrimmed($request->validated('diketahui_oleh')),
+            'spk_row_id' => $spkRowId,
+            'jumlah_baris' => count($items),
+            'spk_chain_line_ids' => array_column($items, 'spkChainLineId'),
+            'items' => $items,
+            'created_by' => $this->actorName($request),
+        ]));
+
+        return response()->json([
+            'id' => $receipt->id,
+            'docNo' => $receipt->doc_no,
+            'printUrl' => route('spk.print.chain-receipt', $receipt),
+        ], 201);
+    }
+
+    /**
+     * Halaman print tanda terima serah terima rantai.
+     */
+    public function printChainReceipt(SerahTerimaChain $serahTerimaChain): View
+    {
+        $header = [
+            ...$this->documentHeader(),
+            'formTitle' => 'Tanda Terima Rantai',
+            'docNo' => (string) config('spk.chain_receipt_document_no', 'WHOJ-PRD-FRM-003'),
+            'revision' => (string) config('spk.chain_receipt_revision', '00'),
+            'issueDate' => (string) config('spk.chain_receipt_issue_date', now()->format('d/m/Y')),
+        ];
+
+        return view('spk.chain-receipt', [
+            'title' => "Tanda Terima Rantai {$serahTerimaChain->doc_no} — Print",
+            'header' => $header,
+            'receiptNo' => $serahTerimaChain->doc_no,
+            'printedAt' => ($serahTerimaChain->created_at ?? now())->format('d-M-Y H:i'),
+            'printedBy' => $serahTerimaChain->created_by ?? '-',
+            'receiptDate' => $serahTerimaChain->tanggal->format('d-M-Y'),
+            'receiptFrom' => (string) $serahTerimaChain->dari,
+            'receiptTo' => (string) $serahTerimaChain->untuk,
+            'signatures' => [
+                ['title' => 'Diserahkan oleh', 'name' => (string) $serahTerimaChain->diserahkan_oleh],
+                ['title' => 'Diketahui oleh', 'name' => (string) $serahTerimaChain->diketahui_oleh],
+                ['title' => 'Diterima oleh', 'name' => (string) $serahTerimaChain->diterima_oleh],
+            ],
+            'rows' => $serahTerimaChain->items,
+            'rowCount' => $serahTerimaChain->jumlah_baris,
+        ]);
+    }
+
+    /**
      * Soft delete tanda terima serah terima SPK dari modal riwayat.
      */
     public function destroyReceipt(Request $request, SerahTerimaSpk $serahTerimaSpk): JsonResponse
@@ -1565,6 +1655,7 @@ class ProductionController extends Controller
                 $production,
                 $processMapper,
             ),
+            'receiptEmployeeOptions' => Inertia::once(fn (): array => $this->receiptEmployeeOptions()),
         ]);
     }
 

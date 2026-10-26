@@ -46,6 +46,7 @@ type SpkShowProps = {
     approvalTimeline: SpkApprovalTimelineEvent[];
     approvalFooter: SpkApprovalFooterColumn[];
     polesChromeComplete: SpkPolesChromeCompleteAction | null;
+    receiptEmployeeOptions: string[];
 };
 
 export default function SpkShow({
@@ -67,6 +68,7 @@ export default function SpkShow({
     approvalTimeline,
     approvalFooter,
     polesChromeComplete,
+    receiptEmployeeOptions,
 }: SpkShowProps) {
     const productionProcesses = processes.filter(
         (process) =>
@@ -108,6 +110,7 @@ export default function SpkShow({
                     approvalTimeline={approvalTimeline}
                     approvalFooter={approvalFooter}
                     polesChromeComplete={polesChromeComplete}
+                    receiptEmployeeOptions={receiptEmployeeOptions}
                 >
                     {activeProcess ? (
                         <SpkProcessPanel process={activeProcess} />

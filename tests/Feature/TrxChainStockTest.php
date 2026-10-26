@@ -145,6 +145,32 @@ test('in stock chain unit can be issued manually', function () {
     }
 });
 
+test('chain stock issue from spk allocation redirects to spk detail', function () {
+    $master = MsChain::factory()->create([
+        'item_code' => 'OUT-SPK-'.Str::upper(Str::random(8)),
+    ]);
+    $unit = TrxChain::factory()->create([
+        'mschain_id' => $master->row_id,
+    ]);
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/CHAIN/SPK/'.Str::upper(Str::random(4)),
+        'is_deleted' => 0,
+    ]);
+
+    try {
+        $this->post(route('inventory.chains.stock.issue', $unit), [
+            'out_date' => '2026-10-24',
+            'spk_id' => $production->row_id,
+            'return_to' => 'spk',
+        ])
+            ->assertRedirect(route('spk.show', $production->spk_no));
+    } finally {
+        $unit->delete();
+        $production->delete();
+        $master->delete();
+    }
+});
+
 test('chain stock issue requires valid spk', function () {
     $master = MsChain::factory()->create([
         'item_code' => 'OUT-INV-'.Str::upper(Str::random(8)),

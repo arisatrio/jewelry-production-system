@@ -1,10 +1,17 @@
+import inboxIcon from '@ui5/webcomponents-icons/dist/inbox.js';
+import outboxIcon from '@ui5/webcomponents-icons/dist/outbox.js';
+import printIcon from '@ui5/webcomponents-icons/dist/print.js';
+import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { SpkChainAllocateDialog } from '@/components/spk/spk-chain-allocate-dialog';
+import { SpkChainReceiptPrintDialog } from '@/components/spk/spk-chain-receipt-print-dialog';
 import type {
-    SpkChainFulfillmentStatus,
+    SpkChainFulfillmentAction,
     SpkChainItem,
+    SpkChainStock,
     SpkMsChainOption,
 } from '@/components/spk/types';
 import { fulfillment as advanceChainFulfillment } from '@/routes/spk/chains';
@@ -645,46 +652,85 @@ function emptyDash(value: string | number | null | undefined): string {
     return text !== '' ? text : '-';
 }
 
-function spkChainFulfillmentBadgeClass(
-    status?: SpkChainFulfillmentStatus,
-): string {
-    const base = 'spkStoneStockBadge';
-
-    switch (status) {
-        case 'allocated':
-            return `${base} is-available`;
-        case 'sent_to_workshop':
-        case 'received_by_workshop':
-            return `${base} spkChainFulfillmentBadge--progress`;
-        case 'installed':
-            return `${base} spkChainFulfillmentBadge--done`;
-        case 'not_allocated':
-            return `${base} is-unavailable`;
-        default:
-            return `${base} spkChainFulfillmentBadge--muted`;
+function chainStockStatusLabel(
+    stock?: SpkChainStock | null,
+): { text: string; available: boolean } | null {
+    if (stock === undefined || stock === null) {
+        return null;
     }
+
+    const available = stock.status === 'available';
+
+    return {
+        text: available ? 'Stok Ada' : 'Stok Tidak Ada',
+        available,
+    };
 }
 
-function SpkChainFulfillmentStatusCell({
-    allocation,
-}: {
-    allocation?: SpkChainItem['allocation'];
-}) {
-    if (!allocation) {
-        return <>-</>;
+function chainAllocatedStatusLabel(
+    allocation?: SpkChainItem['allocation'],
+): { text: string; allocated: boolean } | null {
+    if (allocation === undefined || allocation === null) {
+        return null;
     }
 
     if (allocation.status === 'unlinked') {
-        return <span className="spkStoneStockMeta">{allocation.label}</span>;
+        return { text: 'Belum Dialokasikan', allocated: false };
     }
 
-    return (
-        <span
-            className={spkChainFulfillmentBadgeClass(allocation.status)}
-        >
-            {allocation.label}
-        </span>
-    );
+    const allocated =
+        allocation.status !== 'not_allocated' && allocation.allocatedUnits > 0;
+
+    return {
+        text: allocated ? 'Sudah Dialokasikan' : 'Belum Dialokasikan',
+        allocated,
+    };
+}
+
+function chainReceiptPrintEnabled(chains: SpkChainItem[]): boolean {
+    if (chains.length === 0) {
+        return false;
+    }
+
+    return chains.every((chain) => {
+        const status = chain.allocation?.status;
+
+        return status === 'allocated' || status === 'sent_to_workshop';
+    });
+}
+
+function chainReceiptPrintDisabledTitle(chains: SpkChainItem[]): string {
+    if (chains.length === 0) {
+        return 'Tidak ada rantai pada SPK ini';
+    }
+
+    const hasReceived = chains.some((chain) => {
+        const status = chain.allocation?.status;
+
+        return (
+            status === 'received_by_workshop' || status === 'installed'
+        );
+    });
+
+    if (hasReceived) {
+        return 'Rantai sudah diterima di workshop';
+    }
+
+    const hasNotAllocated = chains.some((chain) => {
+        const status = chain.allocation?.status;
+
+        return (
+            status === 'not_allocated' ||
+            status === 'unlinked' ||
+            status === undefined
+        );
+    });
+
+    if (hasNotAllocated) {
+        return 'Alokasikan rantai terlebih dahulu';
+    }
+
+    return 'Tanda terima tidak tersedia';
 }
 
 type SpkChainListCardProps = {
@@ -693,16 +739,24 @@ type SpkChainListCardProps = {
         rowId: number;
         produksiNo: string;
     };
+    receiptEmployeeOptions?: string[];
 };
+
+const STATUS_COLUMN_ACTIONS: SpkChainFulfillmentAction[] = [
+    'allocate',
+    'receive_workshop',
+];
 
 function SpkChainFulfillmentActionButton({
     chain,
     disabled,
     onAllocate,
+    onlyActions,
 }: {
     chain: SpkChainItem;
     disabled?: boolean;
     onAllocate: () => void;
+    onlyActions?: SpkChainFulfillmentAction[];
 }) {
     const allocation = chain.allocation;
     const nextAction = allocation?.nextAction;
@@ -718,64 +772,235 @@ function SpkChainFulfillmentActionButton({
         label === null ||
         label === ''
     ) {
-        return <span className="spkStoneStockMeta">—</span>;
+        return null;
     }
+
+    if (
+        onlyActions !== undefined &&
+        !onlyActions.includes(nextAction)
+    ) {
+        return null;
+    }
+
+    const allocateTitle =
+        disabled === true
+            ? 'Stok tidak tersedia atau master belum terhubung'
+            : 'Alokasikan unit chain ke SPK ini';
+
+    const actionTitle =
+        nextAction === 'allocate' ? allocateTitle : label;
+
+    const handleClick = (): void => {
+        if (nextAction === 'allocate') {
+            onAllocate();
+
+            return;
+        }
+
+        setProcessing(true);
+        router.post(
+            advanceChainFulfillment.url(Number(chain.id)),
+            { action: nextAction },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setProcessing(false);
+                },
+            },
+        );
+    };
 
     if (nextAction === 'allocate') {
         return (
             <button
                 type="button"
-                className="spkStoneRowActionBtn"
-                disabled={disabled || processing}
-                title={
-                    disabled
-                        ? 'Stok tidak tersedia atau master belum terhubung'
-                        : 'Alokasikan unit chain ke SPK ini'
-                }
-                onClick={onAllocate}
+                className="spkChainFulfillmentActionBtn"
+                disabled={disabled === true || processing}
+                title={actionTitle}
+                onClick={handleClick}
             >
-                {label}
+                <Icon name={outboxIcon} mode="Decorative" />
+                <span className="spkChainFulfillmentActionBtnLabel">
+                    Alokasi Rantai
+                </span>
             </button>
         );
     }
 
+    if (nextAction === 'receive_workshop') {
+        return (
+            <button
+                type="button"
+                className="spkChainFulfillmentReceiveBtn"
+                disabled={processing}
+                title={actionTitle}
+                onClick={handleClick}
+            >
+                <Icon name={inboxIcon} mode="Decorative" />
+                <span className="spkChainFulfillmentActionBtnLabel">
+                    {processing ? 'Memproses…' : label}
+                </span>
+            </button>
+        );
+    }
+
+    return null;
+}
+
+function SpkChainFulfillmentStatusCell({
+    chain,
+    onAllocate,
+}: {
+    chain: SpkChainItem;
+    onAllocate: () => void;
+}) {
+    const canAllocate = chain.allocation?.nextAction === 'allocate';
+    const stockLabel = chainStockStatusLabel(chain.stock);
+    const allocatedLabel = chainAllocatedStatusLabel(chain.allocation);
+
     return (
-        <button
-            type="button"
-            className="spkStoneRowActionBtn"
-            disabled={processing}
-            onClick={() => {
-                setProcessing(true);
-                router.post(
-                    advanceChainFulfillment.url(Number(chain.id)),
-                    { action: nextAction },
-                    {
-                        preserveScroll: true,
-                        onFinish: () => {
-                            setProcessing(false);
-                        },
-                    },
-                );
-            }}
-        >
-            {processing ? 'Memproses…' : label}
-        </button>
+        <div className="spkChainStatusCell">
+            <div className="spkChainStatusCellActions">
+                <SpkChainFulfillmentActionButton
+                    chain={chain}
+                    disabled={!canAllocate}
+                    onlyActions={STATUS_COLUMN_ACTIONS}
+                    onAllocate={onAllocate}
+                />
+            </div>
+            <div className="spkChainStatusLabels">
+                {stockLabel !== null ? (
+                    <span
+                        className={
+                            stockLabel.available
+                                ? 'spkStoneStockBadge is-available'
+                                : 'spkStoneStockBadge is-unavailable'
+                        }
+                        title={chain.stock?.note ?? undefined}
+                    >
+                        {stockLabel.text}
+                    </span>
+                ) : (
+                    <span className="spkStoneStockMeta">—</span>
+                )}
+                {allocatedLabel !== null ? (
+                    <span
+                        className={
+                            allocatedLabel.allocated
+                                ? 'spkStoneStockBadge is-available'
+                                : 'spkStoneStockBadge is-unavailable'
+                        }
+                    >
+                        {allocatedLabel.text}
+                    </span>
+                ) : (
+                    <span className="spkStoneStockMeta">—</span>
+                )}
+            </div>
+        </div>
     );
 }
 
-export function SpkChainListCard({ chains, spk }: SpkChainListCardProps) {
+export function SpkChainListCard({
+    chains,
+    spk,
+    receiptEmployeeOptions = [],
+}: SpkChainListCardProps) {
     const showWorkflow = spk !== undefined;
     const [allocateChain, setAllocateChain] = useState<SpkChainItem | null>(
         null,
     );
+    const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+    const [preparingReceipt, setPreparingReceipt] = useState(false);
+
+    const canPrintReceipt = showWorkflow && chainReceiptPrintEnabled(chains);
+    const printReceiptTitle = canPrintReceipt
+        ? 'Buat dan cetak tanda terima serah terima rantai ke workshop'
+        : chainReceiptPrintDisabledTitle(chains);
+
+    const openReceiptDialog = (): void => {
+        if (!canPrintReceipt) {
+            toast.warning(chainReceiptPrintDisabledTitle(chains));
+
+            return;
+        }
+
+        const chainsToSend = chains.filter(
+            (chain) => chain.allocation?.nextAction === 'send_to_workshop',
+        );
+
+        if (chainsToSend.length === 0) {
+            setReceiptDialogOpen(true);
+
+            return;
+        }
+
+        setPreparingReceipt(true);
+
+        const sendNext = (index: number): void => {
+            const chain = chainsToSend[index];
+
+            if (chain === undefined) {
+                setPreparingReceipt(false);
+                setReceiptDialogOpen(true);
+
+                return;
+            }
+
+            router.post(
+                advanceChainFulfillment.url(Number(chain.id)),
+                { action: 'send_to_workshop' },
+                {
+                    preserveScroll: true,
+                    onError: () => {
+                        setPreparingReceipt(false);
+                    },
+                    onFinish: () => {
+                        sendNext(index + 1);
+                    },
+                },
+            );
+        };
+
+        sendNext(0);
+    };
 
     return (
         <div className="spkItemStoneSection">
-            <div className="spkStoneCardHeader">
-                <h2 className="spkFioriDetailBlockTitle">Rantai</h2>
-                <Text className="spkFioriDetailBlockMeta">
-                    {chains.length} baris
-                </Text>
+            <div className="spkStoneCardHeader spkChainCardHeader">
+                <div className="spkChainCardHeaderStart">
+                    <h2 className="spkFioriDetailBlockTitle">Rantai</h2>
+                    <Text className="spkFioriDetailBlockMeta">
+                        {chains.length} baris
+                    </Text>
+                </div>
+                {showWorkflow && chains.length > 0 ? (
+                    <button
+                        type="button"
+                        className="spkChainPrintReceiptBtn"
+                        disabled={preparingReceipt}
+                        aria-label="Print Tanda Terima"
+                        title={
+                            preparingReceipt
+                                ? 'Menyiapkan…'
+                                : printReceiptTitle
+                        }
+                        onClick={openReceiptDialog}
+                    >
+                        {preparingReceipt ? (
+                            <span className="spkChainPrintReceiptBtnLabel">
+                                Menyiapkan…
+                            </span>
+                        ) : (
+                            <>
+                                <Icon name={printIcon} mode="Decorative" />
+                                <span className="spkChainPrintReceiptBtnLabel">
+                                    Tanda Terima Rantai
+                                </span>
+                            </>
+                        )}
+                    </button>
+                ) : null}
             </div>
 
             {chains.length === 0 ? (
@@ -783,51 +1008,37 @@ export function SpkChainListCard({ chains, spk }: SpkChainListCardProps) {
                     <Text>Tidak ada rantai pada SPK ini.</Text>
                 </div>
             ) : (
-                <div className="spkStoneTableWrap">
-                    <table className="spkStoneTable spkChainTable">
-                        <thead>
-                            <tr>
-                                <th>Kategori</th>
-                                <th>Jenis Item Chain</th>
-                                <th>Warna</th>
-                                <th>Ukuran (cm)</th>
-                                {showWorkflow ? <th>Status</th> : null}
-                                {showWorkflow ? (
-                                    <th className="spkStoneTableActionCol">
-                                        Aksi
-                                    </th>
-                                ) : null}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {chains.map((chain) => {
-                                const canAllocate =
-                                    chain.allocation?.nextAction ===
-                                        'allocate' &&
-                                    chain.stock?.status === 'available';
-
-                                return (
+                <>
+                    <div className="spkStoneTableWrap">
+                        <table className="spkStoneTable spkChainTable">
+                            <thead>
+                                <tr>
+                                    <th>Kategori</th>
+                                    <th>Jenis Item Chain</th>
+                                    <th>Warna</th>
+                                    <th>Ukuran (cm)</th>
+                                    {showWorkflow ? (
+                                        <th className="spkChainStatusCol">
+                                            Status
+                                        </th>
+                                    ) : null}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {chains.map((chain) => (
                                     <tr key={chain.id}>
                                         <td>{emptyDash(chain.category)}</td>
                                         <td>{emptyDash(chain.item)}</td>
                                         <td>{emptyDash(chain.color)}</td>
                                         <td>
-                                            {formatChainSizeDisplay(chain.size)}
+                                            {formatChainSizeDisplay(
+                                                chain.size,
+                                            )}
                                         </td>
                                         {showWorkflow ? (
-                                            <td>
+                                            <td className="spkChainStatusCol">
                                                 <SpkChainFulfillmentStatusCell
-                                                    allocation={
-                                                        chain.allocation
-                                                    }
-                                                />
-                                            </td>
-                                        ) : null}
-                                        {showWorkflow ? (
-                                            <td>
-                                                <SpkChainFulfillmentActionButton
                                                     chain={chain}
-                                                    disabled={!canAllocate}
                                                     onAllocate={() =>
                                                         setAllocateChain(chain)
                                                     }
@@ -835,24 +1046,35 @@ export function SpkChainListCard({ chains, spk }: SpkChainListCardProps) {
                                             </td>
                                         ) : null}
                                     </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             )}
 
             {showWorkflow && spk !== undefined ? (
-                <SpkChainAllocateDialog
-                    chain={allocateChain}
-                    spk={spk}
-                    open={allocateChain !== null}
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            setAllocateChain(null);
-                        }
-                    }}
-                />
+                <>
+                    <SpkChainAllocateDialog
+                        chain={allocateChain}
+                        spk={spk}
+                        open={allocateChain !== null}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setAllocateChain(null);
+                            }
+                        }}
+                    />
+                    <SpkChainReceiptPrintDialog
+                        open={receiptDialogOpen}
+                        onOpenChange={setReceiptDialogOpen}
+                        spkRowId={spk.rowId}
+                        chainLineIds={chains.map((chain) =>
+                            Number(chain.id),
+                        )}
+                        employeeOptions={receiptEmployeeOptions}
+                    />
+                </>
             ) : null}
         </div>
     );

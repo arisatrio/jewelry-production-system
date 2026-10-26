@@ -28,6 +28,7 @@ type SpkInformasiProduksiPanelProps = {
     stones: SpkStoneItem[];
     chains?: SpkChainItem[];
     components?: SpkComponentItem[];
+    receiptEmployeeOptions?: string[];
 };
 
 type SpkApprovalFooterSectionProps = {
@@ -408,6 +409,7 @@ export function SpkInformasiProduksiPanel({
     stones,
     chains = [],
     components = [],
+    receiptEmployeeOptions = [],
 }: SpkInformasiProduksiPanelProps) {
     const notes = displayValue(production.notes);
 
@@ -434,7 +436,14 @@ export function SpkInformasiProduksiPanel({
                 <div
                     className="spkAccessoryPairRow spkAccessoryPairRow--inDetailPanel"
                 >
-                    <SpkChainListCard chains={chains} />
+                    <SpkChainListCard
+                        chains={chains}
+                        spk={{
+                            rowId: Number(production.id),
+                            produksiNo: production.produksiNo,
+                        }}
+                        receiptEmployeeOptions={receiptEmployeeOptions}
+                    />
                     <SpkComponentListCard components={components} />
                 </div>
             </section>

@@ -54,6 +54,12 @@ return [
 
     'receipt_issue_date' => '29/09/2026',
 
+    'chain_receipt_document_no' => 'WHOJ-PRD-FRM-003',
+
+    'chain_receipt_revision' => '00',
+
+    'chain_receipt_issue_date' => '26/10/2026',
+
     'logo' => 'images/logo.jpg',
 
     /*

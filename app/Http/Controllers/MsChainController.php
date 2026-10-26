@@ -7,6 +7,7 @@ use App\Http\Requests\StoreMsChainRequest;
 use App\Http\Requests\StoreTrxChainStockRequest;
 use App\Http\Requests\UpdateMsChainRequest;
 use App\Models\MsChain;
+use App\Models\Production;
 use App\Models\TrxChain;
 use App\Support\ChainStockService;
 use App\Support\GoldColorOptions;
@@ -280,6 +281,15 @@ class MsChainController extends Controller
             'type' => 'success',
             'message' => 'Stok chain berhasil dikurangi.',
         ]);
+
+        if ($request->input('return_to') === 'spk') {
+            $production = Production::query()
+                ->notDeleted()
+                ->where('row_id', (int) $validated['spk_id'])
+                ->firstOrFail();
+
+            return to_route('spk.show', $production);
+        }
 
         return to_route('inventory.chains.show', $trxChain->mschain_id);
     }
