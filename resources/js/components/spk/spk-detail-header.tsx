@@ -103,6 +103,7 @@ type SpkDetailLayoutProps = {
     approvalTimeline?: SpkApprovalTimelineEvent[];
     approvalFooter?: SpkApprovalFooterColumn[];
     polesChromeComplete?: SpkPolesChromeCompleteAction | null;
+    receiptEmployeeOptions?: string[];
     children?: ReactNode;
 };
 
@@ -131,6 +132,7 @@ export function SpkDetailLayout({
     approvalTimeline = [],
     approvalFooter,
     polesChromeComplete = null,
+    receiptEmployeeOptions = [],
     children,
 }: SpkDetailLayoutProps) {
     const [mainSection, setMainSection] = useState<MainSectionTab>(() =>
@@ -518,6 +520,7 @@ export function SpkDetailLayout({
                             stones={stones}
                             chains={chains}
                             components={components}
+                            receiptEmployeeOptions={receiptEmployeeOptions}
                         />
                     ) : null}
 

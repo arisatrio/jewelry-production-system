@@ -5091,6 +5091,247 @@ button.spkItemImagePreview--clickable:focus-visible {
     color: #6b7280;
 }
 
+.spkChainCardHeader {
+    align-items: center;
+}
+
+.spkChainCardHeaderStart {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+    min-width: 0;
+}
+
+.spkChainCardHeader .spkChainPrintReceiptBtn {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.spkChainPrintReceiptBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 1.85rem;
+    margin: 0;
+    padding: 0 0.65rem;
+    appearance: none;
+    border: 1px solid var(--sapButton_Emphasized_BorderColor, #0070f2);
+    border-radius: 0.35rem;
+    background: var(--sapButton_Lite_Background, #fff);
+    color: var(--sapButton_Emphasized_BorderColor, #0070f2);
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.spkChainPrintReceiptBtn:hover:not(:disabled) {
+    background: var(--sapButton_Lite_Hover_Background, #e8f2fc);
+    border-color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+    color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+}
+
+.spkChainPrintReceiptBtn:active:not(:disabled) {
+    background: var(--sapButton_Lite_Active_Background, #d9ecfb);
+    border-color: var(--sapButton_Emphasized_Active_BorderColor, #0054b4);
+    color: var(--sapButton_Emphasized_Active_BorderColor, #0054b4);
+}
+
+.spkChainPrintReceiptBtn:focus-visible {
+    outline: 2px solid var(--sap-fiori-brand, #0070f2);
+    outline-offset: 1px;
+}
+
+.spkChainPrintReceiptBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkChainPrintReceiptBtn ui5-icon {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex-shrink: 0;
+    color: currentColor;
+}
+
+.spkChainPrintReceiptBtnLabel {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+.spkChainTable th.spkChainStatusCol,
+.spkChainTable td.spkChainStatusCol {
+    text-align: center;
+    width: 9.25rem;
+    max-width: 9.5rem;
+    min-width: 8.75rem;
+    box-sizing: border-box;
+}
+
+.spkChainStatusLabels .spkStoneStockBadge {
+    padding: 0.06rem 0.3rem;
+    font-size: 0.625rem;
+    line-height: 1.25;
+    white-space: normal;
+    text-align: center;
+    max-width: 100%;
+}
+
+.spkChainStatusCell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.spkChainStatusCellActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+}
+
+.spkChainStatusLabels {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.spkChainStatusCell .spkChainFulfillmentActionBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    width: 100%;
+    max-width: 8.75rem;
+    margin: 0;
+    appearance: none;
+    min-height: 1.85rem;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid var(--sap-fiori-brand, #0070f2);
+    border-radius: 0.35rem;
+    background: var(--sap-fiori-brand, #0070f2);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.spkChainFulfillmentActionBtnLabel {
+    display: block;
+    text-align: center;
+    white-space: normal;
+}
+
+.spkChainStatusCell .spkChainFulfillmentReceiveBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    width: 100%;
+    max-width: 8.75rem;
+    margin: 0;
+    appearance: none;
+    min-height: 1.85rem;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid var(--sapButton_Emphasized_BorderColor, #0070f2);
+    border-radius: 0.35rem;
+    background: var(--sapButton_Lite_Background, #fff);
+    color: var(--sapButton_Emphasized_BorderColor, #0070f2);
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.spkChainStatusCell .spkChainFulfillmentReceiveBtn:hover:not(:disabled) {
+    background: var(--sapButton_Lite_Hover_Background, #e8f2fc);
+    border-color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+    color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+}
+
+.spkChainStatusCell .spkChainFulfillmentReceiveBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkChainStatusCell .spkChainFulfillmentReceiveBtn:focus-visible {
+    outline: 2px solid #0a6ed1;
+    outline-offset: 1px;
+}
+
+.spkChainFulfillmentReceiveBtn ui5-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    color: currentColor;
+}
+
+.spkChainStatusCell .spkChainFulfillmentActionBtn:hover:not(:disabled) {
+    background: #0054b6;
+    border-color: #0054b6;
+}
+
+.spkChainStatusCell .spkChainFulfillmentActionBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkChainStatusCell .spkChainFulfillmentActionBtn:focus-visible {
+    outline: 2px solid #0a6ed1;
+    outline-offset: 1px;
+}
+
+.spkChainFulfillmentActionBtn ui5-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    color: currentColor;
+}
+
+.spkChainAllocateFilters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem 1rem;
+    margin-bottom: 0.65rem;
+}
+
+.spkChainAllocateFilterField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: min(100%, 12rem);
+}
+
+.spkChainAllocateFilterLabel {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.spkChainAllocateFilterSelect {
+    width: 100%;
+    min-height: 2rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.35rem;
+    background: #fff;
+    color: #111827;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+}
+
 .spkStoneStockMeta {
     color: #6b7280;
     font-size: 0.65rem;

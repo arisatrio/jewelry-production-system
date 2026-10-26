@@ -79,6 +79,43 @@ class ChainStockService
     }
 
     /**
+     * Unit in-stock yang masih di gudang, opsional difilter warna (selaras dengan alokasi).
+     *
+     * @return array{balance: int, balanceLength: string}
+     */
+    public function availableInStockCount(int $msChainId, ?string $color = null): array
+    {
+        if (! $this->tableAvailable()) {
+            return [
+                'balance' => 0,
+                'balanceLength' => '0.00',
+            ];
+        }
+
+        $query = TrxChain::query()
+            ->notDeleted()
+            ->where('mschain_id', $msChainId)
+            ->whereNotNull('entry_date')
+            ->whereNull('out_date');
+
+        $trimmedColor = is_string($color) ? trim($color) : '';
+
+        if ($trimmedColor !== '') {
+            $query->where('color', $trimmedColor);
+        }
+
+        $stats = $query
+            ->selectRaw('COUNT(*) as balance')
+            ->selectRaw('COALESCE(SUM(COALESCE(chain_length, 0)), 0) as balance_length')
+            ->first();
+
+        return [
+            'balance' => (int) ($stats->balance ?? 0),
+            'balanceLength' => number_format((float) ($stats->balance_length ?? 0), 2, '.', ''),
+        ];
+    }
+
+    /**
      * @return array{balance: int, balanceLength: string}
      */
     public function totalAvailableBalance(string $search = '', string $category = ''): array
@@ -235,7 +272,35 @@ class ChainStockService
     /**
      * @return list<array<string, int|string|null>>
      */
-    public function listInStockUnits(MsChain $msChain, int $limit = 50): array
+    public function listInStockUnits(MsChain $msChain, int $limit = 50, ?string $color = null): array
+    {
+        if (! $this->tableAvailable()) {
+            return [];
+        }
+
+        $query = TrxChain::query()
+            ->notDeleted()
+            ->where('mschain_id', $msChain->row_id)
+            ->whereNotNull('entry_date')
+            ->whereNull('out_date');
+
+        if (filled($color)) {
+            $query->where('color', $color);
+        }
+
+        return $query
+            ->orderByDesc('row_id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (TrxChain $unit): array => $this->toUnitRow($unit))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function distinctInStockColors(MsChain $msChain): array
     {
         if (! $this->tableAvailable()) {
             return [];
@@ -246,10 +311,12 @@ class ChainStockService
             ->where('mschain_id', $msChain->row_id)
             ->whereNotNull('entry_date')
             ->whereNull('out_date')
-            ->orderByDesc('row_id')
-            ->limit($limit)
-            ->get()
-            ->map(fn (TrxChain $unit): array => $this->toUnitRow($unit))
+            ->whereNotNull('color')
+            ->where('color', '!=', '')
+            ->orderBy('color')
+            ->distinct()
+            ->pluck('color')
+            ->map(fn (mixed $value): string => (string) $value)
             ->values()
             ->all();
     }

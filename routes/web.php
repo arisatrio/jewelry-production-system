@@ -82,6 +82,11 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('spk/print/receipt/{serahTerimaSpk}', [ProductionController::class, 'destroyReceipt'])
         ->whereNumber('serahTerimaSpk')
         ->name('spk.print.receipt.destroy');
+    Route::post('spk/print/chain-receipt', [ProductionController::class, 'storeChainReceipt'])
+        ->name('spk.print.chain-receipt.store');
+    Route::get('spk/print/chain-receipt/{serahTerimaChain}', [ProductionController::class, 'printChainReceipt'])
+        ->whereNumber('serahTerimaChain')
+        ->name('spk.print.chain-receipt');
     Route::get('spk/form/{rowId}', [ProductionController::class, 'form'])
         ->whereNumber('rowId')
         ->name('spk.form');

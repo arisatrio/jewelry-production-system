@@ -5,6 +5,7 @@ import {
 } from '@/pages/inventory/chain/chain-issue-stock-dialog';
 import type { SpkChainAllocation, SpkChainItem } from '@/components/spk/types';
 import { allocationUnits } from '@/routes/spk/chains';
+import { Label } from '@/components/ui/label';
 import {
     Dialog,
     DialogContent,
@@ -23,6 +24,8 @@ type SpkChainAllocateDialogProps = {
 type AllocationPayload = {
     allocation: SpkChainAllocation;
     units: ChainIssueUnit[];
+    colorOptions: string[];
+    suggestedColor: string | null;
 };
 
 function chainSummary(chain: SpkChainItem): string {
@@ -42,6 +45,15 @@ export function SpkChainAllocateDialog({
     const [failed, setFailed] = useState(false);
     const [payload, setPayload] = useState<AllocationPayload | null>(null);
     const [issuingUnit, setIssuingUnit] = useState<ChainIssueUnit | null>(null);
+    const [colorFilter, setColorFilter] = useState('');
+
+    useEffect(() => {
+        if (!open || chain === null) {
+            return;
+        }
+
+        setColorFilter(chain.color?.trim() ?? '');
+    }, [open, chain?.id, chain?.color]);
 
     useEffect(() => {
         if (!open || chain === null) {
@@ -54,14 +66,24 @@ export function SpkChainAllocateDialog({
         setPayload(null);
         setIssuingUnit(null);
 
-        void fetch(allocationUnits.url(Number(chain.id)), {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
+        const query =
+            colorFilter.trim() !== ''
+                ? { color: colorFilter.trim() }
+                : undefined;
+
+        void fetch(
+            allocationUnits.url(Number(chain.id), {
+                query,
+            }),
+            {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                signal: controller.signal,
             },
-            credentials: 'same-origin',
-            signal: controller.signal,
-        })
+        )
             .then(async (response) => {
                 if (!response.ok) {
                     throw new Error('Gagal memuat unit stok');
@@ -90,10 +112,11 @@ export function SpkChainAllocateDialog({
         return () => {
             controller.abort();
         };
-    }, [open, chain]);
+    }, [open, chain, colorFilter]);
 
     const allocation = payload?.allocation;
     const units = payload?.units ?? [];
+    const colorOptions = payload?.colorOptions ?? [];
     const isUnlinked = allocation?.status === 'unlinked';
     const canAllocate = allocation?.nextAction === 'allocate';
 
@@ -124,55 +147,103 @@ export function SpkChainAllocateDialog({
                         </p>
                     ) : !canAllocate ? (
                         <p className="text-sm text-muted-foreground">
-                            {allocation?.label ?? 'Status rantai tidak memerlukan alokasi stok.'}
-                        </p>
-                    ) : units.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            Tidak ada unit chain siap pakai di gudang.
+                            {allocation?.label ??
+                                'Status rantai tidak memerlukan alokasi stok.'}
                         </p>
                     ) : (
-                        <div className="spkStoneTableWrap">
-                            <table className="spkStoneTable spkChainTable">
-                                <thead>
-                                    <tr>
-                                        <th>No. Unit</th>
-                                        <th>Nama</th>
-                                        <th className="spkTableColCenter">
-                                            Panjang
-                                        </th>
-                                        <th>Warna</th>
-                                        <th className="spkStoneTableActionCol">
-                                            Aksi
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {units.map((unit) => (
-                                        <tr key={unit.id}>
-                                            <td className="tabular-nums">
-                                                {unit.unitNo ?? unit.id}
-                                            </td>
-                                            <td>{unit.name}</td>
-                                            <td className="spkTableColCenter tabular-nums">
-                                                {unit.chainLength} cm
-                                            </td>
-                                            <td>{unit.color ?? '—'}</td>
-                                            <td>
-                                                <button
-                                                    type="button"
-                                                    className="spkStoneRowActionBtn"
-                                                    onClick={() =>
-                                                        setIssuingUnit(unit)
-                                                    }
+                        <>
+                            <div className="spkChainAllocateFilters">
+                                <div className="spkChainAllocateFilterField">
+                                    <Label
+                                        htmlFor="spk-chain-allocate-color-filter"
+                                        className="spkChainAllocateFilterLabel"
+                                    >
+                                        Warna
+                                    </Label>
+                                    <select
+                                        id="spk-chain-allocate-color-filter"
+                                        className="spkChainAllocateFilterSelect"
+                                        value={colorFilter}
+                                        onChange={(event) => {
+                                            setColorFilter(event.target.value);
+                                        }}
+                                    >
+                                        <option value="">Semua warna</option>
+                                        {colorOptions.map((color) => (
+                                            <option
+                                                key={color}
+                                                value={color}
+                                            >
+                                                {color}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {units.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Tidak ada unit chain siap pakai untuk filter
+                                    warna ini.
+                                </p>
+                            ) : (
+                                <div className="spkStoneTableWrap">
+                                    <table
+                                        className="spkStoneTable spkChainTable"
+                                    >
+                                        <thead>
+                                            <tr>
+                                                <th>No. Unit</th>
+                                                <th>Nama</th>
+                                                <th
+                                                    className="spkTableColCenter"
                                                 >
-                                                    Pilih
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                                    Panjang
+                                                </th>
+                                                <th>Warna</th>
+                                                <th
+                                                    className="spkStoneTableActionCol spkChainTableActionCol"
+                                                >
+                                                    Aksi
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {units.map((unit) => (
+                                                <tr key={unit.id}>
+                                                    <td className="tabular-nums">
+                                                        {unit.unitNo ??
+                                                            unit.id}
+                                                    </td>
+                                                    <td>{unit.name}</td>
+                                                    <td
+                                                        className="spkTableColCenter tabular-nums"
+                                                    >
+                                                        {unit.chainLength} cm
+                                                    </td>
+                                                    <td>
+                                                        {unit.color ?? '—'}
+                                                    </td>
+                                                    <td>
+                                                        <button
+                                                            type="button"
+                                                            className="spkStoneRowActionBtn spkChainFulfillmentActionBtn"
+                                                            onClick={() =>
+                                                                setIssuingUnit(
+                                                                    unit,
+                                                                )
+                                                            }
+                                                        >
+                                                            Pilih
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </>
                     )}
                 </DialogContent>
             </Dialog>

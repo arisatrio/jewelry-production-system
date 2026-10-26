@@ -88,6 +88,11 @@ export function ChainIssueStockDialog({
                                             name="spk_id"
                                             value={fixedSpk.rowId}
                                         />
+                                        <input
+                                            type="hidden"
+                                            name="return_to"
+                                            value="spk"
+                                        />
                                         <p className="text-sm font-medium">
                                             {fixedSpk.produksiNo}
                                         </p>

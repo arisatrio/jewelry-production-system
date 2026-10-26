@@ -36,20 +36,10 @@ class SpkChainStockChecker
             return [];
         }
 
-        $msChainIds = $chains
-            ->pluck('mschain_id')
-            ->filter(fn ($id): bool => $id !== null)
-            ->map(fn ($id): int => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
-
-        $countsByMsChain = $this->chainStock->countsByMsChain($msChainIds);
-
         $results = [];
 
         foreach ($chains as $chain) {
-            $results[(int) $chain->line_id] = $this->forChain($chain, $countsByMsChain);
+            $results[(int) $chain->line_id] = $this->forChain($chain);
         }
 
         return $results;
@@ -83,7 +73,6 @@ class SpkChainStockChecker
     }
 
     /**
-     * @param  array<int, array{stockIn: int, stockOut: int, balance: int, balanceLength: string}>  $countsByMsChain
      * @return array{
      *     status: 'available'|'unavailable',
      *     requiredUnits: int,
@@ -92,7 +81,7 @@ class SpkChainStockChecker
      *     note: string|null
      * }
      */
-    private function forChain(SpkChain $chain, array $countsByMsChain): array
+    private function forChain(SpkChain $chain): array
     {
         if ($chain->mschain_id === null) {
             return $this->result(
@@ -103,19 +92,35 @@ class SpkChainStockChecker
             );
         }
 
-        $counts = $countsByMsChain[(int) $chain->mschain_id] ?? [
-            'balance' => 0,
-            'balanceLength' => '0.00',
-        ];
+        $color = filled($chain->color) ? trim((string) $chain->color) : null;
 
-        $availableUnits = (int) ($counts['balance'] ?? 0);
-        $balanceLength = (string) ($counts['balanceLength'] ?? '0.00');
+        $countsForColor = $this->chainStock->availableInStockCount(
+            (int) $chain->mschain_id,
+            $color,
+        );
+
+        $availableUnits = (int) ($countsForColor['balance'] ?? 0);
+        $balanceLength = (string) ($countsForColor['balanceLength'] ?? '0.00');
+
+        $note = null;
+
+        if ($availableUnits < self::REQUIRED_UNITS && filled($color)) {
+            $anyColor = $this->chainStock->availableInStockCount(
+                (int) $chain->mschain_id,
+                null,
+            );
+            $otherColorUnits = (int) ($anyColor['balance'] ?? 0);
+
+            $note = $otherColorUnits >= self::REQUIRED_UNITS
+                ? "Tidak ada stok untuk warna {$color}. Masih bisa alokasi dari stok warna lain."
+                : "Tidak ada stok untuk warna {$color}";
+        }
 
         return $this->result(
             self::REQUIRED_UNITS,
             $availableUnits,
             $balanceLength,
-            null,
+            $note,
         );
     }
 
