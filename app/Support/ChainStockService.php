@@ -1,0 +1,275 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\MsChain;
+use App\Models\TrxChain;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+
+class ChainStockService
+{
+    public function __construct(
+        private readonly ChainUnitNumberGenerator $unitNumbers,
+    ) {}
+
+    /**
+     * @param  list<int>  $msChainIds
+     * @return array<int, array{stockIn: int, stockOut: int, balance: int, balanceLength: string}>
+     */
+    public function countsByMsChain(array $msChainIds): array
+    {
+        if ($msChainIds === [] || ! $this->tableAvailable()) {
+            return [];
+        }
+
+        $rows = TrxChain::query()
+            ->notDeleted()
+            ->whereIn('mschain_id', $msChainIds)
+            ->select('mschain_id')
+            ->selectRaw('SUM(CASE WHEN entry_date IS NOT NULL THEN 1 ELSE 0 END) as stock_in')
+            ->selectRaw('SUM(CASE WHEN out_date IS NOT NULL THEN 1 ELSE 0 END) as stock_out')
+            ->selectRaw(
+                'SUM(CASE WHEN entry_date IS NOT NULL AND out_date IS NULL THEN 1 ELSE 0 END) as balance'
+            )
+            ->selectRaw(
+                'SUM(CASE WHEN entry_date IS NOT NULL AND out_date IS NULL THEN COALESCE(chain_length, 0) ELSE 0 END) as balance_length'
+            )
+            ->groupBy('mschain_id')
+            ->get();
+
+        $result = [];
+
+        foreach ($msChainIds as $id) {
+            $result[$id] = [
+                'stockIn' => 0,
+                'stockOut' => 0,
+                'balance' => 0,
+                'balanceLength' => '0.00',
+            ];
+        }
+
+        foreach ($rows as $row) {
+            $id = (int) $row->mschain_id;
+            $result[$id] = [
+                'stockIn' => (int) $row->stock_in,
+                'stockOut' => (int) $row->stock_out,
+                'balance' => (int) $row->balance,
+                'balanceLength' => number_format((float) $row->balance_length, 2, '.', ''),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array{stockIn: int, stockOut: int, balance: int, balanceLength: string}
+     */
+    public function countsForMsChain(MsChain $msChain): array
+    {
+        return $this->countsByMsChain([(int) $msChain->row_id])[(int) $msChain->row_id]
+            ?? [
+                'stockIn' => 0,
+                'stockOut' => 0,
+                'balance' => 0,
+                'balanceLength' => '0.00',
+            ];
+    }
+
+    /**
+     * @return array{balance: int, balanceLength: string}
+     */
+    public function totalAvailableBalance(string $search = '', string $category = ''): array
+    {
+        if (! $this->tableAvailable()) {
+            return [
+                'balance' => 0,
+                'balanceLength' => '0.00',
+            ];
+        }
+
+        $stats = TrxChain::query()
+            ->notDeleted()
+            ->whereNotNull('entry_date')
+            ->whereNull('out_date')
+            ->whereHas('msChain', function (Builder $query) use ($search, $category): void {
+                $query->notDeleted();
+
+                if ($category !== '') {
+                    $query->where('chain_category', $category);
+                }
+
+                if ($search !== '') {
+                    $query->where(function (Builder $query) use ($search): void {
+                        $query->where('chain_category', 'like', "%{$search}%")
+                            ->orWhere('item', 'like', "%{$search}%")
+                            ->orWhere('item_code', 'like', "%{$search}%")
+                            ->orWhere('item_name', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    });
+                }
+            })
+            ->selectRaw('COUNT(*) as balance')
+            ->selectRaw('COALESCE(SUM(COALESCE(chain_length, 0)), 0) as balance_length')
+            ->first();
+
+        return [
+            'balance' => (int) ($stats->balance ?? 0),
+            'balanceLength' => number_format((float) ($stats->balance_length ?? 0), 2, '.', ''),
+        ];
+    }
+
+    /**
+     * @param  array{entry_date: string, supplier: string, weight: string, purchase_price: string, color?: string|null, notes?: string|null}  $data
+     */
+    public function receiveFromSupplier(MsChain $msChain, array $data, string $actor): TrxChain
+    {
+        $length = number_format((float) $msChain->length, 2, '.', '');
+        $name = filled($msChain->item_name)
+            ? trim((string) $msChain->item_name)
+            : MsChain::composeItemName($msChain->item, $msChain->item_code, $length);
+
+        return TrxChain::query()->create([
+            'unit_no' => $this->unitNumbers->generate(),
+            'mschain_id' => (int) $msChain->row_id,
+            'source_type' => TrxChain::SOURCE_PURCHASE,
+            'parent_row_id' => null,
+            'name' => $name,
+            'item_code' => $msChain->item_code,
+            'chain_length' => $length,
+            'color' => $data['color'] ?? null,
+            'weight' => number_format((float) $data['weight'], 2, '.', ''),
+            'purchase_price' => number_format((float) $data['purchase_price'], 2, '.', ''),
+            'supplier' => $data['supplier'],
+            'entry_date' => $data['entry_date'],
+            'out_date' => null,
+            'spk_id' => null,
+            'is_used' => 0,
+            'notes' => $data['notes'] ?? null,
+            'is_deleted' => 0,
+            'created_date' => now(),
+            'created_by' => $actor,
+            'modified_date' => now(),
+            'modified_by' => $actor,
+        ]);
+    }
+
+    public function issueManual(
+        TrxChain $trxChain,
+        string $outDate,
+        int $spkId,
+        ?string $notes,
+        string $actor,
+    ): void {
+        abort_if($trxChain->is_deleted === 1, 404);
+        if ($trxChain->out_date !== null) {
+            throw new HttpException(422, 'Unit chain sudah keluar.');
+        }
+
+        $trxChain->update([
+            'out_date' => $outDate,
+            'spk_id' => $spkId,
+            'is_used' => 1,
+            'notes' => $notes ?? $trxChain->notes,
+            'modified_date' => now(),
+            'modified_by' => $actor,
+        ]);
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, int|string|null>>
+     */
+    public function paginateAllUnits(string $search, int $perPage): LengthAwarePaginator
+    {
+        return TrxChain::query()
+            ->notDeleted()
+            ->with(['production', 'msChain'])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('item_code', 'like', "%{$search}%")
+                        ->orWhere('supplier', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%")
+                        ->orWhereHas('production', function ($query) use ($search): void {
+                            $query->where('spk_no', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('msChain', function ($query) use ($search): void {
+                            $query->notDeleted()
+                                ->where(function ($query) use ($search): void {
+                                    $query->where('item', 'like', "%{$search}%")
+                                        ->orWhere('item_code', 'like', "%{$search}%")
+                                        ->orWhere('chain_category', 'like', "%{$search}%");
+                                });
+                        });
+                });
+            })
+            ->orderByDesc('row_id')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (TrxChain $unit): array => $this->toTransactionRow($unit));
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, int|string|null>>
+     */
+    public function paginateUnits(MsChain $msChain, int $perPage): LengthAwarePaginator
+    {
+        return TrxChain::query()
+            ->notDeleted()
+            ->where('mschain_id', $msChain->row_id)
+            ->with('production')
+            ->orderByDesc('row_id')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (TrxChain $unit): array => $this->toUnitRow($unit));
+    }
+
+    /**
+     * @return array<string, int|string|null>
+     */
+    public function toTransactionRow(TrxChain $unit): array
+    {
+        return [
+            ...$this->toUnitRow($unit),
+            'msChainId' => (int) $unit->mschain_id,
+            'chainCategory' => $unit->msChain?->chain_category,
+            'masterItem' => $unit->msChain?->item,
+            'masterItemCode' => $unit->msChain?->item_code ?? $unit->item_code,
+        ];
+    }
+
+    /**
+     * @return array<string, int|string|null>
+     */
+    public function toUnitRow(TrxChain $unit): array
+    {
+        return [
+            'id' => (int) $unit->row_id,
+            'unitNo' => $unit->unit_no,
+            'name' => $unit->name,
+            'sourceType' => $unit->source_type,
+            'chainLength' => (string) $unit->chain_length,
+            'weight' => $unit->weight !== null ? (string) $unit->weight : null,
+            'color' => $unit->color,
+            'supplier' => $unit->supplier,
+            'purchasePrice' => $unit->purchase_price !== null
+                ? (string) $unit->purchase_price
+                : null,
+            'entryDate' => $unit->entry_date?->format('Y-m-d'),
+            'outDate' => $unit->out_date?->format('Y-m-d'),
+            'spkId' => $unit->spk_id,
+            'spkNo' => $unit->production?->spk_no,
+            'notes' => $unit->notes,
+            'status' => $unit->out_date === null ? 'in_stock' : 'issued',
+            'createdBy' => $unit->created_by,
+            'createdDate' => $unit->created_date?->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    public function tableAvailable(): bool
+    {
+        return Schema::connection('third')->hasTable('trxchain');
+    }
+}

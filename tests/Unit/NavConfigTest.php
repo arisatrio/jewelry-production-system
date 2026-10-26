@@ -36,6 +36,21 @@ test('modifikasi barang jadi is nested under pengerjaan lanjutan submenu', funct
         ->and($postSpk[1] ?? '')->toContain('defaultPengerjaanLanjutanSubmenus');
 });
 
+test('chain master is listed under inventory submenu', function () {
+    $config = file_get_contents(resource_path('js/components/fiori/nav-config.ts'));
+
+    expect($config)->not->toBeFalse();
+
+    preg_match(
+        '/export const defaultInventorySubmenus: ShellNavItem\[\] = \[(.*?)\];/s',
+        (string) $config,
+        $inventory,
+    );
+
+    expect($inventory[1] ?? '')->toContain("'Stok Rantai'")
+        ->and($inventory[1] ?? '')->toContain('chainsIndex.url()');
+});
+
 test('process report pages are listed under analytics submenu', function () {
     $config = file_get_contents(resource_path('js/components/fiori/nav-config.ts'));
 

@@ -563,6 +563,31 @@
     width: 10rem;
 }
 
+.spkTableHeaderBar--chain .spkTableToolbarRight {
+    gap: 0.5rem;
+}
+
+.spkTableHeaderBar--chain .spkTableStatusAlerts--finishing {
+    gap: 0.3rem;
+    flex-wrap: nowrap;
+}
+
+.spkTableHeaderBar--chain .spkTableStatusAlertStrip--finishing {
+    --_ui5_message_strip_padding: 0.3rem 0.6rem 0.3rem 2.1rem;
+    --_ui5_message_strip_icon_top: 0.3rem;
+    --sapFontSize: 0.8125rem;
+}
+
+.spkTableHeaderBar--chain .spkTableStatusAlertLabel--finishing,
+.spkTableHeaderBar--chain .spkTableStatusAlertCount--finishing {
+    line-height: 1rem;
+    vertical-align: top;
+}
+
+.spkTableHeaderBar--chain .spkTableStatusAlertLabel--finishing {
+    margin-inline-end: 0.25rem;
+}
+
 .spkTableHeaderSearch--finishing {
     display: inline-flex;
     align-items: center;
@@ -904,6 +929,29 @@
     flex-shrink: 0;
 }
 
+.spkTableRowActions--row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.spkTable th.spkTableActionCol.spkTableColCenter,
+.spkTable td.spkTableActionCol.spkTableColCenter {
+    text-align: center;
+}
+
+.spkTableScroll--finishing .spkTable th.spkTableColCenter,
+.spkTableScroll--finishing .spkTable td.spkTableColCenter {
+    text-align: center;
+}
+
+.spkTableActionCol--iconGroup {
+    width: 9rem;
+    min-width: 9rem;
+}
+
 .spkRowActionBtn {
     display: inline-flex;
     align-items: center;
@@ -1043,6 +1091,54 @@
 .spkTable th.spkTableColCenter,
 .spkTable td.spkTableColCenter {
     text-align: center;
+}
+
+.spkTable td.spkChainStockIn {
+    color: #059669;
+    font-weight: 600;
+}
+
+.spkTable td.spkChainStockOut {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.spkChainDetailSummary {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #eef0f2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.spkChainDetailSummary .spkDetailGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 960px) {
+    .spkChainDetailSummary .spkDetailGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .spkChainDetailSummary .spkDetailGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkChainStockBalanceLabel {
+    display: inline-flex;
+    min-width: 2rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    background: #171717;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
 }
 
 .spkOrderTypeColumn {
@@ -2003,6 +2099,24 @@
     width: 1rem;
     height: 1rem;
     color: currentColor;
+}
+
+.spkCreateBtn--outline {
+    border-color: var(--sapButton_Emphasized_BorderColor, #0070f2);
+    background: var(--sapButton_Lite_Background, #fff);
+    color: var(--sapButton_Emphasized_BorderColor, #0070f2);
+}
+
+.spkCreateBtn--outline:hover {
+    background: var(--sapButton_Lite_Hover_Background, #e8f2fc);
+    border-color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+    color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+}
+
+.spkCreateBtn--outline:active {
+    background: var(--sapButton_Lite_Active_Background, #d9ecfb);
+    border-color: var(--sapButton_Emphasized_Active_BorderColor, #0054b4);
+    color: var(--sapButton_Emphasized_Active_BorderColor, #0054b4);
 }
 
 .spkStoreStockRequestActions {
@@ -4154,6 +4268,47 @@
     padding-top: 0.75rem;
 }
 
+.spkAccessoryPairRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.25rem;
+    width: 100%;
+    align-items: start;
+}
+
+.spkAccessoryPairRow > .spkItemStoneSection {
+    min-width: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.spkAccessoryPairRow > .spkItemStoneSection + .spkItemStoneSection {
+    padding-top: 0;
+    border-top: none;
+}
+
+.spkFioriDetailBlock .spkAccessoryPairRow {
+    margin-top: 0.65rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid #eceff2;
+}
+
+.spkFioriDetailBlock .spkAccessoryPairRow > .spkItemStoneSection {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.spkInformasiProduksiBody .spkAccessoryPairRow > .spkItemStoneSection {
+    margin-top: 0;
+}
+
+@media (max-width: 960px) {
+    .spkAccessoryPairRow {
+        grid-template-columns: 1fr;
+    }
+}
+
 .spkItemStoneBody > .spkItemStoneSection:last-child {
     padding-bottom: 0.75rem;
     margin-bottom: 0.15rem;
@@ -6160,17 +6315,23 @@
 .spkStoneTable--editable .spkStoneRowActionBtn {
     height: 1.85rem;
     padding: 0 0.65rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--sap-fiori-brand, #0070f2);
     border-radius: 0.35rem;
-    background: #f8fafc;
-    color: #111827;
+    background: var(--sap-fiori-brand, #0070f2);
+    color: #fff;
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
 }
 
-.spkStoneTable--editable .spkStoneRowActionBtn:hover {
-    background: #eef2f7;
+.spkStoneTable--editable .spkStoneRowActionBtn:hover:not(:disabled) {
+    background: #0054b6;
+    border-color: #0054b6;
+}
+
+.spkStoneTable--editable .spkStoneRowActionBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .spkStoneTable--editable .spkStoneRowActionBtn--danger {

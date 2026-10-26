@@ -46,6 +46,8 @@ import type {
     SpkProcessTab,
     SpkProductionControlReport,
     SpkShrinkReport,
+    SpkChainItem,
+    SpkComponentItem,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -83,6 +85,8 @@ type SpkDetailLayoutProps = {
     navigation: SpkNavigation;
     detailUrl: string;
     stones?: SpkStoneItem[];
+    chains?: SpkChainItem[];
+    components?: SpkComponentItem[];
     processes: SpkProcessTab[];
     shrinkReport: SpkShrinkReport;
     craftsmanReport: SpkCraftsmanReportCard[];
@@ -109,6 +113,8 @@ export function SpkDetailLayout({
     navigation,
     detailUrl,
     stones = [],
+    chains = [],
+    components = [],
     processes,
     shrinkReport,
     craftsmanReport,
@@ -498,6 +504,8 @@ export function SpkDetailLayout({
                             production={production}
                             item={item}
                             stones={stones}
+                            chains={chains}
+                            components={components}
                             approvalFooter={approvalFooter}
                         />
                     ) : null}

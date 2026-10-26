@@ -24,6 +24,16 @@ import { TextArea } from '@ui5/webcomponents-react/TextArea';
 import ProductionController from '@/actions/App/Http/Controllers/ProductionController';
 import { SpkCreateSelectorDialog } from '@/components/spk/spk-create-selector-dialog';
 import {
+    mapProductionChainsToForm,
+    SpkFormChainListCard,
+    type SpkFormChainRow,
+} from '@/components/spk/spk-chain-list';
+import {
+    mapProductionComponentsToForm,
+    SpkFormComponentListCard,
+    type SpkFormComponentRow,
+} from '@/components/spk/spk-component-list';
+import {
     GoldWeightMasterHint,
     GoldWeightRowLabel,
     isGoldWeightChangedFromMaster,
@@ -68,6 +78,17 @@ type StoneRow = {
     totalCarat: number;
     size: string | number;
 };
+
+type ChainRow = {
+    id: string;
+    chainId?: string;
+    category: string;
+    item: string;
+    color: string;
+    size: string;
+};
+
+type ComponentRow = ChainRow;
 
 type SpkType = 'Pesanan' | 'Exchange' | 'Refund' | 'Reparasi' | 'Stock';
 
@@ -227,6 +248,8 @@ type ApprovalAbilities = {
 type SpkFormProps = {
     production: ProductionForm;
     stones: StoneRow[];
+    chains?: ChainRow[];
+    components?: ComponentRow[];
     formDocumentNo: string;
     productionImageBaseUrl: string;
     approvalFooter: ApprovalFooterColumn[];
@@ -242,6 +265,13 @@ type SpkFormProps = {
         skus?: SkuOption[];
         shapeOptions?: OptionItem[];
         positionOptions?: OptionItem[];
+        chainOptions?: Array<{
+            value: string;
+            label: string;
+            category: string;
+            item: string;
+            size: string;
+        }>;
     };
 };
 
@@ -572,6 +602,8 @@ function mapSkuStonesToForm(stones: SkuStoneOption[]): SpkFormStoneRow[] {
 export default function SpkFormPage({
     production,
     stones: productionStones,
+    chains: productionChains = [],
+    components: productionComponents = [],
     options,
     formDocumentNo,
     productionImageBaseUrl,
@@ -684,9 +716,16 @@ export default function SpkFormPage({
     const [formStones, setFormStones] = useState<SpkFormStoneRow[]>(() =>
         mapProductionStonesToForm(productionStones, initialSku?.stones ?? []),
     );
+    const [formChains, setFormChains] = useState<SpkFormChainRow[]>(() =>
+        mapProductionChainsToForm(productionChains),
+    );
+    const [formComponents, setFormComponents] = useState<SpkFormComponentRow[]>(
+        () => mapProductionComponentsToForm(productionComponents),
+    );
     const [ukuran, setUkuran] = useState(() => initialUkuran);
     const shapeOptions = options.shapeOptions ?? [];
     const positionOptions = options.positionOptions ?? [];
+    const chainOptions = options.chainOptions ?? [];
     const [itemTypeText, setItemTypeText] = useState(
         () => initialCategory?.label ?? '',
     );
@@ -1066,6 +1105,19 @@ export default function SpkFormPage({
                 carat_per_pcs: stone.caratPerPcs,
                 size: stone.size,
             })),
+            chains: formChains.map((chain) => ({
+                mschain_id: chain.chainId || null,
+                category: chain.category,
+                item: chain.item,
+                color: chain.color,
+                size: chain.size,
+            })),
+            components: formComponents.map((component) => ({
+                category: component.category,
+                item: component.item,
+                color: component.color,
+                size: component.size,
+            })),
         }));
 
         if (isNew) {
@@ -1206,6 +1258,19 @@ export default function SpkFormPage({
                     })(),
                 };
             }),
+            chains: formChains.map((chain) => ({
+                mschain_id: chain.chainId || null,
+                category: chain.category,
+                item: chain.item,
+                color: chain.color,
+                size: chain.size,
+            })),
+            components: formComponents.map((component) => ({
+                category: component.category,
+                item: component.item,
+                color: component.color,
+                size: component.size,
+            })),
             notes: data.notes,
             approval: approvalFooter,
             detailUrl:
@@ -2401,6 +2466,21 @@ export default function SpkFormPage({
                                     onChange={setFormStones}
                                     errors={errors}
                                 />
+
+                                <div className="spkAccessoryPairRow">
+                                    <SpkFormChainListCard
+                                        chains={formChains}
+                                        chainOptions={chainOptions}
+                                        onChange={setFormChains}
+                                        errors={errors}
+                                    />
+
+                                    <SpkFormComponentListCard
+                                        components={formComponents}
+                                        onChange={setFormComponents}
+                                        errors={errors}
+                                    />
+                                </div>
                             </div>
 
                             <footer

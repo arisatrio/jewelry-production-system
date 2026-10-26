@@ -843,25 +843,27 @@ export function SpkFormStoneListCard({
 
     const draftTotal = formatTotalCarat(draft.pcs, draft.caratPerPcs);
 
+    const draftHasValue =
+        draft.positionId.trim() !== '' ||
+        draft.positionNama.trim() !== '' ||
+        draft.positionName.trim() !== '' ||
+        draft.shapeId.trim() !== '' ||
+        draft.pcs.trim() !== '' ||
+        draft.caratPerPcs.trim() !== '' ||
+        draft.size.trim() !== '';
+
     const updateDraft = (field: keyof typeof emptyDraft, value: string) => {
         setDraft((current) => ({ ...current, [field]: value }));
     };
 
     const handleAdd = () => {
+        if (!draftHasValue) {
+            return;
+        }
+
         const shape = shapeOptions.find(
             (option) => option.value === draft.shapeId,
         );
-
-        if (
-            !draft.positionId &&
-            !draft.positionNama &&
-            !draft.shapeId &&
-            !draft.pcs &&
-            !draft.caratPerPcs &&
-            !draft.size
-        ) {
-            return;
-        }
 
         onChange([
             ...stones,
@@ -1047,6 +1049,7 @@ export function SpkFormStoneListCard({
                                 <button
                                     type="button"
                                     className="spkStoneRowActionBtn"
+                                    disabled={!draftHasValue}
                                     onClick={handleAdd}
                                 >
                                     Tambah

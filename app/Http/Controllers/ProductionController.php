@@ -10,6 +10,7 @@ use App\Http\Requests\SpkApprovalDecisionRequest;
 use App\Http\Requests\StoreProductionRequest;
 use App\Http\Requests\UpdateProductionRequest;
 use App\Models\Employee;
+use App\Models\MsChain;
 use App\Models\MsPosition;
 use App\Models\MsShape;
 use App\Models\PolishFinishedGood;
@@ -17,6 +18,8 @@ use App\Models\Production;
 use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
+use App\Models\SpkChain;
+use App\Models\SpkComponent;
 use App\Models\SpkStone;
 use App\Policies\ProductionPolicy;
 use App\Support\CoranSpkEligibility;
@@ -61,6 +64,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Inertia\Inertia;
@@ -817,11 +821,13 @@ class ProductionController extends Controller
      */
     public function create(Request $request): Response
     {
-        [$production, $stones] = $this->createFormPayload($request);
+        [$production, $stones, $chains, $components] = $this->createFormPayload($request);
 
         return Inertia::render('spk/form', [
             'production' => $production,
             'stones' => $stones,
+            'chains' => $chains,
+            'components' => $components,
             'options' => $this->formOptions(),
             'formDocumentNo' => (string) config('spk.form_document_no'),
             'productionImageBaseUrl' => (string) config('spk.production_image_base_url'),
@@ -1172,9 +1178,26 @@ class ProductionController extends Controller
             })
             ->values();
 
+        $chains = collect($this->toFormChains($production));
+
+        $components = $production->components()
+            ->notDeleted()
+            ->orderBy('line_id')
+            ->get()
+            ->map(fn (SpkComponent $component): array => [
+                'id' => (string) $component->line_id,
+                'category' => $component->category ?? '',
+                'item' => $component->item ?? '',
+                'color' => $component->color ?? '',
+                'size' => $component->size ?? '',
+            ])
+            ->values();
+
         return Inertia::render('spk/form', [
             'production' => $this->toFormData($production, $frameNo !== null ? (string) $frameNo : null, $reference),
             'stones' => $stones,
+            'chains' => $chains,
+            'components' => $components,
             'options' => $this->formOptions(),
             'formDocumentNo' => (string) config('spk.form_document_no'),
             'productionImageBaseUrl' => (string) config('spk.production_image_base_url'),
@@ -1517,6 +1540,8 @@ class ProductionController extends Controller
             'production' => $this->toDetail($production, $statusMapper),
             'item' => $this->toItemDetail($production),
             'stones' => $this->toShowStones($production),
+            'chains' => $this->toShowChains($production),
+            'components' => $this->toShowComponents($production),
             'processes' => $processes,
             'defaultProcessSelection' => $processMapper->resolveDefaultSelection($production->last_process),
             'shrinkReport' => $shrinkSummary->forProduction($production),
@@ -1962,6 +1987,64 @@ class ProductionController extends Controller
 
                 return $item;
             })
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: string, category: string, item: string, color: string, size: string}>
+     */
+    private function toShowChains(Production $production): array
+    {
+        return $this->toFormChains($production);
+    }
+
+    /**
+     * @return list<array{
+     *     id: string,
+     *     chainId: string,
+     *     category: string,
+     *     item: string,
+     *     color: string,
+     *     size: string
+     * }>
+     */
+    private function toFormChains(Production $production): array
+    {
+        return $production->chains()
+            ->notDeleted()
+            ->orderBy('line_id')
+            ->get()
+            ->map(fn (SpkChain $chain): array => [
+                'id' => (string) $chain->line_id,
+                'chainId' => $chain->mschain_id !== null
+                    ? (string) $chain->mschain_id
+                    : '',
+                'category' => (string) ($chain->category ?? ''),
+                'item' => (string) ($chain->item ?? ''),
+                'color' => (string) ($chain->color ?? ''),
+                'size' => (string) ($chain->size ?? ''),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: string, category: string, item: string, color: string, size: string}>
+     */
+    private function toShowComponents(Production $production): array
+    {
+        return $production->components()
+            ->notDeleted()
+            ->orderBy('line_id')
+            ->get()
+            ->map(fn (SpkComponent $component): array => [
+                'id' => (string) $component->line_id,
+                'category' => (string) ($component->category ?? ''),
+                'item' => (string) ($component->item ?? ''),
+                'color' => (string) ($component->color ?? ''),
+                'size' => (string) ($component->size ?? ''),
+            ])
+            ->values()
             ->all();
     }
 
@@ -2480,7 +2563,72 @@ class ProductionController extends Controller
                 ->values()
                 ->all(),
             'skus' => $this->skuFormOptions(),
+            'chainOptions' => $this->msChainFormOptions(),
         ];
+    }
+
+    /**
+     * @return list<array{
+     *     value: string,
+     *     label: string,
+     *     category: string,
+     *     item: string,
+     *     size: string
+     * }>
+     */
+    private function msChainFormOptions(): array
+    {
+        if (! Schema::connection('third')->hasTable('mschain')) {
+            return [];
+        }
+
+        return MsChain::query()
+            ->notDeleted()
+            ->orderBy('chain_category')
+            ->orderBy('item')
+            ->orderBy('item_code')
+            ->orderBy('length')
+            ->get([
+                'row_id',
+                'chain_category',
+                'item',
+                'item_code',
+                'length',
+                'item_name',
+            ])
+            ->map(fn (MsChain $chain): array => [
+                'value' => (string) $chain->row_id,
+                'label' => filled($chain->item_name)
+                    ? trim((string) $chain->item_name)
+                    : trim(sprintf(
+                        '%s - %s - %s cm',
+                        $chain->item,
+                        $chain->item_code,
+                        $chain->length,
+                    )),
+                'category' => trim((string) $chain->chain_category),
+                'item' => trim((string) $chain->item),
+                'size' => $this->formatChainLengthForForm($chain->length),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function formatChainLengthForForm(mixed $length): string
+    {
+        if ($length === null || $length === '') {
+            return '';
+        }
+
+        $numeric = (float) $length;
+
+        if ($numeric <= 0) {
+            return '';
+        }
+
+        $formatted = number_format($numeric, 2, '.', '');
+
+        return rtrim(rtrim($formatted, '0'), '.');
     }
 
     /**
@@ -2555,7 +2703,7 @@ class ProductionController extends Controller
     }
 
     /**
-     * @return array{0: array<string, mixed>, 1: list<array<string, mixed>>}
+     * @return array{0: array<string, mixed>, 1: list<array<string, mixed>>, 2: list<array<string, mixed>>, 3: list<array<string, mixed>>}
      */
     private function createFormPayload(Request $request): array
     {
@@ -2586,7 +2734,7 @@ class ProductionController extends Controller
         $sku = $this->skuFromCreateQuery($request);
 
         if ($sku === null) {
-            return [$production, []];
+            return [$production, [], [], []];
         }
 
         $categoryId = $sku->category_prefix_id !== null
@@ -2603,7 +2751,7 @@ class ProductionController extends Controller
             ?? '0';
         $production['jwcad3d'] = (string) ($sku->resolvedJwcadFile() ?? '');
 
-        return [$production, $this->stoneRowsFromSku($sku)];
+        return [$production, $this->stoneRowsFromSku($sku), [], []];
     }
 
     private function queryDate(Request $request, string $key): ?string
@@ -3028,6 +3176,8 @@ class ProductionController extends Controller
         $info = is_array($payload['info'] ?? null) ? $payload['info'] : [];
         $item = is_array($payload['item'] ?? null) ? $payload['item'] : [];
         $stones = is_array($payload['stones'] ?? null) ? $payload['stones'] : [];
+        $chains = is_array($payload['chains'] ?? null) ? $payload['chains'] : [];
+        $components = is_array($payload['components'] ?? null) ? $payload['components'] : [];
         $approval = is_array($payload['approval'] ?? null) ? $payload['approval'] : [];
 
         $normalizedStones = [];
@@ -3155,6 +3305,8 @@ class ProductionController extends Controller
                 'imageUrl' => $this->absolutePrintImageUrl($item['imageUrl'] ?? null, $request),
             ],
             'stones' => $normalizedStones,
+            'chains' => $this->normalizePrintAccessoryLines($chains),
+            'components' => $this->normalizePrintAccessoryLines($components),
             'notes' => $this->printText($payload['notes'] ?? null, ''),
             'approval' => $normalizedApproval,
             'detailUrl' => $this->resolvePrintQrUrl(
@@ -3212,6 +3364,30 @@ class ProductionController extends Controller
             ->values()
             ->all();
 
+        $chains = $production->chains()
+            ->notDeleted()
+            ->orderBy('line_id')
+            ->get()
+            ->map(fn (SpkChain $chain): array => [
+                'category' => $chain->category,
+                'item' => $chain->item,
+                'color' => $chain->color,
+                'size' => $chain->size,
+            ])
+            ->all();
+
+        $components = $production->components()
+            ->notDeleted()
+            ->orderBy('line_id')
+            ->get()
+            ->map(fn (SpkComponent $component): array => [
+                'category' => $component->category,
+                'item' => $component->item,
+                'color' => $component->color,
+                'size' => $component->size,
+            ])
+            ->all();
+
         return $this->normalizePrintDocument([
             'info' => [
                 'spkNo' => $production->spk_no,
@@ -3260,6 +3436,8 @@ class ProductionController extends Controller
                 'imageUrl' => $this->itemImageUrl($production) ?? '',
             ],
             'stones' => $stones,
+            'chains' => $chains,
+            'components' => $components,
             'notes' => $production->notes,
             // URL dinamis detail SPK tetap dihitung; resolvePrintQrUrl bisa override via config.
             'detailUrl' => $this->resolvePrintQrUrl(
@@ -3267,6 +3445,30 @@ class ProductionController extends Controller
             ),
             'approval' => $this->printApprovalFooter($production),
         ], $request);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $lines
+     * @return list<array{category: string, item: string, color: string, size: string}>
+     */
+    private function normalizePrintAccessoryLines(array $lines): array
+    {
+        $normalized = [];
+
+        foreach ($lines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'category' => $this->printText($line['category'] ?? null),
+                'item' => $this->printText($line['item'] ?? null),
+                'color' => $this->printText($line['color'] ?? null),
+                'size' => $this->printAccessorySize($line['size'] ?? null),
+            ];
+        }
+
+        return $normalized;
     }
 
     /**
@@ -3439,6 +3641,23 @@ class ProductionController extends Controller
         }
 
         return number_format((float) $normalized, 2, '.', '');
+    }
+
+    private function printAccessorySize(mixed $value, string $empty = '-'): string
+    {
+        $text = $this->printText($value, $empty);
+
+        if ($text === $empty) {
+            return $empty;
+        }
+
+        $normalized = str_replace(',', '.', $text);
+
+        if (preg_match('/^\d+(\.\d+)?$/', $normalized)) {
+            return $normalized.' cm';
+        }
+
+        return $text;
     }
 
     private function actorName(Request $request): string

@@ -6,6 +6,8 @@ use App\Models\MsPosition;
 use App\Models\Production;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
+use App\Models\SpkChain;
+use App\Models\SpkComponent;
 use App\Models\SpkStone;
 use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
@@ -166,6 +168,8 @@ class SpkService
             $production = Production::query()->create($attributes);
 
             $this->syncStones($production, $data['stones'] ?? [], $actor);
+            $this->syncChains($production, $data['chains'] ?? [], $actor);
+            $this->syncComponents($production, $data['components'] ?? [], $actor);
             $this->skuMasterSynchronizer->sync($sku, $data, $actor, $uploadedImageFileName);
 
             $production = $production->refresh();
@@ -473,6 +477,8 @@ class SpkService
 
             $production->update($attributes);
             $this->syncStones($production, $data['stones'] ?? [], $actor);
+            $this->syncChains($production, $data['chains'] ?? [], $actor);
+            $this->syncComponents($production, $data['components'] ?? [], $actor);
             $this->skuMasterSynchronizer->sync($sku, $data, $actor, $uploadedImageFileName);
 
             return $production->refresh();
@@ -516,6 +522,8 @@ class SpkService
             $production->update($attributes);
 
             $this->syncStones($production, $data['stones'] ?? [], $actor);
+            $this->syncChains($production, $data['chains'] ?? [], $actor);
+            $this->syncComponents($production, $data['components'] ?? [], $actor);
 
             return $production->refresh();
         });
@@ -904,6 +912,103 @@ class SpkService
                 'pcs' => $pcs,
                 'carat' => $totalCarat,
                 'size' => filled($stone['size'] ?? null) ? $stone['size'] : null,
+                'is_deleted' => 0,
+                'created_date' => $now,
+                'created_by' => $actor,
+                'modified_date' => $now,
+                'modified_by' => $actor,
+            ]);
+        }
+    }
+
+    /**
+     * Replace SPK chains with the submitted list.
+     *
+     * @param  list<array<string, mixed>>  $chains
+     */
+    private function syncChains(Production $production, array $chains, string $actor): void
+    {
+        $now = now();
+
+        $production->chains()
+            ->notDeleted()
+            ->update([
+                'is_deleted' => 1,
+                'deleted_date' => $now,
+                'deleted_by' => $actor,
+                'modified_date' => $now,
+                'modified_by' => $actor,
+            ]);
+
+        foreach ($chains as $chain) {
+            if (! is_array($chain)) {
+                continue;
+            }
+
+            SpkChain::query()->create([
+                'row_id' => $production->row_id,
+                'mschain_id' => filled($chain['mschain_id'] ?? null)
+                    ? (int) $chain['mschain_id']
+                    : null,
+                'category' => filled($chain['category'] ?? null)
+                    ? trim((string) $chain['category'])
+                    : null,
+                'item' => filled($chain['item'] ?? null)
+                    ? trim((string) $chain['item'])
+                    : null,
+                'color' => filled($chain['color'] ?? null)
+                    ? trim((string) $chain['color'])
+                    : null,
+                'size' => filled($chain['size'] ?? null)
+                    ? trim((string) $chain['size'])
+                    : null,
+                'is_deleted' => 0,
+                'created_date' => $now,
+                'created_by' => $actor,
+                'modified_date' => $now,
+                'modified_by' => $actor,
+            ]);
+        }
+    }
+
+    /**
+     * Replace SPK components with the submitted list.
+     *
+     * @param  list<array<string, mixed>>  $components
+     */
+    private function syncComponents(Production $production, array $components, string $actor): void
+    {
+        $now = now();
+
+        $production->components()
+            ->notDeleted()
+            ->update([
+                'is_deleted' => 1,
+                'deleted_date' => $now,
+                'deleted_by' => $actor,
+                'modified_date' => $now,
+                'modified_by' => $actor,
+            ]);
+
+        foreach ($components as $component) {
+            if (! is_array($component)) {
+                continue;
+            }
+
+            SpkComponent::query()->create([
+                'row_id' => $production->row_id,
+                'category' => filled($component['category'] ?? null)
+                    ? trim((string) $component['category'])
+                    : null,
+                'item' => filled($component['item'] ?? null)
+                    ? trim((string) $component['item'])
+                    : null,
+                'color' => filled($component['color'] ?? null)
+                    ? trim((string) $component['color'])
+                    : null,
+                'size' => filled($component['size'] ?? null)
+                    ? trim((string) $component['size'])
+                    : null,
                 'is_deleted' => 0,
                 'created_date' => $now,
                 'created_by' => $actor,

@@ -8,6 +8,8 @@ import {
 } from '@/routes/analytics';
 import { index as coranIndex } from '@/routes/coran';
 import { index as finishingIndex, report as finishingReport } from '@/routes/finishing';
+import { index as chainTransactionsIndex } from '@/routes/inventory/chain-transactions';
+import { index as chainsIndex } from '@/routes/inventory/chains';
 import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
@@ -29,8 +31,8 @@ import {
     index as polesRangkaIndex,
     report as polesRangkaReport,
 } from '@/routes/poles-rangka';
-import { index as resinIndex } from '@/routes/resin';
 import { index as reparasiIndex } from '@/routes/reparasi';
+import { index as resinIndex } from '@/routes/resin';
 import { index as spkIndex } from '@/routes/spk';
 
 export type ShellNavItem = {
@@ -91,6 +93,11 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
     { text: 'Batu Dossier', href: diamondDossiersIndex.url() },
     { text: 'Batu Mikro', href: microStonesIndex.url() },
     { text: 'Bahan Emas', href: goldMaterialsIndex.url() },
+    { text: 'Stok Rantai', href: chainsIndex.url() },
+    {
+        text: 'Log Transaksi Chain',
+        href: chainTransactionsIndex.url(),
+    },
     {
         text: 'Transaksi Bahan Emas',
         href: goldMaterialTransactionsIndex.url(),

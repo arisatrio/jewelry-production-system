@@ -13,6 +13,7 @@ use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MaterialGoldController;
 use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MicroStoneController;
+use App\Http\Controllers\MsChainController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\SkuOutputDashboardController;
 use App\Http\Controllers\SpkProcessSlaController;
 use App\Http\Controllers\SpkStoneStockController;
 use App\Http\Controllers\StoneTransactionController;
+use App\Http\Controllers\TrxChainController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
@@ -311,6 +313,25 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('bahan-emas', MaterialGoldController::class)
             ->parameters(['bahan-emas' => 'materialGold'])
             ->names('gold-materials');
+
+        Route::get('permintaan-rantai', [MsChainController::class, 'chainRequests'])
+            ->name('chains.requests');
+
+        Route::get('chain/{msChain}/stok/tambah', [MsChainController::class, 'createStock'])
+            ->name('chains.stock.create');
+        Route::post('chain/{msChain}/stok', [MsChainController::class, 'storeStock'])
+            ->name('chains.stock.store');
+        Route::post('chain-stok/{trxChain}/keluar', [MsChainController::class, 'issueStock'])
+            ->whereNumber('trxChain')
+            ->name('chains.stock.issue');
+
+        Route::resource('chain', MsChainController::class)
+            ->parameters(['chain' => 'msChain'])
+            ->except(['create'])
+            ->names('chains');
+
+        Route::get('transaksi-chain', [TrxChainController::class, 'index'])
+            ->name('chain-transactions.index');
 
         Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])
             ->name('gold-material-transactions.index');

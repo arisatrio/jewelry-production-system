@@ -1,3 +1,5 @@
+import { SpkChainListCard } from '@/components/spk/spk-chain-list';
+import { SpkComponentListCard } from '@/components/spk/spk-component-list';
 import {
     SpkItemDetailCard,
     SpkStoneListCard,
@@ -6,6 +8,8 @@ import type { ReactNode } from 'react';
 import type {
     SpkDetail,
     SpkItemDetail,
+    SpkChainItem,
+    SpkComponentItem,
     SpkStoneItem,
 } from '@/components/spk/types';
 
@@ -19,6 +23,8 @@ type SpkInformasiProduksiPanelProps = {
     production: SpkDetail;
     item: SpkItemDetail;
     stones: SpkStoneItem[];
+    chains?: SpkChainItem[];
+    components?: SpkComponentItem[];
     approvalFooter?: SpkApprovalFooterColumn[];
 };
 
@@ -73,6 +79,8 @@ export function SpkInformasiProduksiPanel({
     production,
     item,
     stones,
+    chains = [],
+    components = [],
     approvalFooter,
 }: SpkInformasiProduksiPanelProps) {
     const spkType = displayValue(production.tipeProduksi);
@@ -187,6 +195,13 @@ export function SpkInformasiProduksiPanel({
 
             <section className="spkShowSection">
                 <SpkStoneListCard stones={stones} />
+            </section>
+
+            <section className="spkShowSection">
+                <div className="spkAccessoryPairRow">
+                    <SpkChainListCard chains={chains} />
+                    <SpkComponentListCard components={components} />
+                </div>
             </section>
 
             <div className="spkShowBottom">
