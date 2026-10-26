@@ -2317,11 +2317,24 @@ class ProductionController extends Controller
         }
 
         $salesName = $this->requestOrderSalesName($production);
+        $paymentStatus = null;
 
-        return [
-            ...$this->toListItem($production, $completedKind ?? false),
+        if ($production->spk_type === 'Pesanan' && filled($production->request_order_no)) {
+            $requestOrders = app(RequestOrderRepository::class);
+            $requestOrder = $requestOrders->rowsByDocNos([
+                (string) $production->request_order_no,
+            ])[(string) $production->request_order_no] ?? null;
+            $paymentStatus = $requestOrders->paymentStatusLabel($requestOrder?->is_fully_paid);
+        }
+
+        $lastProcessDates = SpkDashboardAnalytics::lastProcessDatesFor([$production]);
+        $lastProcessDate = $lastProcessDates[(int) $production->row_id] ?? null;
+
+        $detail = [
+            ...$this->toListItem($production, $completedKind ?? false, $lastProcessDate),
             'orderDate' => $this->displayOrderDate($production),
             'customer' => $this->customerName($production),
+            'paymentStatus' => $paymentStatus,
             'status' => $production->status ?: '-',
             'requestOrderNo' => $production->request_order_no ?? '-',
             'requestStockNo' => filled($production->request_stock_no)
@@ -2348,7 +2361,9 @@ class ProductionController extends Controller
             'notes' => $production->notes ?? '-',
             'frameId' => $production->frame_id ?? '-',
             'fileName' => $production->file_name ?? '-',
-            'lastWeight' => $production->last_weight ?? '-',
+            'lastWeight' => filled($production->last_weight)
+                ? number_format((float) $production->last_weight, 2, '.', '')
+                : '-',
             'receivedByProductionDate' => app(SpkApprovalService::class)
                 ->managerApprovedAt($production),
             'createdDate' => $production->created_date?->format('d-M-Y H:i') ?? '-',
@@ -2357,6 +2372,16 @@ class ProductionController extends Controller
             'modifiedBy' => $production->modified_by ?? '-',
             'workflowStatus' => $statusMapper->map($production, $completedKind ?? false),
         ];
+
+        $receipt = $this->latestReceiptsBySpkRowId([(int) $production->row_id])[(int) $production->row_id] ?? null;
+
+        if ($receipt !== null && trim((string) $detail['prosesTerakhir']) === '') {
+            $destination = trim((string) $receipt->untuk);
+            $detail['prosesTerakhir'] = 'Diserahkan ke '.($destination !== '' ? $destination : 'Workshop');
+            $detail['prosesTerakhirDate'] = $receipt->tanggal->format('d-M-Y');
+        }
+
+        return $detail;
     }
 
     /**

@@ -68,6 +68,7 @@ export type SpkDetail = SpkRow & {
     requestStockNo?: string | null;
     requestStockDrkNo?: string | null;
     requestOrderLabel?: string;
+    paymentStatus?: 'Lunas' | 'Belum Lunas' | null;
     salesName?: string | null;
     pesananHeading?: string;
     requestOrderCreatedDate?: string;
