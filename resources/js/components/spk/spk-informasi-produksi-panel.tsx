@@ -197,11 +197,18 @@ export function SpkInformasiProduksiPanel({
                 <SpkStoneListCard stones={stones} />
             </section>
 
-            <section className="spkShowSection">
-                <div className="spkAccessoryPairRow">
-                    <SpkChainListCard chains={chains} />
-                    <SpkComponentListCard components={components} />
-                </div>
+            <section className="spkShowSection spkShowSection--full">
+                <SpkChainListCard
+                    chains={chains}
+                    spk={{
+                        rowId: Number(production.id),
+                        produksiNo: production.produksiNo,
+                    }}
+                />
+            </section>
+
+            <section className="spkShowSection spkShowSection--full">
+                <SpkComponentListCard components={components} />
             </section>
 
             <div className="spkShowBottom">

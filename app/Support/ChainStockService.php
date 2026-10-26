@@ -176,6 +176,12 @@ class ChainStockService
             'modified_date' => now(),
             'modified_by' => $actor,
         ]);
+
+        app(SpkChainFulfillment::class)->markAllocatedForSpkMaster(
+            $spkId,
+            (int) $trxChain->mschain_id,
+            $actor,
+        );
     }
 
     /**
@@ -224,6 +230,28 @@ class ChainStockService
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (TrxChain $unit): array => $this->toUnitRow($unit));
+    }
+
+    /**
+     * @return list<array<string, int|string|null>>
+     */
+    public function listInStockUnits(MsChain $msChain, int $limit = 50): array
+    {
+        if (! $this->tableAvailable()) {
+            return [];
+        }
+
+        return TrxChain::query()
+            ->notDeleted()
+            ->where('mschain_id', $msChain->row_id)
+            ->whereNotNull('entry_date')
+            ->whereNull('out_date')
+            ->orderByDesc('row_id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (TrxChain $unit): array => $this->toUnitRow($unit))
+            ->values()
+            ->all();
     }
 
     /**

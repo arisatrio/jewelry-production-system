@@ -18,6 +18,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $item
  * @property string|null $color
  * @property string|null $size
+ * @property string|null $fulfillment_status
+ * @property int|null $finishing_id
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -27,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $deleted_by
  * @property-read Production|null $production
  * @property-read MsChain|null $msChain
+ * @property-read FinishingHandmade|null $finishing
  */
 #[Fillable([
     'row_id',
@@ -35,6 +38,8 @@ use Illuminate\Support\Carbon;
     'item',
     'color',
     'size',
+    'fulfillment_status',
+    'finishing_id',
     'is_deleted',
     'created_date',
     'created_by',
@@ -111,6 +116,14 @@ class SpkChain extends Model
     }
 
     /**
+     * @return BelongsTo<FinishingHandmade, $this>
+     */
+    public function finishing(): BelongsTo
+    {
+        return $this->belongsTo(FinishingHandmade::class, 'finishing_id', 'row_id');
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -118,6 +131,7 @@ class SpkChain extends Model
         return [
             'row_id' => 'integer',
             'mschain_id' => 'integer',
+            'finishing_id' => 'integer',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',
             'modified_date' => 'datetime',

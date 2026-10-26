@@ -38,6 +38,7 @@ use App\Support\SkuMasterDescriptionExtractor;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkApprovalRoles;
 use App\Support\SpkApprovalService;
+use App\Support\SpkChainStockChecker;
 use App\Support\SpkCraftsmanReport;
 use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkGoldReport;
@@ -105,6 +106,7 @@ class ProductionController extends Controller
         private SkuMasterDiamondMapper $diamondMapper,
         private SkuMasterDescriptionExtractor $descriptionExtractor,
         private SpkStoneStockChecker $stoneStockChecker,
+        private SpkChainStockChecker $chainStockChecker,
     ) {}
 
     /**
@@ -1995,7 +1997,24 @@ class ProductionController extends Controller
      */
     private function toShowChains(Production $production): array
     {
-        return $this->toFormChains($production);
+        $chains = $production->chains()
+            ->notDeleted()
+            ->orderBy('line_id')
+            ->get()
+            ->values();
+
+        $stockByLineId = $this->chainStockChecker->forChains($chains);
+        $allocationByLineId = $this->chainStockChecker->allocationForChains($chains);
+
+        return $chains
+            ->map(function (SpkChain $chain) use ($stockByLineId, $allocationByLineId): array {
+                $item = $this->toFormChainItem($chain);
+                $item['stock'] = $stockByLineId[(int) $chain->line_id] ?? null;
+                $item['allocation'] = $allocationByLineId[(int) $chain->line_id] ?? null;
+
+                return $item;
+            })
+            ->all();
     }
 
     /**
@@ -2014,18 +2033,33 @@ class ProductionController extends Controller
             ->notDeleted()
             ->orderBy('line_id')
             ->get()
-            ->map(fn (SpkChain $chain): array => [
-                'id' => (string) $chain->line_id,
-                'chainId' => $chain->mschain_id !== null
-                    ? (string) $chain->mschain_id
-                    : '',
-                'category' => (string) ($chain->category ?? ''),
-                'item' => (string) ($chain->item ?? ''),
-                'color' => (string) ($chain->color ?? ''),
-                'size' => (string) ($chain->size ?? ''),
-            ])
+            ->map(fn (SpkChain $chain): array => $this->toFormChainItem($chain))
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{
+     *     id: string,
+     *     chainId: string,
+     *     category: string,
+     *     item: string,
+     *     color: string,
+     *     size: string
+     * }
+     */
+    private function toFormChainItem(SpkChain $chain): array
+    {
+        return [
+            'id' => (string) $chain->line_id,
+            'chainId' => $chain->mschain_id !== null
+                ? (string) $chain->mschain_id
+                : '',
+            'category' => (string) ($chain->category ?? ''),
+            'item' => (string) ($chain->item ?? ''),
+            'color' => (string) ($chain->color ?? ''),
+            'size' => (string) ($chain->size ?? ''),
+        ];
     }
 
     /**
