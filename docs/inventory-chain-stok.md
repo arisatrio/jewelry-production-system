@@ -9,7 +9,7 @@ Dokumen ini merangkum keputusan dan kebutuhan fungsional untuk **master chain** 
 | Master | `mschain` | SKU chain: kategori, item, kode, panjang standar, `item_name`, deskripsi |
 | Stok unit (baru) | **`trxchain`** | Satu baris = satu lembar/sisa fisik di gudang (masuk/keluar, berat, warna, supplier) |
 | Arsip | `trchain` | Data lama sistem sebelumnya; **hanya arsip** — tidak di-copy, tidak di-migrate ke `trxchain` |
-| SPK | `spk_chains` | Kebutuhan chain pada SPK (`mschain_id`, dll.) |
+| SPK | `spkchains` | Kebutuhan chain pada SPK (`mschain_id`, dll.) |
 
 Master chain CRUD sudah ada di **Inventory → Chain**. Stok dan transaksi mengikuti model **`trxchain`** di koneksi `third`, **bukan** ledger seperti `trmaterialgold` / `trstone` (tanpa `period_id` / `transtype_id` untuk chain).
 

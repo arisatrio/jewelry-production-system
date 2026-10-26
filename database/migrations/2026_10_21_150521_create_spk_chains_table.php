@@ -17,6 +17,12 @@ return new class extends Migration
             return;
         }
 
+        if ($schema->hasTable('spk_chains') && ! $schema->hasTable('spkchains')) {
+            $schema->rename('spk_chains', 'spkchains');
+
+            return;
+        }
+
         $schema->create('spkchains', function (Blueprint $table) {
             $table->bigIncrements('line_id');
             $table->unsignedBigInteger('row_id')->index();

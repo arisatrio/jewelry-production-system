@@ -126,7 +126,7 @@ class MsChainController extends Controller
     }
 
     /**
-     * Daftar kebutuhan rantai dari SPK (spk_chains) untuk modal permintaan rantai.
+     * Daftar kebutuhan rantai dari SPK (spkchains) untuk modal permintaan rantai.
      */
     public function chainRequests(
         Request $request,

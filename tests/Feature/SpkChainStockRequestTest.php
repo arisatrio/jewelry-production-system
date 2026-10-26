@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 beforeEach(function () {
-    foreach (['spk_chains', 'trxchain', 'mschain'] as $table) {
+    foreach (['spkchains', 'trxchain', 'mschain'] as $table) {
         if (! Schema::connection('third')->hasTable($table)) {
             $this->markTestSkipped("Table {$table} is not available.");
         }

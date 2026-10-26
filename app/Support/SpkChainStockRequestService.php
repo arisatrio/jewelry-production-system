@@ -17,7 +17,7 @@ class SpkChainStockRequestService
 
     public function tableAvailable(): bool
     {
-        return Schema::connection('third')->hasTable('spk_chains');
+        return Schema::connection('third')->hasTable('spkchains');
     }
 
     public function pendingCount(): int
@@ -143,8 +143,8 @@ class SpkChainStockRequestService
                 ->whereExists(function ($subquery): void {
                     $subquery->selectRaw('1')
                         ->from('trxchain')
-                        ->whereColumn('trxchain.spk_id', 'spk_chains.row_id')
-                        ->whereColumn('trxchain.mschain_id', 'spk_chains.mschain_id')
+                        ->whereColumn('trxchain.spk_id', 'spkchains.row_id')
+                        ->whereColumn('trxchain.mschain_id', 'spkchains.mschain_id')
                         ->where('trxchain.is_deleted', 0)
                         ->whereNotNull('trxchain.out_date');
                 });
@@ -157,8 +157,8 @@ class SpkChainStockRequestService
                 ->orWhereNotExists(function ($subquery): void {
                     $subquery->selectRaw('1')
                         ->from('trxchain')
-                        ->whereColumn('trxchain.spk_id', 'spk_chains.row_id')
-                        ->whereColumn('trxchain.mschain_id', 'spk_chains.mschain_id')
+                        ->whereColumn('trxchain.spk_id', 'spkchains.row_id')
+                        ->whereColumn('trxchain.mschain_id', 'spkchains.mschain_id')
                         ->where('trxchain.is_deleted', 0)
                         ->whereNotNull('trxchain.out_date');
                 });

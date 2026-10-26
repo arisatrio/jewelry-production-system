@@ -60,7 +60,7 @@ class SpkChain extends Model
      *
      * @var string
      */
-    protected $table = 'spk_chains';
+    protected $table = 'spkchains';
 
     /**
      * The primary key for the model.

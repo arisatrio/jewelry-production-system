@@ -79,7 +79,7 @@ export function ChainRequestDialog({
                 <DialogHeader>
                     <DialogTitle>Permintaan Rantai</DialogTitle>
                     <DialogDescription>
-                        Kebutuhan rantai dari SPK (spk_chains) yang perlu
+                        Kebutuhan rantai dari SPK (spkchains) yang perlu
                         dikeluarkan dari stok.
                     </DialogDescription>
                 </DialogHeader>

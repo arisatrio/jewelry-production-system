@@ -13,12 +13,12 @@ return new class extends Migration
     {
         $schema = Schema::connection('third');
 
-        if (! $schema->hasTable('spk_chains')) {
+        if (! $schema->hasTable('spkchains')) {
             return;
         }
 
-        $schema->table('spk_chains', function (Blueprint $table) use ($schema): void {
-            if (! $schema->hasColumn('spk_chains', 'mschain_id')) {
+        $schema->table('spkchains', function (Blueprint $table) use ($schema): void {
+            if (! $schema->hasColumn('spkchains', 'mschain_id')) {
                 $table->unsignedInteger('mschain_id')->nullable()->index()->after('row_id');
             }
         });
@@ -31,12 +31,12 @@ return new class extends Migration
     {
         $schema = Schema::connection('third');
 
-        if (! $schema->hasTable('spk_chains')) {
+        if (! $schema->hasTable('spkchains')) {
             return;
         }
 
-        $schema->table('spk_chains', function (Blueprint $table) use ($schema): void {
-            if ($schema->hasColumn('spk_chains', 'mschain_id')) {
+        $schema->table('spkchains', function (Blueprint $table) use ($schema): void {
+            if ($schema->hasColumn('spkchains', 'mschain_id')) {
                 $table->dropColumn('mschain_id');
             }
         });
