@@ -41,9 +41,6 @@
             : ($isStockPermintaanDireksi
                 ? 'Stock (Permintaan Direksi)'
                 : $spkType));
-    $requestStockLabel = $isStockPermintaanDireksi
-        ? 'Nomor Request Stock Direksi'
-        : 'Nomor Request Stok';
     $requestStockDisplay = $isStockPermintaanToko
         ? $requestStockNo
         : ($hasRequestStockDrkNo ? $requestStockDrkNo : $empty);
@@ -112,7 +109,7 @@
             </tr>
             @if ($showNomorPesanan)
                 <tr>
-                    <th>Nomor Pesanan</th>
+                    <th>Nomor Ref Dokumen</th>
                     <td colspan="3">
                         @if ($blankTemplate)
                             <span class="spkPrintHint">Nomor request order, nama customer, dan status lunas. Contoh: DP-0009303 (Vera) (Lunas). Khusus tipe Pesanan</span>
@@ -124,7 +121,7 @@
             @endif
             @if ($showNomorRequestStok)
                 <tr>
-                    <th>{{ $blankTemplate ? 'Nomor Request Stok / Stock Direksi' : $requestStockLabel }}</th>
+                    <th>Nomor Ref Dokumen</th>
                     <td colspan="3">
                         @if ($blankTemplate)
                             <span class="spkPrintHint">Nomor request stok toko (RS-0000033) atau permintaan direksi (RS-DRK-0001). Khusus tipe Stock</span>

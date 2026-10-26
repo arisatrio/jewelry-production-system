@@ -30,7 +30,10 @@ import {
 import { SpkBarcodeDialog } from '@/components/spk/spk-barcode-dialog';
 import { SpkCraftsmanReportSection } from '@/components/spk/spk-craftsman-report-section';
 import { SpkGoldReportTable } from '@/components/spk/spk-gold-report-table';
-import { SpkInformasiProduksiPanel } from '@/components/spk/spk-informasi-produksi-panel';
+import {
+    SpkInformasiProduksiAsideSection,
+    SpkInformasiProduksiPanel,
+} from '@/components/spk/spk-informasi-produksi-panel';
 import type { SpkApprovalFooterColumn } from '@/components/spk/spk-informasi-produksi-panel';
 import { SpkProcessPanel } from '@/components/spk/spk-process-panel';
 import { SpkProductionControlReportSection } from '@/components/spk/spk-production-control-report';
@@ -153,7 +156,7 @@ export function SpkDetailLayout({
         (process) => !isProductionProcess(process),
     );
     const mainSectionTabs: Array<{ id: MainSectionTab; label: string }> = [
-        { id: 'informasi-produksi', label: 'Informasi Produksi' },
+        { id: 'informasi-produksi', label: 'Detail Item' },
         { id: 'proses-produksi', label: 'Proses Produksi' },
         ...mainProcesses.map((process) => ({
             id: process.key,
@@ -462,7 +465,16 @@ export function SpkDetailLayout({
             </Dialog>
 
             <div className="spkDetailBody">
-                <section className="spkMainPanel">
+                <div className="spkDetailPageLayout">
+                    <div className="spkDetailPageAside">
+                        <SpkInformasiProduksiAsideSection
+                            production={production}
+                            item={item}
+                            approvalFooter={approvalFooter}
+                        />
+                    </div>
+
+                    <section className="spkMainPanel spkMainPanel--detailPage">
                     <div
                         className="spkSectionTabs"
                         role="tablist"
@@ -506,7 +518,6 @@ export function SpkDetailLayout({
                             stones={stones}
                             chains={chains}
                             components={components}
-                            approvalFooter={approvalFooter}
                         />
                     ) : null}
 
@@ -600,7 +611,8 @@ export function SpkDetailLayout({
                     {mainSection === 'timeline' ? (
                         <SpkApprovalTimelinePanel events={approvalTimeline} />
                     ) : null}
-                </section>
+                    </section>
+                </div>
             </div>
         </div>
     );

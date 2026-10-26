@@ -53,7 +53,7 @@ class SpkComponent extends Model
     /**
      * @var string
      */
-    protected $table = 'spk_components';
+    protected $table = 'spkcomponents';
 
     /**
      * @var string

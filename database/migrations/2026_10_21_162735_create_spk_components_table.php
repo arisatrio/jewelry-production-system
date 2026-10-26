@@ -13,11 +13,17 @@ return new class extends Migration
     {
         $schema = Schema::connection('third');
 
-        if ($schema->hasTable('spk_components')) {
+        if ($schema->hasTable('spkcomponents')) {
             return;
         }
 
-        $schema->create('spk_components', function (Blueprint $table) {
+        if ($schema->hasTable('spk_components') && ! $schema->hasTable('spkcomponents')) {
+            $schema->rename('spk_components', 'spkcomponents');
+
+            return;
+        }
+
+        $schema->create('spkcomponents', function (Blueprint $table) {
             $table->bigIncrements('line_id');
             $table->unsignedBigInteger('row_id')->index();
             $table->string('category', 255)->nullable();
@@ -39,6 +45,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('third')->dropIfExists('spk_components');
+        Schema::connection('third')->dropIfExists('spkcomponents');
     }
 };

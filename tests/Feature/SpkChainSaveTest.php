@@ -160,9 +160,9 @@ test('spk form save replaces chain list', function () {
 test('spk chain save stores mschain id and item name from master', function () {
     if (
         ! Schema::connection('third')->hasTable('mschain')
-        || ! Schema::connection('third')->hasColumn('spk_chains', 'mschain_id')
+        || ! Schema::connection('third')->hasColumn('spkchains', 'mschain_id')
     ) {
-        $this->markTestSkipped('mschain or spk_chains.mschain_id is not available.');
+        $this->markTestSkipped('mschain or spkchains.mschain_id is not available.');
     }
 
     $master = MsChain::factory()->create([

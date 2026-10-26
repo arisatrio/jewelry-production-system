@@ -1337,6 +1337,54 @@ test('spk index includes last process date from the process table', function () 
     $production->delete();
 });
 
+test('spk show page formats last weight with two decimal places', function () {
+    $production = Production::factory()->create([
+        'last_weight' => 3.2,
+        'is_deleted' => 0,
+    ]);
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('production.lastWeight', '3.20')
+        );
+
+    $production->delete();
+});
+
+test('spk show page includes last process date when process exists', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Chrome',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $processId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-PFG-SHOW-'.$production->row_id,
+        'process_name' => 'Poles Chrome',
+        'spk_id' => $production->row_id,
+        'status' => 'PFGDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('production.prosesTerakhir', 'Poles Chrome')
+            ->where('production.prosesTerakhirDate', now()->format('d-M-Y'))
+        );
+
+    DB::connection('third')->table('polishfinishedgood')->where('row_id', $processId)->delete();
+    $production->delete();
+});
+
 test('spk show page displays production detail', function () {
     $production = Production::query()->notDeleted()->whereNotNull('spk_no')->first();
 

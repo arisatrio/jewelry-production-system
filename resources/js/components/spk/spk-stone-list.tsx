@@ -4,7 +4,13 @@ import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
 import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Text } from '@ui5/webcomponents-react/Text';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import {
     SpkStoneStockDialog,
     type SpkStoneStockDialogStone,
@@ -280,7 +286,149 @@ function SpkTypeProductItemValue({ item }: { item: SpkItemDetail }) {
     );
 }
 
-export function SpkItemDetailCard({
+export function SpkItemImageColumn({
+    item,
+    enablePreview = false,
+    spkNo = null,
+}: {
+    item: SpkItemDetail;
+    enablePreview?: boolean;
+    spkNo?: string | null;
+}) {
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [failedUrl, setFailedUrl] = useState<string | null>(null);
+    const imageUrl = item.imageUrl;
+    const hasImage = Boolean(imageUrl) && failedUrl !== imageUrl;
+    const modalTitle = spkNo ? `Gambar SPK · ${spkNo}` : 'Gambar SPK';
+    const imageAlt =
+        item.name !== '-' ? `Gambar ${item.name}` : 'Gambar item';
+
+    return (
+        <div className="spkItemImageCol" aria-label="Gambar item">
+            {hasImage ? (
+                enablePreview ? (
+                    <>
+                        <button
+                            type="button"
+                            className="spkItemImagePreview spkItemImagePreview--clickable"
+                            aria-label={`Lihat ${modalTitle.toLowerCase()}`}
+                            title={modalTitle}
+                            onClick={() => setPreviewOpen(true)}
+                        >
+                            <img
+                                src={imageUrl ?? ''}
+                                alt={imageAlt}
+                                onError={() => {
+                                    if (imageUrl) {
+                                        setFailedUrl(imageUrl);
+                                    }
+                                }}
+                            />
+                        </button>
+                        <Dialog
+                            open={previewOpen}
+                            onOpenChange={setPreviewOpen}
+                        >
+                            <DialogContent className="spkAlertModal">
+                                <DialogHeader>
+                                    <DialogTitle>{modalTitle}</DialogTitle>
+                                </DialogHeader>
+                                <div className="spkAlertModalBody flex items-center justify-center">
+                                    <img
+                                        src={imageUrl ?? ''}
+                                        alt={imageAlt}
+                                        className="max-h-[65vh] w-auto max-w-full rounded object-contain"
+                                    />
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </>
+                ) : (
+                    <div className="spkItemImagePreview">
+                        <img src={imageUrl ?? ''} alt={imageAlt} />
+                    </div>
+                )
+            ) : (
+                <div className="spkItemImagePlaceholder">
+                    <Icon name={pictureIcon} mode="Decorative" />
+                    <span>Gambar item</span>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ItemDetailField({
+    label,
+    children,
+    fullWidth = false,
+}: {
+    label: ReactNode;
+    children: ReactNode;
+    fullWidth?: boolean;
+}) {
+    return (
+        <div
+            className={[
+                'spkDetailField',
+                fullWidth ? 'spkDetailField--full' : '',
+            ]
+                .filter(Boolean)
+                .join(' ')}
+        >
+            <span className="spkDetailFieldLabel">{label}</span>
+            <div className="spkDetailValue">{children}</div>
+        </div>
+    );
+}
+
+function SpkItemDetailUkuranAside({
+    item,
+}: {
+    item: SpkItemDetail;
+}) {
+    return (
+        <div className="spkItemUkuranFields spkItemUkuranFields--aside">
+            <div className="spkItemUkuranField spkItemUkuranField--aside">
+                <span className="spkItemUkuranLabel">Panjang (mm)</span>
+                <strong>{emptyDash(item.diameter)}</strong>
+            </div>
+            <div className="spkItemUkuranField spkItemUkuranField--aside">
+                <span className="spkItemUkuranLabel">Dimensi PxL (mm)</span>
+                <strong>{emptyDash(item.dimensi)}</strong>
+            </div>
+            <div className="spkItemUkuranField spkItemUkuranField--aside">
+                <span className="spkItemUkuranLabel">Ring Size</span>
+                <strong>{emptyDash(item.ringSize)}</strong>
+            </div>
+        </div>
+    );
+}
+
+function SpkItemDetailUkuranPanelMetrics({
+    item,
+}: {
+    item: SpkItemDetail;
+}) {
+    return (
+        <div className="spkItemUkuranFields spkItemUkuranFields--panel">
+            <div className="spkItemUkuranMetric">
+                <span className="spkItemUkuranLabel">Panjang (mm)</span>
+                <strong>{emptyDash(item.diameter)}</strong>
+            </div>
+            <div className="spkItemUkuranMetric">
+                <span className="spkItemUkuranLabel">Dimensi PxL (mm)</span>
+                <strong>{emptyDash(item.dimensi)}</strong>
+            </div>
+            <div className="spkItemUkuranMetric">
+                <span className="spkItemUkuranLabel">Ring Size</span>
+                <strong>{emptyDash(item.ringSize)}</strong>
+            </div>
+        </div>
+    );
+}
+
+function SpkItemDetailAsideFields({
     item,
     notes,
 }: {
@@ -288,26 +436,136 @@ export function SpkItemDetailCard({
     notes?: string;
 }) {
     return (
-        <div className="spkItemDetailGrid">
-            <div className="spkItemImageCol" aria-label="Gambar item">
-                {item.imageUrl ? (
-                    <div className="spkItemImagePreview">
-                        <img
-                            src={item.imageUrl}
-                            alt={
-                                item.name !== '-'
-                                    ? `Gambar ${item.name}`
-                                    : 'Gambar item'
-                            }
+        <div
+            className="spkInformasiProduksiAsideFields spkItemDetailAsideFields"
+        >
+            <ItemDetailField label="Tipe Item | SKU">
+                <SpkTypeProductItemValue item={item} />
+            </ItemDetailField>
+            <ItemDetailField label="Status Order">
+                {emptyDash(item.statusOrderLabel)}
+            </ItemDetailField>
+            <ItemDetailField label="Qty">{emptyDash(item.qty)}</ItemDetailField>
+            <ItemDetailField label="Ukuran">
+                <SpkItemDetailUkuranAside item={item} />
+            </ItemDetailField>
+            <ItemDetailField
+                label={
+                    <GoldWeightRowLabel
+                        currentWeight={item.goldWeight}
+                        masterWeight={item.masterGoldWeight}
+                    />
+                }
+            >
+                {formatDecimal2Id(item.goldWeight)}
+            </ItemDetailField>
+            <ItemDetailField label="Warna Emas">
+                {emptyDash(item.goldColor)}
+            </ItemDetailField>
+            <ItemDetailField label="File JewelCAD 3D">
+                {emptyDash(item.jwcad3d)}
+            </ItemDetailField>
+            <ItemDetailField label="Catatan">
+                <span className="spkItemNotesCell">{emptyDash(notes)}</span>
+            </ItemDetailField>
+        </div>
+    );
+}
+
+function SpkItemDetailPanelFields({
+    item,
+    notes,
+}: {
+    item: SpkItemDetail;
+    notes?: string;
+}) {
+    return (
+        <div className="spkItemDetailPanelFields">
+            <div className="spkItemDetailPanelPrimary spkDetailGrid">
+                <ItemDetailField label="Tipe Item | SKU" fullWidth>
+                    <SpkTypeProductItemValue item={item} />
+                </ItemDetailField>
+                <ItemDetailField label="Status Order">
+                    {emptyDash(item.statusOrderLabel)}
+                </ItemDetailField>
+                <ItemDetailField label="Qty">
+                    {emptyDash(item.qty)}
+                </ItemDetailField>
+                <ItemDetailField
+                    label={
+                        <GoldWeightRowLabel
+                            currentWeight={item.goldWeight}
+                            masterWeight={item.masterGoldWeight}
                         />
-                    </div>
-                ) : (
-                    <div className="spkItemImagePlaceholder">
-                        <Icon name={pictureIcon} mode="Decorative" />
-                        <span>Gambar item</span>
-                    </div>
-                )}
+                    }
+                >
+                    {formatDecimal2Id(item.goldWeight)}
+                </ItemDetailField>
+                <ItemDetailField label="Warna Emas">
+                    {emptyDash(item.goldColor)}
+                </ItemDetailField>
+                <ItemDetailField label="File JewelCAD 3D" fullWidth>
+                    {emptyDash(item.jwcad3d)}
+                </ItemDetailField>
+                <ItemDetailField label="Catatan" fullWidth>
+                    <span className="spkItemNotesCell">
+                        {emptyDash(notes)}
+                    </span>
+                </ItemDetailField>
             </div>
+            <div className="spkItemDetailPanelUkuran">
+                <ItemDetailField label="Ukuran">
+                    <SpkItemDetailUkuranPanelMetrics item={item} />
+                </ItemDetailField>
+            </div>
+        </div>
+    );
+}
+
+export function SpkItemDetailCard({
+    item,
+    notes,
+    showImage = true,
+    variant = 'table',
+}: {
+    item: SpkItemDetail;
+    notes?: string;
+    showImage?: boolean;
+    variant?: 'table' | 'aside' | 'panel';
+}) {
+    if (variant === 'aside') {
+        return (
+            <div
+                className={
+                    showImage ? 'spkItemDetailGrid' : 'spkItemDetailFieldsOnly'
+                }
+            >
+                {showImage ? <SpkItemImageColumn item={item} /> : null}
+                <SpkItemDetailAsideFields item={item} notes={notes} />
+            </div>
+        );
+    }
+
+    if (variant === 'panel') {
+        return (
+            <div
+                className={
+                    showImage ? 'spkItemDetailGrid' : 'spkItemDetailFieldsOnly'
+                }
+            >
+                {showImage ? <SpkItemImageColumn item={item} /> : null}
+                <SpkItemDetailPanelFields item={item} notes={notes} />
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className={
+                showImage ? 'spkItemDetailGrid' : 'spkItemDetailFieldsOnly'
+            }
+        >
+            {showImage ? <SpkItemImageColumn item={item} /> : null}
 
             <div className="spkItemFieldsCol">
                 <table className="spkItemMetaTable spkItemMetaTable--sm">
@@ -463,7 +721,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
     return (
         <div className="spkItemStoneSection">
             <div className="spkStoneCardHeader">
-                <h2 className="spkFioriDetailBlockTitle">Daftar Batu</h2>
+                <h2 className="spkFioriDetailBlockTitle">Batu</h2>
                 <Text className="spkFioriDetailBlockMeta">
                     {stones.length} item
                 </Text>
@@ -938,7 +1196,7 @@ export function SpkFormStoneListCard({
     return (
         <div className="spkItemStoneSection">
             <div className="spkStoneCardHeader">
-                <h2 className="spkFioriDetailBlockTitle">Daftar Batu</h2>
+                <h2 className="spkFioriDetailBlockTitle">Batu</h2>
                 <Text className="spkFioriDetailBlockMeta">
                     {stones.length} item
                 </Text>
