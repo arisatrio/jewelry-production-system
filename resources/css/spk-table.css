@@ -5299,6 +5299,39 @@ button.spkItemImagePreview--clickable:focus-visible {
     color: currentColor;
 }
 
+.spkChainAllocateDialog .spkChainFulfillmentActionBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.85rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--sap-fiori-brand, #0070f2);
+    border-radius: 0.35rem;
+    background: var(--sap-fiori-brand, #0070f2);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.spkChainAllocateDialog .spkChainFulfillmentActionBtn:hover:not(:disabled) {
+    background: #0054b6;
+    border-color: #0054b6;
+}
+
+.spkChainAllocateDialog .spkChainFulfillmentActionBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkChainAllocateDialog .spkChainFulfillmentActionBtn:focus-visible {
+    outline: 2px solid #0a6ed1;
+    outline-offset: 1px;
+}
+
 .spkChainAllocateFilters {
     display: flex;
     flex-wrap: wrap;

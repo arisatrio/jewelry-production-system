@@ -1,10 +1,10 @@
-import { useHttp } from '@inertiajs/react';
+import { useHttp, usePage } from '@inertiajs/react';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
 import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
-import type { FormEvent } from 'react';
+import { useEffect, type FormEvent } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { store as storeChainReceipt } from '@/routes/spk/print/chain-receipt';
+import type { Auth } from '@/types';
 
 type ReceiptFormValues = {
     tanggal: string;
@@ -69,12 +70,39 @@ function todayInputValue(): string {
     return `${now.getFullYear()}-${month}-${day}`;
 }
 
-function emptyReceiptForm(): ReceiptFormValues {
+function resolveLoggedInEmployeeName(
+    employeeOptions: string[],
+    loggedInName: string | undefined,
+): string {
+    const trimmed = loggedInName?.trim() ?? '';
+
+    if (trimmed === '') {
+        return '';
+    }
+
+    if (employeeOptions.includes(trimmed)) {
+        return trimmed;
+    }
+
+    const match = employeeOptions.find(
+        (name) => name.toLowerCase() === trimmed.toLowerCase(),
+    );
+
+    return match ?? '';
+}
+
+function defaultReceiptFormValues(
+    employeeOptions: string[],
+    loggedInName: string | undefined,
+): ReceiptFormValues {
     return {
         tanggal: todayInputValue(),
-        dari: '',
-        untuk: '',
-        diserahkan_oleh: '',
+        dari: 'Head Office',
+        untuk: 'Workshop',
+        diserahkan_oleh: resolveLoggedInEmployeeName(
+            employeeOptions,
+            loggedInName,
+        ),
         diketahui_oleh: '',
         diterima_oleh: '',
     };
@@ -87,10 +115,25 @@ export function SpkChainReceiptPrintDialog({
     chainLineIds,
     employeeOptions,
 }: SpkChainReceiptPrintDialogProps) {
+    const { auth } = usePage<{ auth: Auth | { user: Auth['user'] | null } }>()
+        .props;
+    const loggedInName = auth.user?.name;
+
     const receiptForm = useHttp<ReceiptFormValues, ReceiptStoreResponse>(
-        emptyReceiptForm(),
+        defaultReceiptFormValues(employeeOptions, loggedInName),
     );
     const values = receiptForm.data;
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        receiptForm.setData(
+            defaultReceiptFormValues(employeeOptions, loggedInName),
+        );
+        receiptForm.clearErrors();
+    }, [open, employeeOptions, loggedInName]);
     const errorMessages = Array.from(
         new Set(Object.values(receiptForm.errors).filter(Boolean)),
     );

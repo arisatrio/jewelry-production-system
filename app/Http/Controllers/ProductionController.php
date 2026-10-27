@@ -1115,8 +1115,10 @@ class ProductionController extends Controller
     /**
      * Halaman print tanda terima serah terima rantai.
      */
-    public function printChainReceipt(SerahTerimaChain $serahTerimaChain): View
-    {
+    public function printChainReceipt(
+        SerahTerimaChain $serahTerimaChain,
+        SpkChainReceiptBuilder $receiptBuilder,
+    ): View {
         $header = [
             ...$this->documentHeader(),
             'formTitle' => 'Tanda Terima Rantai',
@@ -1124,6 +1126,15 @@ class ProductionController extends Controller
             'revision' => (string) config('spk.chain_receipt_revision', '00'),
             'issueDate' => (string) config('spk.chain_receipt_issue_date', now()->format('d/m/Y')),
         ];
+
+        $production = Production::query()
+            ->notDeleted()
+            ->where('row_id', (int) $serahTerimaChain->spk_row_id)
+            ->first();
+
+        $dynamicQrUrl = $production !== null
+            ? route('spk.show', $production, absolute: true).'?chain_receipt='.(int) $serahTerimaChain->id
+            : null;
 
         return view('spk.chain-receipt', [
             'title' => "Tanda Terima Rantai {$serahTerimaChain->doc_no} — Print",
@@ -1139,8 +1150,12 @@ class ProductionController extends Controller
                 ['title' => 'Diketahui oleh', 'name' => (string) $serahTerimaChain->diketahui_oleh],
                 ['title' => 'Diterima oleh', 'name' => (string) $serahTerimaChain->diterima_oleh],
             ],
-            'rows' => $serahTerimaChain->items,
+            'rows' => array_map(
+                $receiptBuilder->normalizeStoredItemRow(...),
+                $serahTerimaChain->items ?? [],
+            ),
             'rowCount' => $serahTerimaChain->jumlah_baris,
+            'qrUrl' => $this->resolveChainReceiptQrUrl($dynamicQrUrl),
         ]);
     }
 
@@ -3669,6 +3684,17 @@ class ProductionController extends Controller
     private function resolvePrintQrUrl(?string $dynamicUrl = null): string
     {
         $override = config('spk.print_qr_url');
+
+        if (filled($override)) {
+            return (string) $override;
+        }
+
+        return filled($dynamicUrl) ? (string) $dynamicUrl : '';
+    }
+
+    private function resolveChainReceiptQrUrl(?string $dynamicUrl = null): string
+    {
+        $override = config('spk.chain_receipt_qr_url');
 
         if (filled($override)) {
             return (string) $override;

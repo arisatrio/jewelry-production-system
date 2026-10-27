@@ -104,19 +104,60 @@
             line-height: 1.2;
         }
         .spkReceiptInfo {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 16px;
-            margin: 10px 0 6px;
+            margin: 8px 0 2px;
             font-size: 10pt;
+            line-height: normal;
         }
-        .spkReceiptInfoTable { border-collapse: collapse; }
+        .spkChainReceiptQrFooter {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            margin-top: 12px;
+            break-inside: avoid;
+        }
+        .spkChainReceiptQrBox {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            width: 96px;
+        }
+        .spkChainReceiptQr {
+            display: block;
+            width: 88px;
+            height: 88px;
+            overflow: hidden;
+        }
+        .spkChainReceiptQr svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .spkChainReceiptQrCaption {
+            margin: 0;
+            max-width: 96px;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 7.5pt;
+            font-weight: 600;
+            line-height: 1.2;
+            text-align: center;
+        }
+        .spkReceiptInfoTable {
+            width: auto;
+            border-collapse: collapse;
+            border-spacing: 0;
+            line-height: normal;
+        }
         .spkReceiptInfoTable td {
-            padding: 1px 0;
+            padding: 0;
             vertical-align: top;
+            line-height: normal;
         }
         .spkReceiptInfoTable td:first-child { width: 72px; }
+        .spkReceiptInfoTableRow--count td {
+            padding-top: 4px;
+        }
         .spkReceiptTable {
             width: 100%;
             border-collapse: collapse;
@@ -219,8 +260,10 @@
                     <td>Untuk</td>
                     <td>: {{ $receiptTo !== '' ? $receiptTo : '-' }}</td>
                 </tr>
+                <tr class="spkReceiptInfoTableRow--count">
+                    <td colspan="2">Jumlah rantai: {{ $rowCount }}</td>
+                </tr>
             </table>
-            <div>Jumlah baris rantai: {{ $rowCount }}</div>
         </div>
 
         <table class="spkReceiptTable">
@@ -278,6 +321,46 @@
         </div>
 
         <div class="spkReceiptFooter">Dicetak oleh {{ $printedBy }} pada {{ $printedAt }}</div>
+
+        @if (filled($qrUrl ?? ''))
+            <footer class="spkChainReceiptQrFooter" aria-label="QR terima rantai">
+                <div class="spkChainReceiptQrBox">
+                    <div
+                        id="spkChainReceiptQr"
+                        class="spkChainReceiptQr"
+                        data-value="{{ $qrUrl }}"
+                        role="img"
+                        aria-label="QR code terima rantai {{ $receiptNo }}"
+                    ></div>
+                    <p class="spkChainReceiptQrCaption">
+                        <i><small>*scan ketika menerima barang</small></i>
+                    </p>
+                </div>
+            </footer>
+        @endif
     </main>
+
+    <script src="{{ url('/js/qrcode-generator.js') }}"></script>
+    <script>
+        (function () {
+            var el = document.getElementById('spkChainReceiptQr');
+            if (!el || typeof qrcode !== 'function') {
+                return;
+            }
+
+            var value = el.getAttribute('data-value') || '';
+            if (!value) {
+                return;
+            }
+
+            var qr = qrcode(0, 'M');
+            qr.addData(value);
+            qr.make();
+            el.innerHTML = qr.createSvgTag({
+                scalable: true,
+                margin: 2,
+            });
+        })();
+    </script>
 </body>
 </html>

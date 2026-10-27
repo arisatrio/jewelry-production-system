@@ -31,6 +31,8 @@ type ChainIssueStockDialogProps = {
         rowId: number;
         produksiNo: string;
     };
+    /** Setelah keluarkan stok dari alokasi SPK (tutup modal induk + refresh data). */
+    onAllocated?: () => void;
 };
 
 export function ChainIssueStockDialog({
@@ -38,6 +40,7 @@ export function ChainIssueStockDialog({
     open,
     onOpenChange,
     fixedSpk,
+    onAllocated,
 }: ChainIssueStockDialogProps) {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -63,6 +66,12 @@ export function ChainIssueStockDialog({
                         action={issue.url(unit.id)}
                         method="post"
                         className="grid gap-4"
+                        onSuccess={() => {
+                            onOpenChange(false);
+                            if (fixedSpk !== undefined) {
+                                onAllocated?.();
+                            }
+                        }}
                     >
                         {({ processing, errors }) => (
                             <>

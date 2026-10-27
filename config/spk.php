@@ -60,6 +60,18 @@ return [
 
     'chain_receipt_issue_date' => '26/10/2026',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Chain Receipt QR Code URL
+    |--------------------------------------------------------------------------
+    |
+    | Override URL yang di-encode ke QR pada cetak tanda terima rantai.
+    | Kosongkan agar memakai URL detail SPK + query chain_receipt={id}.
+    |
+    */
+
+    'chain_receipt_qr_url' => env('SPK_CHAIN_RECEIPT_QR_URL', ''),
+
     'logo' => 'images/logo.jpg',
 
     /*

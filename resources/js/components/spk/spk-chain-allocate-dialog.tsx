@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
     ChainIssueStockDialog,
@@ -123,7 +124,7 @@ export function SpkChainAllocateDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-2xl">
+                <DialogContent className="spkChainAllocateDialog sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Alokasi Chain</DialogTitle>
                         <DialogDescription>
@@ -227,7 +228,7 @@ export function SpkChainAllocateDialog({
                                                     <td>
                                                         <button
                                                             type="button"
-                                                            className="spkStoneRowActionBtn spkChainFulfillmentActionBtn"
+                                                            className="spkChainFulfillmentActionBtn"
                                                             onClick={() =>
                                                                 setIssuingUnit(
                                                                     unit,
@@ -256,6 +257,14 @@ export function SpkChainAllocateDialog({
                     if (!nextOpen) {
                         setIssuingUnit(null);
                     }
+                }}
+                onAllocated={() => {
+                    setIssuingUnit(null);
+                    onOpenChange(false);
+                    router.reload({
+                        only: ['chains'],
+                        preserveScroll: true,
+                    });
                 }}
             />
         </>

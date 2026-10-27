@@ -69,6 +69,8 @@ test('chain receipt store and print include chain item details', function () {
                 'category' => 'Bracelet Chain',
                 'item' => 'Cable Chain',
                 'color' => 'White Gold',
+                'size' => '45 cm',
+                'chainLength' => '45',
             ]);
 
         $this->get(route('spk.print.chain-receipt', $receipt))
@@ -76,7 +78,13 @@ test('chain receipt store and print include chain item details', function () {
             ->assertSee('TANDA TERIMA RANTAI', false)
             ->assertSee('Cable Chain', false)
             ->assertSee('Bracelet Chain', false)
-            ->assertSee('White Gold', false);
+            ->assertSee('White Gold', false)
+            ->assertSee('45 cm', false)
+            ->assertDontSee('44.5', false)
+            ->assertDontSee('44,5', false)
+            ->assertSee('scan ketika menerima barang', false)
+            ->assertSee('qrcode-generator.js', false)
+            ->assertSee('chain_receipt='.$receipt->id, false);
     } finally {
         SerahTerimaChain::query()->where('spk_row_id', $production->row_id)->forceDelete();
         $unit->delete();

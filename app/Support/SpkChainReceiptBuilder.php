@@ -29,6 +29,21 @@ class SpkChainReceiptBuilder
      *     customer: string
      * }>
      */
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    public function normalizeStoredItemRow(array $row): array
+    {
+        $row['size'] = $this->formatSize($row['size'] ?? null);
+
+        if (array_key_exists('chainLength', $row)) {
+            $row['chainLength'] = $this->formatWholeMeasurement($row['chainLength']);
+        }
+
+        return $row;
+    }
+
     public function buildItems(
         Production $production,
         array $lineIds,
@@ -57,7 +72,7 @@ class SpkChainReceiptBuilder
                         ? (string) ($unit['unitNo'] ?? '-')
                         : '-',
                     'chainLength' => $unit !== null
-                        ? (string) ($unit['chainLength'] ?? '-')
+                        ? $this->formatWholeMeasurement($unit['chainLength'] ?? '-')
                         : '-',
                     'weight' => $unit !== null && filled($unit['weight'])
                         ? (string) $unit['weight']
@@ -130,10 +145,44 @@ class SpkChainReceiptBuilder
             return '-';
         }
 
-        if (str_ends_with(strtolower($text), 'cm')) {
+        $formatted = $this->formatWholeMeasurement($text);
+
+        if ($formatted === '-') {
+            return '-';
+        }
+
+        if (str_ends_with(strtolower($formatted), 'cm')) {
+            return $formatted;
+        }
+
+        return $formatted.' cm';
+    }
+
+    /**
+     * Tampilan ukuran/panjang tanpa angka di belakang koma (bulatkan ke bilangan bulat).
+     */
+    private function formatWholeMeasurement(mixed $value): string
+    {
+        $text = trim((string) ($value));
+
+        if ($text === '' || $text === '-') {
+            return '-';
+        }
+
+        $lower = strtolower($text);
+        $hasCmSuffix = str_ends_with($lower, 'cm');
+        $numericPart = $hasCmSuffix
+            ? trim(substr($text, 0, strlen($text) - 2))
+            : $text;
+
+        $normalized = str_replace(',', '.', $numericPart);
+
+        if (! is_numeric($normalized)) {
             return $text;
         }
 
-        return $text.' cm';
+        $whole = (string) (int) round((float) $normalized);
+
+        return $hasCmSuffix ? "{$whole} cm" : $whole;
     }
 }
