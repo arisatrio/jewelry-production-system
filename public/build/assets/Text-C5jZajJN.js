@@ -1,0 +1,1 @@
+import{Ti as e}from"./app-ERAtJR48.js";import"./Text-B_W_ez5O.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};

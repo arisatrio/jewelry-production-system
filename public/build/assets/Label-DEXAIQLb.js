@@ -1,1 +1,0 @@
-import{Ti as e}from"./app-BVKZGr4i.js";var t=e(`ui5-label`,[`for`,`wrappingType`],[`required`,`showColon`],[],[]);t.displayName=`Label`;export{t};
