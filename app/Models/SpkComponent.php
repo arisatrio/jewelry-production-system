@@ -13,10 +13,15 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $line_id
  * @property int $row_id
+ * @property int|null $mscomponent_id
  * @property string|null $category
  * @property string|null $item
  * @property string|null $color
  * @property string|null $size
+ * @property string|null $fulfillment_status
+ * @property Carbon|null $workshop_received_at
+ * @property string|null $workshop_received_by
+ * @property int|null $finishing_id
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -25,13 +30,20 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_date
  * @property string|null $deleted_by
  * @property-read Production|null $production
+ * @property-read MsComponent|null $msComponent
+ * @property-read FinishingHandmade|null $finishing
  */
 #[Fillable([
     'row_id',
+    'mscomponent_id',
     'category',
     'item',
     'color',
     'size',
+    'fulfillment_status',
+    'workshop_received_at',
+    'workshop_received_by',
+    'finishing_id',
     'is_deleted',
     'created_date',
     'created_by',
@@ -90,15 +102,34 @@ class SpkComponent extends Model
     }
 
     /**
+     * @return BelongsTo<MsComponent, $this>
+     */
+    public function msComponent(): BelongsTo
+    {
+        return $this->belongsTo(MsComponent::class, 'mscomponent_id', 'row_id');
+    }
+
+    /**
+     * @return BelongsTo<FinishingHandmade, $this>
+     */
+    public function finishing(): BelongsTo
+    {
+        return $this->belongsTo(FinishingHandmade::class, 'finishing_id', 'row_id');
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'row_id' => 'integer',
+            'mscomponent_id' => 'integer',
+            'finishing_id' => 'integer',
             'is_deleted' => 'integer',
             'created_date' => 'datetime',
             'modified_date' => 'datetime',
+            'workshop_received_at' => 'datetime',
             'deleted_date' => 'datetime',
         ];
     }

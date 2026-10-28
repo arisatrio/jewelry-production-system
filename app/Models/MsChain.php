@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property string $length
  * @property string|null $item_name
  * @property string|null $description
+ * @property string|null $photo
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
     'length',
     'item_name',
     'description',
+    'photo',
     'is_deleted',
     'created_date',
     'created_by',

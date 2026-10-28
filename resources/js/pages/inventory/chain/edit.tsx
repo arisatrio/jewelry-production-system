@@ -29,11 +29,16 @@ export default function ChainEdit({ item, categories }: ChainEditProps) {
                 <div className="masterDataFormCard">
                     <Form
                         action={update.url(item.id)}
-                        method="put"
+                        method="post"
+                        encType="multipart/form-data"
+                        options={{
+                            forceFormData: true,
+                        }}
                         className="masterDataForm"
                     >
                         {({ processing, errors }) => (
                             <>
+                                <input type="hidden" name="_method" value="put" />
                                 <ChainFormFields
                                     categories={categories}
                                     item={item}

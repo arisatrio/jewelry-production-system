@@ -18,6 +18,10 @@ return [
 
     'folder' => env('GOOGLE_CLOUD_STORAGE_FOLDER', 'produksi'),
 
+    'inventory_chain_folder' => env('GOOGLE_CLOUD_STORAGE_CHAIN_FOLDER', 'inventory/chain'),
+
+    'inventory_component_folder' => env('GOOGLE_CLOUD_STORAGE_COMPONENT_FOLDER', 'inventory/component'),
+
     /*
     | Path kredensial service account.
     | Relatif = di bawah storage/ (contoh: app/private/gcs-credentials.json

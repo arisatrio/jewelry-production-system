@@ -34,7 +34,12 @@ export function ChainAddDialog({
 
                 <Form
                     key={open ? 'open' : 'closed'}
-                    {...store.form()}
+                    action={store.url()}
+                    method="post"
+                    encType="multipart/form-data"
+                    options={{
+                        forceFormData: true,
+                    }}
                     className="grid gap-4"
                     onSuccess={() => onOpenChange(false)}
                 >

@@ -7,11 +7,14 @@ use App\Models\SpkChain;
 use App\Models\TrxChain;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class ChainStockService
 {
+    public const MAX_RECEIVE_PCS = 200;
+
     public function __construct(
         private readonly ChainUnitNumberGenerator $unitNumbers,
     ) {}
@@ -164,13 +167,51 @@ class ChainStockService
      */
     public function receiveFromSupplier(MsChain $msChain, array $data, string $actor): TrxChain
     {
+        return $this->receiveUnitsFromSupplier($msChain, $data, $actor, 1)[0];
+    }
+
+    /**
+     * @param  array{entry_date: string, supplier: string, weight: string, purchase_price: string, color?: string|null, notes?: string|null}  $data
+     * @return list<TrxChain>
+     */
+    public function receiveUnitsFromSupplier(
+        MsChain $msChain,
+        array $data,
+        string $actor,
+        int $pcs,
+    ): array {
+        if ($pcs < 1 || $pcs > self::MAX_RECEIVE_PCS) {
+            throw new HttpException(422, 'Jumlah pcs tidak valid.');
+        }
+
+        return DB::connection('third')->transaction(function () use ($msChain, $data, $actor, $pcs): array {
+            $unitNumbers = $this->unitNumbers->reserveSequence($pcs);
+            $units = [];
+
+            foreach ($unitNumbers as $unitNo) {
+                $units[] = $this->createPurchaseUnit($msChain, $data, $actor, $unitNo);
+            }
+
+            return $units;
+        });
+    }
+
+    /**
+     * @param  array{entry_date: string, supplier: string, weight: string, purchase_price: string, color?: string|null, notes?: string|null}  $data
+     */
+    private function createPurchaseUnit(
+        MsChain $msChain,
+        array $data,
+        string $actor,
+        string $unitNo,
+    ): TrxChain {
         $length = number_format((float) $msChain->length, 2, '.', '');
         $name = filled($msChain->item_name)
             ? trim((string) $msChain->item_name)
             : MsChain::composeItemName($msChain->item, $msChain->item_code, $length);
 
         return TrxChain::query()->create([
-            'unit_no' => $this->unitNumbers->generate(),
+            'unit_no' => $unitNo,
             'mschain_id' => (int) $msChain->row_id,
             'source_type' => TrxChain::SOURCE_PURCHASE,
             'parent_row_id' => null,

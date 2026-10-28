@@ -17,6 +17,7 @@ import { ChainAddStockDialog } from '@/pages/inventory/chain/chain-add-stock-dia
 import { ChainIssueStockDialog } from '@/pages/inventory/chain/chain-issue-stock-dialog';
 import { sourceTypeLabel } from '@/pages/inventory/chain/chain-source-type';
 import { formatUsd } from '@/pages/inventory/chain/format-usd';
+import { InventoryMasterPhotoPanel } from '@/pages/inventory/inventory-master-photo-field';
 import {
     destroy,
     edit,
@@ -32,6 +33,7 @@ type ChainDetail = {
     length: string;
     itemName: string | null;
     description: string | null;
+    photo: string | null;
     stockIn: number;
     stockOut: number;
     balance: number;
@@ -327,7 +329,12 @@ export default function ChainShow({
                         </div>
                     </div>
 
-                    <div className="spkChainDetailSummary">
+                    <div className="spkChainDetailSummary spkChainDetailSummary--withPhoto">
+                        <InventoryMasterPhotoPanel
+                            photoUrl={item.photo}
+                            title={title}
+                        />
+                        <div className="spkChainDetailSummaryMain">
                         <span className="spkDetailFieldLabel">
                             Ringkasan stok
                         </span>
@@ -385,6 +392,7 @@ export default function ChainShow({
                                 </dd>
                             </div>
                         </dl>
+                        </div>
                     </div>
 
                     <div className="spkTableScroll spkTableScroll--finishing">

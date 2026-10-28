@@ -47,7 +47,7 @@ export function ChainStockFormFields({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor={`${idPrefix}-weight`}>Berat (g)</Label>
+                <Label htmlFor={`${idPrefix}-weight`}>Berat per Pcs (g)</Label>
                 <Input
                     id={`${idPrefix}-weight`}
                     name="weight"
@@ -61,7 +61,7 @@ export function ChainStockFormFields({
 
             <div className="grid gap-2">
                 <Label htmlFor={`${idPrefix}-purchase_price`}>
-                    Harga beli (USD)
+                    Harga beli per Pcs (USD)
                 </Label>
                 <Input
                     id={`${idPrefix}-purchase_price`}
@@ -94,6 +94,21 @@ export function ChainStockFormFields({
                     ))}
                 </select>
                 <InputError message={errors.color} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label htmlFor={`${idPrefix}-pcs`}>Jumlah (pcs)</Label>
+                <Input
+                    id={`${idPrefix}-pcs`}
+                    name="pcs"
+                    type="number"
+                    required
+                    min={1}
+                    max={200}
+                    step={1}
+                    defaultValue={1}
+                />
+                <InputError message={errors.pcs} />
             </div>
 
             <div className="grid gap-2">

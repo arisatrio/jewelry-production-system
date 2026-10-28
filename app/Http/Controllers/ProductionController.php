@@ -6,17 +6,20 @@ use App\Exceptions\StoreStockSpkSyncException;
 use App\Http\Requests\AssignStoreStockSpkRequest;
 use App\Http\Requests\BulkUpdateSpkStatusRequest;
 use App\Http\Requests\PrintSpkChainReceiptRequest;
+use App\Http\Requests\PrintSpkComponentReceiptRequest;
 use App\Http\Requests\PrintSpkReceiptRequest;
 use App\Http\Requests\SpkApprovalDecisionRequest;
 use App\Http\Requests\StoreProductionRequest;
 use App\Http\Requests\UpdateProductionRequest;
 use App\Models\Employee;
 use App\Models\MsChain;
+use App\Models\MsComponent;
 use App\Models\MsPosition;
 use App\Models\MsShape;
 use App\Models\PolishFinishedGood;
 use App\Models\Production;
 use App\Models\SerahTerimaChain;
+use App\Models\SerahTerimaComponent;
 use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
@@ -36,6 +39,7 @@ use App\Support\ProductionOrderTypeLabel;
 use App\Support\RequestOrderRepository;
 use App\Support\ResinSpkEligibility;
 use App\Support\SerahTerimaChainDocNumberGenerator;
+use App\Support\SerahTerimaComponentDocNumberGenerator;
 use App\Support\SerahTerimaSpkDocNumberGenerator;
 use App\Support\SkuMasterDescriptionExtractor;
 use App\Support\SkuMasterDiamondMapper;
@@ -44,6 +48,9 @@ use App\Support\SpkApprovalService;
 use App\Support\SpkChainFulfillment;
 use App\Support\SpkChainReceiptBuilder;
 use App\Support\SpkChainStockChecker;
+use App\Support\SpkComponentFulfillment;
+use App\Support\SpkComponentReceiptBuilder;
+use App\Support\SpkComponentStockChecker;
 use App\Support\SpkCraftsmanReport;
 use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkGoldReport;
@@ -112,6 +119,7 @@ class ProductionController extends Controller
         private SkuMasterDescriptionExtractor $descriptionExtractor,
         private SpkStoneStockChecker $stoneStockChecker,
         private SpkChainStockChecker $chainStockChecker,
+        private SpkComponentStockChecker $componentStockChecker,
     ) {}
 
     /**
@@ -1093,9 +1101,15 @@ class ProductionController extends Controller
             $this->customerListLabel($production),
         );
 
+        $fulfillmentLineIds = $this->receiptFulfillmentLineIds(
+            $lineIds,
+            $items,
+            'spkChainLineId',
+        );
+
         $workshopReceiver = $this->resolveWorkshopReceivedSignatureForChainLines(
             $production,
-            $lineIds,
+            $fulfillmentLineIds,
         );
         $diterimaOleh = $this->nullableTrimmed($request->validated('diterima_oleh'));
         if ($workshopReceiver !== null) {
@@ -1108,7 +1122,7 @@ class ProductionController extends Controller
             $request,
             $spkRowId,
             $items,
-            $lineIds,
+            $fulfillmentLineIds,
             $actor,
             $chainFulfillment,
             $diterimaOleh,
@@ -1127,7 +1141,7 @@ class ProductionController extends Controller
                 'created_by' => $actor,
             ]);
 
-            $chainFulfillment->markSentToWorkshopForChainLines($spkRowId, $lineIds, $actor);
+            $chainFulfillment->markSentToWorkshopForChainLines($spkRowId, $fulfillmentLineIds, $actor);
 
             return $receipt;
         });
@@ -1140,11 +1154,53 @@ class ProductionController extends Controller
     }
 
     /**
+     * Terapkan status kirim ke workshop dari tanda terima rantai yang sudah ada.
+     */
+    public function applyChainReceiptSend(
+        Request $request,
+        SpkChainFulfillment $chainFulfillment,
+    ): RedirectResponse {
+        $spkRowId = (int) $request->validate([
+            'spk_row_id' => ['required', 'integer', 'min:1'],
+        ])['spk_row_id'];
+
+        if (! Schema::connection('third')->hasTable('serah_terima_chain')) {
+            abort(404);
+        }
+
+        $receipt = SerahTerimaChain::query()
+            ->where('spk_row_id', $spkRowId)
+            ->latest('id')
+            ->first();
+
+        if ($receipt === null) {
+            abort(404);
+        }
+
+        $lineIds = array_map(
+            intval(...),
+            $receipt->spk_chain_line_ids ?? [],
+        );
+
+        if ($lineIds !== []) {
+            $chainFulfillment->markSentToWorkshopForChainLines(
+                $spkRowId,
+                $lineIds,
+                $this->actorName($request),
+            );
+        }
+
+        return back();
+    }
+
+    /**
      * Halaman print tanda terima serah terima rantai.
      */
     public function printChainReceipt(
+        Request $request,
         SerahTerimaChain $serahTerimaChain,
         SpkChainReceiptBuilder $receiptBuilder,
+        SpkChainFulfillment $chainFulfillment,
     ): View {
         $header = [
             ...$this->documentHeader(),
@@ -1158,6 +1214,19 @@ class ProductionController extends Controller
             ->notDeleted()
             ->where('row_id', (int) $serahTerimaChain->spk_row_id)
             ->first();
+
+        $receiptLineIds = array_map(
+            intval(...),
+            $serahTerimaChain->spk_chain_line_ids ?? [],
+        );
+
+        if ($production !== null && $receiptLineIds !== []) {
+            $chainFulfillment->markSentToWorkshopForChainLines(
+                (int) $production->row_id,
+                $receiptLineIds,
+                $this->actorName($request),
+            );
+        }
 
         $dynamicQrUrl = $production !== null
             ? route('spk.show', $production, absolute: true).'?chain_receipt='.(int) $serahTerimaChain->id
@@ -1210,6 +1279,217 @@ class ProductionController extends Controller
     }
 
     /**
+     * Simpan tanda terima serah terima komponen ke workshop dari detail SPK.
+     */
+    public function storeComponentReceipt(
+        PrintSpkComponentReceiptRequest $request,
+        SerahTerimaComponentDocNumberGenerator $docNumberGenerator,
+        SpkComponentReceiptBuilder $receiptBuilder,
+        SpkComponentFulfillment $componentFulfillment,
+    ): JsonResponse {
+        $spkRowId = (int) $request->validated('spk_row_id');
+        $actor = $this->actorName($request);
+
+        $production = Production::query()
+            ->notDeleted()
+            ->where('row_id', $spkRowId)
+            ->firstOrFail();
+
+        /** @var list<int> $lineIds */
+        $lineIds = array_map(
+            intval(...),
+            $request->validated('component_line_ids') ?? [],
+        );
+
+        $receiptDate = Carbon::createFromFormat(
+            'Y-m-d',
+            $request->validated('tanggal') ?? now()->toDateString(),
+        )->startOfDay();
+
+        $items = $receiptBuilder->buildItems(
+            $production,
+            $lineIds,
+            $this->customerListLabel($production),
+        );
+
+        $fulfillmentLineIds = $this->receiptFulfillmentLineIds(
+            $lineIds,
+            $items,
+            'spkComponentLineId',
+        );
+
+        $workshopReceiver = $this->resolveWorkshopReceivedSignatureForComponentLines(
+            $production,
+            $fulfillmentLineIds,
+        );
+        $diterimaOleh = $this->nullableTrimmed($request->validated('diterima_oleh'));
+        if ($workshopReceiver !== null) {
+            $diterimaOleh = $workshopReceiver['by'];
+        }
+
+        $receipt = DB::connection('third')->transaction(function () use (
+            $docNumberGenerator,
+            $receiptDate,
+            $request,
+            $spkRowId,
+            $items,
+            $fulfillmentLineIds,
+            $actor,
+            $componentFulfillment,
+            $diterimaOleh,
+        ): SerahTerimaComponent {
+            $receipt = SerahTerimaComponent::query()->create([
+                'doc_no' => $docNumberGenerator->generate($receiptDate),
+                'tanggal' => $receiptDate->toDateString(),
+                'dari' => $this->nullableTrimmed($request->validated('dari')),
+                'untuk' => $this->nullableTrimmed($request->validated('untuk')),
+                'diserahkan_oleh' => $this->nullableTrimmed($request->validated('diserahkan_oleh')),
+                'diterima_oleh' => $diterimaOleh,
+                'spk_row_id' => $spkRowId,
+                'jumlah_baris' => count($items),
+                'spk_component_line_ids' => array_column($items, 'spkComponentLineId'),
+                'items' => $items,
+                'created_by' => $actor,
+            ]);
+
+            $componentFulfillment->markSentToWorkshopForComponentLines($spkRowId, $fulfillmentLineIds, $actor);
+
+            return $receipt;
+        });
+
+        return response()->json([
+            'id' => $receipt->id,
+            'docNo' => $receipt->doc_no,
+            'printUrl' => route('spk.print.component-receipt', $receipt),
+        ], 201);
+    }
+
+    /**
+     * Terapkan status kirim ke workshop dari tanda terima komponen yang sudah ada.
+     */
+    public function applyComponentReceiptSend(
+        Request $request,
+        SpkComponentFulfillment $componentFulfillment,
+    ): RedirectResponse {
+        $spkRowId = (int) $request->validate([
+            'spk_row_id' => ['required', 'integer', 'min:1'],
+        ])['spk_row_id'];
+
+        if (! Schema::connection('third')->hasTable('serah_terima_component')) {
+            abort(404);
+        }
+
+        $receipt = SerahTerimaComponent::query()
+            ->where('spk_row_id', $spkRowId)
+            ->latest('id')
+            ->first();
+
+        if ($receipt === null) {
+            abort(404);
+        }
+
+        $lineIds = array_map(
+            intval(...),
+            $receipt->spk_component_line_ids ?? [],
+        );
+
+        if ($lineIds !== []) {
+            $componentFulfillment->markSentToWorkshopForComponentLines(
+                $spkRowId,
+                $lineIds,
+                $this->actorName($request),
+            );
+        }
+
+        return back();
+    }
+
+    /**
+     * Halaman print tanda terima serah terima komponen.
+     */
+    public function printComponentReceipt(
+        Request $request,
+        SerahTerimaComponent $serahTerimaComponent,
+        SpkComponentReceiptBuilder $receiptBuilder,
+        SpkComponentFulfillment $componentFulfillment,
+    ): View {
+        $header = [
+            ...$this->documentHeader(),
+            'formTitle' => 'Tanda Terima Komponen',
+            'docNo' => (string) config('spk.component_receipt_document_no', 'WHOJ-PRD-FRM-004'),
+            'revision' => (string) config('spk.component_receipt_revision', '00'),
+            'issueDate' => (string) config('spk.component_receipt_issue_date', now()->format('d/m/Y')),
+        ];
+
+        $production = Production::query()
+            ->notDeleted()
+            ->where('row_id', (int) $serahTerimaComponent->spk_row_id)
+            ->first();
+
+        $receiptLineIds = array_map(
+            intval(...),
+            $serahTerimaComponent->spk_component_line_ids ?? [],
+        );
+
+        if ($production !== null && $receiptLineIds !== []) {
+            $componentFulfillment->markSentToWorkshopForComponentLines(
+                (int) $production->row_id,
+                $receiptLineIds,
+                $this->actorName($request),
+            );
+        }
+
+        $dynamicQrUrl = $production !== null
+            ? route('spk.show', $production, absolute: true).'?component_receipt='.(int) $serahTerimaComponent->id
+            : null;
+
+        $receiptDateFormatted = $serahTerimaComponent->tanggal->format('d-M-Y');
+        $workshopReceiver = $production !== null
+            ? $this->resolveWorkshopReceivedSignatureForComponentLines(
+                $production,
+                array_map(intval(...), $serahTerimaComponent->spk_component_line_ids ?? []),
+            )
+            : null;
+
+        $diterimaName = (string) $serahTerimaComponent->diterima_oleh;
+        $diterimaDate = $receiptDateFormatted;
+
+        if ($workshopReceiver !== null) {
+            $diterimaName = $workshopReceiver['by'];
+            $diterimaDate = $workshopReceiver['date'];
+        }
+
+        return view('spk.component-receipt', [
+            'title' => "Tanda Terima Komponen {$serahTerimaComponent->doc_no} — Print",
+            'header' => $header,
+            'receiptNo' => $serahTerimaComponent->doc_no,
+            'printedAt' => ($serahTerimaComponent->created_at ?? now())->format('d-M-Y H:i'),
+            'printedBy' => $serahTerimaComponent->created_by ?? '-',
+            'receiptDate' => $receiptDateFormatted,
+            'receiptFrom' => (string) $serahTerimaComponent->dari,
+            'receiptTo' => (string) $serahTerimaComponent->untuk,
+            'signatures' => [
+                [
+                    'title' => 'Diserahkan oleh',
+                    'name' => (string) $serahTerimaComponent->diserahkan_oleh,
+                    'date' => $receiptDateFormatted,
+                ],
+                [
+                    'title' => 'Diterima oleh',
+                    'name' => $diterimaName,
+                    'date' => $diterimaDate,
+                ],
+            ],
+            'rows' => array_map(
+                $receiptBuilder->normalizeStoredItemRow(...),
+                $serahTerimaComponent->items ?? [],
+            ),
+            'rowCount' => $serahTerimaComponent->jumlah_baris,
+            'qrUrl' => $this->resolveComponentReceiptQrUrl($dynamicQrUrl),
+        ]);
+    }
+
+    /**
      * Soft delete tanda terima serah terima SPK dari modal riwayat.
      */
     public function destroyReceipt(Request $request, SerahTerimaSpk $serahTerimaSpk): JsonResponse
@@ -1229,6 +1509,37 @@ class ProductionController extends Controller
         $trimmed = trim((string) $value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * @param  list<int>  $requestLineIds
+     * @param  list<array<string, mixed>>  $items
+     * @return list<int>
+     */
+    private function receiptFulfillmentLineIds(
+        array $requestLineIds,
+        array $items,
+        string $itemLineIdKey,
+    ): array {
+        if ($requestLineIds !== []) {
+            return array_values(array_map(intval(...), $requestLineIds));
+        }
+
+        $fromItems = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $lineId = (int) ($item[$itemLineIdKey] ?? 0);
+
+            if ($lineId > 0) {
+                $fromItems[] = $lineId;
+            }
+        }
+
+        return array_values(array_unique($fromItems));
     }
 
     /**
@@ -1337,18 +1648,7 @@ class ProductionController extends Controller
 
         $chains = collect($this->toFormChains($production));
 
-        $components = $production->components()
-            ->notDeleted()
-            ->orderBy('line_id')
-            ->get()
-            ->map(fn (SpkComponent $component): array => [
-                'id' => (string) $component->line_id,
-                'category' => $component->category ?? '',
-                'item' => $component->item ?? '',
-                'color' => $component->color ?? '',
-                'size' => $component->size ?? '',
-            ])
-            ->values();
+        $components = collect($this->toFormComponents($production));
 
         return Inertia::render('spk/form', [
             'production' => $this->toFormData($production, $frameNo !== null ? (string) $frameNo : null, $reference),
@@ -1722,6 +2022,7 @@ class ProductionController extends Controller
             ),
             'receiptEmployeeOptions' => Inertia::once(fn (): array => $this->receiptEmployeeOptions()),
             'chainReceipt' => $this->latestChainReceiptForProduction($production),
+            'componentReceipt' => $this->latestComponentReceiptForProduction($production),
         ]);
     }
 
@@ -1746,6 +2047,30 @@ class ProductionController extends Controller
         return [
             'docNo' => (string) $receipt->doc_no,
             'printUrl' => route('spk.print.chain-receipt', $receipt),
+        ];
+    }
+
+    /**
+     * @return array{docNo: string, printUrl: string}|null
+     */
+    private function latestComponentReceiptForProduction(Production $production): ?array
+    {
+        if (! Schema::connection('third')->hasTable('serah_terima_component')) {
+            return null;
+        }
+
+        $receipt = SerahTerimaComponent::query()
+            ->where('spk_row_id', (int) $production->row_id)
+            ->latest('id')
+            ->first();
+
+        if ($receipt === null) {
+            return null;
+        }
+
+        return [
+            'docNo' => (string) $receipt->doc_no,
+            'printUrl' => route('spk.print.component-receipt', $receipt),
         ];
     }
 
@@ -2155,6 +2480,11 @@ class ProductionController extends Controller
             ->map(function (SpkStone $stone, int $index) use ($masterStones, $stockByLineId): array {
                 $item = $this->toStoneItem($stone);
                 $item['stock'] = $stockByLineId[(int) $stone->line_id] ?? null;
+                $item['allocation'] = [
+                    'status' => 'not_allocated',
+                    'label' => 'Belum Dialokasikan',
+                    'allocatedPcs' => 0,
+                ];
                 $master = $masterStones[$index] ?? null;
 
                 $item['master'] = $master === null
@@ -2306,6 +2636,46 @@ class ProductionController extends Controller
         ];
     }
 
+    /**
+     * @param  list<int>  $lineIds
+     * @return array{by: string, date: string}|null
+     */
+    private function resolveWorkshopReceivedSignatureForComponentLines(
+        Production $production,
+        array $lineIds,
+    ): ?array {
+        if (! $this->componentWorkshopReceivedColumnsAvailable()) {
+            return null;
+        }
+
+        $query = $production->components()
+            ->notDeleted()
+            ->whereNotNull('workshop_received_at')
+            ->whereNotNull('workshop_received_by');
+
+        if ($lineIds !== []) {
+            $query->whereIn('line_id', $lineIds);
+        }
+
+        /** @var SpkComponent|null $component */
+        $component = $query->orderByDesc('workshop_received_at')->first();
+
+        if ($component === null || $component->workshop_received_at === null) {
+            return null;
+        }
+
+        $by = trim((string) ($component->workshop_received_by ?? ''));
+
+        if ($by === '') {
+            return null;
+        }
+
+        return [
+            'by' => $by,
+            'date' => $component->workshop_received_at->format('d-M-Y'),
+        ];
+    }
+
     private function workshopReceivedColumnsAvailable(): bool
     {
         $schema = Schema::connection('third');
@@ -2323,24 +2693,112 @@ class ProductionController extends Controller
         return false;
     }
 
+    private function componentWorkshopReceivedColumnsAvailable(): bool
+    {
+        $schema = Schema::connection('third');
+
+        if (
+            $schema->hasTable('spkcomponents')
+            && $schema->hasColumn('spkcomponents', 'workshop_received_at')
+            && $schema->hasColumn('spkcomponents', 'workshop_received_by')
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
     /**
-     * @return list<array{id: string, category: string, item: string, color: string, size: string}>
+     * @return list<array<string, mixed>>
      */
     private function toShowComponents(Production $production): array
+    {
+        $components = $production->components()
+            ->notDeleted()
+            ->orderBy('line_id')
+            ->get()
+            ->values();
+
+        $stockByLineId = $this->componentStockChecker->forComponents($components);
+        $allocationByLineId = $this->componentStockChecker->allocationForComponents($components);
+        $issuedByLineId = $this->componentStockChecker->issuedUnitsForComponents(
+            (int) $production->row_id,
+            $components,
+        );
+
+        return $components
+            ->map(function (SpkComponent $component) use ($stockByLineId, $allocationByLineId, $issuedByLineId): array {
+                $item = $this->toFormComponentItem($component);
+                $item['stock'] = $stockByLineId[(int) $component->line_id] ?? null;
+                $item['allocation'] = $allocationByLineId[(int) $component->line_id] ?? null;
+                $item['issuedUnit'] = $issuedByLineId[(int) $component->line_id] ?? null;
+                $item['workshopReceived'] = $this->formatSpkComponentWorkshopReceived($component);
+
+                return $item;
+            })
+            ->all();
+    }
+
+    /**
+     * @return list<array{
+     *     id: string,
+     *     componentId: string,
+     *     category: string,
+     *     item: string,
+     *     color: string,
+     *     size: string
+     * }>
+     */
+    private function toFormComponents(Production $production): array
     {
         return $production->components()
             ->notDeleted()
             ->orderBy('line_id')
             ->get()
-            ->map(fn (SpkComponent $component): array => [
-                'id' => (string) $component->line_id,
-                'category' => (string) ($component->category ?? ''),
-                'item' => (string) ($component->item ?? ''),
-                'color' => (string) ($component->color ?? ''),
-                'size' => (string) ($component->size ?? ''),
-            ])
+            ->map(fn (SpkComponent $component): array => $this->toFormComponentItem($component))
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{
+     *     id: string,
+     *     componentId: string,
+     *     category: string,
+     *     item: string,
+     *     color: string,
+     *     size: string
+     * }
+     */
+    private function toFormComponentItem(SpkComponent $component): array
+    {
+        return [
+            'id' => (string) $component->line_id,
+            'componentId' => $component->mscomponent_id !== null
+                ? (string) $component->mscomponent_id
+                : '',
+            'category' => (string) ($component->category ?? ''),
+            'item' => (string) ($component->item ?? ''),
+            'color' => (string) ($component->color ?? ''),
+            'size' => (string) ($component->size ?? ''),
+        ];
+    }
+
+    /**
+     * @return array{at: string|null, by: string|null}|null
+     */
+    private function formatSpkComponentWorkshopReceived(SpkComponent $component): ?array
+    {
+        if ($component->workshop_received_at === null && ! filled($component->workshop_received_by)) {
+            return null;
+        }
+
+        return [
+            'at' => $component->workshop_received_at?->format('d-M-Y H:i'),
+            'by' => filled($component->workshop_received_by)
+                ? (string) $component->workshop_received_by
+                : null,
+        ];
     }
 
     /**
@@ -2487,8 +2945,27 @@ class ProductionController extends Controller
                 $row['prosesTerakhirDate'] = $receipt->tanggal->format('d-M-Y');
             }
 
-            return $row;
+            return $this->applyLastProcessBadgeFields($row, $production);
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function applyLastProcessBadgeFields(array $row, Production $production): array
+    {
+        $lastProcessBadge = app(SpkProcessMapper::class)->resolveLastProcessBadge(
+            (int) $production->row_id,
+            $production->last_process,
+        );
+
+        if ($lastProcessBadge !== null) {
+            $row['prosesTerakhirDisplay'] = $lastProcessBadge['label'];
+            $row['prosesTerakhirCompleted'] = $lastProcessBadge['completed'];
+        }
+
+        return $row;
     }
 
     /**
@@ -2676,7 +3153,7 @@ class ProductionController extends Controller
             $detail['prosesTerakhirDate'] = $receipt->tanggal->format('d-M-Y');
         }
 
-        return $detail;
+        return $this->applyLastProcessBadgeFields($detail, $production);
     }
 
     /**
@@ -2884,6 +3361,7 @@ class ProductionController extends Controller
                 ->all(),
             'skus' => $this->skuFormOptions(),
             'chainOptions' => $this->msChainFormOptions(),
+            'componentOptions' => $this->msComponentFormOptions(),
         ];
     }
 
@@ -2929,6 +3407,50 @@ class ProductionController extends Controller
                 'category' => trim((string) $chain->chain_category),
                 'item' => trim((string) $chain->item),
                 'size' => $this->formatChainLengthForForm($chain->length),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{
+     *     value: string,
+     *     label: string,
+     *     category: string,
+     *     item: string,
+     *     size: string
+     * }>
+     */
+    private function msComponentFormOptions(): array
+    {
+        if (! Schema::connection('third')->hasTable('mscomponent')) {
+            return [];
+        }
+
+        return MsComponent::query()
+            ->notDeleted()
+            ->orderBy('component_category')
+            ->orderBy('item')
+            ->orderBy('item_code')
+            ->get([
+                'row_id',
+                'component_category',
+                'item',
+                'item_code',
+                'item_name',
+            ])
+            ->map(fn (MsComponent $component): array => [
+                'value' => (string) $component->row_id,
+                'label' => filled($component->item_name)
+                    ? trim((string) $component->item_name)
+                    : trim(sprintf(
+                        '%s - %s',
+                        $component->item,
+                        $component->item_code,
+                    )),
+                'category' => trim((string) $component->component_category),
+                'item' => trim((string) $component->item),
+                'size' => '',
             ])
             ->values()
             ->all();
@@ -3850,6 +4372,17 @@ class ProductionController extends Controller
     private function resolveChainReceiptQrUrl(?string $dynamicUrl = null): string
     {
         $override = config('spk.chain_receipt_qr_url');
+
+        if (filled($override)) {
+            return (string) $override;
+        }
+
+        return filled($dynamicUrl) ? (string) $dynamicUrl : '';
+    }
+
+    private function resolveComponentReceiptQrUrl(?string $dynamicUrl = null): string
+    {
+        $override = config('spk.component_receipt_qr_url');
 
         if (filled($override)) {
             return (string) $override;

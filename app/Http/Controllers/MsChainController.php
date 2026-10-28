@@ -11,6 +11,7 @@ use App\Models\Production;
 use App\Models\TrxChain;
 use App\Support\ChainStockService;
 use App\Support\GoldColorOptions;
+use App\Support\InventoryMasterPhotoStorage;
 use App\Support\SpkChainStockRequestService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -149,10 +150,16 @@ class MsChainController extends Controller
     /**
      * Store a newly created chain master.
      */
-    public function store(StoreMsChainRequest $request): RedirectResponse
-    {
+    public function store(
+        StoreMsChainRequest $request,
+        InventoryMasterPhotoStorage $photoStorage,
+    ): RedirectResponse {
         $actor = $this->actorName($request);
-        $attributes = $this->attributesFrom($request->validated());
+        $attributes = $this->applyPhotoUpload(
+            $request,
+            $this->attributesFrom($request->validated()),
+            $photoStorage,
+        );
 
         $existing = MsChain::query()
             ->whereIdentity(
@@ -239,15 +246,25 @@ class MsChainController extends Controller
     ): RedirectResponse {
         abort_if($msChain->is_deleted === 1, 404);
 
-        $stock->receiveFromSupplier(
+        $validated = $request->validated();
+        $pcs = (int) $validated['pcs'];
+        unset($validated['pcs']);
+
+        $units = $stock->receiveUnitsFromSupplier(
             $msChain,
-            $request->validated(),
+            $validated,
             $this->actorName($request),
+            $pcs,
         );
+
+        $count = count($units);
+        $message = $count === 1
+            ? 'Stok chain berhasil ditambahkan.'
+            : "{$count} unit stok chain berhasil ditambahkan.";
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Stok chain berhasil ditambahkan.',
+            'message' => $message,
         ]);
 
         if ($request->input('return_to') === 'index') {
@@ -315,12 +332,19 @@ class MsChainController extends Controller
     /**
      * Update the specified chain master.
      */
-    public function update(UpdateMsChainRequest $request, MsChain $msChain): RedirectResponse
-    {
+    public function update(
+        UpdateMsChainRequest $request,
+        MsChain $msChain,
+        InventoryMasterPhotoStorage $photoStorage,
+    ): RedirectResponse {
         abort_if($msChain->is_deleted === 1, 404);
 
         $msChain->update([
-            ...$this->attributesFrom($request->validated()),
+            ...$this->applyPhotoUpload(
+                $request,
+                $this->attributesFrom($request->validated()),
+                $photoStorage,
+            ),
             'modified_date' => now(),
             'modified_by' => $this->actorName($request),
         ]);
@@ -401,6 +425,7 @@ class MsChainController extends Controller
      *     length: string,
      *     itemName: string|null,
      *     description: string|null,
+     *     photo: string|null,
      *     createdBy: string|null,
      *     createdDate: string|null,
      *     modifiedBy: string|null,
@@ -417,11 +442,30 @@ class MsChainController extends Controller
             'length' => (string) $item->length,
             'itemName' => $item->item_name,
             'description' => $item->description,
+            'photo' => $item->photo,
             'createdBy' => $item->created_by,
             'createdDate' => $item->created_date?->format('Y-m-d H:i:s'),
             'modifiedBy' => $item->modified_by,
             'modifiedDate' => $item->modified_date?->format('Y-m-d H:i:s'),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function applyPhotoUpload(
+        StoreMsChainRequest|UpdateMsChainRequest $request,
+        array $attributes,
+        InventoryMasterPhotoStorage $photoStorage,
+    ): array {
+        $file = $request->file('photo');
+
+        if ($file !== null) {
+            $attributes['photo'] = $photoStorage->storeChainPhoto($file);
+        }
+
+        return $attributes;
     }
 
     private function actorName(Request $request): string

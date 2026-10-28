@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\DiamondCrtMatrix;
 use App\Models\MsShape;
 use App\Models\MsStone;
 use App\Models\SpkStone;
@@ -110,8 +111,19 @@ test('dossier stock only counts diamonds with the same shape', function () {
 });
 
 test('dossier stone outside the matrix is unavailable', function () {
+    $shapeId = stockTestShapeId('R');
+
+    DiamondCrtMatrix::query()->where('shape_id', $shapeId)->delete();
+    DiamondCrtMatrix::query()->create([
+        'shape_id' => $shapeId,
+        'crt_min' => '0.400',
+        'crt_max' => '0.490',
+        'sort_order' => 1,
+        'updated_by' => 'test',
+    ]);
+
     $results = app(SpkStoneStockChecker::class)->forStones(collect([
-        stockTestStone(1, stockTestShapeId('R'), 1, '0.185'),
+        stockTestStone(1, $shapeId, 1, '0.181'),
     ]));
 
     expect($results[1])->toMatchArray([
@@ -120,6 +132,28 @@ test('dossier stone outside the matrix is unavailable', function () {
         'availablePcs' => 0,
         'note' => 'Bentuk dan CRT ini tidak ada di Matrix CRT Dossier.',
     ]);
+});
+
+test('matching stones lists micro stones for the shape when spk size does not match any master', function () {
+    $ledger = app(StoneLedger::class);
+    $activePeriod = $ledger->activePeriod();
+
+    if ($activePeriod === null) {
+        $this->markTestSkipped('No active stone period.');
+    }
+
+    $shapeId = stockTestShapeId('MQ');
+    $otherSize = MsStone::factory()->create(['shape_id' => $shapeId, 'stone_size' => '8.00', 'mounting_rate' => 1]);
+    $ledger->store($activePeriod['id'], 'addition', (int) $otherSize->row_id, '5', null, 'test', 'tester');
+
+    $result = app(SpkStoneStockChecker::class)->matchingStones(
+        stockTestStone(1, $shapeId, 1, '0.100', '9,66'),
+    );
+
+    expect(collect($result['rows'])->firstWhere('id', (int) $otherSize->row_id))
+        ->not->toBeNull()
+        ->and(collect($result['rows'])->firstWhere('id', (int) $otherSize->row_id)['matchesSpkRequirement'] ?? null)
+        ->toBeFalse();
 });
 
 test('stone below 0.18 carat per pcs uses micro stone stock by shape and size', function () {
@@ -174,12 +208,16 @@ test('matching stones lists available dossier diamonds of the same shape within 
     $result = $checker->matchingStones($heartStone);
     $crts = array_column($result['rows'], 'crt');
     $shapes = array_unique(array_column($result['rows'], 'shape'));
+    $matchingRows = collect($result['rows'])->where('matchesSpkRequirement', true);
 
-    expect($result['stock']['availablePcs'])->toBe(count($result['rows']))
+    expect($matchingRows->count())->toBeGreaterThanOrEqual(1)
+        ->and($result['stock']['availablePcs'])->toBe($matchingRows->count())
         ->and($result['stock']['availablePcs'])->toBe($checker->forStones(collect([$heartStone]))[1]['availablePcs'])
         ->and($crts)->toContain('0.444')
-        ->and($crts)->not->toContain('0.520')
-        ->and($shapes)->toBe([MsShape::query()->find($heartShapeId)?->name]);
+        ->and($crts)->toContain('0.520')
+        ->and($shapes)->toBe([MsShape::query()->find($heartShapeId)?->name])
+        ->and(collect($result['rows'])->firstWhere('crt', '0.444')['matchesSpkRequirement'] ?? null)->toBeTrue()
+        ->and(collect($result['rows'])->firstWhere('crt', '0.520')['matchesSpkRequirement'] ?? null)->toBeFalse();
 });
 
 test('matching stones lists micro stones with their balance', function () {
@@ -203,6 +241,7 @@ test('matching stones lists micro stones with their balance', function () {
         'size' => '9.66',
         'balancePcs' => '15',
         'balanceCrt' => '0.3000',
+        'matchesSpkRequirement' => true,
     ])
         ->and($result['stock']['source'])->toBe(SpkStoneStockChecker::SOURCE_MICRO)
         ->and($result['stock']['availablePcs'])->toBeGreaterThanOrEqual(15);

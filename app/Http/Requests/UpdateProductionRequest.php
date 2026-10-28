@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\MsChain;
+use App\Models\MsComponent;
 use App\Models\MsPosition;
 use App\Models\MsShape;
 use App\Models\Production;
@@ -11,6 +12,7 @@ use App\Models\SkuPrefixCategory;
 use App\Support\GoldColorOptions;
 use App\Support\RequestOrderRepository;
 use App\Support\SpkChainPayloadNormalizer;
+use App\Support\SpkComponentPayloadNormalizer;
 use App\Support\SpkService;
 use App\Support\StoreStockRequestRepository;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -108,26 +110,20 @@ class UpdateProductionRequest extends FormRequest
         $components = $this->input('components');
 
         if (is_array($components)) {
+            $normalizer = app(SpkComponentPayloadNormalizer::class);
+
             $components = collect($components)
                 ->filter(fn ($component): bool => is_array($component))
-                ->map(function (array $component): array {
-                    return [
-                        'category' => filled($component['category'] ?? null)
-                            ? trim((string) $component['category'])
-                            : null,
-                        'item' => filled($component['item'] ?? null)
-                            ? trim((string) $component['item'])
-                            : null,
-                        'color' => filled($component['color'] ?? null)
-                            ? trim((string) $component['color'])
-                            : null,
-                        'size' => filled($component['size'] ?? null)
-                            ? trim((string) $component['size'])
-                            : null,
-                    ];
-                })
+                ->map(fn (array $component): array => $normalizer->normalize([
+                    'mscomponent_id' => $component['mscomponent_id'] ?? $component['componentId'] ?? null,
+                    'category' => $component['category'] ?? null,
+                    'item' => $component['item'] ?? null,
+                    'color' => $component['color'] ?? null,
+                    'size' => $component['size'] ?? null,
+                ]))
                 ->filter(function (array $component): bool {
-                    return filled($component['category'])
+                    return filled($component['mscomponent_id'])
+                        || filled($component['category'])
                         || filled($component['item'])
                         || filled($component['color'])
                         || filled($component['size']);
@@ -333,6 +329,11 @@ class UpdateProductionRequest extends FormRequest
             'chains.*.color' => ['nullable', 'string', 'max:100'],
             'chains.*.size' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'components' => ['nullable', 'array'],
+            'components.*.mscomponent_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(MsComponent::class, 'row_id')->where(fn ($query) => $query->where('is_deleted', 0)),
+            ],
             'components.*.category' => ['nullable', 'string', 'max:255'],
             'components.*.item' => ['nullable', 'string', 'max:255'],
             'components.*.color' => ['nullable', 'string', 'max:100'],

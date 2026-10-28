@@ -1,3 +1,4 @@
+import { SpkProsesTerakhirDisplay } from '@/components/spk/spk-proses-terakhir-display';
 import { CircleDollarSign } from 'lucide-react';
 import type { SpkIndexRow, SpkRow } from '@/components/spk/types';
 import {
@@ -13,7 +14,11 @@ type SpkListDescriptionFields = Pick<
 
 type SpkListLastProcessFields = Pick<
     SpkRow,
-    'prosesTerakhir' | 'prosesTerakhirDate' | 'status'
+    | 'prosesTerakhir'
+    | 'prosesTerakhirDate'
+    | 'prosesTerakhirDisplay'
+    | 'prosesTerakhirCompleted'
+    | 'status'
 > & {
     processSlaHint?: string | null;
     /** true jika sudah lewat target SLA proses */
@@ -240,35 +245,33 @@ export function SpkTableLastProcessCell({
 }: {
     row: SpkListLastProcessFields;
 }) {
-    const lastProcess = row.prosesTerakhir.trim();
-    const lastProcessDate = (row.prosesTerakhirDate ?? '').trim();
+    const label = (row.prosesTerakhirDisplay ?? '').trim() || row.prosesTerakhir.trim();
     const processSlaHint = (row.processSlaHint ?? '').trim();
 
-    if (lastProcess !== '') {
-        return (
-            <div className="spkTableLastProcess">
-                <span>{lastProcess}</span>
-                {lastProcessDate !== '' ? (
-                    <span className="spkTableLastProcessDate">
-                        pada {lastProcessDate}
-                    </span>
-                ) : null}
-                {processSlaHint !== '' ? (
-                    <span
-                        className={`spkTableLastProcessSlaHint${
-                            row.processSlaPastTarget
-                                ? 'is-past-target'
-                                : 'is-within-target'
-                        }`}
-                    >
-                        {processSlaHint}
-                    </span>
-                ) : null}
-            </div>
-        );
+    if (label === '') {
+        return <span>-</span>;
     }
 
-    return <span>-</span>;
+    return (
+        <div className="spkTableLastProcess">
+            <SpkProsesTerakhirDisplay
+                row={row}
+                wrapperClassName="spkTableLastProcessBadgeRow"
+                dateClassName="spkTableLastProcessDate"
+            />
+            {processSlaHint !== '' ? (
+                <span
+                    className={`spkTableLastProcessSlaHint${
+                        row.processSlaPastTarget
+                            ? 'is-past-target'
+                            : 'is-within-target'
+                    }`}
+                >
+                    {processSlaHint}
+                </span>
+            ) : null}
+        </div>
+    );
 }
 
 export function SpkTableStatusCell({ row }: { row: SpkListStatusFields }) {

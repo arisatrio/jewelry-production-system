@@ -53,13 +53,11 @@ test('spk can be created with component list', function () {
                 'category' => 'Komponen',
                 'item' => 'Clasp A',
                 'color' => 'Yellow Gold',
-                'size' => '2',
             ],
             [
                 'category' => 'Stopper',
                 'item' => 'Silicone Stopper',
                 'color' => 'White Gold',
-                'size' => '1',
             ],
         ],
     ]));
@@ -83,7 +81,7 @@ test('spk can be created with component list', function () {
         ->and($components[0]->category)->toBe('Komponen')
         ->and($components[0]->item)->toBe('Clasp A')
         ->and($components[0]->color)->toBe('Yellow Gold')
-        ->and($components[0]->size)->toBe('2')
+        ->and($components[0]->size)->toBeNull()
         ->and($components[1]->category)->toBe('Stopper');
 
     $components->each->delete();
@@ -129,7 +127,6 @@ test('spk form save replaces component list', function () {
                 'category' => 'Stopper',
                 'item' => 'New stopper',
                 'color' => 'Rose Gold',
-                'size' => '1.5',
             ],
         ],
     ])->assertRedirect(route('spk.show', $production->spk_no));
@@ -141,7 +138,7 @@ test('spk form save replaces component list', function () {
 
     expect($active)->toHaveCount(1)
         ->and($active[0]->item)->toBe('New stopper')
-        ->and($active[0]->size)->toBe('1.5');
+        ->and($active[0]->size)->toBeNull();
 
     expect(
         SpkComponent::query()

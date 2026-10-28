@@ -459,3 +459,63 @@ test('spk process mapper orders process records by created_date ascending', func
         }
     }
 });
+
+test('spk process mapper resolves last process display for in progress resin', function () {
+    $production = Production::factory()->create([
+        'last_process' => 'Resin',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $resin = Resin::factory()->create([
+        'status' => ResinApprovalService::STATUS_MANAGER,
+    ]);
+    $detail = ResinDetail::factory()->create([
+        'row_id' => $resin->row_id,
+        'spk_id' => $production->row_id,
+    ]);
+
+    try {
+        expect((new SpkProcessMapper)->resolveLastProcessBadge(
+            (int) $production->row_id,
+            $production->last_process,
+        ))->toBe([
+            'label' => 'In Progress RESIN',
+            'completed' => false,
+        ]);
+    } finally {
+        $detail->delete();
+        $resin->delete();
+        $production->delete();
+    }
+});
+
+test('spk process mapper resolves last process display for completed resin', function () {
+    $production = Production::factory()->create([
+        'last_process' => 'Resin',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $resin = Resin::factory()->create([
+        'status' => ResinApprovalService::STATUS_DONE,
+    ]);
+    $detail = ResinDetail::factory()->create([
+        'row_id' => $resin->row_id,
+        'spk_id' => $production->row_id,
+    ]);
+
+    try {
+        expect((new SpkProcessMapper)->resolveLastProcessBadge(
+            (int) $production->row_id,
+            $production->last_process,
+        ))->toBe([
+            'label' => 'Selesai RESIN',
+            'completed' => true,
+        ]);
+    } finally {
+        $detail->delete();
+        $resin->delete();
+        $production->delete();
+    }
+});

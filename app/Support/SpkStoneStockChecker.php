@@ -100,28 +100,80 @@ class SpkStoneStockChecker
 
     public function matchingStones(SpkStone $stone): array
     {
-        $match = $this->resolveMatch($stone, $this->loadContext(collect([$stone])));
+        $context = $this->loadContext(collect([$stone]));
+        $match = $this->resolveMatch($stone, $context);
 
-        if ($match['dossierRange'] !== null) {
-            $rows = $this->dossierInventory->availableInCrtRange(
-                (int) $stone->shape_id,
-                $match['dossierRange']->crt_min,
-                $match['dossierRange']->crt_max,
+        if ($match['source'] === self::SOURCE_DOSSIER) {
+            $shapeId = (int) $stone->shape_id;
+
+            if ($shapeId <= 0) {
+                return [
+                    'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
+                    'rows' => [],
+                ];
+            }
+
+            $rows = $this->dossierAllocationRows(
+                $this->dossierInventory->availableForShape($shapeId),
+                $match['dossierRange'],
             );
+            $matchingCount = count(array_filter(
+                $rows,
+                fn (array $row): bool => ($row['matchesSpkRequirement'] ?? false) === true,
+            ));
 
             return [
-                'stock' => $this->result($match['source'], $match['requiredPcs'], count($rows), $match['note']),
-                'rows' => $rows,
+                'stock' => $this->result($match['source'], $match['requiredPcs'], $matchingCount, $match['note']),
+                'rows' => $this->sortAllocationRows($rows),
             ];
         }
 
-        if ($match['microStoneIds'] !== [] && $match['periodId'] !== null) {
-            $rows = $this->stoneLedger->stockByStoneIds($match['periodId'], $match['microStoneIds']);
-            $balance = array_sum(array_map(fn (array $row): float => (float) $row['balancePcs'], $rows));
+        if ($match['source'] === self::SOURCE_MICRO) {
+            $shapeId = (int) $stone->shape_id;
+
+            if ($shapeId <= 0) {
+                return [
+                    'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
+                    'rows' => [],
+                ];
+            }
+
+            $periodId = $match['periodId'];
+            if ($periodId === null && $context['activePeriod'] !== null) {
+                $periodId = $context['activePeriod']['id'];
+            }
+
+            if ($periodId === null) {
+                return [
+                    'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
+                    'rows' => [],
+                ];
+            }
+
+            $allMicroIds = ($context['microStonesByShape'][$shapeId] ?? collect())
+                ->map(fn (MsStone $microStone): int => (int) $microStone->row_id)
+                ->values()
+                ->all();
+            $matchedIds = array_flip($match['microStoneIds']);
+            $rows = $this->microAllocationRows(
+                $this->stoneLedger->stockByStoneIds($periodId, $allMicroIds),
+                $matchedIds,
+            );
+            $balance = array_sum(array_map(
+                fn (array $row): float => ($row['matchesSpkRequirement'] ?? false) === true
+                    ? (float) $row['balancePcs']
+                    : 0.0,
+                $rows,
+            ));
 
             return [
-                'stock' => $this->result($match['source'], $match['requiredPcs'], $this->wholePcs($balance), $match['note']),
-                'rows' => $rows,
+                'stock' => $this->result(
+                    $match['source'],
+                    $match['requiredPcs'],
+                    $this->wholePcs($balance),
+                    $match['note'],
+                ),
+                'rows' => $this->sortAllocationRows($rows),
             ];
         }
 
@@ -129,6 +181,67 @@ class SpkStoneStockChecker
             'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
             'rows' => [],
         ];
+    }
+
+    /**
+     * @param  list<array<string, int|string|null>>  $rows
+     * @return list<array<string, bool|int|string|null>>
+     */
+    private function dossierAllocationRows(array $rows, ?DiamondCrtMatrix $range): array
+    {
+        return array_map(function (array $row) use ($range): array {
+            $crt = filled($row['crt'] ?? null)
+                ? (float) $row['crt']
+                : null;
+            $matches = $range !== null
+                && $crt !== null
+                && $crt >= (float) $range->crt_min - self::TOLERANCE
+                && $crt <= (float) $range->crt_max + self::TOLERANCE;
+
+            return [
+                ...$row,
+                'matchesSpkRequirement' => $matches,
+            ];
+        }, $rows);
+    }
+
+    /**
+     * @param  list<array<string, int|string|null>>  $rows
+     * @param  array<int, int>  $matchedMicroIds
+     * @return list<array<string, bool|int|string|null>>
+     */
+    private function microAllocationRows(array $rows, array $matchedMicroIds): array
+    {
+        return array_map(function (array $row) use ($matchedMicroIds): array {
+            $balancePcs = (float) ($row['balancePcs'] ?? 0);
+            $matches = isset($matchedMicroIds[(int) ($row['id'] ?? 0)])
+                && $this->wholePcs($balancePcs) > 0;
+
+            return [
+                ...$row,
+                'matchesSpkRequirement' => $matches,
+            ];
+        }, $rows);
+    }
+
+    /**
+     * @param  list<array<string, bool|int|string|null>>  $rows
+     * @return list<array<string, bool|int|string|null>>
+     */
+    private function sortAllocationRows(array $rows): array
+    {
+        usort($rows, function (array $left, array $right): int {
+            $leftMatch = ($left['matchesSpkRequirement'] ?? false) === true ? 1 : 0;
+            $rightMatch = ($right['matchesSpkRequirement'] ?? false) === true ? 1 : 0;
+
+            if ($leftMatch !== $rightMatch) {
+                return $rightMatch <=> $leftMatch;
+            }
+
+            return ((int) ($right['id'] ?? 0)) <=> ((int) ($left['id'] ?? 0));
+        });
+
+        return array_values($rows);
     }
 
     /**

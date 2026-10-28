@@ -121,6 +121,95 @@ class SpkProcessMapper
     }
 
     /**
+     * Badge proses terakhir untuk aside detail SPK.
+     *
+     * @return array{label: string, completed: bool}|null
+     */
+    public function resolveLastProcessBadge(int $spkId, ?string $lastProcess): ?array
+    {
+        $processKey = $this->processKeyForLastProcess($lastProcess);
+
+        if ($processKey === null) {
+            return null;
+        }
+
+        $tab = collect($this->tabs())->first(
+            fn (array $tab): bool => ($tab['key'] ?? '') === $processKey,
+        );
+
+        if (! is_array($tab)) {
+            return null;
+        }
+
+        $completed = $this->isProcessTabCompleted($spkId, $tab);
+        $tag = mb_strtoupper($processKey, 'UTF-8');
+        $prefix = $completed ? 'Selesai' : 'In Progress';
+
+        return [
+            'label' => sprintf('%s %s', $prefix, $tag),
+            'completed' => $completed,
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     key: string,
+     *     label: string,
+     *     tables: list<string>,
+     *     parent?: array<string, array<string, mixed>>
+     * }  $tab
+     */
+    private function isProcessTabCompleted(int $spkId, array $tab): bool
+    {
+        $latestRecord = null;
+        $latestSortKey = '';
+
+        foreach ($tab['tables'] as $table) {
+            if (! is_string($table) || $table === '') {
+                continue;
+            }
+
+            $parent = $tab['parent'][$table] ?? null;
+            $records = $this->recordsForTable(
+                $spkId,
+                $table,
+                is_array($parent) ? $parent : null,
+            );
+
+            foreach ($records as $record) {
+                $sortKey = $this->recordSortKey($record);
+
+                if ($latestRecord === null || strcmp($sortKey, $latestSortKey) >= 0) {
+                    $latestRecord = $record;
+                    $latestSortKey = $sortKey;
+                }
+            }
+        }
+
+        if (! is_array($latestRecord)) {
+            return false;
+        }
+
+        return (bool) ($latestRecord['completed'] ?? false);
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    private function recordSortKey(array $record): string
+    {
+        if (isset($record['row_id'])) {
+            return sprintf('R%020d', (int) $record['row_id']);
+        }
+
+        if (isset($record['line_id'])) {
+            return sprintf('L%020d', (int) $record['line_id']);
+        }
+
+        return '0';
+    }
+
+    /**
      * @param  list<array{key: string, label: string, tables: list<string>, placement: string}>  $tabs
      * @return array{key: string, label: string, tables: list<string>, placement: string}|null
      */

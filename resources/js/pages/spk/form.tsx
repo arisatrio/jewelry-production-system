@@ -88,7 +88,14 @@ type ChainRow = {
     size: string;
 };
 
-type ComponentRow = ChainRow;
+type ComponentRow = {
+    id: string;
+    componentId?: string;
+    category: string;
+    item: string;
+    color: string;
+    size: string;
+};
 
 type SpkType = 'Pesanan' | 'Exchange' | 'Refund' | 'Reparasi' | 'Stock';
 
@@ -266,6 +273,13 @@ type SpkFormProps = {
         shapeOptions?: OptionItem[];
         positionOptions?: OptionItem[];
         chainOptions?: Array<{
+            value: string;
+            label: string;
+            category: string;
+            item: string;
+            size: string;
+        }>;
+        componentOptions?: Array<{
             value: string;
             label: string;
             category: string;
@@ -726,6 +740,7 @@ export default function SpkFormPage({
     const shapeOptions = options.shapeOptions ?? [];
     const positionOptions = options.positionOptions ?? [];
     const chainOptions = options.chainOptions ?? [];
+    const componentOptions = options.componentOptions ?? [];
     const [itemTypeText, setItemTypeText] = useState(
         () => initialCategory?.label ?? '',
     );
@@ -1113,6 +1128,7 @@ export default function SpkFormPage({
                 size: chain.size,
             })),
             components: formComponents.map((component) => ({
+                mscomponent_id: component.componentId || null,
                 category: component.category,
                 item: component.item,
                 color: component.color,
@@ -1266,6 +1282,7 @@ export default function SpkFormPage({
                 size: chain.size,
             })),
             components: formComponents.map((component) => ({
+                mscomponent_id: component.componentId || null,
                 category: component.category,
                 item: component.item,
                 color: component.color,
@@ -2477,6 +2494,7 @@ export default function SpkFormPage({
 
                                     <SpkFormComponentListCard
                                         components={formComponents}
+                                        componentOptions={componentOptions}
                                         onChange={setFormComponents}
                                         errors={errors}
                                     />

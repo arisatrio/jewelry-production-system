@@ -72,6 +72,24 @@ return [
 
     'chain_receipt_qr_url' => env('SPK_CHAIN_RECEIPT_QR_URL', ''),
 
+    'component_receipt_document_no' => 'WHOJ-PRD-FRM-004',
+
+    'component_receipt_revision' => '00',
+
+    'component_receipt_issue_date' => '28/10/2026',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Component Receipt QR Code URL
+    |--------------------------------------------------------------------------
+    |
+    | Override URL yang di-encode ke QR pada cetak tanda terima komponen.
+    | Kosongkan agar memakai URL detail SPK + query component_receipt={id}.
+    |
+    */
+
+    'component_receipt_qr_url' => env('SPK_COMPONENT_RECEIPT_QR_URL', ''),
+
     'logo' => 'images/logo.jpg',
 
     /*

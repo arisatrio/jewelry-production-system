@@ -1127,6 +1127,66 @@
     }
 }
 
+.spkChainDetailSummary--withPhoto {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.spkChainDetailSummaryMain {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.inventoryMasterPhotoPanel {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-width: 9.5rem;
+}
+
+.inventoryMasterPhotoPreview {
+    width: 9rem;
+    height: 9rem;
+    margin: 0;
+}
+
+.inventoryMasterPhotoPreview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.inventoryMasterPhotoPreview--link {
+    display: block;
+    text-decoration: none;
+}
+
+.inventoryMasterPhotoPlaceholder {
+    width: 9rem;
+    height: 9rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+@media (max-width: 640px) {
+    .spkChainDetailSummary--withPhoto {
+        flex-direction: column;
+    }
+
+    .inventoryMasterPhotoPanel {
+        max-width: none;
+    }
+}
+
 .spkChainStockBalanceLabel {
     display: inline-flex;
     min-width: 2rem;
@@ -1290,8 +1350,18 @@
 .spkTableLastProcess {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 0.1rem;
     line-height: 1.35;
+    text-align: center;
+}
+
+.spkTableLastProcessBadgeRow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    text-align: center;
 }
 
 .spkTableLastProcessDate {
@@ -2470,8 +2540,38 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 0.1rem;
+    gap: 0.25rem;
     line-height: 1.35;
+}
+
+.spkProsesTerakhirBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid #dc2626;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.03em;
+    text-align: center;
+    word-break: break-word;
+}
+
+.spkProsesTerakhirBadge--done {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.spkProsesTerakhirBadge--pending {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
 }
 
 .spkProsesTerakhirDate {
@@ -2691,12 +2791,12 @@
 }
 
 .spkItemDetailPanelPrimary {
-    min-width: 0;
+    display: grid;
+    grid-template-rows: repeat(3, auto);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     gap: 0.4rem 0.75rem;
-}
-
-.spkItemDetailPanelPrimary .spkDetailField--full {
-    grid-column: 1 / -1;
+    min-width: 0;
 }
 
 .spkItemDetailPanelUkuran {
@@ -2743,7 +2843,7 @@
     line-height: 1.35;
 }
 
-.spkItemDetailPanelFields .spkDetailField--full .spkItemNotesCell {
+.spkItemDetailPanelFields .spkItemNotesCell {
     display: block;
     font-size: 0.9375rem;
     font-weight: 500;
@@ -2799,6 +2899,12 @@
     .spkItemDetailPanelFields {
         grid-template-columns: 1fr;
         gap: 0.45rem 0;
+    }
+
+    .spkItemDetailPanelPrimary {
+        grid-template-rows: none;
+        grid-auto-flow: row;
+        grid-template-columns: 1fr;
     }
 
     .spkItemDetailPanelUkuran {
@@ -3002,30 +3108,6 @@
     display: block;
 }
 
-.spkSectionTabLastProcess {
-    display: inline-flex;
-    align-items: center;
-    max-width: 12rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-top: 0.05rem;
-    padding: 0.12rem 0.4rem;
-    border: 1px solid #dc2626;
-    border-radius: 999px;
-    background: #dc2626;
-    color: #fff;
-    font-size: 0.625rem;
-    font-weight: 800;
-    line-height: 1.2;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.spkSectionTab--withLastProcess {
-    padding-block: 0.4rem 0.5rem;
-}
-
 .spkSectionTab:hover {
     color: var(--sapTextColor, #32363a);
 }
@@ -3034,13 +3116,6 @@
     color: var(--sap-fiori-brand, #0070f2);
     font-weight: 700;
     border-bottom-color: var(--sap-fiori-brand, #0070f2);
-}
-
-.spkSectionTab.is-active .spkSectionTabLastProcess,
-.spkSectionTab:hover .spkSectionTabLastProcess {
-    background: #dc2626;
-    border-color: #dc2626;
-    color: #fff;
 }
 
 .spkMainTabPanel {
@@ -5384,10 +5459,34 @@ button.spkItemImagePreview--clickable:focus-visible {
 .spkStoneTable--withStatus th.spkStoneStatusCol,
 .spkStoneTable--withStatus td.spkStoneStatusCol {
     text-align: center;
-    width: 15rem;
-    max-width: 15rem;
-    min-width: 8.75rem;
+    width: 11rem;
+    max-width: 11rem;
+    min-width: 7rem;
     box-sizing: border-box;
+}
+
+.spkChainTable th.spkStoneTableActionCol,
+.spkChainTable td.spkStoneTableActionCol,
+.spkStoneTable--withStatus th.spkStoneTableActionCol,
+.spkStoneTable--withStatus td.spkStoneTableActionCol {
+    text-align: center;
+    width: 9.5rem;
+    max-width: 10rem;
+    min-width: 8rem;
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+.spkChainTableActionCell {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+}
+
+.spkChainStatusCell--labelsOnly {
+    gap: 0.25rem;
 }
 
 .spkChainTable thead th:nth-child(3),
@@ -5407,6 +5506,64 @@ button.spkItemImagePreview--clickable:focus-visible {
     min-width: 3rem;
     text-align: center;
     white-space: nowrap;
+}
+
+/*
+ * Komponen SPK (tanpa kolom ukuran): jangan terapkan lebar kolom-4 ukuran rantai.
+ * Pakai selector class (bukan nth-child(4) width:auto) agar Status tidak melebar.
+ */
+.spkChainTable.spkComponentTable thead th:nth-child(1),
+.spkChainTable.spkComponentTable tbody td:nth-child(1) {
+    width: 7rem;
+    min-width: 6rem;
+    max-width: 9rem;
+}
+
+.spkChainTable.spkComponentTable thead th:nth-child(2),
+.spkChainTable.spkComponentTable tbody td:nth-child(2) {
+    min-width: 10rem;
+    width: auto;
+}
+
+.spkChainTable.spkComponentTable thead th:nth-child(3),
+.spkChainTable.spkComponentTable tbody td:nth-child(3) {
+    width: 8rem;
+    max-width: 10rem;
+    min-width: 6.5rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkChainTable.spkComponentTable thead th.spkChainStatusCol,
+.spkChainTable.spkComponentTable tbody td.spkChainStatusCol {
+    text-align: center;
+    width: 9rem;
+    max-width: 9rem;
+    min-width: 6.5rem;
+    box-sizing: border-box;
+    white-space: normal;
+}
+
+.spkChainTable.spkComponentTable thead th.spkStoneTableActionCol,
+.spkChainTable.spkComponentTable tbody td.spkStoneTableActionCol {
+    text-align: center;
+    width: 9.5rem;
+    max-width: 10rem;
+    min-width: 8rem;
+    vertical-align: middle;
+    box-sizing: border-box;
+    white-space: normal;
+}
+
+.spkChainTable.spkComponentTable {
+    table-layout: fixed;
+}
+
+.spkComponentTable .spkChainIssuedUnitTable .spkChainIssuedColName {
+    min-width: 8rem;
+    width: auto;
+    max-width: none;
 }
 
 .spkChainStatusLabels .spkStoneStockBadge {
@@ -5435,13 +5592,32 @@ button.spkItemImagePreview--clickable:focus-visible {
 
 .spkChainStatusLabels {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
+    width: 100%;
 }
 
-.spkChainStatusCell .spkChainFulfillmentActionBtn {
+.spkChainStatusLabelRow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 1.35rem;
+}
+
+.spkChainStatusLabelRow .spkChainWorkshopReceivedAuditLine {
+    display: block;
+    color: #6b7280;
+    font-size: 0.625rem;
+    font-weight: 400;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.spkChainStatusCell .spkChainFulfillmentActionBtn,
+.spkChainTableActionCell .spkChainFulfillmentActionBtn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -5470,7 +5646,8 @@ button.spkItemImagePreview--clickable:focus-visible {
     white-space: normal;
 }
 
-.spkChainStatusCell .spkChainFulfillmentReceiveBtn {
+.spkChainStatusCell .spkChainFulfillmentReceiveBtn,
+.spkChainTableActionCell .spkChainFulfillmentReceiveBtn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -5493,18 +5670,21 @@ button.spkItemImagePreview--clickable:focus-visible {
     box-sizing: border-box;
 }
 
-.spkChainStatusCell .spkChainFulfillmentReceiveBtn:hover:not(:disabled) {
+.spkChainStatusCell .spkChainFulfillmentReceiveBtn:hover:not(:disabled),
+.spkChainTableActionCell .spkChainFulfillmentReceiveBtn:hover:not(:disabled) {
     background: #15803d;
     border-color: #166534;
     color: #fff;
 }
 
-.spkChainStatusCell .spkChainFulfillmentReceiveBtn:disabled {
+.spkChainStatusCell .spkChainFulfillmentReceiveBtn:disabled,
+.spkChainTableActionCell .spkChainFulfillmentReceiveBtn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
 
-.spkChainStatusCell .spkChainFulfillmentReceiveBtn:focus-visible {
+.spkChainStatusCell .spkChainFulfillmentReceiveBtn:focus-visible,
+.spkChainTableActionCell .spkChainFulfillmentReceiveBtn:focus-visible {
     outline: 2px solid #16a34a;
     outline-offset: 1px;
 }
@@ -5516,17 +5696,20 @@ button.spkItemImagePreview--clickable:focus-visible {
     color: currentColor;
 }
 
-.spkChainStatusCell .spkChainFulfillmentActionBtn:hover:not(:disabled) {
+.spkChainStatusCell .spkChainFulfillmentActionBtn:hover:not(:disabled),
+.spkChainTableActionCell .spkChainFulfillmentActionBtn:hover:not(:disabled) {
     background: #0054b6;
     border-color: #0054b6;
 }
 
-.spkChainStatusCell .spkChainFulfillmentActionBtn:disabled {
+.spkChainStatusCell .spkChainFulfillmentActionBtn:disabled,
+.spkChainTableActionCell .spkChainFulfillmentActionBtn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
 
-.spkChainStatusCell .spkChainFulfillmentActionBtn:focus-visible {
+.spkChainStatusCell .spkChainFulfillmentActionBtn:focus-visible,
+.spkChainTableActionCell .spkChainFulfillmentActionBtn:focus-visible {
     outline: 2px solid #0a6ed1;
     outline-offset: 1px;
 }
@@ -5587,9 +5770,10 @@ button.spkItemImagePreview--clickable:focus-visible {
 }
 
 .spkChainAllocateFilterLabel {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #4b5563;
+    font-size: var(--sapFontSmallSize, 0.75rem);
+    font-weight: normal;
+    font-family: var(--sapFontFamily, '72', Arial, Helvetica, sans-serif);
+    color: var(--sapContent_LabelColor, #556b82);
 }
 
 .spkChainAllocateFilterSelect {
@@ -5609,60 +5793,44 @@ button.spkItemImagePreview--clickable:focus-visible {
     min-width: min(100%, 100%);
 }
 
-.spkChainAllocateSearchInput {
+.spkChainAllocateDialog .spkChainAllocateSearch {
     width: 100%;
-    min-height: 2rem;
-    padding: 0.35rem 0.5rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.35rem;
-    background: #fff;
-    color: #111827;
-    font-size: 0.8125rem;
-    line-height: 1.25;
-    box-sizing: border-box;
+    max-width: none;
 }
 
-.spkChainAllocateSearchInput:focus {
-    outline: 2px solid #0a6ed1;
-    outline-offset: 0;
-    border-color: #0a6ed1;
-}
-
-.spkChainAllocateSearchInput::placeholder {
-    color: #9ca3af;
-}
-
-.spkChainAllocateDialog .spkChainAllocateTableWrap {
+.spkChainAllocateDialog .spkChainAllocateBody {
     max-height: min(24rem, 55vh);
-    overflow: auto;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
+    margin-top: 0.15rem;
 }
 
-.spkChainAllocateDialog .spkChainAllocateTable {
+.spkChainAllocateDialog .spkAlertModalTable.spkChainAllocateTable {
     table-layout: fixed;
     width: 100%;
 }
 
-.spkChainAllocateDialog .spkChainAllocateTable th,
-.spkChainAllocateDialog .spkChainAllocateTable td {
+.spkChainAllocateDialog .spkAlertModalTable.spkChainAllocateTable th,
+.spkChainAllocateDialog .spkAlertModalTable.spkChainAllocateTable td {
     min-width: 0;
 }
 
-.spkChainAllocateDialog .spkChainAllocateTable thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    min-width: 0;
-    background: #fafbfc;
-    box-shadow: 0 1px 0 #eceff2;
-}
-
-.spkChainAllocateDialog .spkChainAllocateTable tbody td {
+.spkChainAllocateDialog
+    .spkAlertModalTable.spkChainAllocateTable
+    tbody
+    td.spkChainAllocateColName,
+.spkChainAllocateDialog
+    .spkAlertModalTable.spkChainAllocateTable
+    tbody
+    td.spkChainAllocateColColor {
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
-    vertical-align: middle;
+}
+
+.spkChainAllocateDialog
+    .spkAlertModalTable.spkChainAllocateTable
+    tbody
+    tr.spkAlertModalRow {
+    cursor: default;
 }
 
 .spkChainAllocateDialog .spkChainAllocateColAction {
@@ -5694,21 +5862,31 @@ button.spkItemImagePreview--clickable:focus-visible {
     width: auto;
 }
 
-.spkChainAllocateDialog .spkChainAllocateMasterItem {
+.spkChainAllocateDialog
+    .spkAlertModalTable.spkChainAllocateTable
+    tbody
+    tr.spkChainAllocateRowMatch {
+    background: var(--sapSuccessBackground, #f5fae5);
+}
+
+.spkChainAllocateDialog
+    .spkAlertModalTable.spkChainAllocateTable
+    tbody
+    tr.spkChainAllocateRowMatch:hover {
+    background: var(--sapSuccessHoverBackground, #e3f2d5);
+}
+
+.spkChainAllocateDialog
+    .spkAlertModalTable.spkChainAllocateTable
+    .spkAlertModalTableSubText {
     display: block;
     margin-top: 0.15rem;
-    color: #6b7280;
-    font-size: 0.75rem;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
-.spkChainAllocateDialog .spkChainAllocateTable tbody tr.spkChainAllocateRowMatch {
-    background: #e8f5e9;
-}
-
-.spkChainAllocateDialog .spkChainAllocateTable tbody tr.spkChainAllocateRowMatch:hover {
-    background: #c8e6c9;
+.spkChainAllocateDialog .spkChainAllocateBody .spkAlertModalTable th.spkTableColCenter,
+.spkChainAllocateDialog .spkChainAllocateBody .spkAlertModalTable td.spkTableColCenter {
+    text-align: center;
 }
 
 .spkStoneStockMeta {
@@ -5752,7 +5930,171 @@ button.spkItemImagePreview--clickable:focus-visible {
 }
 
 .spkAlertModal.spkStoneStockModal {
-    max-width: min(64rem, calc(100vw - 2rem)) !important;
+    max-width: min(72rem, calc(100vw - 2rem)) !important;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog .spkChainAllocateBody {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkAlertModalTable.spkStoneAllocateTable {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkAlertModalTable.spkStoneAllocateTable--dossier {
+    min-width: 56rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkAlertModalTable.spkStoneAllocateTable--micro {
+    min-width: 42rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable
+    th,
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable
+    td {
+    min-width: 0;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkChainAllocateColAction {
+    width: 4.75rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkChainAllocateColUnit {
+    width: 7.25rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkStoneAllocateColType {
+    width: 4.5rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkStoneAllocateColShape {
+    width: 5.75rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkChainAllocateColColor {
+    width: 3.5rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkChainAllocateColWeight {
+    width: 4.5rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkStoneAllocateColCert {
+    width: 26%;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkStoneAllocateColSupplier {
+    width: 18%;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkStoneAllocateColDate {
+    width: 6rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkStoneAllocateColCert,
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkStoneAllocateColSupplier,
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--dossier
+    .spkStoneAllocateColShape {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkChainAllocateColAction {
+    width: 4.75rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkChainAllocateColName {
+    width: auto;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkStoneAllocateColParcel {
+    width: 9rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkChainAllocateColLength {
+    width: 5.25rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkStoneAllocateColShape {
+    width: 6.5rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkChainAllocateColWeight {
+    width: 5rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkStoneAllocateColBalanceCrt {
+    width: 5.25rem;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkChainAllocateColName,
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkStoneAllocateColParcel,
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
+    .spkStoneAllocateColShape {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkStoneStockModal .spkStoneAllocateStockNote {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    color: #92400e;
+    background: #fffbeb;
+    border-radius: 0.35rem;
+    font-size: 0.8125rem;
 }
 
 .spkStoneStockSummary {

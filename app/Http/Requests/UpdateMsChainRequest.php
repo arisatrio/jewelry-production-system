@@ -63,6 +63,7 @@ class UpdateMsChainRequest extends FormRequest
             'length' => ['required', 'numeric', 'gt:0', 'decimal:0,2', 'max:9999999999999.99'],
             'item_name' => ['nullable', 'string', 'max:500'],
             'description' => ['nullable', 'string', 'max:5000'],
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ];
     }
 
@@ -118,6 +119,9 @@ class UpdateMsChainRequest extends FormRequest
             'length.decimal' => 'Panjang maksimal 2 angka di belakang koma.',
             'item_name.max' => 'Nama item maksimal 500 karakter.',
             'description.max' => 'Keterangan maksimal 5000 karakter.',
+            'photo.image' => 'Foto harus berupa gambar.',
+            'photo.mimes' => 'Foto harus berformat JPEG, PNG, atau WebP.',
+            'photo.max' => 'Foto maksimal 5 MB.',
         ];
     }
 }

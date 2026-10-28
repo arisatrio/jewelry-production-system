@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\SpkChain;
 use App\Models\TrxChain;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -135,7 +136,7 @@ class SpkChainFulfillment
             return;
         }
 
-        foreach ($lineIds as $lineId) {
+        foreach ($this->resolveSendToWorkshopLineIds($spkRowId, $lineIds) as $lineId) {
             $chain = SpkChain::query()
                 ->notDeleted()
                 ->where('row_id', $spkRowId)
@@ -154,6 +155,57 @@ class SpkChainFulfillment
 
             $this->advance($chain->refresh(), self::ACTION_SEND_TO_WORKSHOP, $actor);
         }
+    }
+
+    /**
+     * @param  list<int>  $lineIds
+     * @return list<int>
+     */
+    private function resolveSendToWorkshopLineIds(int $spkRowId, array $lineIds): array
+    {
+        $chains = SpkChain::query()
+            ->notDeleted()
+            ->where('row_id', $spkRowId)
+            ->orderBy('line_id')
+            ->get();
+
+        if ($chains->isEmpty()) {
+            return [];
+        }
+
+        $requested = array_values(array_unique(array_filter(array_map(
+            intval(...),
+            $lineIds,
+        ), fn (int $id): bool => $id > 0)));
+
+        $matched = $chains->whereIn('line_id', $requested)->values();
+
+        if ($requested !== [] && $matched->isNotEmpty()) {
+            return $this->filterLineIdsReadyToSend($matched);
+        }
+
+        return $this->filterLineIdsReadyToSend($chains);
+    }
+
+    /**
+     * @param  Collection<int, SpkChain>  $chains
+     * @return list<int>
+     */
+    private function filterLineIdsReadyToSend(Collection $chains): array
+    {
+        $lineIds = [];
+
+        foreach ($chains as $chain) {
+            $resolved = $this->resolve($chain);
+
+            if ($resolved['nextAction'] !== self::ACTION_SEND_TO_WORKSHOP) {
+                continue;
+            }
+
+            $lineIds[] = (int) $chain->line_id;
+        }
+
+        return $lineIds;
     }
 
     public function markAllocatedForSpkMaster(int $spkId, int $msChainId, string $actor): void

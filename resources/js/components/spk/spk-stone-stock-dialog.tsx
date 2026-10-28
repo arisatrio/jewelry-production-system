@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
+import { Icon } from '@ui5/webcomponents-react/Icon';
+import { useEffect, useMemo, useState } from 'react';
 import { check as checkStoneStock } from '@/actions/App/Http/Controllers/SpkStoneStockController';
 import type { SpkStoneItem, SpkStoneStock } from '@/components/spk/types';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -19,6 +22,7 @@ type DossierStockRow = {
     certificate: string | null;
     supplier: string | null;
     entryDate: string | null;
+    matchesSpkRequirement?: boolean;
 };
 
 type MicroStockRow = {
@@ -29,6 +33,7 @@ type MicroStockRow = {
     shape: string | null;
     balancePcs: string;
     balanceCrt: string;
+    matchesSpkRequirement?: boolean;
 };
 
 type StoneStockPayload = {
@@ -43,6 +48,7 @@ export type SpkStoneStockDialogStone = SpkStoneItem & {
 
 type SpkStoneStockDialogProps = {
     stone: SpkStoneStockDialogStone | null;
+    spk?: { rowId: number; produksiNo: string };
     onOpenChange: (open: boolean) => void;
 };
 
@@ -88,34 +94,113 @@ function formatNumberId(
     });
 }
 
+function stoneSummary(stone: SpkStoneStockDialogStone): string {
+    return [
+        stone.positionName,
+        stone.shapeName ?? stone.shape,
+        stone.size,
+        stone.pcs !== undefined && String(stone.pcs).trim() !== ''
+            ? `${stone.pcs} pcs`
+            : '',
+        stone.totalCarat !== undefined &&
+        String(stone.totalCarat).trim() !== ''
+            ? `${stone.totalCarat} crt`
+            : '',
+    ]
+        .map((part) => String(part ?? '').trim())
+        .filter((part) => part !== '' && part !== '-')
+        .join(' · ');
+}
+
+function dossierSearchHaystack(row: DossierStockRow): string {
+    return [
+        row.code,
+        row.diamondType,
+        row.shape,
+        row.color,
+        row.crt,
+        row.certificate,
+        row.supplier,
+        row.entryDate,
+    ]
+        .map((part) => String(part ?? '').trim())
+        .filter((part) => part !== '')
+        .join(' ')
+        .toLowerCase();
+}
+
+function microSearchHaystack(row: MicroStockRow): string {
+    return [row.name, row.parcel, row.size, row.shape, row.balancePcs, row.balanceCrt]
+        .map((part) => String(part ?? '').trim())
+        .filter((part) => part !== '')
+        .join(' ')
+        .toLowerCase();
+}
+
 function DossierStockTable({ rows }: { rows: DossierStockRow[] }) {
     return (
-        <table className="spkAlertModalTable">
+        <table className="spkAlertModalTable spkChainAllocateTable spkStoneAllocateTable spkStoneAllocateTable--dossier">
             <thead>
                 <tr>
-                    <th>No</th>
-                    <th>Kode</th>
-                    <th>Tipe</th>
-                    <th>Bentuk</th>
-                    <th>Warna</th>
-                    <th>CRT</th>
-                    <th>Sertifikat</th>
-                    <th>Supplier</th>
-                    <th>Tgl Masuk</th>
+                    <th className="spkChainAllocateColAction">Aksi</th>
+                    <th className="spkChainAllocateColUnit">Kode</th>
+                    <th className="spkStoneAllocateColType">Tipe</th>
+                    <th className="spkStoneAllocateColShape">Bentuk</th>
+                    <th className="spkChainAllocateColColor">Warna</th>
+                    <th className="spkTableColCenter spkChainAllocateColWeight">
+                        CRT
+                    </th>
+                    <th className="spkStoneAllocateColCert">Sertifikat</th>
+                    <th className="spkStoneAllocateColSupplier">Supplier</th>
+                    <th className="spkTableColCenter spkStoneAllocateColDate">
+                        Tgl Masuk
+                    </th>
                 </tr>
             </thead>
             <tbody>
-                {rows.map((row, index) => (
-                    <tr key={row.id} className="spkAlertModalRow">
-                        <td>{index + 1}</td>
-                        <td>{displayValue(row.code)}</td>
-                        <td>{displayValue(row.diamondType)}</td>
-                        <td>{displayValue(row.shape)}</td>
-                        <td>{displayValue(row.color)}</td>
-                        <td>{formatNumberId(row.crt, 3)}</td>
-                        <td>{displayValue(row.certificate)}</td>
-                        <td>{displayValue(row.supplier)}</td>
-                        <td>{displayValue(row.entryDate)}</td>
+                {rows.map((row) => (
+                    <tr
+                        key={row.id}
+                        className={
+                            row.matchesSpkRequirement === true
+                                ? 'spkAlertModalRow spkChainAllocateRowMatch'
+                                : 'spkAlertModalRow'
+                        }
+                    >
+                        <td className="spkChainAllocateColAction">
+                            <button
+                                type="button"
+                                className="spkChainFulfillmentActionBtn"
+                                disabled
+                                title="Alokasi stok batu dossier belum tersedia"
+                            >
+                                Pilih
+                            </button>
+                        </td>
+                        <td className="spkChainAllocateColUnit tabular-nums spkAlertModalTableIdentifier">
+                            {displayValue(row.code)}
+                        </td>
+                        <td className="spkStoneAllocateColType">
+                            {displayValue(row.diamondType)}
+                        </td>
+                        <td className="spkStoneAllocateColShape">
+                            {displayValue(row.shape)}
+                        </td>
+                        <td className="spkChainAllocateColColor">
+                            {displayValue(row.color)}
+                        </td>
+                        <td className="spkTableColCenter spkChainAllocateColWeight tabular-nums">
+                            {formatNumberId(row.crt, 3)}
+                        </td>
+                        <td className="spkStoneAllocateColCert">
+                            {displayValue(row.certificate)}
+                        </td>
+                        <td className="spkStoneAllocateColSupplier">
+                            {displayValue(row.supplier)}
+                        </td>
+                        <td className="spkTableColCenter spkStoneAllocateColDate tabular-nums">
+                            {displayValue(row.entryDate)}
+                        </td>
                     </tr>
                 ))}
             </tbody>
@@ -125,28 +210,62 @@ function DossierStockTable({ rows }: { rows: DossierStockRow[] }) {
 
 function MicroStockTable({ rows }: { rows: MicroStockRow[] }) {
     return (
-        <table className="spkAlertModalTable">
+        <table className="spkAlertModalTable spkChainAllocateTable spkStoneAllocateTable spkStoneAllocateTable--micro">
             <thead>
                 <tr>
-                    <th>No</th>
-                    <th>Nama Batu</th>
-                    <th>Parcel</th>
-                    <th>Ukuran</th>
-                    <th>Bentuk</th>
-                    <th>Saldo Pcs</th>
-                    <th>Saldo Crt</th>
+                    <th className="spkChainAllocateColAction">Aksi</th>
+                    <th className="spkChainAllocateColName">Nama Batu</th>
+                    <th className="spkStoneAllocateColParcel">Parcel</th>
+                    <th className="spkTableColCenter spkChainAllocateColLength">
+                        Ukuran
+                    </th>
+                    <th className="spkStoneAllocateColShape">Bentuk</th>
+                    <th className="spkTableColCenter spkChainAllocateColWeight">
+                        Saldo Pcs
+                    </th>
+                    <th className="spkTableColCenter spkChainAllocateColWeight spkStoneAllocateColBalanceCrt">
+                        Saldo Crt
+                    </th>
                 </tr>
             </thead>
             <tbody>
-                {rows.map((row, index) => (
-                    <tr key={row.id} className="spkAlertModalRow">
-                        <td>{index + 1}</td>
-                        <td>{displayValue(row.name)}</td>
-                        <td>{displayValue(row.parcel)}</td>
-                        <td>{displayValue(row.size)}</td>
-                        <td>{displayValue(row.shape)}</td>
-                        <td>{displayValue(row.balancePcs)}</td>
-                        <td>{formatNumberId(row.balanceCrt, 4)}</td>
+                {rows.map((row) => (
+                    <tr
+                        key={row.id}
+                        className={
+                            row.matchesSpkRequirement === true
+                                ? 'spkAlertModalRow spkChainAllocateRowMatch'
+                                : 'spkAlertModalRow'
+                        }
+                    >
+                        <td className="spkChainAllocateColAction">
+                            <button
+                                type="button"
+                                className="spkChainFulfillmentActionBtn"
+                                disabled
+                                title="Alokasi stok batu mikro belum tersedia"
+                            >
+                                Pilih
+                            </button>
+                        </td>
+                        <td className="spkChainAllocateColName">
+                            {displayValue(row.name)}
+                        </td>
+                        <td className="spkStoneAllocateColParcel">
+                            {displayValue(row.parcel)}
+                        </td>
+                        <td className="spkTableColCenter spkChainAllocateColLength tabular-nums">
+                            {displayValue(row.size)}
+                        </td>
+                        <td className="spkStoneAllocateColShape">
+                            {displayValue(row.shape)}
+                        </td>
+                        <td className="spkTableColCenter spkChainAllocateColWeight tabular-nums">
+                            {displayValue(row.balancePcs)}
+                        </td>
+                        <td className="spkTableColCenter spkChainAllocateColWeight spkStoneAllocateColBalanceCrt tabular-nums">
+                            {formatNumberId(row.balanceCrt, 4)}
+                        </td>
                     </tr>
                 ))}
             </tbody>
@@ -154,20 +273,31 @@ function MicroStockTable({ rows }: { rows: MicroStockRow[] }) {
     );
 }
 
-/** Modal daftar stok batu (dossier / mikro) yang cocok dengan satu baris batu SPK. */
+/** Modal alokasi stok batu (dossier / mikro) untuk satu baris batu SPK. */
 export function SpkStoneStockDialog({
     stone,
+    spk,
     onOpenChange,
 }: SpkStoneStockDialogProps) {
     const [loading, setLoading] = useState(false);
     const [failed, setFailed] = useState(false);
     const [payload, setPayload] = useState<StoneStockPayload | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const open = stone !== null;
     const stoneId = stone?.id ?? null;
+
+    useEffect(() => {
+        if (!open) {
+            setSearchQuery('');
+        }
+    }, [open]);
 
     useEffect(() => {
         if (stone === null) {
             return;
         }
+
+        setSearchQuery('');
 
         const controller = new AbortController();
 
@@ -210,7 +340,11 @@ export function SpkStoneStockDialog({
                           }),
                       })
                     : await fetch(stoneStock.url(Number(stoneId)), {
-                          headers: { Accept: 'application/json' },
+                          headers: {
+                              Accept: 'application/json',
+                              'X-Requested-With': 'XMLHttpRequest',
+                          },
+                          credentials: 'same-origin',
                           signal: controller.signal,
                       });
 
@@ -225,10 +359,15 @@ export function SpkStoneStockDialog({
                 };
 
                 setPayload(json.data ?? null);
-            } catch {
-                if (!controller.signal.aborted) {
-                    setFailed(true);
+            } catch (error: unknown) {
+                if (
+                    error instanceof DOMException &&
+                    error.name === 'AbortError'
+                ) {
+                    return;
                 }
+
+                setFailed(true);
             } finally {
                 if (!controller.signal.aborted) {
                     setLoading(false);
@@ -244,78 +383,117 @@ export function SpkStoneStockDialog({
     const stock = payload?.stock ?? stone?.stock ?? null;
     const rows = payload?.rows ?? [];
     const isDossier = stock?.source === 'dossier';
-    const stoneLabel = [
-        displayValue(stone?.shapeName || stone?.shape),
-        displayValue(stone?.size),
-    ]
-        .filter((part) => part !== '—')
-        .join(' · ');
+    const allocation = stone?.allocation;
+    const isAllocated =
+        allocation?.status === 'allocated' &&
+        (allocation.allocatedPcs ?? 0) > 0;
+    const canAllocate =
+        stock?.status === 'available' && !isAllocated;
+
+    const filteredRows = useMemo(() => {
+        const needle = searchQuery.trim().toLowerCase();
+
+        if (needle === '') {
+            return rows;
+        }
+
+        if (isDossier) {
+            return (rows as DossierStockRow[]).filter((row) =>
+                dossierSearchHaystack(row).includes(needle),
+            );
+        }
+
+        return (rows as MicroStockRow[]).filter((row) =>
+            microSearchHaystack(row).includes(needle),
+        );
+    }, [isDossier, rows, searchQuery]);
+
+    const searchPlaceholder = isDossier
+        ? 'Kode, tipe, bentuk, warna, CRT, sertifikat, supplier…'
+        : 'Nama, parcel, ukuran, bentuk, saldo pcs, saldo crt…';
 
     return (
-        <Dialog open={stone !== null} onOpenChange={onOpenChange}>
-            <DialogContent className="spkAlertModal spkStoneStockModal">
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="spkAlertModal spkStoneStockModal spkChainAllocateDialog">
                 <DialogHeader>
-                    <DialogTitle>
-                        {`Stok ${isDossier ? 'Batu Dossier' : 'Batu Mikro'}${stoneLabel !== '' ? ` — ${stoneLabel}` : ''}`}
-                    </DialogTitle>
+                    <DialogTitle>Alokasi Batu</DialogTitle>
+                    <DialogDescription>
+                        {stone !== null
+                            ? spk !== undefined
+                                ? `Pilih stok batu untuk SPK ${spk.produksiNo} · ${stoneSummary(stone)}`
+                                : `Pilih stok batu · ${stoneSummary(stone)}`
+                            : 'Pilih baris batu pada SPK.'}
+                    </DialogDescription>
                 </DialogHeader>
 
-                {stock ? (
-                    <div className="spkStoneStockSummary">
-                        <span
-                            className={
-                                stock.status === 'available'
-                                    ? 'spkStoneStockBadge is-available'
-                                    : 'spkStoneStockBadge is-unavailable'
-                            }
-                        >
-                            {stock.status === 'available'
-                                ? 'Tersedia'
-                                : 'Tidak Tersedia'}
-                        </span>
-                        <span>
-                            Carat per butir{' '}
-                            <strong>
-                                {formatNumberId(stone?.caratPerPcs, 3)}
-                            </strong>
-                        </span>
-                        <span>
-                            Kebutuhan{' '}
-                            <strong>
-                                {stock.requiredPcs.toLocaleString('id-ID')} pcs
-                            </strong>
-                        </span>
-                        <span>
-                            Stok{' '}
-                            <strong>
-                                {stock.availablePcs.toLocaleString('id-ID')} pcs
-                            </strong>
-                        </span>
-                        {stock.note ? (
-                            <span className="spkStoneStockMeta">
+                {stone === null ? null : loading ? (
+                    <p className="spkAlertModalEmpty">Memuat unit stok…</p>
+                ) : failed ? (
+                    <p className="spkAlertModalEmpty">
+                        Gagal memuat data. Silakan coba lagi.
+                    </p>
+                ) : isAllocated ? (
+                    <p className="spkAlertModalEmpty">
+                        {allocation?.label ?? 'Batu sudah dialokasikan.'}
+                    </p>
+                ) : rows.length === 0 ? (
+                    <p className="spkAlertModalEmpty">
+                        {stock?.note ??
+                            (isDossier
+                                ? 'Tidak ada batu dossier siap pakai untuk bentuk ini.'
+                                : 'Tidak ada master batu mikro untuk bentuk ini.')}
+                    </p>
+                ) : (
+                    <>
+                        {!canAllocate && stock?.note ? (
+                            <p
+                                className="spkAlertModalEmpty spkStoneAllocateStockNote"
+                                role="status"
+                            >
                                 {stock.note}
-                            </span>
+                            </p>
                         ) : null}
-                    </div>
-                ) : null}
+                        <div className="spkChainAllocateFilters">
+                            <div className="spkChainAllocateFilterField spkChainAllocateSearchField">
+                                <div className="spkTableHeaderSearch--finishing spkChainAllocateSearch">
+                                    <Icon
+                                        name={searchIcon}
+                                        className="spkTableHeaderSearchIcon--finishing"
+                                    />
+                                    <input
+                                        id="spk-stone-allocate-search"
+                                        type="search"
+                                        className="spkTableHeaderSearchInput--finishing"
+                                        placeholder={searchPlaceholder}
+                                        value={searchQuery}
+                                        onChange={(event) => {
+                                            setSearchQuery(event.target.value);
+                                        }}
+                                        autoComplete="off"
+                                    />
+                                </div>
+                            </div>
+                        </div>
 
-                <div className="spkAlertModalBody">
-                    {loading ? (
-                        <p className="spkAlertModalEmpty">Memuat data...</p>
-                    ) : failed ? (
-                        <p className="spkAlertModalEmpty">
-                            Gagal memuat daftar stok batu.
-                        </p>
-                    ) : rows.length === 0 ? (
-                        <p className="spkAlertModalEmpty">
-                            Tidak ada stok batu yang cocok.
-                        </p>
-                    ) : isDossier ? (
-                        <DossierStockTable rows={rows as DossierStockRow[]} />
-                    ) : (
-                        <MicroStockTable rows={rows as MicroStockRow[]} />
-                    )}
-                </div>
+                        {filteredRows.length === 0 ? (
+                            <p className="spkAlertModalEmpty">
+                                Tidak ada stok yang cocok dengan pencarian.
+                            </p>
+                        ) : (
+                            <div className="spkAlertModalBody spkChainAllocateBody">
+                                {isDossier ? (
+                                    <DossierStockTable
+                                        rows={filteredRows as DossierStockRow[]}
+                                    />
+                                ) : (
+                                    <MicroStockTable
+                                        rows={filteredRows as MicroStockRow[]}
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </>
+                )}
             </DialogContent>
         </Dialog>
     );

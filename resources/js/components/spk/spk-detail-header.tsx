@@ -52,6 +52,7 @@ import type {
     SpkChainItem,
     SpkComponentItem,
     SpkChainReceiptSummary,
+    SpkComponentReceiptSummary,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -106,6 +107,7 @@ type SpkDetailLayoutProps = {
     polesChromeComplete?: SpkPolesChromeCompleteAction | null;
     receiptEmployeeOptions?: string[];
     chainReceipt?: SpkChainReceiptSummary | null;
+    componentReceipt?: SpkComponentReceiptSummary | null;
     children?: ReactNode;
 };
 
@@ -136,6 +138,7 @@ export function SpkDetailLayout({
     polesChromeComplete = null,
     receiptEmployeeOptions = [],
     chainReceipt = null,
+    componentReceipt = null,
     children,
 }: SpkDetailLayoutProps) {
     const [mainSection, setMainSection] = useState<MainSectionTab>(() =>
@@ -173,9 +176,6 @@ export function SpkDetailLayout({
     const activeMainProcess =
         mainProcesses.find((process) => process.key === mainSection) ?? null;
     const isInformasiProduksi = mainSection === 'informasi-produksi';
-    const lastProcessLabel = production.prosesTerakhir.trim();
-    const showLastProcessOnProsesTab =
-        workflowStatus?.key === 'inProgress' && lastProcessLabel !== '';
 
     const goTo = (url: string | null): void => {
         if (!url) {
@@ -494,10 +494,6 @@ export function SpkDetailLayout({
                                 className={[
                                     'spkSectionTab',
                                     mainSection === tab.id ? 'is-active' : '',
-                                    tab.id === 'proses-produksi' &&
-                                    showLastProcessOnProsesTab
-                                        ? 'spkSectionTab--withLastProcess'
-                                        : '',
                                 ]
                                     .filter(Boolean)
                                     .join(' ')}
@@ -506,12 +502,6 @@ export function SpkDetailLayout({
                                 <span className="spkSectionTabLabel">
                                     {tab.label}
                                 </span>
-                                {tab.id === 'proses-produksi' &&
-                                showLastProcessOnProsesTab ? (
-                                    <span className="spkSectionTabLastProcess">
-                                        {lastProcessLabel}
-                                    </span>
-                                ) : null}
                             </button>
                         ))}
                     </div>
@@ -525,6 +515,7 @@ export function SpkDetailLayout({
                             components={components}
                             receiptEmployeeOptions={receiptEmployeeOptions}
                             chainReceipt={chainReceipt}
+                            componentReceipt={componentReceipt}
                         />
                     ) : null}
 

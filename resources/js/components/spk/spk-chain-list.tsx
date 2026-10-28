@@ -1,5 +1,6 @@
 import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
+import forwardIcon from '@ui5/webcomponents-icons/dist/forward.js';
 import outboxIcon from '@ui5/webcomponents-icons/dist/outbox.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
@@ -874,6 +875,7 @@ type SpkChainListCardProps = {
 
 const STATUS_COLUMN_ACTIONS: SpkChainFulfillmentAction[] = [
     'allocate',
+    'send_to_workshop',
     'receive_workshop',
 ];
 
@@ -881,11 +883,17 @@ function SpkChainFulfillmentActionButton({
     chain,
     disabled,
     onAllocate,
+    onSendToProduction,
+    sendToProductionDisabled = false,
+    sendToProductionDisabledTitle = 'Tanda terima tidak tersedia',
     onlyActions,
 }: {
     chain: SpkChainItem;
     disabled?: boolean;
     onAllocate: () => void;
+    onSendToProduction: () => void;
+    sendToProductionDisabled?: boolean;
+    sendToProductionDisabledTitle?: string;
     onlyActions?: SpkChainFulfillmentAction[];
 }) {
     const allocation = chain.allocation;
@@ -924,6 +932,18 @@ function SpkChainFulfillmentActionButton({
             return;
         }
 
+        if (nextAction === 'send_to_workshop') {
+            if (sendToProductionDisabled) {
+                toast.warning(sendToProductionDisabledTitle);
+
+                return;
+            }
+
+            onSendToProduction();
+
+            return;
+        }
+
         setProcessing(true);
         router.post(
             advanceChainFulfillment.url(Number(chain.id)),
@@ -954,6 +974,27 @@ function SpkChainFulfillmentActionButton({
         );
     }
 
+    if (nextAction === 'send_to_workshop') {
+        const sendTitle = sendToProductionDisabled
+            ? sendToProductionDisabledTitle
+            : 'Buat dan cetak tanda terima serah terima ke produksi';
+
+        return (
+            <button
+                type="button"
+                className="spkChainFulfillmentActionBtn spkChainFulfillmentActionBtn--send"
+                disabled={sendToProductionDisabled || processing}
+                title={sendTitle}
+                onClick={handleClick}
+            >
+                <Icon name={forwardIcon} mode="Decorative" />
+                <span className="spkChainFulfillmentActionBtnLabel">
+                    Kirim ke Produksi
+                </span>
+            </button>
+        );
+    }
+
     if (nextAction === 'receive_workshop') {
         return (
             <button
@@ -974,13 +1015,34 @@ function SpkChainFulfillmentActionButton({
     return null;
 }
 
-function SpkChainFulfillmentStatusCell({
+function SpkChainFulfillmentActionCell({
     chain,
     onAllocate,
+    onSendToProduction,
+    sendToProductionDisabled,
+    sendToProductionDisabledTitle,
 }: {
     chain: SpkChainItem;
     onAllocate: () => void;
+    onSendToProduction: () => void;
+    sendToProductionDisabled: boolean;
+    sendToProductionDisabledTitle: string;
 }) {
+    return (
+        <div className="spkChainTableActionCell">
+            <SpkChainFulfillmentActionButton
+                chain={chain}
+                onlyActions={STATUS_COLUMN_ACTIONS}
+                onAllocate={onAllocate}
+                onSendToProduction={onSendToProduction}
+                sendToProductionDisabled={sendToProductionDisabled}
+                sendToProductionDisabledTitle={sendToProductionDisabledTitle}
+            />
+        </div>
+    );
+}
+
+function SpkChainFulfillmentStatusCell({ chain }: { chain: SpkChainItem }) {
     const stockLabel = chainStockStatusLabel(chain.stock);
     const fulfillmentLabel = chainFulfillmentStatusLabel(chain.allocation);
     const workshopReceivedAudit = workshopReceivedAuditLines(
@@ -996,51 +1058,54 @@ function SpkChainFulfillmentStatusCell({
         );
 
     return (
-        <div className="spkChainStatusCell">
-            <div className="spkChainStatusCellActions">
-                <SpkChainFulfillmentActionButton
-                    chain={chain}
-                    onlyActions={STATUS_COLUMN_ACTIONS}
-                    onAllocate={onAllocate}
-                />
-            </div>
+        <div className="spkChainStatusCell spkChainStatusCell--labelsOnly">
             <div className="spkChainStatusLabels">
                 {showStockLabel ? (
-                    <span
-                        className={
-                            stockLabel.available
-                                ? 'spkStoneStockBadge is-available'
-                                : 'spkStoneStockBadge is-unavailable'
-                        }
-                        title={chain.stock?.note ?? undefined}
-                    >
-                        {stockLabel.text}
-                    </span>
-                ) : stockLabel !== null ? null : (
-                    <span className="spkStoneStockMeta">—</span>
-                )}
-                {fulfillmentLabel !== null ? (
-                    <span className={fulfillmentLabel.badgeClass}>
-                        {fulfillmentLabel.text}
-                    </span>
-                ) : (
-                    <span className="spkStoneStockMeta">—</span>
-                )}
+                    <div className="spkChainStatusLabelRow">
+                        <span
+                            className={
+                                stockLabel.available
+                                    ? 'spkStoneStockBadge is-available'
+                                    : 'spkStoneStockBadge is-unavailable'
+                            }
+                            title={chain.stock?.note ?? undefined}
+                        >
+                            {stockLabel.text}
+                        </span>
+                    </div>
+                ) : stockLabel === null ? (
+                    <div className="spkChainStatusLabelRow">
+                        <span className="spkStoneStockMeta">—</span>
+                    </div>
+                ) : null}
+                <div className="spkChainStatusLabelRow">
+                    {fulfillmentLabel !== null ? (
+                        <span className={fulfillmentLabel.badgeClass}>
+                            {fulfillmentLabel.text}
+                        </span>
+                    ) : (
+                        <span className="spkStoneStockMeta">—</span>
+                    )}
+                </div>
+                {showWorkshopReceivedAudit ? (
+                    <>
+                        {workshopReceivedAudit.received !== null ? (
+                            <div className="spkChainStatusLabelRow">
+                                <span className="spkChainWorkshopReceivedAuditLine">
+                                    {workshopReceivedAudit.received}
+                                </span>
+                            </div>
+                        ) : null}
+                        {workshopReceivedAudit.by !== null ? (
+                            <div className="spkChainStatusLabelRow">
+                                <span className="spkChainWorkshopReceivedAuditLine">
+                                    {workshopReceivedAudit.by}
+                                </span>
+                            </div>
+                        ) : null}
+                    </>
+                ) : null}
             </div>
-            {showWorkshopReceivedAudit ? (
-                <span className="spkChainWorkshopReceivedAudit">
-                    {workshopReceivedAudit.received !== null ? (
-                        <span className="spkChainWorkshopReceivedAuditLine">
-                            {workshopReceivedAudit.received}
-                        </span>
-                    ) : null}
-                    {workshopReceivedAudit.by !== null ? (
-                        <span className="spkChainWorkshopReceivedAuditLine">
-                            {workshopReceivedAudit.by}
-                        </span>
-                    ) : null}
-                </span>
-            ) : null}
         </div>
     );
 }
@@ -1097,6 +1162,10 @@ export function SpkChainListCard({
             ? 'Cetak ulang tanda terima serah terima rantai ke workshop'
             : 'Buat dan cetak tanda terima serah terima rantai ke workshop';
 
+    const openReceiptPreview = (printUrl: string): void => {
+        openChainReceiptPrintPreview(printUrl);
+    };
+
     const openReceiptDialog = (): void => {
         if (!canPrintReceipt) {
             toast.warning(chainReceiptPrintDisabledTitle(chains));
@@ -1104,8 +1173,14 @@ export function SpkChainListCard({
             return;
         }
 
-        if (hasExistingReceipt) {
-            openChainReceiptPrintPreview(chainReceipt.printUrl);
+        if (hasExistingReceipt && chainReceipt !== null) {
+            if (chainNeedsReceiptBeforeWorkshop(chains)) {
+                setReceiptDialogOpen(true);
+
+                return;
+            }
+
+            openReceiptPreview(chainReceipt.printUrl);
 
             return;
         }
@@ -1161,9 +1236,14 @@ export function SpkChainListCard({
                                     <th>Warna</th>
                                     <th>Ukuran (cm)</th>
                                     {showWorkflow ? (
-                                        <th className="spkChainStatusCol">
-                                            Status
-                                        </th>
+                                        <>
+                                            <th className="spkChainStatusCol">
+                                                Status
+                                            </th>
+                                            <th className="spkStoneTableActionCol">
+                                                Aksi
+                                            </th>
+                                        </>
                                     ) : null}
                                 </tr>
                             </thead>
@@ -1180,16 +1260,32 @@ export function SpkChainListCard({
                                                 )}
                                             </td>
                                             {showWorkflow ? (
-                                                <td className="spkChainStatusCol">
-                                                    <SpkChainFulfillmentStatusCell
-                                                        chain={chain}
-                                                        onAllocate={() =>
-                                                            setAllocateChain(
-                                                                chain,
-                                                            )
-                                                        }
-                                                    />
-                                                </td>
+                                                <>
+                                                    <td className="spkChainStatusCol">
+                                                        <SpkChainFulfillmentStatusCell
+                                                            chain={chain}
+                                                        />
+                                                    </td>
+                                                    <td className="spkStoneTableActionCol">
+                                                        <SpkChainFulfillmentActionCell
+                                                            chain={chain}
+                                                            onAllocate={() =>
+                                                                setAllocateChain(
+                                                                    chain,
+                                                                )
+                                                            }
+                                                            onSendToProduction={
+                                                                openReceiptDialog
+                                                            }
+                                                            sendToProductionDisabled={
+                                                                !canPrintReceipt
+                                                            }
+                                                            sendToProductionDisabledTitle={chainReceiptPrintDisabledTitle(
+                                                                chains,
+                                                            )}
+                                                        />
+                                                    </td>
+                                                </>
                                             ) : null}
                                         </tr>
                                         {chain.issuedUnit !== undefined &&
@@ -1197,7 +1293,7 @@ export function SpkChainListCard({
                                             <tr className="spkChainIssuedRow">
                                                 <td
                                                     colSpan={
-                                                        showWorkflow ? 5 : 4
+                                                        showWorkflow ? 6 : 4
                                                     }
                                                 >
                                                     {(() => {

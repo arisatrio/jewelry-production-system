@@ -1,3 +1,4 @@
+import { SpkProsesTerakhirDisplay } from '@/components/spk/spk-proses-terakhir-display';
 import { SpkChainListCard } from '@/components/spk/spk-chain-list';
 import { SpkComponentListCard } from '@/components/spk/spk-component-list';
 import {
@@ -14,6 +15,7 @@ import type {
     SpkChainItem,
     SpkComponentItem,
     SpkChainReceiptSummary,
+    SpkComponentReceiptSummary,
     SpkStoneItem,
 } from '@/components/spk/types';
 
@@ -31,6 +33,7 @@ type SpkInformasiProduksiPanelProps = {
     components?: SpkComponentItem[];
     receiptEmployeeOptions?: string[];
     chainReceipt?: SpkChainReceiptSummary | null;
+    componentReceipt?: SpkComponentReceiptSummary | null;
 };
 
 type SpkApprovalFooterSectionProps = {
@@ -68,26 +71,6 @@ function asideItemTypeDisplay(item: SpkItemDetail): string {
 
 function asideItemSkuDisplay(item: SpkItemDetail): string {
     return displayValue(item.skuCode);
-}
-
-function ProsesTerakhirValue({ production }: { production: SpkDetail }) {
-    const process = production.prosesTerakhir.trim();
-    const date = (production.prosesTerakhirDate ?? '').trim();
-
-    if (process === '') {
-        return <>-</>;
-    }
-
-    if (date === '') {
-        return <>{process}</>;
-    }
-
-    return (
-        <span className="spkProsesTerakhirValue">
-            <span className="spkProsesTerakhirName">{process}</span>
-            <span className="spkProsesTerakhirDate">pada {date}</span>
-        </span>
-    );
 }
 
 function formatLastWeight(value: string | number | null | undefined): string {
@@ -274,10 +257,12 @@ export function SpkInformasiProduksiAsideSection({
     production,
     item,
     approvalFooter,
+    showProsesTerakhir = true,
 }: {
     production: SpkDetail;
     item: SpkItemDetail;
     approvalFooter?: SpkApprovalFooterColumn[];
+    showProsesTerakhir?: boolean;
 }) {
     const { spkType, tipeProduksiLabel, requestStockDisplay, refSpkNo } =
         informasiProduksiMeta(production);
@@ -367,9 +352,11 @@ export function SpkInformasiProduksiAsideSection({
                 >
                     {displayValue(production.estimatedDelivery)}
                 </AsideField>
-                <AsideField label="Proses Terakhir">
-                    <ProsesTerakhirValue production={production} />
-                </AsideField>
+                {showProsesTerakhir ? (
+                    <AsideField label="Proses Terakhir">
+                        <SpkProsesTerakhirDisplay row={production} />
+                    </AsideField>
+                ) : null}
                 <AsideField label="Berat Terakhir">
                     {formatLastWeight(production.lastWeight)}
                 </AsideField>
@@ -413,6 +400,7 @@ export function SpkInformasiProduksiPanel({
     components = [],
     receiptEmployeeOptions = [],
     chainReceipt = null,
+    componentReceipt = null,
 }: SpkInformasiProduksiPanelProps) {
     const notes = displayValue(production.notes);
 
@@ -432,7 +420,13 @@ export function SpkInformasiProduksiPanel({
             </section>
 
             <section className="spkShowSection">
-                <SpkStoneListCard stones={stones} />
+                <SpkStoneListCard
+                    stones={stones}
+                    spk={{
+                        rowId: Number(production.id),
+                        produksiNo: production.produksiNo,
+                    }}
+                />
             </section>
 
             <section className="spkShowSection">
@@ -448,7 +442,15 @@ export function SpkInformasiProduksiPanel({
                         receiptEmployeeOptions={receiptEmployeeOptions}
                         chainReceipt={chainReceipt}
                     />
-                    <SpkComponentListCard components={components} />
+                    <SpkComponentListCard
+                        components={components}
+                        spk={{
+                            rowId: Number(production.id),
+                            produksiNo: production.produksiNo,
+                        }}
+                        receiptEmployeeOptions={receiptEmployeeOptions}
+                        componentReceipt={componentReceipt}
+                    />
                 </div>
             </section>
         </div>

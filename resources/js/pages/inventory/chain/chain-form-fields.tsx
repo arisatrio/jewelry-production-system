@@ -1,6 +1,7 @@
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { InventoryMasterPhotoField } from '@/pages/inventory/inventory-master-photo-field';
 
 export type ChainFormItem = {
     id: number;
@@ -9,6 +10,7 @@ export type ChainFormItem = {
     itemCode: string;
     length: string;
     description: string | null;
+    photo?: string | null;
 };
 
 type ChainFormFieldsProps = {
@@ -100,6 +102,12 @@ export function ChainFormFields({
                 />
                 <InputError message={errors.description} />
             </div>
+
+            <InventoryMasterPhotoField
+                idPrefix={idPrefix}
+                currentPhotoUrl={item?.photo}
+                errors={errors}
+            />
         </>
     );
 }

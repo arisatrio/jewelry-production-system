@@ -27,6 +27,8 @@ export type SpkRow = {
     status: SpkStatus;
     prosesTerakhir: string;
     prosesTerakhirDate: string;
+    prosesTerakhirDisplay?: string | null;
+    prosesTerakhirCompleted?: boolean | null;
 };
 
 export type SpkIndexRow = SpkRow & {
@@ -133,6 +135,14 @@ export type SpkStoneStock = {
     note: string | null;
 };
 
+export type SpkStoneAllocationStatus = 'not_allocated' | 'allocated';
+
+export type SpkStoneAllocation = {
+    status: SpkStoneAllocationStatus;
+    label: string;
+    allocatedPcs: number;
+};
+
 export type SpkMsChainOption = {
     value: string;
     label: string;
@@ -193,6 +203,8 @@ export type SpkChainReceiptSummary = {
     printUrl: string;
 };
 
+export type SpkComponentReceiptSummary = SpkChainReceiptSummary;
+
 export type SpkChainItem = {
     id: string;
     chainId?: string;
@@ -206,12 +218,72 @@ export type SpkChainItem = {
     workshopReceived?: SpkChainWorkshopReceived | null;
 };
 
+export type SpkComponentStock = {
+    status: 'available' | 'unavailable';
+    requiredUnits: number;
+    availableUnits: number;
+    balanceLength: string | null;
+    note: string | null;
+};
+
+export type SpkComponentFulfillmentStatus =
+    | 'not_allocated'
+    | 'allocated'
+    | 'sent_to_workshop'
+    | 'received_by_workshop'
+    | 'installed'
+    | 'unlinked';
+
+export type SpkComponentFulfillmentAction =
+    | 'allocate'
+    | 'send_to_workshop'
+    | 'receive_workshop'
+    | 'mark_installed';
+
+export type SpkComponentAllocation = {
+    status: SpkComponentFulfillmentStatus;
+    label: string;
+    allocatedUnits: number;
+    nextAction: SpkComponentFulfillmentAction | null;
+    nextActionLabel: string | null;
+};
+
+export type SpkComponentIssuedUnit = {
+    id: number;
+    unitNo: string | null;
+    name: string;
+    color: string;
+    size: string;
+    componentSize: string;
+    weight: string | null;
+    allocatedDate: string | null;
+    allocatedBy: string | null;
+};
+
+export type SpkComponentWorkshopReceived = {
+    at: string | null;
+    by: string | null;
+};
+
+export type SpkMsComponentOption = {
+    value: string;
+    label: string;
+    category: string;
+    item: string;
+    size: string;
+};
+
 export type SpkComponentItem = {
     id: string;
+    componentId?: string;
     category: string;
     item: string;
     color: string;
     size: string;
+    stock?: SpkComponentStock | null;
+    allocation?: SpkComponentAllocation | null;
+    issuedUnit?: SpkComponentIssuedUnit | null;
+    workshopReceived?: SpkComponentWorkshopReceived | null;
 };
 
 export type SpkStoneItem = {
@@ -227,6 +299,7 @@ export type SpkStoneItem = {
     totalCarat: string;
     size: string | number;
     stock?: SpkStoneStock | null;
+    allocation?: SpkStoneAllocation | null;
     master?: {
         positionName?: string | null;
         shapeName?: string | null;

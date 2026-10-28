@@ -193,6 +193,40 @@ test('chain stock issue requires valid spk', function () {
     }
 });
 
+test('chain stock receive creates one row per pcs with unique unit numbers', function () {
+    $master = MsChain::factory()->create([
+        'item_code' => 'PCS-'.Str::upper(Str::random(8)),
+        'length' => '40.00',
+    ]);
+    $supplier = 'Bulk Chain '.Str::upper(Str::random(6));
+
+    try {
+        $this->post(route('inventory.chains.stock.store', $master), [
+            'entry_date' => '2026-10-23',
+            'supplier' => $supplier,
+            'weight' => '1.00',
+            'purchase_price' => '10.00',
+            'color' => 'White Gold',
+            'pcs' => 5,
+            'return_to' => 'show',
+        ])
+            ->assertRedirect(route('inventory.chains.show', $master));
+
+        $units = TrxChain::query()
+            ->where('mschain_id', $master->row_id)
+            ->where('supplier', $supplier)
+            ->orderBy('unit_no')
+            ->get();
+
+        expect($units)->toHaveCount(5)
+            ->and($units->pluck('unit_no')->unique())->toHaveCount(5);
+
+        $units->each->delete();
+    } finally {
+        $master->delete();
+    }
+});
+
 test('chain stock store can redirect back to index', function () {
     $master = MsChain::factory()->create([
         'item_code' => 'IDX-'.Str::upper(Str::random(8)),

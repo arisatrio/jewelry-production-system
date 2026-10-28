@@ -8,6 +8,8 @@ import {
 } from '@/routes/analytics';
 import { index as coranIndex } from '@/routes/coran';
 import { index as finishingIndex, report as finishingReport } from '@/routes/finishing';
+import { index as componentTransactionsIndex } from '@/routes/inventory/component-transactions';
+import { index as componentsIndex } from '@/routes/inventory/components';
 import { index as chainTransactionsIndex } from '@/routes/inventory/chain-transactions';
 import { index as chainsIndex } from '@/routes/inventory/chains';
 import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
@@ -97,6 +99,11 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
     {
         text: 'Log Transaksi Chain',
         href: chainTransactionsIndex.url(),
+    },
+    { text: 'Stok Komponen', href: componentsIndex.url() },
+    {
+        text: 'Log Transaksi Komponen',
+        href: componentTransactionsIndex.url(),
     },
     {
         text: 'Transaksi Bahan Emas',

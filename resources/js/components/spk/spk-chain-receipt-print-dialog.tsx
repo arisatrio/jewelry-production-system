@@ -237,13 +237,13 @@ export function SpkChainReceiptPrintDialog({
 
         receiptForm.clearErrors();
         receiptForm.transform((data) => ({
-            spk_row_id: spkRowId,
-            chain_line_ids: chainLineIds,
             ...Object.fromEntries(
                 Object.entries(data)
                     .map(([key, value]) => [key, String(value).trim()])
                     .filter(([, value]) => value !== ''),
             ),
+            spk_row_id: spkRowId,
+            chain_line_ids: chainLineIds,
         }));
 
         void receiptForm

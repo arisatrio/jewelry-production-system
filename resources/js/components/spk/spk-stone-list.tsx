@@ -19,6 +19,7 @@ import {
 import { useSpkFormStoneStock } from '@/hooks/use-spk-form-stone-stock';
 import type {
     SpkItemDetail,
+    SpkStoneAllocationStatus,
     SpkStoneItem,
     SpkStoneStock,
 } from '@/components/spk/types';
@@ -482,8 +483,8 @@ function SpkItemDetailPanelFields({
 }) {
     return (
         <div className="spkItemDetailPanelFields">
-            <div className="spkItemDetailPanelPrimary spkDetailGrid">
-                <ItemDetailField label="Tipe Item | SKU" fullWidth>
+            <div className="spkItemDetailPanelPrimary">
+                <ItemDetailField label="Tipe Item | SKU">
                     <SpkTypeProductItemValue item={item} />
                 </ItemDetailField>
                 <ItemDetailField label="Status Order">
@@ -505,10 +506,10 @@ function SpkItemDetailPanelFields({
                 <ItemDetailField label="Warna Emas">
                     {emptyDash(item.goldColor)}
                 </ItemDetailField>
-                <ItemDetailField label="File JewelCAD 3D" fullWidth>
+                <ItemDetailField label="File JewelCAD 3D">
                     {emptyDash(item.jwcad3d)}
                 </ItemDetailField>
-                <ItemDetailField label="Catatan" fullWidth>
+                <ItemDetailField label="Catatan">
                     <span className="spkItemNotesCell">
                         {emptyDash(notes)}
                     </span>
@@ -704,36 +705,146 @@ function SpkStoneStockCell({
     );
 }
 
-function SpkStoneAllocationStatusCell({ stone }: { stone: SpkStoneItem }) {
+function stoneStockStatusLabel(
+    stock?: SpkStoneStock | null,
+): { text: string; available: boolean } | null {
+    if (stock === undefined || stock === null) {
+        return null;
+    }
+
+    const available = stock.status === 'available';
+
+    return {
+        text: available ? 'Stok Ada' : 'Stok Tidak Ada',
+        available,
+    };
+}
+
+function stoneAllocationStatusBadgeClass(
+    status: SpkStoneAllocationStatus,
+): string {
+    const base = 'spkStoneStockBadge';
+
+    switch (status) {
+        case 'allocated':
+            return `${base} is-available`;
+        case 'not_allocated':
+        default:
+            return `${base} is-unavailable`;
+    }
+}
+
+function stoneAllocationStatusLabel(
+    stone: SpkStoneItem,
+): { text: string; allocated: boolean; badgeClass: string } | null {
+    if (stone.stock === undefined) {
+        return null;
+    }
+
+    const allocation = stone.allocation ?? {
+        status: 'not_allocated' as const,
+        label: 'Belum Dialokasikan',
+        allocatedPcs: 0,
+    };
+
+    const allocated =
+        allocation.status === 'allocated' && allocation.allocatedPcs > 0;
+
+    const text =
+        allocation.label.trim() !== ''
+            ? allocation.label
+            : allocated
+              ? 'Sudah Dialokasikan'
+              : 'Belum Dialokasikan';
+
+    return {
+        text,
+        allocated,
+        badgeClass: stoneAllocationStatusBadgeClass(allocation.status),
+    };
+}
+
+function SpkStoneAllocationActionCell({
+    stone,
+    onShowStock,
+}: {
+    stone: SpkStoneItem;
+    onShowStock: () => void;
+}) {
     const canAllocate = stone.stock?.status === 'available';
     const allocateTitle = canAllocate
         ? 'Alokasikan batu ke SPK ini'
-        : 'Stok tidak tersedia';
+        : 'Lihat daftar stok batu';
 
     return (
-        <div className="spkChainStatusCell">
-            <div className="spkChainStatusCellActions">
-                <button
-                    type="button"
-                    className="spkChainFulfillmentActionBtn"
-                    disabled={!canAllocate}
-                    title={allocateTitle}
-                >
-                    <Icon name={outboxIcon} mode="Decorative" />
-                    <span className="spkChainFulfillmentActionBtnLabel">
-                        Alokasi Batu
-                    </span>
-                </button>
+        <div className="spkChainTableActionCell">
+            <button
+                type="button"
+                className="spkChainFulfillmentActionBtn"
+                title={allocateTitle}
+                onClick={onShowStock}
+            >
+                <Icon name={outboxIcon} mode="Decorative" />
+                <span className="spkChainFulfillmentActionBtnLabel">
+                    Alokasi Batu
+                </span>
+            </button>
+        </div>
+    );
+}
+
+function SpkStoneAllocationStatusCell({ stone }: { stone: SpkStoneItem }) {
+    const stockLabel = stoneStockStatusLabel(stone.stock);
+    const allocationLabel = stoneAllocationStatusLabel(stone);
+    const showStockLabel =
+        stockLabel !== null &&
+        !(allocationLabel?.allocated === true && !stockLabel.available);
+
+    return (
+        <div className="spkChainStatusCell spkChainStatusCell--labelsOnly">
+            <div className="spkChainStatusLabels">
+                {showStockLabel ? (
+                    <div className="spkChainStatusLabelRow">
+                        <span
+                            className={
+                                stockLabel.available
+                                    ? 'spkStoneStockBadge is-available'
+                                    : 'spkStoneStockBadge is-unavailable'
+                            }
+                            title={stone.stock?.note ?? undefined}
+                        >
+                            {stockLabel.text}
+                        </span>
+                    </div>
+                ) : stockLabel === null ? (
+                    <div className="spkChainStatusLabelRow">
+                        <span className="spkStoneStockMeta">—</span>
+                    </div>
+                ) : null}
+                <div className="spkChainStatusLabelRow">
+                    {allocationLabel !== null ? (
+                        <span className={allocationLabel.badgeClass}>
+                            {allocationLabel.text}
+                        </span>
+                    ) : (
+                        <span className="spkStoneStockMeta">—</span>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
 
-export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
+export function SpkStoneListCard({
+    stones,
+    spk,
+}: {
+    stones: SpkStoneItem[];
+    spk?: { rowId: number; produksiNo: string };
+}) {
     const [stockListStone, setStockListStone] = useState<SpkStoneItem | null>(
         null,
     );
-    const showStock = stones.some((stone) => stone.stock !== undefined);
     const totalButir = stones.reduce(
         (sum, stone) => sum + (Number(stone.pcs) || 0),
         0,
@@ -768,8 +879,8 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                 <th>Carat per Butir (pcs)</th>
                                 <th>Jumlah Butir (pcs)</th>
                                 <th>Total Carat</th>
-                                {showStock ? <th>Stok</th> : null}
                                 <th className="spkStoneStatusCol">Status</th>
+                                <th className="spkStoneTableActionCol">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -821,19 +932,17 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                     <td>
                                         {formatDecimal3Id(stone.totalCarat)}
                                     </td>
-                                    {showStock ? (
-                                        <td>
-                                            <SpkStoneStockCell
-                                                stock={stone.stock}
-                                                onShowList={() =>
-                                                    setStockListStone(stone)
-                                                }
-                                            />
-                                        </td>
-                                    ) : null}
                                     <td className="spkStoneStatusCol">
                                         <SpkStoneAllocationStatusCell
                                             stone={stone}
+                                        />
+                                    </td>
+                                    <td className="spkStoneTableActionCol">
+                                        <SpkStoneAllocationActionCell
+                                            stone={stone}
+                                            onShowStock={() =>
+                                                setStockListStone(stone)
+                                            }
                                         />
                                     </td>
                                 </tr>
@@ -851,7 +960,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                         maximumFractionDigits: 3,
                                     })}
                                 </td>
-                                {showStock ? <td /> : null}
+                                <td />
                                 <td />
                             </tr>
                         </tfoot>
@@ -859,16 +968,15 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                 </div>
             )}
 
-            {showStock ? (
-                <SpkStoneStockDialog
-                    stone={stockListStone}
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            setStockListStone(null);
-                        }
-                    }}
-                />
-            ) : null}
+            <SpkStoneStockDialog
+                stone={stockListStone}
+                spk={spk}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setStockListStone(null);
+                    }
+                }}
+            />
         </div>
     );
 }

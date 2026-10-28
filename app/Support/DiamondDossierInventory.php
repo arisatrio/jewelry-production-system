@@ -60,6 +60,21 @@ class DiamondDossierInventory
     }
 
     /**
+     * @return list<array<string, int|string|null>>
+     */
+    public function availableForShape(int $shapeId, int $limit = 150): array
+    {
+        return array_values($this->filteredQuery('', self::STATUS_AVAILABLE)
+            ->where('diamond.shape_id', $shapeId)
+            ->orderBy('diamond.crt')
+            ->orderByDesc('diamond.row_id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (object $diamond): array => $this->toRow($diamond))
+            ->all());
+    }
+
+    /**
      * Available dossier diamonds plus the ones already assigned to the given mounting document.
      *
      * @return list<array{value: string, label: string, description: string, code: string|null, diamondType: string|null, shape: string|null, certificate: string|null, crt: string|null}>

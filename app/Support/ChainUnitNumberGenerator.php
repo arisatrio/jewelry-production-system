@@ -15,6 +15,20 @@ class ChainUnitNumberGenerator
      */
     public function generate(): string
     {
+        return $this->reserveSequence(1)[0];
+    }
+
+    /**
+     * Reserve consecutive unit numbers in one locked read (for bulk receive).
+     *
+     * @return list<string>
+     */
+    public function reserveSequence(int $count): array
+    {
+        if ($count < 1) {
+            throw new \InvalidArgumentException('Jumlah unit minimal 1.');
+        }
+
         $pattern = '^'.self::PREFIX.'[0-9]{'.self::PADDING.'}$';
 
         $latest = TrxChain::query()
@@ -24,13 +38,19 @@ class ChainUnitNumberGenerator
             ->orderByDesc('unit_no')
             ->value('unit_no');
 
-        $next = 1;
+        $start = 1;
 
         if (is_string($latest) && preg_match('/^'.self::PREFIX.'(\d+)$/', $latest, $matches) === 1) {
-            $next = (int) $matches[1] + 1;
+            $start = (int) $matches[1] + 1;
         }
 
-        return sprintf('%s%0'.self::PADDING.'d', self::PREFIX, $next);
+        $numbers = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            $numbers[] = sprintf('%s%0'.self::PADDING.'d', self::PREFIX, $start + $i);
+        }
+
+        return $numbers;
     }
 
     /**

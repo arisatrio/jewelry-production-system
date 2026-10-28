@@ -14,6 +14,7 @@ use App\Http\Controllers\MaterialGoldController;
 use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MicroStoneController;
 use App\Http\Controllers\MsChainController;
+use App\Http\Controllers\MsComponentController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
@@ -26,11 +27,20 @@ use App\Http\Controllers\ShopFloorDashboardController;
 use App\Http\Controllers\SkuMasterController;
 use App\Http\Controllers\SkuOutputDashboardController;
 use App\Http\Controllers\SpkChainStockController;
+use App\Http\Controllers\SpkComponentStockController;
 use App\Http\Controllers\SpkProcessSlaController;
 use App\Http\Controllers\SpkStoneStockController;
 use App\Http\Controllers\StoneTransactionController;
 use App\Http\Controllers\TrxChainController;
+use App\Http\Controllers\TrxComponentController;
+use App\Models\SpkComponent;
 use Illuminate\Support\Facades\Route;
+
+Route::bind('spkComponent', function (string $value): SpkComponent {
+    return SpkComponent::query()
+        ->where('line_id', (int) $value)
+        ->firstOrFail();
+});
 
 Route::post('login/quick', [QuickLoginController::class, 'store'])
     ->middleware(['guest:web', 'throttle:login'])
@@ -84,9 +94,18 @@ Route::middleware(['auth'])->group(function () {
         ->name('spk.print.receipt.destroy');
     Route::post('spk/print/chain-receipt', [ProductionController::class, 'storeChainReceipt'])
         ->name('spk.print.chain-receipt.store');
+    Route::post('spk/print/chain-receipt/apply-send', [ProductionController::class, 'applyChainReceiptSend'])
+        ->name('spk.print.chain-receipt.apply-send');
     Route::get('spk/print/chain-receipt/{serahTerimaChain}', [ProductionController::class, 'printChainReceipt'])
         ->whereNumber('serahTerimaChain')
         ->name('spk.print.chain-receipt');
+    Route::post('spk/print/component-receipt', [ProductionController::class, 'storeComponentReceipt'])
+        ->name('spk.print.component-receipt.store');
+    Route::post('spk/print/component-receipt/apply-send', [ProductionController::class, 'applyComponentReceiptSend'])
+        ->name('spk.print.component-receipt.apply-send');
+    Route::get('spk/print/component-receipt/{serahTerimaComponent}', [ProductionController::class, 'printComponentReceipt'])
+        ->whereNumber('serahTerimaComponent')
+        ->name('spk.print.component-receipt');
     Route::get('spk/form/{rowId}', [ProductionController::class, 'form'])
         ->whereNumber('rowId')
         ->name('spk.form');
@@ -145,6 +164,15 @@ Route::middleware(['auth'])->group(function () {
     Route::post('spk/chains/{spkChain}/revoke-allocation', [SpkChainStockController::class, 'revokeAllocation'])
         ->whereNumber('spkChain')
         ->name('spk.chains.revoke-allocation');
+    Route::get('spk/components/{spkComponent}/allocation-units', [SpkComponentStockController::class, 'allocationUnits'])
+        ->whereNumber('spkComponent')
+        ->name('spk.components.allocation-units');
+    Route::post('spk/components/{spkComponent}/fulfillment', [SpkComponentStockController::class, 'advanceFulfillment'])
+        ->whereNumber('spkComponent')
+        ->name('spk.components.fulfillment');
+    Route::post('spk/components/{spkComponent}/revoke-allocation', [SpkComponentStockController::class, 'revokeAllocation'])
+        ->whereNumber('spkComponent')
+        ->name('spk.components.revoke-allocation');
     Route::get('spk/{production}', [ProductionController::class, 'show'])
         ->where('production', '.*')
         ->name('spk.show');
@@ -347,6 +375,25 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('transaksi-chain', [TrxChainController::class, 'index'])
             ->name('chain-transactions.index');
+
+        Route::get('permintaan-komponen', [MsComponentController::class, 'componentRequests'])
+            ->name('components.requests');
+
+        Route::get('component/{msComponent}/stok/tambah', [MsComponentController::class, 'createStock'])
+            ->name('components.stock.create');
+        Route::post('component/{msComponent}/stok', [MsComponentController::class, 'storeStock'])
+            ->name('components.stock.store');
+        Route::post('component-stok/{trxComponent}/keluar', [MsComponentController::class, 'issueStock'])
+            ->whereNumber('trxComponent')
+            ->name('components.stock.issue');
+
+        Route::resource('component', MsComponentController::class)
+            ->parameters(['component' => 'msComponent'])
+            ->except(['create'])
+            ->names('components');
+
+        Route::get('transaksi-komponen', [TrxComponentController::class, 'index'])
+            ->name('component-transactions.index');
 
         Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])
             ->name('gold-material-transactions.index');

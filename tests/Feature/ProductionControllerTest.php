@@ -1337,6 +1337,8 @@ test('spk index includes last process date from the process table', function () 
             ->component('spk/index')
             ->where('productions.data.0.status', 'In Progress')
             ->where('productions.data.0.prosesTerakhir', 'Poles Chrome')
+            ->where('productions.data.0.prosesTerakhirDisplay', 'In Progress POLES CHROME')
+            ->where('productions.data.0.prosesTerakhirCompleted', false)
             ->where('productions.data.0.prosesTerakhirDate', $processAt->format('d-M-Y'))
         );
 
@@ -1385,6 +1387,8 @@ test('spk show page includes last process date when process exists', function ()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
             ->where('production.prosesTerakhir', 'Poles Chrome')
+            ->where('production.prosesTerakhirDisplay', 'Selesai POLES CHROME')
+            ->where('production.prosesTerakhirCompleted', true)
             ->where('production.prosesTerakhirDate', now()->format('d-M-Y'))
         );
 

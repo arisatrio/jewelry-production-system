@@ -1,3 +1,5 @@
+import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
+import { Icon } from '@ui5/webcomponents-react/Icon';
 import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -191,23 +193,25 @@ export function SpkChainAllocateDialog({
                         <>
                             <div className="spkChainAllocateFilters">
                                 <div className="spkChainAllocateFilterField spkChainAllocateSearchField">
-                                    <Label
-                                        htmlFor="spk-chain-allocate-search"
-                                        className="spkChainAllocateFilterLabel"
-                                    >
-                                        Cari
-                                    </Label>
-                                    <input
-                                        id="spk-chain-allocate-search"
-                                        type="search"
-                                        className="spkChainAllocateSearchInput"
-                                        placeholder="Unit, nama, item master, panjang, berat, warna…"
-                                        value={searchQuery}
-                                        onChange={(event) => {
-                                            setSearchQuery(event.target.value);
-                                        }}
-                                        autoComplete="off"
-                                    />
+                                    <div className="spkTableHeaderSearch--finishing spkChainAllocateSearch">
+                                        <Icon
+                                            name={searchIcon}
+                                            className="spkTableHeaderSearchIcon--finishing"
+                                        />
+                                        <input
+                                            id="spk-chain-allocate-search"
+                                            type="search"
+                                            className="spkTableHeaderSearchInput--finishing"
+                                            placeholder="Unit, nama, item master, panjang, berat, warna…"
+                                            value={searchQuery}
+                                            onChange={(event) => {
+                                                setSearchQuery(
+                                                    event.target.value,
+                                                );
+                                            }}
+                                            autoComplete="off"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -216,112 +220,102 @@ export function SpkChainAllocateDialog({
                                     Tidak ada unit yang cocok dengan pencarian.
                                 </p>
                             ) : (
-                        <div className="spkStoneTableWrap spkChainAllocateTableWrap">
-                            <table
-                                className="spkStoneTable spkChainTable spkChainAllocateTable"
-                            >
-                                <thead>
-                                    <tr>
-                                        <th
-                                            className="spkStoneTableActionCol spkChainTableActionCol spkChainAllocateColAction"
-                                        >
-                                            Aksi
-                                        </th>
-                                        <th className="spkChainAllocateColUnit">
-                                            Unit
-                                        </th>
-                                        <th className="spkChainAllocateColName">
-                                            Nama
-                                        </th>
-                                        <th
-                                            className="spkTableColCenter spkChainAllocateColLength"
-                                            title="Panjang (cm)"
-                                        >
-                                            Panjang
-                                        </th>
-                                        <th
-                                            className="spkTableColCenter spkChainAllocateColWeight"
-                                            title="Berat (g)"
-                                        >
-                                            Berat
-                                        </th>
-                                        <th className="spkChainAllocateColColor">
-                                            Warna
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredUnits.map((unit) => (
-                                        <tr
-                                            key={unit.id}
-                                            className={
-                                                unit.matchesMasterChain
-                                                    ? 'spkChainAllocateRowMatch'
-                                                    : undefined
-                                            }
-                                        >
-                                            <td
-                                                className="spkChainAllocateColAction"
-                                            >
-                                                <button
-                                                    type="button"
-                                                    className="spkChainFulfillmentActionBtn"
-                                                    onClick={() =>
-                                                        setIssuingUnit(unit)
+                                <div className="spkAlertModalBody spkChainAllocateBody">
+                                    <table className="spkAlertModalTable spkChainAllocateTable">
+                                        <thead>
+                                            <tr>
+                                                <th className="spkChainAllocateColAction">
+                                                    Aksi
+                                                </th>
+                                                <th className="spkChainAllocateColUnit">
+                                                    ID
+                                                </th>
+                                                <th className="spkChainAllocateColName">
+                                                    Nama
+                                                </th>
+                                                <th
+                                                    className="spkTableColCenter spkChainAllocateColLength"
+                                                    title="Panjang (cm)"
+                                                >
+                                                    Panjang
+                                                </th>
+                                                <th
+                                                    className="spkTableColCenter spkChainAllocateColWeight"
+                                                    title="Berat (g)"
+                                                >
+                                                    Berat
+                                                </th>
+                                                <th className="spkChainAllocateColColor">
+                                                    Warna
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredUnits.map((unit) => (
+                                                <tr
+                                                    key={unit.id}
+                                                    className={
+                                                        unit.matchesMasterChain
+                                                            ? 'spkAlertModalRow spkChainAllocateRowMatch'
+                                                            : 'spkAlertModalRow'
                                                     }
                                                 >
-                                                    Pilih
-                                                </button>
-                                            </td>
-                                            <td
-                                                className="spkChainAllocateColUnit tabular-nums"
-                                            >
-                                                {unit.unitNo ?? unit.id}
-                                            </td>
-                                            <td
-                                                className="spkChainAllocateColName"
-                                            >
-                                                <span>{unit.name}</span>
-                                                {unit.masterItem !== null &&
-                                                unit.masterItem !== undefined &&
-                                                unit.masterItem !== '' ? (
-                                                    <span
-                                                        className="spkChainAllocateMasterItem"
-                                                    >
-                                                        {unit.masterItem}
-                                                        {unit.masterItemCode !==
+                                                    <td className="spkChainAllocateColAction">
+                                                        <button
+                                                            type="button"
+                                                            className="spkChainFulfillmentActionBtn"
+                                                            onClick={() =>
+                                                                setIssuingUnit(
+                                                                    unit,
+                                                                )
+                                                            }
+                                                        >
+                                                            Pilih
+                                                        </button>
+                                                    </td>
+                                                    <td className="spkChainAllocateColUnit tabular-nums spkAlertModalTableIdentifier">
+                                                        {unit.unitNo ??
+                                                            unit.id}
+                                                    </td>
+                                                    <td className="spkChainAllocateColName">
+                                                        <span>{unit.name}</span>
+                                                        {unit.masterItem !==
                                                             null &&
-                                                        unit.masterItemCode !==
+                                                        unit.masterItem !==
                                                             undefined &&
-                                                        unit.masterItemCode !==
-                                                            ''
-                                                            ? ` · ${unit.masterItemCode}`
-                                                            : ''}
-                                                    </span>
-                                                ) : null}
-                                            </td>
-                                            <td
-                                                className="spkTableColCenter spkChainAllocateColLength tabular-nums"
-                                            >
-                                                {unit.chainLength}
-                                            </td>
-                                            <td
-                                                className="spkTableColCenter spkChainAllocateColWeight tabular-nums"
-                                            >
-                                                {formatAllocateUnitWeight(
-                                                    unit.weight,
-                                                )}
-                                            </td>
-                                            <td
-                                                className="spkChainAllocateColColor"
-                                            >
-                                                {unit.color ?? '—'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                                        unit.masterItem !==
+                                                            '' ? (
+                                                            <span className="spkAlertModalTableSubText">
+                                                                {
+                                                                    unit.masterItem
+                                                                }
+                                                                {unit.masterItemCode !==
+                                                                    null &&
+                                                                unit.masterItemCode !==
+                                                                    undefined &&
+                                                                unit.masterItemCode !==
+                                                                    ''
+                                                                    ? ` · ${unit.masterItemCode}`
+                                                                    : ''}
+                                                            </span>
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="spkTableColCenter spkChainAllocateColLength tabular-nums">
+                                                        {unit.chainLength}
+                                                    </td>
+                                                    <td className="spkTableColCenter spkChainAllocateColWeight tabular-nums">
+                                                        {formatAllocateUnitWeight(
+                                                            unit.weight,
+                                                        )}
+                                                    </td>
+                                                    <td className="spkChainAllocateColColor">
+                                                        {unit.color ?? '—'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
                         </>
                     )}

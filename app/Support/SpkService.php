@@ -997,6 +997,9 @@ class SpkService
 
             SpkComponent::query()->create([
                 'row_id' => $production->row_id,
+                'mscomponent_id' => filled($component['mscomponent_id'] ?? null)
+                    ? (int) $component['mscomponent_id']
+                    : null,
                 'category' => filled($component['category'] ?? null)
                     ? trim((string) $component['category'])
                     : null,

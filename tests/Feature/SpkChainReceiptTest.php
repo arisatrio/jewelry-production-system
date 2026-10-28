@@ -109,6 +109,104 @@ test('chain receipt store and print include chain item details', function () {
     }
 });
 
+test('chain receipt store without line ids still marks chains sent to workshop', function () {
+    $master = MsChain::factory()->create([
+        'item_code' => 'RCT-'.Str::upper(Str::random(6)),
+    ]);
+
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/CHAIN/NOIDS/'.Str::upper(Str::random(4)),
+        'is_deleted' => 0,
+    ]);
+
+    $chain = SpkChain::factory()->create([
+        'row_id' => $production->row_id,
+        'mschain_id' => $master->row_id,
+        'fulfillment_status' => SpkChainFulfillment::ALLOCATED,
+    ]);
+
+    $unit = TrxChain::factory()->create([
+        'mschain_id' => $master->row_id,
+        'spk_id' => $production->row_id,
+        'entry_date' => now()->toDateString(),
+        'out_date' => now()->toDateString(),
+    ]);
+
+    try {
+        $response = $this->postJson(route('spk.print.chain-receipt.store'), [
+            'spk_row_id' => $production->row_id,
+            'tanggal' => '2026-10-28',
+            'dari' => 'Head Office',
+            'untuk' => 'Workshop',
+        ]);
+
+        $response->assertCreated();
+
+        if (
+            Schema::connection('third')->hasColumn('spkchains', 'fulfillment_status')
+            || Schema::connection('third')->hasColumn('spk_chains', 'fulfillment_status')
+        ) {
+            expect($chain->refresh()->fulfillment_status)
+                ->toBe(SpkChainFulfillment::SENT_TO_WORKSHOP);
+        }
+    } finally {
+        SerahTerimaChain::query()->where('spk_row_id', $production->row_id)->forceDelete();
+        $unit->delete();
+        $chain->delete();
+        $production->delete();
+        $master->delete();
+    }
+});
+
+test('chain receipt apply send resolves stale line ids on spk chains', function () {
+    $master = MsChain::factory()->create([
+        'item_code' => 'STALE-'.Str::upper(Str::random(6)),
+    ]);
+
+    $production = Production::factory()->create([
+        'spk_no' => 'TEST/CHAIN/STALE/'.Str::upper(Str::random(4)),
+        'is_deleted' => 0,
+    ]);
+
+    $chain = SpkChain::factory()->create([
+        'row_id' => $production->row_id,
+        'mschain_id' => $master->row_id,
+        'fulfillment_status' => SpkChainFulfillment::ALLOCATED,
+    ]);
+
+    TrxChain::factory()->create([
+        'mschain_id' => $master->row_id,
+        'spk_id' => $production->row_id,
+        'entry_date' => now()->toDateString(),
+        'out_date' => now()->toDateString(),
+    ]);
+
+    $receipt = SerahTerimaChain::factory()->create([
+        'spk_row_id' => $production->row_id,
+        'spk_chain_line_ids' => [999_999],
+        'jumlah_baris' => 1,
+    ]);
+
+    try {
+        $this->post(route('spk.print.chain-receipt.apply-send'), [
+            'spk_row_id' => $production->row_id,
+        ])->assertRedirect();
+
+        if (
+            Schema::connection('third')->hasColumn('spkchains', 'fulfillment_status')
+            || Schema::connection('third')->hasColumn('spk_chains', 'fulfillment_status')
+        ) {
+            expect($chain->refresh()->fulfillment_status)
+                ->toBe(SpkChainFulfillment::SENT_TO_WORKSHOP);
+        }
+    } finally {
+        $receipt->forceDelete();
+        $chain->delete();
+        $production->delete();
+        $master->delete();
+    }
+});
+
 test('chain receipt print fills diterima oleh from workshop receive audit', function () {
     if (
         ! Schema::connection('third')->hasColumn('spkchains', 'workshop_received_at')
