@@ -1,4 +1,5 @@
-import inboxIcon from '@ui5/webcomponents-icons/dist/inbox.js';
+import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
+import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import outboxIcon from '@ui5/webcomponents-icons/dist/outbox.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
@@ -7,15 +8,17 @@ import { router } from '@inertiajs/react';
 import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 import { SpkChainAllocateDialog } from '@/components/spk/spk-chain-allocate-dialog';
-import { SpkChainReceiptPrintDialog } from '@/components/spk/spk-chain-receipt-print-dialog';
+import { SpkChainReceiptPrintDialog, openChainReceiptPrintPreview } from '@/components/spk/spk-chain-receipt-print-dialog';
 import type {
     SpkChainFulfillmentAction,
+    SpkChainFulfillmentStatus,
     SpkChainIssuedUnit,
     SpkChainItem,
+    SpkChainReceiptSummary,
     SpkChainStock,
     SpkMsChainOption,
 } from '@/components/spk/types';
-import { fulfillment as advanceChainFulfillment } from '@/routes/spk/chains';
+import { fulfillment as advanceChainFulfillment, revokeAllocation as revokeChainAllocation } from '@/routes/spk/chains';
 
 export type SpkFormChainRow = {
     id: string;
@@ -643,30 +646,90 @@ export function SpkFormChainListCard({
     );
 }
 
-function formatIssuedUnitSummary(unit: SpkChainIssuedUnit): string {
+function formatIssuedUnitAudit(unit: SpkChainIssuedUnit): string | null {
     const parts: string[] = [];
 
-    if (unit.color !== '' && unit.color !== '-') {
-        parts.push(unit.color);
+    if (unit.allocatedDate !== null && unit.allocatedDate.trim() !== '') {
+        parts.push(`Tanggal: ${unit.allocatedDate}`);
     }
 
-    if (unit.size !== '' && unit.size !== '-') {
-        parts.push(unit.size);
+    if (unit.allocatedBy !== null && unit.allocatedBy.trim() !== '') {
+        parts.push(`Oleh: ${unit.allocatedBy}`);
     }
 
-    if (unit.unitNo !== null && unit.unitNo.trim() !== '') {
-        parts.push(`No. unit ${unit.unitNo}`);
+    return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function workshopReceivedAuditLines(
+    workshopReceived?: SpkChainItem['workshopReceived'],
+): { received: string | null; by: string | null } {
+    if (workshopReceived === undefined || workshopReceived === null) {
+        return { received: null, by: null };
     }
 
-    if (unit.chainLength !== '' && unit.chainLength !== '-') {
-        parts.push(`Panjang ${unit.chainLength} cm`);
-    }
+    const received =
+        workshopReceived.at !== null && workshopReceived.at.trim() !== ''
+            ? `Diterima: ${workshopReceived.at}`
+            : null;
 
-    if (unit.weight !== null && unit.weight.trim() !== '') {
-        parts.push(`${unit.weight} g`);
-    }
+    const by =
+        workshopReceived.by !== null && workshopReceived.by.trim() !== ''
+            ? `Oleh: ${workshopReceived.by}`
+            : null;
 
-    return parts.length > 0 ? parts.join(' · ') : '—';
+    return { received, by };
+}
+
+function SpkChainIssuedUnitTable({
+    unit,
+}: {
+    unit: SpkChainIssuedUnit;
+}) {
+    const unitLabel =
+        unit.unitNo !== null && unit.unitNo.trim() !== ''
+            ? unit.unitNo
+            : String(unit.id);
+    const lengthLabel =
+        unit.chainLength !== '' && unit.chainLength !== '-'
+            ? `${unit.chainLength} cm`
+            : '—';
+    const weightLabel =
+        unit.weight !== null && unit.weight.trim() !== ''
+            ? `${unit.weight} g`
+            : '—';
+
+    return (
+        <table className="spkChainIssuedUnitTable">
+            <thead>
+                <tr>
+                    <th className="spkChainIssuedColUnit">Unit</th>
+                    <th className="spkChainIssuedColName">Nama</th>
+                    <th className="spkChainIssuedColLength">Panjang</th>
+                    <th className="spkChainIssuedColColor">Warna</th>
+                    <th className="spkChainIssuedColWeight">Berat</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td className="spkChainIssuedColUnit tabular-nums">
+                        {unitLabel}
+                    </td>
+                    <td className="spkChainIssuedColName">
+                        {emptyDash(unit.name)}
+                    </td>
+                    <td className="spkChainIssuedColLength tabular-nums">
+                        {lengthLabel}
+                    </td>
+                    <td className="spkChainIssuedColColor">
+                        {emptyDash(unit.color)}
+                    </td>
+                    <td className="spkChainIssuedColWeight tabular-nums">
+                        {weightLabel}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    );
 }
 
 function emptyDash(value: string | number | null | undefined): string {
@@ -694,25 +757,59 @@ function chainStockStatusLabel(
     };
 }
 
-function chainAllocatedStatusLabel(
+function chainFulfillmentStatusBadgeClass(
+    status: SpkChainFulfillmentStatus,
+): string {
+    const base = 'spkStoneStockBadge';
+
+    switch (status) {
+        case 'allocated':
+            return `${base} is-available`;
+        case 'sent_to_workshop':
+            return `${base} spkChainFulfillmentBadge--progress`;
+        case 'received_by_workshop':
+            return `${base} spkChainFulfillmentBadge--done`;
+        case 'installed':
+            return `${base} is-available`;
+        case 'not_allocated':
+        case 'unlinked':
+        default:
+            return `${base} is-unavailable`;
+    }
+}
+
+function chainFulfillmentStatusLabel(
     allocation?: SpkChainItem['allocation'],
-): { text: string; allocated: boolean } | null {
+): { text: string; allocated: boolean; badgeClass: string } | null {
     if (allocation === undefined || allocation === null) {
         return null;
     }
 
-    if (allocation.status === 'unlinked') {
-        return { text: 'Belum Dialokasikan', allocated: false };
-    }
-
     const allocated =
-        allocation.status !== 'not_allocated' && allocation.allocatedUnits > 0;
+        allocation.status !== 'not_allocated' &&
+        allocation.status !== 'unlinked' &&
+        allocation.allocatedUnits > 0;
+
+    const text =
+        allocation.label.trim() !== ''
+            ? allocation.label
+            : allocated
+              ? 'Sudah Dialokasikan'
+              : 'Belum Dialokasikan';
 
     return {
-        text: allocated ? 'Sudah Dialokasikan' : 'Belum Dialokasikan',
+        text,
         allocated,
+        badgeClass: chainFulfillmentStatusBadgeClass(allocation.status),
     };
 }
+
+const CHAIN_RECEIPT_PRINTABLE_STATUSES: SpkChainFulfillmentStatus[] = [
+    'allocated',
+    'sent_to_workshop',
+    'received_by_workshop',
+    'installed',
+];
 
 function chainReceiptPrintEnabled(chains: SpkChainItem[]): boolean {
     if (chains.length === 0) {
@@ -722,25 +819,30 @@ function chainReceiptPrintEnabled(chains: SpkChainItem[]): boolean {
     return chains.every((chain) => {
         const status = chain.allocation?.status;
 
-        return status === 'allocated' || status === 'sent_to_workshop';
+        return (
+            status !== undefined &&
+            CHAIN_RECEIPT_PRINTABLE_STATUSES.includes(status)
+        );
     });
+}
+
+function chainCanManageAllocation(chain: SpkChainItem): boolean {
+    return (
+        chain.issuedUnit !== undefined &&
+        chain.issuedUnit !== null &&
+        chain.allocation?.status === 'allocated'
+    );
+}
+
+function chainNeedsReceiptBeforeWorkshop(chains: SpkChainItem[]): boolean {
+    return chains.some(
+        (chain) => chain.allocation?.status === 'allocated',
+    );
 }
 
 function chainReceiptPrintDisabledTitle(chains: SpkChainItem[]): string {
     if (chains.length === 0) {
         return 'Tidak ada rantai pada SPK ini';
-    }
-
-    const hasReceived = chains.some((chain) => {
-        const status = chain.allocation?.status;
-
-        return (
-            status === 'received_by_workshop' || status === 'installed'
-        );
-    });
-
-    if (hasReceived) {
-        return 'Rantai sudah diterima di workshop';
     }
 
     const hasNotAllocated = chains.some((chain) => {
@@ -767,6 +869,7 @@ type SpkChainListCardProps = {
         produksiNo: string;
     };
     receiptEmployeeOptions?: string[];
+    chainReceipt?: SpkChainReceiptSummary | null;
 };
 
 const STATUS_COLUMN_ACTIONS: SpkChainFulfillmentAction[] = [
@@ -809,10 +912,7 @@ function SpkChainFulfillmentActionButton({
         return null;
     }
 
-    const allocateTitle =
-        disabled === true
-            ? 'Stok tidak tersedia atau master belum terhubung'
-            : 'Alokasikan unit chain ke SPK ini';
+    const allocateTitle = 'Alokasikan unit chain ke SPK ini';
 
     const actionTitle =
         nextAction === 'allocate' ? allocateTitle : label;
@@ -863,7 +963,7 @@ function SpkChainFulfillmentActionButton({
                 title={actionTitle}
                 onClick={handleClick}
             >
-                <Icon name={inboxIcon} mode="Decorative" />
+                <Icon name={acceptIcon} mode="Decorative" />
                 <span className="spkChainFulfillmentActionBtnLabel">
                     {processing ? 'Memproses…' : label}
                 </span>
@@ -881,22 +981,31 @@ function SpkChainFulfillmentStatusCell({
     chain: SpkChainItem;
     onAllocate: () => void;
 }) {
-    const canAllocate = chain.allocation?.nextAction === 'allocate';
     const stockLabel = chainStockStatusLabel(chain.stock);
-    const allocatedLabel = chainAllocatedStatusLabel(chain.allocation);
+    const fulfillmentLabel = chainFulfillmentStatusLabel(chain.allocation);
+    const workshopReceivedAudit = workshopReceivedAuditLines(
+        chain.workshopReceived,
+    );
+    const showWorkshopReceivedAudit =
+        workshopReceivedAudit.received !== null ||
+        workshopReceivedAudit.by !== null;
+    const showStockLabel =
+        stockLabel !== null &&
+        !(
+            fulfillmentLabel?.allocated === true && !stockLabel.available
+        );
 
     return (
         <div className="spkChainStatusCell">
             <div className="spkChainStatusCellActions">
                 <SpkChainFulfillmentActionButton
                     chain={chain}
-                    disabled={!canAllocate}
                     onlyActions={STATUS_COLUMN_ACTIONS}
                     onAllocate={onAllocate}
                 />
             </div>
             <div className="spkChainStatusLabels">
-                {stockLabel !== null ? (
+                {showStockLabel ? (
                     <span
                         className={
                             stockLabel.available
@@ -907,43 +1016,86 @@ function SpkChainFulfillmentStatusCell({
                     >
                         {stockLabel.text}
                     </span>
-                ) : (
+                ) : stockLabel !== null ? null : (
                     <span className="spkStoneStockMeta">—</span>
                 )}
-                {allocatedLabel !== null ? (
-                    <span
-                        className={
-                            allocatedLabel.allocated
-                                ? 'spkStoneStockBadge is-available'
-                                : 'spkStoneStockBadge is-unavailable'
-                        }
-                    >
-                        {allocatedLabel.text}
+                {fulfillmentLabel !== null ? (
+                    <span className={fulfillmentLabel.badgeClass}>
+                        {fulfillmentLabel.text}
                     </span>
                 ) : (
                     <span className="spkStoneStockMeta">—</span>
                 )}
             </div>
+            {showWorkshopReceivedAudit ? (
+                <span className="spkChainWorkshopReceivedAudit">
+                    {workshopReceivedAudit.received !== null ? (
+                        <span className="spkChainWorkshopReceivedAuditLine">
+                            {workshopReceivedAudit.received}
+                        </span>
+                    ) : null}
+                    {workshopReceivedAudit.by !== null ? (
+                        <span className="spkChainWorkshopReceivedAuditLine">
+                            {workshopReceivedAudit.by}
+                        </span>
+                    ) : null}
+                </span>
+            ) : null}
         </div>
     );
+}
+
+function workshopReceiverNameForReceipt(chains: SpkChainItem[]): string {
+    for (const chain of chains) {
+        const status = chain.allocation?.status;
+
+        if (
+            status !== 'received_by_workshop' &&
+            status !== 'installed'
+        ) {
+            continue;
+        }
+
+        const by = chain.workshopReceived?.by?.trim() ?? '';
+
+        if (by !== '') {
+            return by;
+        }
+    }
+
+    return '';
 }
 
 export function SpkChainListCard({
     chains,
     spk,
     receiptEmployeeOptions = [],
+    chainReceipt = null,
 }: SpkChainListCardProps) {
     const showWorkflow = spk !== undefined;
     const [allocateChain, setAllocateChain] = useState<SpkChainItem | null>(
         null,
     );
     const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
-    const [preparingReceipt, setPreparingReceipt] = useState(false);
+    const [revokingChainId, setRevokingChainId] = useState<string | null>(null);
 
     const canPrintReceipt = showWorkflow && chainReceiptPrintEnabled(chains);
-    const printReceiptTitle = canPrintReceipt
-        ? 'Buat dan cetak tanda terima serah terima rantai ke workshop'
-        : chainReceiptPrintDisabledTitle(chains);
+    const hasExistingReceipt =
+        chainReceipt !== null &&
+        chainReceipt !== undefined &&
+        chainReceipt.printUrl.trim() !== '';
+    const printReceiptTitle = !canPrintReceipt
+        ? chainReceiptPrintDisabledTitle(chains)
+        : hasExistingReceipt
+          ? `Buka preview tanda terima ${chainReceipt.docNo}`
+          : chains.some(
+                  (chain) =>
+                      chain.allocation?.status === 'sent_to_workshop' ||
+                      chain.allocation?.status === 'received_by_workshop' ||
+                      chain.allocation?.status === 'installed',
+              )
+            ? 'Cetak ulang tanda terima serah terima rantai ke workshop'
+            : 'Buat dan cetak tanda terima serah terima rantai ke workshop';
 
     const openReceiptDialog = (): void => {
         if (!canPrintReceipt) {
@@ -952,44 +1104,13 @@ export function SpkChainListCard({
             return;
         }
 
-        const chainsToSend = chains.filter(
-            (chain) => chain.allocation?.nextAction === 'send_to_workshop',
-        );
-
-        if (chainsToSend.length === 0) {
-            setReceiptDialogOpen(true);
+        if (hasExistingReceipt) {
+            openChainReceiptPrintPreview(chainReceipt.printUrl);
 
             return;
         }
 
-        setPreparingReceipt(true);
-
-        const sendNext = (index: number): void => {
-            const chain = chainsToSend[index];
-
-            if (chain === undefined) {
-                setPreparingReceipt(false);
-                setReceiptDialogOpen(true);
-
-                return;
-            }
-
-            router.post(
-                advanceChainFulfillment.url(Number(chain.id)),
-                { action: 'send_to_workshop' },
-                {
-                    preserveScroll: true,
-                    onError: () => {
-                        setPreparingReceipt(false);
-                    },
-                    onFinish: () => {
-                        sendNext(index + 1);
-                    },
-                },
-            );
-        };
-
-        sendNext(0);
+        setReceiptDialogOpen(true);
     };
 
     return (
@@ -1005,30 +1126,25 @@ export function SpkChainListCard({
                     <button
                         type="button"
                         className="spkChainPrintReceiptBtn"
-                        disabled={preparingReceipt}
                         aria-label="Print Tanda Terima"
-                        title={
-                            preparingReceipt
-                                ? 'Menyiapkan…'
-                                : printReceiptTitle
-                        }
+                        title={printReceiptTitle}
                         onClick={openReceiptDialog}
                     >
-                        {preparingReceipt ? (
-                            <span className="spkChainPrintReceiptBtnLabel">
-                                Menyiapkan…
-                            </span>
-                        ) : (
-                            <>
-                                <Icon name={printIcon} mode="Decorative" />
-                                <span className="spkChainPrintReceiptBtnLabel">
-                                    Tanda Terima Rantai
-                                </span>
-                            </>
-                        )}
+                        <Icon name={printIcon} mode="Decorative" />
+                        <span className="spkChainPrintReceiptBtnLabel">
+                            Tanda Terima Rantai
+                        </span>
                     </button>
                 ) : null}
             </div>
+
+            {showWorkflow &&
+            chains.length > 0 &&
+            chainNeedsReceiptBeforeWorkshop(chains) ? (
+                <p className="spkChainReceiptReminder" role="status">
+                    Buat tanda terima untuk kirim ke workshop.
+                </p>
+            ) : null}
 
             {chains.length === 0 ? (
                 <div className="spkStoneEmpty">
@@ -1084,16 +1200,87 @@ export function SpkChainListCard({
                                                         showWorkflow ? 5 : 4
                                                     }
                                                 >
-                                                    <span
-                                                        className="spkChainIssuedMeta"
-                                                    >
-                                                        <strong>
-                                                            Rantai yang dialokasikan:
-                                                        </strong>{' '}
-                                                        {formatIssuedUnitSummary(
-                                                            chain.issuedUnit,
-                                                        )}
-                                                    </span>
+                                                    {(() => {
+                                                        const issuedAudit =
+                                                            formatIssuedUnitAudit(
+                                                                chain.issuedUnit,
+                                                            );
+
+                                                        return (
+                                                    <div className="spkChainIssuedRowInner">
+                                                        <div
+                                                            className="spkChainIssuedMeta"
+                                                        >
+                                                            <strong>
+                                                                Rantai yang
+                                                                dialokasikan:
+                                                            </strong>
+                                                            {issuedAudit !==
+                                                            null ? (
+                                                                <span className="spkChainIssuedMetaAudit">
+                                                                    {
+                                                                        issuedAudit
+                                                                    }
+                                                                </span>
+                                                            ) : null}
+                                                            <span
+                                                                className="spkChainIssuedMetaDetail"
+                                                            >
+                                                                <SpkChainIssuedUnitTable
+                                                                    unit={
+                                                                        chain.issuedUnit
+                                                                    }
+                                                                />
+                                                            </span>
+                                                        </div>
+                                                        {showWorkflow &&
+                                                        chainCanManageAllocation(
+                                                            chain,
+                                                        ) ? (
+                                                            <div className="spkChainIssuedRowActions">
+                                                                <button
+                                                                    type="button"
+                                                                    className="spkChainIssuedRowActionBtn spkChainIssuedRowActionBtn--danger"
+                                                                    aria-label="Hapus alokasi rantai"
+                                                                    title="Hapus alokasi rantai"
+                                                                    disabled={
+                                                                        revokingChainId ===
+                                                                        chain.id
+                                                                    }
+                                                                    onClick={() => {
+                                                                        setRevokingChainId(
+                                                                            chain.id,
+                                                                        );
+                                                                        router.post(
+                                                                            revokeChainAllocation.url(
+                                                                                Number(
+                                                                                    chain.id,
+                                                                                ),
+                                                                            ),
+                                                                            {},
+                                                                            {
+                                                                                preserveScroll: true,
+                                                                                onFinish: () => {
+                                                                                    setRevokingChainId(
+                                                                                        null,
+                                                                                    );
+                                                                                },
+                                                                            },
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    <Icon
+                                                                        name={
+                                                                            deleteIcon
+                                                                        }
+                                                                        mode="Decorative"
+                                                                    />
+                                                                </button>
+                                                            </div>
+                                                        ) : null}
+                                                    </div>
+                                                        );
+                                                    })()}
                                                 </td>
                                             </tr>
                                         ) : null}
@@ -1120,11 +1307,20 @@ export function SpkChainListCard({
                     <SpkChainReceiptPrintDialog
                         open={receiptDialogOpen}
                         onOpenChange={setReceiptDialogOpen}
+                        onPrinted={() =>
+                            router.reload({
+                                only: ['chains', 'chainReceipt'],
+                                preserveScroll: true,
+                            })
+                        }
                         spkRowId={spk.rowId}
                         chainLineIds={chains.map((chain) =>
                             Number(chain.id),
                         )}
                         employeeOptions={receiptEmployeeOptions}
+                        defaultDiterimaOleh={workshopReceiverNameForReceipt(
+                            chains,
+                        )}
                     />
                 </>
             ) : null}

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\SpkChain;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class SpkChainStockChecker
@@ -78,10 +79,14 @@ class SpkChainStockChecker
      * @param  Collection<int, SpkChain>  $chains
      * @return array<int, array{
      *     unitNo: string|null,
+     *     name: string,
      *     color: string,
      *     size: string,
      *     chainLength: string,
-     *     weight: string|null
+     *     weight: string|null,
+     *     id: int,
+     *     allocatedDate: string|null,
+     *     allocatedBy: string|null
      * }>
      */
     public function issuedUnitsForChains(int $spkRowId, Collection $chains): array
@@ -117,11 +122,15 @@ class SpkChainStockChecker
     /**
      * @param  array<string, int|string|null>  $unitRow
      * @return array{
+     *     id: int,
      *     unitNo: string|null,
+     *     name: string,
      *     color: string,
      *     size: string,
      *     chainLength: string,
-     *     weight: string|null
+     *     weight: string|null,
+     *     allocatedDate: string|null,
+     *     allocatedBy: string|null
      * }
      */
     private function formatIssuedUnit(array $unitRow): array
@@ -129,17 +138,33 @@ class SpkChainStockChecker
         $unitColor = trim((string) ($unitRow['color'] ?? ''));
         $unitLength = $this->formatWholeMeasurement($unitRow['chainLength'] ?? '-');
         $size = $unitLength !== '-' ? $unitLength.' cm' : '-';
+        $name = trim((string) ($unitRow['name'] ?? ''));
+
+        $outDate = trim((string) ($unitRow['outDate'] ?? ''));
+        $allocatedDate = $outDate !== ''
+            ? Carbon::createFromFormat('Y-m-d', $outDate)->format('d-M-Y')
+            : null;
+
+        $modifiedBy = trim((string) ($unitRow['modifiedBy'] ?? ''));
+        $createdBy = trim((string) ($unitRow['createdBy'] ?? ''));
+        $allocatedBy = $modifiedBy !== ''
+            ? $modifiedBy
+            : ($createdBy !== '' ? $createdBy : null);
 
         return [
+            'id' => (int) ($unitRow['id'] ?? 0),
             'unitNo' => filled($unitRow['unitNo'] ?? null)
                 ? (string) $unitRow['unitNo']
                 : null,
+            'name' => $name !== '' ? $name : '-',
             'color' => $unitColor !== '' ? $unitColor : '-',
             'size' => $size,
             'chainLength' => $unitLength,
             'weight' => filled($unitRow['weight'] ?? null)
                 ? (string) $unitRow['weight']
                 : null,
+            'allocatedDate' => $allocatedDate,
+            'allocatedBy' => $allocatedBy,
         ];
     }
 

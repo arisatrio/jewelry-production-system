@@ -18,7 +18,6 @@ class SpkChainStockController extends Controller
      * Unit chain siap pakai untuk alokasi ke SPK (modal alokasi di detail SPK).
      */
     public function allocationUnits(
-        Request $request,
         SpkChain $spkChain,
         ChainStockService $chainStock,
         SpkChainFulfillment $fulfillment,
@@ -26,9 +25,6 @@ class SpkChainStockController extends Controller
         abort_if($spkChain->is_deleted === 1, 404);
 
         $spkChain->loadMissing(['msChain', 'production']);
-
-        $color = trim((string) $request->query('color', ''));
-        $colorFilter = $color !== '' ? $color : null;
 
         if ($spkChain->mschain_id === null || $spkChain->msChain === null) {
             return response()->json([
@@ -56,16 +52,33 @@ class SpkChainStockController extends Controller
             'status' => true,
             'data' => [
                 'allocation' => $fulfillment->resolve($spkChain),
-                'units' => $chainStock->listInStockUnits(
-                    $spkChain->msChain,
-                    color: $colorFilter,
-                ),
+                'units' => $chainStock->listInStockUnitsForSpkAllocation($spkChain),
                 'colorOptions' => $colorOptions,
                 'suggestedColor' => filled($spkChain->color)
                     ? (string) $spkChain->color
                     : null,
             ],
         ]);
+    }
+
+    /**
+     * Batalkan alokasi unit chain pada baris SPK (kembalikan ke stok).
+     */
+    public function revokeAllocation(
+        SpkChain $spkChain,
+        SpkChainFulfillment $fulfillment,
+        Request $request,
+    ): RedirectResponse {
+        abort_if($spkChain->is_deleted === 1, 404);
+
+        $fulfillment->revokeAllocation($spkChain, $this->actorName($request));
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Alokasi rantai dibatalkan.',
+        ]);
+
+        return back();
     }
 
     /**

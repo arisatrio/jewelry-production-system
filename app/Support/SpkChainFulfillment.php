@@ -119,7 +119,41 @@ class SpkChainFulfillment
 
         $this->persistStatus($chain, $nextStatus, $actor);
 
+        if ($action === self::ACTION_RECEIVE_WORKSHOP) {
+            $this->recordWorkshopReceived($chain, $actor);
+        }
+
         return $this->resolve($chain->refresh());
+    }
+
+    /**
+     * @param  list<int>  $lineIds
+     */
+    public function markSentToWorkshopForChainLines(int $spkRowId, array $lineIds, string $actor): void
+    {
+        if (! $this->columnAvailable()) {
+            return;
+        }
+
+        foreach ($lineIds as $lineId) {
+            $chain = SpkChain::query()
+                ->notDeleted()
+                ->where('row_id', $spkRowId)
+                ->where('line_id', $lineId)
+                ->first();
+
+            if ($chain === null) {
+                continue;
+            }
+
+            $resolved = $this->resolve($chain);
+
+            if ($resolved['nextAction'] !== self::ACTION_SEND_TO_WORKSHOP) {
+                continue;
+            }
+
+            $this->advance($chain->refresh(), self::ACTION_SEND_TO_WORKSHOP, $actor);
+        }
     }
 
     public function markAllocatedForSpkMaster(int $spkId, int $msChainId, string $actor): void
@@ -143,6 +177,131 @@ class SpkChainFulfillment
                 'modified_date' => $now,
                 'modified_by' => $actor,
             ]);
+    }
+
+    public function markAllocatedForSpkChainLine(int $lineId, int $msChainId, string $actor): void
+    {
+        if (! $this->columnAvailable()) {
+            return;
+        }
+
+        $now = now();
+
+        SpkChain::query()
+            ->notDeleted()
+            ->where('line_id', $lineId)
+            ->where(function ($query): void {
+                $query->whereNull('fulfillment_status')
+                    ->orWhere('fulfillment_status', self::NOT_ALLOCATED);
+            })
+            ->update([
+                'mschain_id' => $msChainId,
+                'fulfillment_status' => self::ALLOCATED,
+                'modified_date' => $now,
+                'modified_by' => $actor,
+            ]);
+    }
+
+    public function syncSpkChainAllocation(int $lineId, int $msChainId, string $actor): void
+    {
+        if (! $this->columnAvailable()) {
+            return;
+        }
+
+        $chain = SpkChain::query()
+            ->notDeleted()
+            ->where('line_id', $lineId)
+            ->first();
+
+        if ($chain === null) {
+            return;
+        }
+
+        $status = $this->normalizeStoredStatus($chain->fulfillment_status);
+
+        if (in_array($status, [
+            self::SENT_TO_WORKSHOP,
+            self::RECEIVED_BY_WORKSHOP,
+            self::INSTALLED,
+        ], true)) {
+            throw new HttpException(422, 'Alokasi rantai tidak dapat diubah pada status ini.');
+        }
+
+        $chain->update([
+            'mschain_id' => $msChainId,
+            'fulfillment_status' => self::ALLOCATED,
+            'modified_date' => now(),
+            'modified_by' => $actor,
+        ]);
+    }
+
+    /**
+     * Batalkan alokasi unit chain ke baris SPK (kembalikan stok).
+     */
+    public function revokeAllocation(SpkChain $chain, string $actor): void
+    {
+        abort_if($chain->is_deleted === 1, 404);
+
+        $status = $this->normalizeStoredStatus($chain->fulfillment_status);
+
+        if ($status !== self::ALLOCATED) {
+            throw new HttpException(422, 'Hanya alokasi yang belum dikirim ke workshop yang dapat dibatalkan.');
+        }
+
+        $this->returnIssuedUnitForSpkChain($chain, $actor);
+        $this->persistStatus($chain, self::NOT_ALLOCATED, $actor);
+    }
+
+    /**
+     * Kembalikan unit terbit ke stok saat ganti alokasi (tanpa ubah status fulfillment).
+     */
+    public function revokeAllocationIfAllocated(SpkChain $chain, string $actor, bool $replace = false): void
+    {
+        if ($chain->mschain_id === null) {
+            return;
+        }
+
+        $status = $this->normalizeStoredStatus($chain->fulfillment_status);
+
+        if ($this->allocatedUnits($chain) === 0) {
+            return;
+        }
+
+        if (! $replace && $status !== self::ALLOCATED) {
+            throw new HttpException(422, 'Alokasi rantai tidak dapat dibatalkan pada status ini.');
+        }
+
+        if ($replace && in_array($status, [
+            self::SENT_TO_WORKSHOP,
+            self::RECEIVED_BY_WORKSHOP,
+            self::INSTALLED,
+        ], true)) {
+            throw new HttpException(422, 'Alokasi rantai tidak dapat diubah pada status ini.');
+        }
+
+        $this->returnIssuedUnitForSpkChain($chain, $actor);
+
+        if (! $replace) {
+            $this->persistStatus($chain, self::NOT_ALLOCATED, $actor);
+        }
+    }
+
+    private function returnIssuedUnitForSpkChain(SpkChain $chain, string $actor): void
+    {
+        if ($chain->mschain_id === null || ! $this->chainStock->tableAvailable()) {
+            return;
+        }
+
+        $unit = $this->chainStock->latestIssuedUnitForSpkChain(
+            (int) $chain->row_id,
+            (int) $chain->mschain_id,
+        );
+
+        if ($unit === null) {
+            return;
+        }
+
+        $this->chainStock->returnUnitToStock($unit, $actor);
     }
 
     private function allocatedUnits(SpkChain $chain): int
@@ -183,19 +342,13 @@ class SpkChainFulfillment
         return $stored;
     }
 
-    private function canAllocate(SpkChain $chain): bool
+    private function canOfferAllocation(SpkChain $chain): bool
     {
         if ($chain->mschain_id === null) {
             return false;
         }
 
-        if (! $this->chainStock->tableAvailable()) {
-            return false;
-        }
-
-        $counts = $this->chainStock->countsByMsChain([(int) $chain->mschain_id]);
-
-        return ($counts[(int) $chain->mschain_id]['balance'] ?? 0) >= 1;
+        return $this->chainStock->tableAvailable();
     }
 
     /**
@@ -225,7 +378,7 @@ class SpkChainFulfillment
         }
 
         if ($status === self::NOT_ALLOCATED || $allocatedUnits === 0) {
-            return $this->canAllocate($chain) ? self::ACTION_ALLOCATE : null;
+            return $this->canOfferAllocation($chain) ? self::ACTION_ALLOCATE : null;
         }
 
         return match ($status) {
@@ -276,5 +429,38 @@ class SpkChainFulfillment
         }
 
         $chain->update($attributes);
+    }
+
+    private function recordWorkshopReceived(SpkChain $chain, string $actor): void
+    {
+        if (! $this->workshopReceivedColumnsAvailable()) {
+            return;
+        }
+
+        $now = now();
+
+        $chain->update([
+            'workshop_received_at' => $now,
+            'workshop_received_by' => $actor,
+            'modified_date' => $now,
+            'modified_by' => $actor,
+        ]);
+    }
+
+    private function workshopReceivedColumnsAvailable(): bool
+    {
+        $schema = Schema::connection('third');
+
+        foreach (['spk_chains', 'spkchains'] as $table) {
+            if (
+                $schema->hasTable($table)
+                && $schema->hasColumn($table, 'workshop_received_at')
+                && $schema->hasColumn($table, 'workshop_received_by')
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -28,6 +28,7 @@ test('spk show page includes chains list props', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
+            ->has('chainReceipt')
             ->has('chains')
             ->has('chains.0.id')
             ->has('chains.0.category')

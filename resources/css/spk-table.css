@@ -5108,6 +5108,18 @@ button.spkItemImagePreview--clickable:focus-visible {
     margin-left: auto;
 }
 
+.spkChainReceiptReminder {
+    display: block;
+    margin: 0 0 0.65rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid #f59e0b;
+    border-radius: 0.35rem;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+
 .spkChainPrintReceiptBtn {
     display: inline-flex;
     align-items: center;
@@ -5162,31 +5174,239 @@ button.spkItemImagePreview--clickable:focus-visible {
 }
 
 .spkChainIssuedRow td {
-    padding-top: 0.15rem;
-    padding-bottom: 0.45rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.55rem;
     border-top: none;
     background: #f8fafc;
+    white-space: normal;
+}
+
+.spkChainIssuedRowInner {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-left: 1.25rem;
+    padding-left: 0.85rem;
+    border-left: 2px solid #d1d5db;
+    box-sizing: border-box;
 }
 
 .spkChainIssuedMeta {
     display: block;
-    color: #4b5563;
-    font-size: 0.75rem;
-    line-height: 1.35;
+    flex: 1 1 auto;
+    min-width: 0;
+    color: #1f2937;
+    font-size: inherit;
+    line-height: 1.3;
 }
 
 .spkChainIssuedMeta strong {
-    color: #374151;
+    display: block;
+    margin-bottom: 0.35rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #e5e7eb;
+    color: #111827;
+    font-size: inherit;
     font-weight: 600;
+    line-height: 1.3;
+}
+
+.spkChainIssuedMetaAudit {
+    display: block;
+    margin: -0.15rem 0 0.45rem;
+    color: #6b7280;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1.35;
+}
+
+.spkChainWorkshopReceivedAudit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    width: 100%;
+    max-width: 8.75rem;
+    color: #6b7280;
+    font-size: 0.625rem;
+    font-weight: 400;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.spkChainWorkshopReceivedAuditLine {
+    display: block;
+}
+
+.spkChainIssuedMetaDetail {
+    display: block;
+    color: #1f2937;
+    font-size: inherit;
+    font-weight: 400;
+    line-height: 1.3;
+    white-space: normal;
+}
+
+.spkChainIssuedUnitTable {
+    width: 100%;
+    max-width: none;
+    border-collapse: collapse;
+    font-size: inherit;
+    line-height: 1.3;
+}
+
+.spkChainIssuedUnitTable th,
+.spkChainIssuedUnitTable td {
+    padding: 0.35rem 1.25rem 0.35rem 0;
+    text-align: left;
+    vertical-align: top;
+    font-size: inherit;
+    font-weight: 400;
+    color: #1f2937;
+    border: none;
+}
+
+.spkChainIssuedUnitTable thead th {
+    padding-top: 0;
+    padding-bottom: 0.35rem;
+    color: #111827;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.spkChainIssuedUnitTable .spkChainIssuedColUnit {
+    min-width: 1rem;
+    width: 1rem;
+    white-space: nowrap;
+}
+
+.spkChainIssuedUnitTable .spkChainIssuedColName {
+    min-width: 5rem;
+    width: 5rem;
+    max-width: 5rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkChainIssuedUnitTable .spkChainIssuedColLength {
+    min-width: 4rem;
+    width: 4rem;
+    white-space: nowrap;
+}
+
+.spkChainIssuedUnitTable .spkChainIssuedColColor {
+    min-width: 4rem;
+    width: 4rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkChainIssuedUnitTable .spkChainIssuedColWeight {
+    min-width: 4rem;
+    width: 4rem;
+    padding-right: 0;
+    white-space: nowrap;
+}
+
+.spkChainIssuedRowActions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.spkChainIssuedRowActionBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.85rem;
+    width: 1.85rem;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    border: 1px solid var(--sapButton_Emphasized_BorderColor, #0070f2);
+    border-radius: 0.35rem;
+    background: var(--sapButton_Lite_Background, #fff);
+    color: var(--sapButton_Emphasized_BorderColor, #0070f2);
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.spkChainIssuedRowActionBtn:hover:not(:disabled) {
+    background: var(--sapButton_Lite_Hover_Background, #e8f2fc);
+    border-color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+    color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+}
+
+.spkChainIssuedRowActionBtn:active:not(:disabled) {
+    background: var(--sapButton_Lite_Active_Background, #d9ecfb);
+    border-color: var(--sapButton_Emphasized_Active_BorderColor, #0054b4);
+    color: var(--sapButton_Emphasized_Active_BorderColor, #0054b4);
+}
+
+.spkChainIssuedRowActionBtn:focus-visible {
+    outline: 2px solid var(--sap-fiori-brand, #0070f2);
+    outline-offset: 1px;
+}
+
+.spkChainIssuedRowActionBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkChainIssuedRowActionBtn ui5-icon {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex-shrink: 0;
+    color: currentColor;
+}
+
+.spkChainIssuedRowActionBtn--danger {
+    border-color: #dc2626;
+    color: #dc2626;
+}
+
+.spkChainIssuedRowActionBtn--danger:hover:not(:disabled) {
+    background: #fef2f2;
+    border-color: #b91c1c;
+    color: #b91c1c;
+}
+
+.spkChainIssuedRowActionBtn--danger:active:not(:disabled) {
+    background: #fee2e2;
+    border-color: #991b1b;
+    color: #991b1b;
 }
 
 .spkChainTable th.spkChainStatusCol,
-.spkChainTable td.spkChainStatusCol {
+.spkChainTable td.spkChainStatusCol,
+.spkStoneTable--withStatus th.spkStoneStatusCol,
+.spkStoneTable--withStatus td.spkStoneStatusCol {
     text-align: center;
-    width: 9.25rem;
-    max-width: 9.5rem;
+    width: 15rem;
+    max-width: 15rem;
     min-width: 8.75rem;
     box-sizing: border-box;
+}
+
+.spkChainTable thead th:nth-child(3),
+.spkChainTable tbody td:nth-child(3) {
+    width: 8rem;
+    max-width: 11rem;
+    min-width: 6.5rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkChainTable thead th:nth-child(4),
+.spkChainTable tbody td:nth-child(4) {
+    width: 3.5rem;
+    max-width: 4rem;
+    min-width: 3rem;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .spkChainStatusLabels .spkStoneStockBadge {
@@ -5261,10 +5481,10 @@ button.spkItemImagePreview--clickable:focus-visible {
     appearance: none;
     min-height: 1.85rem;
     padding: 0.3rem 0.45rem;
-    border: 1px solid var(--sapButton_Emphasized_BorderColor, #0070f2);
+    border: 1px solid #15803d;
     border-radius: 0.35rem;
-    background: var(--sapButton_Lite_Background, #fff);
-    color: var(--sapButton_Emphasized_BorderColor, #0070f2);
+    background: #16a34a;
+    color: #fff;
     font-family: inherit;
     font-size: 0.6875rem;
     font-weight: 600;
@@ -5274,9 +5494,9 @@ button.spkItemImagePreview--clickable:focus-visible {
 }
 
 .spkChainStatusCell .spkChainFulfillmentReceiveBtn:hover:not(:disabled) {
-    background: var(--sapButton_Lite_Hover_Background, #e8f2fc);
-    border-color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
-    color: var(--sapButton_Emphasized_Hover_BorderColor, #0064d9);
+    background: #15803d;
+    border-color: #166534;
+    color: #fff;
 }
 
 .spkChainStatusCell .spkChainFulfillmentReceiveBtn:disabled {
@@ -5285,7 +5505,7 @@ button.spkItemImagePreview--clickable:focus-visible {
 }
 
 .spkChainStatusCell .spkChainFulfillmentReceiveBtn:focus-visible {
-    outline: 2px solid #0a6ed1;
+    outline: 2px solid #16a34a;
     outline-offset: 1px;
 }
 
@@ -5382,6 +5602,113 @@ button.spkItemImagePreview--clickable:focus-visible {
     color: #111827;
     font-size: 0.8125rem;
     line-height: 1.25;
+}
+
+.spkChainAllocateSearchField {
+    flex: 1 1 100%;
+    min-width: min(100%, 100%);
+}
+
+.spkChainAllocateSearchInput {
+    width: 100%;
+    min-height: 2rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.35rem;
+    background: #fff;
+    color: #111827;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    box-sizing: border-box;
+}
+
+.spkChainAllocateSearchInput:focus {
+    outline: 2px solid #0a6ed1;
+    outline-offset: 0;
+    border-color: #0a6ed1;
+}
+
+.spkChainAllocateSearchInput::placeholder {
+    color: #9ca3af;
+}
+
+.spkChainAllocateDialog .spkChainAllocateTableWrap {
+    max-height: min(24rem, 55vh);
+    overflow: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+.spkChainAllocateDialog .spkChainAllocateTable {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.spkChainAllocateDialog .spkChainAllocateTable th,
+.spkChainAllocateDialog .spkChainAllocateTable td {
+    min-width: 0;
+}
+
+.spkChainAllocateDialog .spkChainAllocateTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    min-width: 0;
+    background: #fafbfc;
+    box-shadow: 0 1px 0 #eceff2;
+}
+
+.spkChainAllocateDialog .spkChainAllocateTable tbody td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    vertical-align: middle;
+}
+
+.spkChainAllocateDialog .spkChainAllocateColAction {
+    width: 5rem;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.spkChainAllocateDialog .spkChainAllocateColUnit {
+    width: 12%;
+    white-space: nowrap;
+}
+
+.spkChainAllocateDialog .spkChainAllocateColLength {
+    width: 4.5rem;
+    white-space: nowrap;
+}
+
+.spkChainAllocateDialog .spkChainAllocateColWeight {
+    width: 4.25rem;
+    white-space: nowrap;
+}
+
+.spkChainAllocateDialog .spkChainAllocateColColor {
+    width: 14%;
+}
+
+.spkChainAllocateDialog .spkChainAllocateColName {
+    width: auto;
+}
+
+.spkChainAllocateDialog .spkChainAllocateMasterItem {
+    display: block;
+    margin-top: 0.15rem;
+    color: #6b7280;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.spkChainAllocateDialog .spkChainAllocateTable tbody tr.spkChainAllocateRowMatch {
+    background: #e8f5e9;
+}
+
+.spkChainAllocateDialog .spkChainAllocateTable tbody tr.spkChainAllocateRowMatch:hover {
+    background: #c8e6c9;
 }
 
 .spkStoneStockMeta {

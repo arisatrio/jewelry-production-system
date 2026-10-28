@@ -23,7 +23,6 @@ type ReceiptFormValues = {
     dari: string;
     untuk: string;
     diserahkan_oleh: string;
-    diketahui_oleh: string;
     diterima_oleh: string;
 };
 
@@ -36,12 +35,14 @@ type ReceiptStoreResponse = {
 type SpkChainReceiptPrintDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onPrinted?: () => void;
     spkRowId: number;
     chainLineIds: number[];
     employeeOptions: string[];
+    defaultDiterimaOleh?: string;
 };
 
-type ReceiptNameField = 'diserahkan_oleh' | 'diketahui_oleh' | 'diterima_oleh';
+type ReceiptNameField = 'diserahkan_oleh' | 'diterima_oleh';
 
 const RECEIPT_LOCATIONS = ['Head Office', 'Workshop', 'Store'] as const;
 
@@ -58,7 +59,6 @@ const RECEIPT_NAME_FIELDS: Array<{
     label: string;
 }> = [
     { name: 'diserahkan_oleh', label: 'Diserahkan oleh' },
-    { name: 'diketahui_oleh', label: 'Diketahui oleh' },
     { name: 'diterima_oleh', label: 'Diterima oleh' },
 ];
 
@@ -94,6 +94,7 @@ function resolveLoggedInEmployeeName(
 function defaultReceiptFormValues(
     employeeOptions: string[],
     loggedInName: string | undefined,
+    defaultDiterimaOleh = '',
 ): ReceiptFormValues {
     return {
         tanggal: todayInputValue(),
@@ -103,24 +104,79 @@ function defaultReceiptFormValues(
             employeeOptions,
             loggedInName,
         ),
-        diketahui_oleh: '',
-        diterima_oleh: '',
+        diterima_oleh: defaultDiterimaOleh.trim(),
     };
+}
+
+function focusCurrentWindow(): void {
+    window.focus();
+}
+
+export function openChainReceiptPrintPreview(printUrl: string): boolean {
+    const tab = window.open(printUrl, '_blank');
+
+    if (tab === null) {
+        window.alert(
+            'Gagal membuka tanda terima. Izinkan pop-up untuk situs ini, lalu coba lagi.',
+        );
+
+        return false;
+    }
+
+    focusCurrentWindow();
+
+    return true;
+}
+
+function openReceiptPrintTab(): Window | null {
+    const tab = window.open('about:blank', '_blank');
+
+    if (tab === null) {
+        return null;
+    }
+
+    try {
+        tab.document.title = 'Menyiapkan tanda terima...';
+        tab.document.body.textContent = 'Menyiapkan tanda terima...';
+    } catch {
+        // Tab terbuka; akses document bisa gagal di beberapa browser.
+    }
+
+    focusCurrentWindow();
+
+    return tab;
+}
+
+function navigateReceiptPrintTab(tab: Window | null, url: string): void {
+    if (tab !== null && !tab.closed) {
+        tab.location.href = url;
+        focusCurrentWindow();
+
+        return;
+    }
+
+    openChainReceiptPrintPreview(url);
 }
 
 export function SpkChainReceiptPrintDialog({
     open,
     onOpenChange,
+    onPrinted,
     spkRowId,
     chainLineIds,
     employeeOptions,
+    defaultDiterimaOleh = '',
 }: SpkChainReceiptPrintDialogProps) {
     const { auth } = usePage<{ auth: Auth | { user: Auth['user'] | null } }>()
         .props;
     const loggedInName = auth.user?.name;
 
     const receiptForm = useHttp<ReceiptFormValues, ReceiptStoreResponse>(
-        defaultReceiptFormValues(employeeOptions, loggedInName),
+        defaultReceiptFormValues(
+            employeeOptions,
+            loggedInName,
+            defaultDiterimaOleh,
+        ),
     );
     const values = receiptForm.data;
 
@@ -130,10 +186,14 @@ export function SpkChainReceiptPrintDialog({
         }
 
         receiptForm.setData(
-            defaultReceiptFormValues(employeeOptions, loggedInName),
+            defaultReceiptFormValues(
+                employeeOptions,
+                loggedInName,
+                defaultDiterimaOleh,
+            ),
         );
         receiptForm.clearErrors();
-    }, [open, employeeOptions, loggedInName]);
+    }, [open, employeeOptions, loggedInName, defaultDiterimaOleh]);
     const errorMessages = Array.from(
         new Set(Object.values(receiptForm.errors).filter(Boolean)),
     );
@@ -159,19 +219,15 @@ export function SpkChainReceiptPrintDialog({
             return;
         }
 
-        const receiptWindow = window.open('', '_blank');
+        const receiptWindow = openReceiptPrintTab();
 
-        if (!receiptWindow) {
+        if (receiptWindow === null) {
             window.alert(
                 'Gagal membuka tanda terima. Izinkan pop-up untuk situs ini, lalu coba lagi.',
             );
 
             return;
         }
-
-        receiptWindow.document.title = 'Menyiapkan tanda terima...';
-        receiptWindow.document.body.textContent =
-            'Menyiapkan tanda terima...';
 
         const closeReceiptWindow = (): void => {
             if (!receiptWindow.closed) {
@@ -193,8 +249,12 @@ export function SpkChainReceiptPrintDialog({
         void receiptForm
             .post(storeChainReceipt.url(), {
                 onSuccess: (response) => {
-                    receiptWindow.location.href = response.printUrl;
+                    navigateReceiptPrintTab(
+                        receiptWindow,
+                        response.printUrl,
+                    );
                     onOpenChange(false);
+                    onPrinted?.();
                 },
                 onError: closeReceiptWindow,
                 onHttpException: () => {
@@ -353,7 +413,7 @@ export function SpkChainReceiptPrintDialog({
                         >
                             {receiptForm.processing
                                 ? 'Menyimpan...'
-                                : 'Preview Print'}
+                                : 'Print'}
                         </Button>
                     </DialogFooter>
                 </form>

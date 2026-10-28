@@ -17,6 +17,7 @@ import type {
     SpkShrinkReport,
     SpkChainItem,
     SpkComponentItem,
+    SpkChainReceiptSummary,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -47,6 +48,7 @@ type SpkShowProps = {
     approvalFooter: SpkApprovalFooterColumn[];
     polesChromeComplete: SpkPolesChromeCompleteAction | null;
     receiptEmployeeOptions: string[];
+    chainReceipt: SpkChainReceiptSummary | null;
 };
 
 export default function SpkShow({
@@ -69,6 +71,7 @@ export default function SpkShow({
     approvalFooter,
     polesChromeComplete,
     receiptEmployeeOptions,
+    chainReceipt,
 }: SpkShowProps) {
     const productionProcesses = processes.filter(
         (process) =>
@@ -111,6 +114,7 @@ export default function SpkShow({
                     approvalFooter={approvalFooter}
                     polesChromeComplete={polesChromeComplete}
                     receiptEmployeeOptions={receiptEmployeeOptions}
+                    chainReceipt={chainReceipt}
                 >
                     {activeProcess ? (
                         <SpkProcessPanel process={activeProcess} />

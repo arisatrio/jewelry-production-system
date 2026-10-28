@@ -269,12 +269,17 @@ class MsChainController extends Controller
 
         $validated = $request->validated();
 
+        $spkChainLineId = filled($validated['spk_chain_line_id'] ?? null)
+            ? (int) $validated['spk_chain_line_id']
+            : null;
+
         $stock->issueManual(
             $trxChain,
             (string) $validated['out_date'],
             (int) $validated['spk_id'],
             $validated['notes'] ?? null,
             $this->actorName($request),
+            $spkChainLineId,
         );
 
         Inertia::flash('toast', [

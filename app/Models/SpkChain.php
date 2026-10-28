@@ -19,6 +19,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $color
  * @property string|null $size
  * @property string|null $fulfillment_status
+ * @property Carbon|null $workshop_received_at
+ * @property string|null $workshop_received_by
  * @property int|null $finishing_id
  * @property int $is_deleted
  * @property Carbon|null $created_date
@@ -39,6 +41,8 @@ use Illuminate\Support\Carbon;
     'color',
     'size',
     'fulfillment_status',
+    'workshop_received_at',
+    'workshop_received_by',
     'finishing_id',
     'is_deleted',
     'created_date',
@@ -135,6 +139,7 @@ class SpkChain extends Model
             'is_deleted' => 'integer',
             'created_date' => 'datetime',
             'modified_date' => 'datetime',
+            'workshop_received_at' => 'datetime',
             'deleted_date' => 'datetime',
         ];
     }

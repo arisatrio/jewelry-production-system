@@ -4,6 +4,7 @@ use App\Models\MsChain;
 use App\Models\Production;
 use App\Models\SpkChain;
 use App\Models\TrxChain;
+use App\Models\User;
 use App\Support\SpkChainFulfillment;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -28,6 +29,12 @@ test('spk chain fulfillment advances through workshop workflow', function () {
 
     expect($production)->not->toBeNull();
 
+    $receiver = User::factory()->create([
+        'name' => 'Workshop Receiver Test',
+    ]);
+
+    $this->actingAs($receiver);
+
     $master = MsChain::factory()->create([
         'item_code' => 'FUL-'.Str::upper(Str::random(6)),
     ]);
@@ -45,6 +52,10 @@ test('spk chain fulfillment advances through workshop workflow', function () {
         'out_date' => now()->toDateString(),
     ]);
 
+    $hasWorkshopReceivedColumns =
+        Schema::connection('third')->hasColumn('spkchains', 'workshop_received_at')
+        || Schema::connection('third')->hasColumn('spk_chains', 'workshop_received_at');
+
     try {
         $this->post(route('spk.chains.fulfillment', $chain), [
             'action' => SpkChainFulfillment::ACTION_SEND_TO_WORKSHOP,
@@ -57,8 +68,15 @@ test('spk chain fulfillment advances through workshop workflow', function () {
             'action' => SpkChainFulfillment::ACTION_RECEIVE_WORKSHOP,
         ])->assertRedirect();
 
-        expect($chain->refresh()->fulfillment_status)
+        $chain->refresh();
+
+        expect($chain->fulfillment_status)
             ->toBe(SpkChainFulfillment::RECEIVED_BY_WORKSHOP);
+
+        if ($hasWorkshopReceivedColumns) {
+            expect($chain->workshop_received_by)->toBe('Workshop Receiver Test')
+                ->and($chain->workshop_received_at)->not->toBeNull();
+        }
 
         $this->post(route('spk.chains.fulfillment', $chain), [
             'action' => SpkChainFulfillment::ACTION_MARK_INSTALLED,
@@ -66,9 +84,15 @@ test('spk chain fulfillment advances through workshop workflow', function () {
 
         expect($chain->refresh()->fulfillment_status)
             ->toBe(SpkChainFulfillment::INSTALLED);
+
+        if ($hasWorkshopReceivedColumns) {
+            expect($chain->workshop_received_by)->toBe('Workshop Receiver Test')
+                ->and($chain->workshop_received_at)->not->toBeNull();
+        }
     } finally {
         $unit->delete();
         $chain->delete();
         $master->delete();
+        $receiver->delete();
     }
 });

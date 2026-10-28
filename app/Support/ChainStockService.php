@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\MsChain;
+use App\Models\SpkChain;
 use App\Models\TrxChain;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -199,10 +200,24 @@ class ChainStockService
         int $spkId,
         ?string $notes,
         string $actor,
+        ?int $spkChainLineId = null,
     ): void {
         abort_if($trxChain->is_deleted === 1, 404);
         if ($trxChain->out_date !== null) {
             throw new HttpException(422, 'Unit chain sudah keluar.');
+        }
+
+        $fulfillment = app(SpkChainFulfillment::class);
+
+        if ($spkChainLineId !== null && $spkChainLineId > 0) {
+            $spkChain = SpkChain::query()
+                ->notDeleted()
+                ->where('line_id', $spkChainLineId)
+                ->first();
+
+            if ($spkChain !== null) {
+                $fulfillment->revokeAllocationIfAllocated($spkChain, $actor, replace: true);
+            }
         }
 
         $trxChain->update([
@@ -214,11 +229,38 @@ class ChainStockService
             'modified_by' => $actor,
         ]);
 
+        if ($spkChainLineId !== null && $spkChainLineId > 0) {
+            $fulfillment->syncSpkChainAllocation(
+                $spkChainLineId,
+                (int) $trxChain->mschain_id,
+                $actor,
+            );
+
+            return;
+        }
+
         app(SpkChainFulfillment::class)->markAllocatedForSpkMaster(
             $spkId,
             (int) $trxChain->mschain_id,
             $actor,
         );
+    }
+
+    public function returnUnitToStock(TrxChain $trxChain, string $actor): void
+    {
+        abort_if($trxChain->is_deleted === 1, 404);
+
+        if ($trxChain->out_date === null) {
+            return;
+        }
+
+        $trxChain->update([
+            'out_date' => null,
+            'spk_id' => null,
+            'is_used' => 0,
+            'modified_date' => now(),
+            'modified_by' => $actor,
+        ]);
     }
 
     /**
@@ -298,6 +340,91 @@ class ChainStockService
     }
 
     /**
+     * Unit in-stock untuk modal alokasi SPK: kategori sama; master terhubung di atas.
+     *
+     * @return list<array<string, bool|int|string|null>>
+     */
+    public function listInStockUnitsForSpkAllocation(SpkChain $spkChain, int $limit = 150): array
+    {
+        if ($spkChain->mschain_id === null || ! $this->tableAvailable()) {
+            return [];
+        }
+
+        $msChain = $spkChain->msChain;
+
+        if ($msChain === null || $msChain->is_deleted === 1) {
+            return [];
+        }
+
+        $linkedMsChainId = (int) $spkChain->mschain_id;
+        $category = trim((string) ($msChain->chain_category ?? $spkChain->category ?? ''));
+
+        $rows = TrxChain::query()
+            ->notDeleted()
+            ->with('msChain')
+            ->whereNotNull('entry_date')
+            ->whereNull('out_date')
+            ->when(
+                $category !== '',
+                fn (Builder $query): Builder => $query->whereHas(
+                    'msChain',
+                    fn (Builder $masterQuery): Builder => $masterQuery
+                        ->notDeleted()
+                        ->where('chain_category', $category),
+                ),
+                fn (Builder $query): Builder => $query->where(
+                    'mschain_id',
+                    $msChain->row_id,
+                ),
+            )
+            ->orderByDesc('row_id')
+            ->limit($limit)
+            ->get()
+            ->map(function (TrxChain $unit) use ($linkedMsChainId): array {
+                $row = $this->toTransactionRow($unit);
+                $row['matchesMasterChain'] = (int) ($row['msChainId'] ?? 0) === $linkedMsChainId;
+
+                return $row;
+            });
+
+        return $rows
+            ->sort(function (array $left, array $right): int {
+                $leftMaster = $left['matchesMasterChain'] === true ? 1 : 0;
+                $rightMaster = $right['matchesMasterChain'] === true ? 1 : 0;
+
+                if ($leftMaster !== $rightMaster) {
+                    return $rightMaster <=> $leftMaster;
+                }
+
+                return ((int) $right['id']) <=> ((int) $left['id']);
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, int|string|null>  $unitRow
+     */
+    public function unitMatchesSpkChainRequest(SpkChain $spkChain, array $unitRow): bool
+    {
+        $requiredColor = filled($spkChain->color) ? trim((string) $spkChain->color) : null;
+        $unitColor = trim((string) ($unitRow['color'] ?? ''));
+
+        if ($requiredColor !== null && $unitColor !== $requiredColor) {
+            return false;
+        }
+
+        $requiredLength = $this->parseLengthCm($spkChain->size);
+        $unitLength = $this->parseLengthCm($unitRow['chainLength'] ?? null);
+
+        if ($requiredLength !== null && ($unitLength === null || $unitLength !== $requiredLength)) {
+            return false;
+        }
+
+        return $requiredColor !== null || $requiredLength !== null;
+    }
+
+    /**
      * @return list<string>
      */
     public function distinctInStockColors(MsChain $msChain): array
@@ -338,6 +465,33 @@ class ChainStockService
     /**
      * @return array<string, int|string|null>
      */
+    private function parseLengthCm(mixed $value): ?int
+    {
+        $text = trim((string) $value);
+
+        if ($text === '' || $text === '-') {
+            return null;
+        }
+
+        $lower = strtolower($text);
+
+        if (str_ends_with($lower, 'cm')) {
+            $text = trim(substr($text, 0, strlen($text) - 2));
+        }
+
+        $normalized = str_replace(',', '.', $text);
+
+        if (! is_numeric($normalized)) {
+            if (preg_match('/(\d+(?:\.\d+)?)/', $normalized, $matches) !== 1) {
+                return null;
+            }
+
+            $normalized = $matches[1];
+        }
+
+        return (int) round((float) $normalized);
+    }
+
     public function toUnitRow(TrxChain $unit): array
     {
         return [
@@ -360,6 +514,8 @@ class ChainStockService
             'status' => $unit->out_date === null ? 'in_stock' : 'issued',
             'createdBy' => $unit->created_by,
             'createdDate' => $unit->created_date?->format('Y-m-d H:i:s'),
+            'modifiedBy' => $unit->modified_by,
+            'modifiedDate' => $unit->modified_date?->format('Y-m-d H:i:s'),
         ];
     }
 

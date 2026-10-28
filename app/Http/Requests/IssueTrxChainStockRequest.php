@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Production;
+use App\Models\SpkChain;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -32,6 +33,16 @@ class IssueTrxChainStockRequest extends FormRequest
                 'notes' => $notes === '' ? null : $notes,
             ]);
         }
+
+        if ($this->has('spk_chain_line_id')) {
+            $lineId = $this->input('spk_chain_line_id');
+
+            $this->merge([
+                'spk_chain_line_id' => filled($lineId) && (int) $lineId > 0
+                    ? (int) $lineId
+                    : null,
+            ]);
+        }
     }
 
     /**
@@ -49,6 +60,19 @@ class IssueTrxChainStockRequest extends FormRequest
                 ),
             ],
             'notes' => ['nullable', 'string', 'max:5000'],
+            'spk_chain_line_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(SpkChain::class, 'line_id')->where(function ($query): void {
+                    $query->where('is_deleted', 0);
+
+                    $spkId = $this->input('spk_id');
+
+                    if (filled($spkId) && (int) $spkId > 0) {
+                        $query->where('row_id', (int) $spkId);
+                    }
+                }),
+            ],
         ];
     }
 

@@ -36,10 +36,11 @@ test('spk show includes issued chain unit for allocated stock', function () {
         'mschain_id' => $master->row_id,
         'spk_id' => $production->row_id,
         'entry_date' => now()->toDateString(),
-        'out_date' => now()->toDateString(),
+        'out_date' => '2026-10-26',
         'color' => 'Rose Gold',
         'chain_length' => 44.5,
         'weight' => 10.25,
+        'modified_by' => 'Tester Chain',
     ]);
 
     try {
@@ -51,6 +52,8 @@ test('spk show includes issued chain unit for allocated stock', function () {
                 ->where('chains.0.issuedUnit.color', 'Rose Gold')
                 ->where('chains.0.issuedUnit.size', '45 cm')
                 ->where('chains.0.issuedUnit.chainLength', '45')
+                ->where('chains.0.issuedUnit.allocatedDate', '26-Oct-2026')
+                ->where('chains.0.issuedUnit.allocatedBy', 'Tester Chain')
                 ->where('chains.0.color', 'White Gold')
             );
     } finally {

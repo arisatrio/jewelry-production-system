@@ -13,6 +13,7 @@ import type {
     SpkItemDetail,
     SpkChainItem,
     SpkComponentItem,
+    SpkChainReceiptSummary,
     SpkStoneItem,
 } from '@/components/spk/types';
 
@@ -29,6 +30,7 @@ type SpkInformasiProduksiPanelProps = {
     chains?: SpkChainItem[];
     components?: SpkComponentItem[];
     receiptEmployeeOptions?: string[];
+    chainReceipt?: SpkChainReceiptSummary | null;
 };
 
 type SpkApprovalFooterSectionProps = {
@@ -410,6 +412,7 @@ export function SpkInformasiProduksiPanel({
     chains = [],
     components = [],
     receiptEmployeeOptions = [],
+    chainReceipt = null,
 }: SpkInformasiProduksiPanelProps) {
     const notes = displayValue(production.notes);
 
@@ -443,6 +446,7 @@ export function SpkInformasiProduksiPanel({
                             produksiNo: production.produksiNo,
                         }}
                         receiptEmployeeOptions={receiptEmployeeOptions}
+                        chainReceipt={chainReceipt}
                     />
                     <SpkComponentListCard components={components} />
                 </div>

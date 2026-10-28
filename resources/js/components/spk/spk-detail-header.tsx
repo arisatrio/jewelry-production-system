@@ -51,6 +51,7 @@ import type {
     SpkShrinkReport,
     SpkChainItem,
     SpkComponentItem,
+    SpkChainReceiptSummary,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -104,6 +105,7 @@ type SpkDetailLayoutProps = {
     approvalFooter?: SpkApprovalFooterColumn[];
     polesChromeComplete?: SpkPolesChromeCompleteAction | null;
     receiptEmployeeOptions?: string[];
+    chainReceipt?: SpkChainReceiptSummary | null;
     children?: ReactNode;
 };
 
@@ -133,6 +135,7 @@ export function SpkDetailLayout({
     approvalFooter,
     polesChromeComplete = null,
     receiptEmployeeOptions = [],
+    chainReceipt = null,
     children,
 }: SpkDetailLayoutProps) {
     const [mainSection, setMainSection] = useState<MainSectionTab>(() =>
@@ -521,6 +524,7 @@ export function SpkDetailLayout({
                             chains={chains}
                             components={components}
                             receiptEmployeeOptions={receiptEmployeeOptions}
+                            chainReceipt={chainReceipt}
                         />
                     ) : null}
 

@@ -172,11 +172,25 @@ export type SpkChainAllocation = {
 };
 
 export type SpkChainIssuedUnit = {
+    id: number;
     unitNo: string | null;
+    name: string;
     color: string;
     size: string;
     chainLength: string;
     weight: string | null;
+    allocatedDate: string | null;
+    allocatedBy: string | null;
+};
+
+export type SpkChainWorkshopReceived = {
+    at: string | null;
+    by: string | null;
+};
+
+export type SpkChainReceiptSummary = {
+    docNo: string;
+    printUrl: string;
 };
 
 export type SpkChainItem = {
@@ -189,6 +203,7 @@ export type SpkChainItem = {
     stock?: SpkChainStock | null;
     allocation?: SpkChainAllocation | null;
     issuedUnit?: SpkChainIssuedUnit | null;
+    workshopReceived?: SpkChainWorkshopReceived | null;
 };
 
 export type SpkComponentItem = {

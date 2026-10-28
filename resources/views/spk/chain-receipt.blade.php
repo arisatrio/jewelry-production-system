@@ -187,7 +187,7 @@
         }
         .spkReceiptSignatures {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             margin-top: 16px;
             border: 1px solid #000;
             font-size: 10pt;
@@ -315,7 +315,9 @@
                             Nama &amp; Tanda Tangan
                         @endif
                     </div>
-                    <div class="spkReceiptSignatureDate">Tanggal:</div>
+                    <div class="spkReceiptSignatureDate">
+                        Tanggal: {{ $signature['date'] ?? $receiptDate }}
+                    </div>
                 </div>
             @endforeach
         </div>

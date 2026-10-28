@@ -1,4 +1,5 @@
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
+import outboxIcon from '@ui5/webcomponents-icons/dist/outbox.js';
 import pictureIcon from '@ui5/webcomponents-icons/dist/picture.js';
 import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
 import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
@@ -703,6 +704,31 @@ function SpkStoneStockCell({
     );
 }
 
+function SpkStoneAllocationStatusCell({ stone }: { stone: SpkStoneItem }) {
+    const canAllocate = stone.stock?.status === 'available';
+    const allocateTitle = canAllocate
+        ? 'Alokasikan batu ke SPK ini'
+        : 'Stok tidak tersedia';
+
+    return (
+        <div className="spkChainStatusCell">
+            <div className="spkChainStatusCellActions">
+                <button
+                    type="button"
+                    className="spkChainFulfillmentActionBtn"
+                    disabled={!canAllocate}
+                    title={allocateTitle}
+                >
+                    <Icon name={outboxIcon} mode="Decorative" />
+                    <span className="spkChainFulfillmentActionBtnLabel">
+                        Alokasi Batu
+                    </span>
+                </button>
+            </div>
+        </div>
+    );
+}
+
 export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
     const [stockListStone, setStockListStone] = useState<SpkStoneItem | null>(
         null,
@@ -733,7 +759,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                 </div>
             ) : (
                 <div className="spkStoneTableWrap">
-                    <table className="spkStoneTable">
+                    <table className="spkStoneTable spkStoneTable--withStatus">
                         <thead>
                             <tr>
                                 <th>Posisi</th>
@@ -743,6 +769,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                 <th>Jumlah Butir (pcs)</th>
                                 <th>Total Carat</th>
                                 {showStock ? <th>Stok</th> : null}
+                                <th className="spkStoneStatusCol">Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -804,6 +831,11 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                             />
                                         </td>
                                     ) : null}
+                                    <td className="spkStoneStatusCol">
+                                        <SpkStoneAllocationStatusCell
+                                            stone={stone}
+                                        />
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -820,6 +852,7 @@ export function SpkStoneListCard({ stones }: { stones: SpkStoneItem[] }) {
                                     })}
                                 </td>
                                 {showStock ? <td /> : null}
+                                <td />
                             </tr>
                         </tfoot>
                     </table>

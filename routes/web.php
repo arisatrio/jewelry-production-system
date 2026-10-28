@@ -142,6 +142,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('spk/chains/{spkChain}/fulfillment', [SpkChainStockController::class, 'advanceFulfillment'])
         ->whereNumber('spkChain')
         ->name('spk.chains.fulfillment');
+    Route::post('spk/chains/{spkChain}/revoke-allocation', [SpkChainStockController::class, 'revokeAllocation'])
+        ->whereNumber('spkChain')
+        ->name('spk.chains.revoke-allocation');
     Route::get('spk/{production}', [ProductionController::class, 'show'])
         ->where('production', '.*')
         ->name('spk.show');

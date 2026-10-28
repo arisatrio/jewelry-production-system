@@ -41,6 +41,7 @@ use App\Support\SkuMasterDescriptionExtractor;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkApprovalRoles;
 use App\Support\SpkApprovalService;
+use App\Support\SpkChainFulfillment;
 use App\Support\SpkChainReceiptBuilder;
 use App\Support\SpkChainStockChecker;
 use App\Support\SpkCraftsmanReport;
@@ -1065,8 +1066,10 @@ class ProductionController extends Controller
         PrintSpkChainReceiptRequest $request,
         SerahTerimaChainDocNumberGenerator $docNumberGenerator,
         SpkChainReceiptBuilder $receiptBuilder,
+        SpkChainFulfillment $chainFulfillment,
     ): JsonResponse {
         $spkRowId = (int) $request->validated('spk_row_id');
+        $actor = $this->actorName($request);
 
         $production = Production::query()
             ->notDeleted()
@@ -1090,20 +1093,44 @@ class ProductionController extends Controller
             $this->customerListLabel($production),
         );
 
-        $receipt = DB::connection('third')->transaction(fn (): SerahTerimaChain => SerahTerimaChain::query()->create([
-            'doc_no' => $docNumberGenerator->generate($receiptDate),
-            'tanggal' => $receiptDate->toDateString(),
-            'dari' => $this->nullableTrimmed($request->validated('dari')),
-            'untuk' => $this->nullableTrimmed($request->validated('untuk')),
-            'diserahkan_oleh' => $this->nullableTrimmed($request->validated('diserahkan_oleh')),
-            'diterima_oleh' => $this->nullableTrimmed($request->validated('diterima_oleh')),
-            'diketahui_oleh' => $this->nullableTrimmed($request->validated('diketahui_oleh')),
-            'spk_row_id' => $spkRowId,
-            'jumlah_baris' => count($items),
-            'spk_chain_line_ids' => array_column($items, 'spkChainLineId'),
-            'items' => $items,
-            'created_by' => $this->actorName($request),
-        ]));
+        $workshopReceiver = $this->resolveWorkshopReceivedSignatureForChainLines(
+            $production,
+            $lineIds,
+        );
+        $diterimaOleh = $this->nullableTrimmed($request->validated('diterima_oleh'));
+        if ($workshopReceiver !== null) {
+            $diterimaOleh = $workshopReceiver['by'];
+        }
+
+        $receipt = DB::connection('third')->transaction(function () use (
+            $docNumberGenerator,
+            $receiptDate,
+            $request,
+            $spkRowId,
+            $items,
+            $lineIds,
+            $actor,
+            $chainFulfillment,
+            $diterimaOleh,
+        ): SerahTerimaChain {
+            $receipt = SerahTerimaChain::query()->create([
+                'doc_no' => $docNumberGenerator->generate($receiptDate),
+                'tanggal' => $receiptDate->toDateString(),
+                'dari' => $this->nullableTrimmed($request->validated('dari')),
+                'untuk' => $this->nullableTrimmed($request->validated('untuk')),
+                'diserahkan_oleh' => $this->nullableTrimmed($request->validated('diserahkan_oleh')),
+                'diterima_oleh' => $diterimaOleh,
+                'spk_row_id' => $spkRowId,
+                'jumlah_baris' => count($items),
+                'spk_chain_line_ids' => array_column($items, 'spkChainLineId'),
+                'items' => $items,
+                'created_by' => $actor,
+            ]);
+
+            $chainFulfillment->markSentToWorkshopForChainLines($spkRowId, $lineIds, $actor);
+
+            return $receipt;
+        });
 
         return response()->json([
             'id' => $receipt->id,
@@ -1136,19 +1163,42 @@ class ProductionController extends Controller
             ? route('spk.show', $production, absolute: true).'?chain_receipt='.(int) $serahTerimaChain->id
             : null;
 
+        $receiptDateFormatted = $serahTerimaChain->tanggal->format('d-M-Y');
+        $workshopReceiver = $production !== null
+            ? $this->resolveWorkshopReceivedSignatureForChainLines(
+                $production,
+                array_map(intval(...), $serahTerimaChain->spk_chain_line_ids ?? []),
+            )
+            : null;
+
+        $diterimaName = (string) $serahTerimaChain->diterima_oleh;
+        $diterimaDate = $receiptDateFormatted;
+
+        if ($workshopReceiver !== null) {
+            $diterimaName = $workshopReceiver['by'];
+            $diterimaDate = $workshopReceiver['date'];
+        }
+
         return view('spk.chain-receipt', [
             'title' => "Tanda Terima Rantai {$serahTerimaChain->doc_no} — Print",
             'header' => $header,
             'receiptNo' => $serahTerimaChain->doc_no,
             'printedAt' => ($serahTerimaChain->created_at ?? now())->format('d-M-Y H:i'),
             'printedBy' => $serahTerimaChain->created_by ?? '-',
-            'receiptDate' => $serahTerimaChain->tanggal->format('d-M-Y'),
+            'receiptDate' => $receiptDateFormatted,
             'receiptFrom' => (string) $serahTerimaChain->dari,
             'receiptTo' => (string) $serahTerimaChain->untuk,
             'signatures' => [
-                ['title' => 'Diserahkan oleh', 'name' => (string) $serahTerimaChain->diserahkan_oleh],
-                ['title' => 'Diketahui oleh', 'name' => (string) $serahTerimaChain->diketahui_oleh],
-                ['title' => 'Diterima oleh', 'name' => (string) $serahTerimaChain->diterima_oleh],
+                [
+                    'title' => 'Diserahkan oleh',
+                    'name' => (string) $serahTerimaChain->diserahkan_oleh,
+                    'date' => $receiptDateFormatted,
+                ],
+                [
+                    'title' => 'Diterima oleh',
+                    'name' => $diterimaName,
+                    'date' => $diterimaDate,
+                ],
             ],
             'rows' => array_map(
                 $receiptBuilder->normalizeStoredItemRow(...),
@@ -1671,7 +1721,32 @@ class ProductionController extends Controller
                 $processMapper,
             ),
             'receiptEmployeeOptions' => Inertia::once(fn (): array => $this->receiptEmployeeOptions()),
+            'chainReceipt' => $this->latestChainReceiptForProduction($production),
         ]);
+    }
+
+    /**
+     * @return array{docNo: string, printUrl: string}|null
+     */
+    private function latestChainReceiptForProduction(Production $production): ?array
+    {
+        if (! Schema::connection('third')->hasTable('serah_terima_chain')) {
+            return null;
+        }
+
+        $receipt = SerahTerimaChain::query()
+            ->where('spk_row_id', (int) $production->row_id)
+            ->latest('id')
+            ->first();
+
+        if ($receipt === null) {
+            return null;
+        }
+
+        return [
+            'docNo' => (string) $receipt->doc_no,
+            'printUrl' => route('spk.print.chain-receipt', $receipt),
+        ];
     }
 
     /**
@@ -2122,6 +2197,7 @@ class ProductionController extends Controller
                 $item['stock'] = $stockByLineId[(int) $chain->line_id] ?? null;
                 $item['allocation'] = $allocationByLineId[(int) $chain->line_id] ?? null;
                 $item['issuedUnit'] = $issuedByLineId[(int) $chain->line_id] ?? null;
+                $item['workshopReceived'] = $this->formatSpkChainWorkshopReceived($chain);
 
                 return $item;
             })
@@ -2171,6 +2247,80 @@ class ProductionController extends Controller
             'color' => (string) ($chain->color ?? ''),
             'size' => (string) ($chain->size ?? ''),
         ];
+    }
+
+    /**
+     * @return array{at: string|null, by: string|null}|null
+     */
+    private function formatSpkChainWorkshopReceived(SpkChain $chain): ?array
+    {
+        if ($chain->workshop_received_at === null && ! filled($chain->workshop_received_by)) {
+            return null;
+        }
+
+        return [
+            'at' => $chain->workshop_received_at?->format('d-M-Y H:i'),
+            'by' => filled($chain->workshop_received_by)
+                ? (string) $chain->workshop_received_by
+                : null,
+        ];
+    }
+
+    /**
+     * @param  list<int>  $lineIds
+     * @return array{by: string, date: string}|null
+     */
+    private function resolveWorkshopReceivedSignatureForChainLines(
+        Production $production,
+        array $lineIds,
+    ): ?array {
+        if (! $this->workshopReceivedColumnsAvailable()) {
+            return null;
+        }
+
+        $query = $production->chains()
+            ->notDeleted()
+            ->whereNotNull('workshop_received_at')
+            ->whereNotNull('workshop_received_by');
+
+        if ($lineIds !== []) {
+            $query->whereIn('line_id', $lineIds);
+        }
+
+        /** @var SpkChain|null $chain */
+        $chain = $query->orderByDesc('workshop_received_at')->first();
+
+        if ($chain === null || $chain->workshop_received_at === null) {
+            return null;
+        }
+
+        $by = trim((string) ($chain->workshop_received_by ?? ''));
+
+        if ($by === '') {
+            return null;
+        }
+
+        return [
+            'by' => $by,
+            'date' => $chain->workshop_received_at->format('d-M-Y'),
+        ];
+    }
+
+    private function workshopReceivedColumnsAvailable(): bool
+    {
+        $schema = Schema::connection('third');
+
+        foreach (['spk_chains', 'spkchains'] as $table) {
+            if (
+                $schema->hasTable($table)
+                && $schema->hasColumn($table, 'workshop_received_at')
+                && $schema->hasColumn($table, 'workshop_received_by')
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

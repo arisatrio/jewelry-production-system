@@ -28,7 +28,6 @@ class PrintSpkChainReceiptRequest extends FormRequest
             'dari' => ['nullable', 'string', Rule::in(self::LOCATIONS)],
             'untuk' => ['nullable', 'string', Rule::in(self::LOCATIONS), 'different:dari'],
             'diserahkan_oleh' => $this->activeEmployeeRules(),
-            'diketahui_oleh' => $this->activeEmployeeRules(),
             'diterima_oleh' => $this->activeEmployeeRules(),
         ];
     }

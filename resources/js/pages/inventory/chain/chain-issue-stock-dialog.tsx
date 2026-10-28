@@ -31,6 +31,7 @@ type ChainIssueStockDialogProps = {
         rowId: number;
         produksiNo: string;
     };
+    fixedSpkChainLineId?: number;
     /** Setelah keluarkan stok dari alokasi SPK (tutup modal induk + refresh data). */
     onAllocated?: () => void;
 };
@@ -40,6 +41,7 @@ export function ChainIssueStockDialog({
     open,
     onOpenChange,
     fixedSpk,
+    fixedSpkChainLineId,
     onAllocated,
 }: ChainIssueStockDialogProps) {
     const today = new Date().toISOString().slice(0, 10);
@@ -102,6 +104,13 @@ export function ChainIssueStockDialog({
                                             name="return_to"
                                             value="spk"
                                         />
+                                        {fixedSpkChainLineId !== undefined ? (
+                                            <input
+                                                type="hidden"
+                                                name="spk_chain_line_id"
+                                                value={fixedSpkChainLineId}
+                                            />
+                                        ) : null}
                                         <p className="text-sm font-medium">
                                             {fixedSpk.produksiNo}
                                         </p>
