@@ -73,6 +73,100 @@ class SpkChainStockChecker
     }
 
     /**
+     * Unit chain terakhir yang sudah dikeluarkan ke SPK (alokasi aktual).
+     *
+     * @param  Collection<int, SpkChain>  $chains
+     * @return array<int, array{
+     *     unitNo: string|null,
+     *     color: string,
+     *     size: string,
+     *     chainLength: string,
+     *     weight: string|null
+     * }>
+     */
+    public function issuedUnitsForChains(int $spkRowId, Collection $chains): array
+    {
+        if ($chains->isEmpty() || ! $this->chainStock->tableAvailable()) {
+            return [];
+        }
+
+        $results = [];
+
+        foreach ($chains as $chain) {
+            if ($chain->mschain_id === null) {
+                continue;
+            }
+
+            $unit = $this->chainStock->latestIssuedUnitForSpkChain(
+                $spkRowId,
+                (int) $chain->mschain_id,
+            );
+
+            if ($unit === null) {
+                continue;
+            }
+
+            $results[(int) $chain->line_id] = $this->formatIssuedUnit(
+                $this->chainStock->toUnitRow($unit),
+            );
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param  array<string, int|string|null>  $unitRow
+     * @return array{
+     *     unitNo: string|null,
+     *     color: string,
+     *     size: string,
+     *     chainLength: string,
+     *     weight: string|null
+     * }
+     */
+    private function formatIssuedUnit(array $unitRow): array
+    {
+        $unitColor = trim((string) ($unitRow['color'] ?? ''));
+        $unitLength = $this->formatWholeMeasurement($unitRow['chainLength'] ?? '-');
+        $size = $unitLength !== '-' ? $unitLength.' cm' : '-';
+
+        return [
+            'unitNo' => filled($unitRow['unitNo'] ?? null)
+                ? (string) $unitRow['unitNo']
+                : null,
+            'color' => $unitColor !== '' ? $unitColor : '-',
+            'size' => $size,
+            'chainLength' => $unitLength,
+            'weight' => filled($unitRow['weight'] ?? null)
+                ? (string) $unitRow['weight']
+                : null,
+        ];
+    }
+
+    private function formatWholeMeasurement(mixed $value): string
+    {
+        $text = trim((string) ($value));
+
+        if ($text === '' || $text === '-') {
+            return '-';
+        }
+
+        $lower = strtolower($text);
+        $hasCmSuffix = str_ends_with($lower, 'cm');
+        $numericPart = $hasCmSuffix
+            ? trim(substr($text, 0, strlen($text) - 2))
+            : $text;
+
+        $normalized = str_replace(',', '.', $numericPart);
+
+        if (! is_numeric($normalized)) {
+            return $text;
+        }
+
+        return (string) (int) round((float) $normalized);
+    }
+
+    /**
      * @return array{
      *     status: 'available'|'unavailable',
      *     requiredUnits: int,

@@ -171,6 +171,14 @@ export type SpkChainAllocation = {
     nextActionLabel: string | null;
 };
 
+export type SpkChainIssuedUnit = {
+    unitNo: string | null;
+    color: string;
+    size: string;
+    chainLength: string;
+    weight: string | null;
+};
+
 export type SpkChainItem = {
     id: string;
     chainId?: string;
@@ -180,6 +188,7 @@ export type SpkChainItem = {
     size: string;
     stock?: SpkChainStock | null;
     allocation?: SpkChainAllocation | null;
+    issuedUnit?: SpkChainIssuedUnit | null;
 };
 
 export type SpkComponentItem = {

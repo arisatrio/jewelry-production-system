@@ -363,6 +363,21 @@ class ChainStockService
         ];
     }
 
+    public function latestIssuedUnitForSpkChain(int $spkRowId, int $msChainId): ?TrxChain
+    {
+        if (! $this->tableAvailable()) {
+            return null;
+        }
+
+        return TrxChain::query()
+            ->notDeleted()
+            ->where('spk_id', $spkRowId)
+            ->where('mschain_id', $msChainId)
+            ->whereNotNull('out_date')
+            ->orderByDesc('row_id')
+            ->first();
+    }
+
     public function tableAvailable(): bool
     {
         return Schema::connection('third')->hasTable('trxchain');

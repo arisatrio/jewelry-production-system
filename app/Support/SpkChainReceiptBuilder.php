@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\Production;
 use App\Models\SpkChain;
-use App\Models\TrxChain;
 use Illuminate\Support\Collection;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -15,26 +14,16 @@ class SpkChainReceiptBuilder
     ) {}
 
     /**
-     * @param  list<int>  $lineIds
-     * @return list<array{
-     *     spkChainLineId: int,
-     *     spkNo: string,
-     *     category: string,
-     *     item: string,
-     *     color: string,
-     *     size: string,
-     *     unitNo: string,
-     *     chainLength: string,
-     *     weight: string,
-     *     customer: string
-     * }>
-     */
-    /**
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
      */
     public function normalizeStoredItemRow(array $row): array
     {
+        if (isset($row['allocatedRow']) && is_array($row['allocatedRow'])) {
+            $row = $this->mergeLegacyAllocatedRow($row, $row['allocatedRow']);
+            unset($row['allocatedRow']);
+        }
+
         $row['size'] = $this->formatSize($row['size'] ?? null);
 
         if (array_key_exists('chainLength', $row)) {
@@ -61,24 +50,24 @@ class SpkChainReceiptBuilder
             ->map(function (SpkChain $chain) use ($production, $spkNo, $customerLabel): array {
                 $unit = $this->latestIssuedUnit($production, $chain);
 
-                return [
+                $item = [
                     'spkChainLineId' => (int) $chain->line_id,
                     'spkNo' => $spkNo,
                     'category' => (string) ($chain->category ?? '-'),
                     'item' => (string) ($chain->item ?? '-'),
                     'color' => (string) ($chain->color ?? '-'),
                     'size' => $this->formatSize($chain->size),
-                    'unitNo' => $unit !== null
-                        ? (string) ($unit['unitNo'] ?? '-')
-                        : '-',
-                    'chainLength' => $unit !== null
-                        ? $this->formatWholeMeasurement($unit['chainLength'] ?? '-')
-                        : '-',
-                    'weight' => $unit !== null && filled($unit['weight'])
-                        ? (string) $unit['weight']
-                        : '-',
+                    'unitNo' => '-',
+                    'chainLength' => '-',
+                    'weight' => '-',
                     'customer' => $customerLabel,
                 ];
+
+                if ($unit !== null) {
+                    $this->applyIssuedUnitToItem($item, $unit);
+                }
+
+                return $item;
             })
             ->values()
             ->all();
@@ -118,23 +107,63 @@ class SpkChainReceiptBuilder
      */
     private function latestIssuedUnit(Production $production, SpkChain $chain): ?array
     {
-        if (! $this->chainStock->tableAvailable() || $chain->mschain_id === null) {
+        if ($chain->mschain_id === null) {
             return null;
         }
 
-        $unit = TrxChain::query()
-            ->notDeleted()
-            ->where('spk_id', (int) $production->row_id)
-            ->where('mschain_id', (int) $chain->mschain_id)
-            ->whereNotNull('out_date')
-            ->orderByDesc('row_id')
-            ->first();
+        $unit = $this->chainStock->latestIssuedUnitForSpkChain(
+            (int) $production->row_id,
+            (int) $chain->mschain_id,
+        );
 
         if ($unit === null) {
             return null;
         }
 
         return $this->chainStock->toUnitRow($unit);
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @param  array<string, int|string|null>  $unit
+     */
+    private function applyIssuedUnitToItem(array &$item, array $unit): void
+    {
+        $unitColor = trim((string) ($unit['color'] ?? ''));
+        if ($unitColor !== '') {
+            $item['color'] = $unitColor;
+        }
+
+        $unitLength = $this->formatWholeMeasurement($unit['chainLength'] ?? '-');
+        if ($unitLength !== '-') {
+            $item['size'] = $unitLength.' cm';
+            $item['chainLength'] = $unitLength;
+        }
+
+        $item['unitNo'] = (string) ($unit['unitNo'] ?? '-');
+        $item['weight'] = filled($unit['weight'] ?? null)
+            ? (string) $unit['weight']
+            : '-';
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>  $allocated
+     * @return array<string, mixed>
+     */
+    private function mergeLegacyAllocatedRow(array $row, array $allocated): array
+    {
+        foreach (['color', 'size', 'unitNo', 'chainLength', 'weight'] as $field) {
+            $value = $allocated[$field] ?? null;
+
+            if ($value === null || $value === '' || $value === '-') {
+                continue;
+            }
+
+            $row[$field] = $value;
+        }
+
+        return $row;
     }
 
     private function formatSize(mixed $size): string

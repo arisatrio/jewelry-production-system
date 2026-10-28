@@ -2111,12 +2111,17 @@ class ProductionController extends Controller
 
         $stockByLineId = $this->chainStockChecker->forChains($chains);
         $allocationByLineId = $this->chainStockChecker->allocationForChains($chains);
+        $issuedByLineId = $this->chainStockChecker->issuedUnitsForChains(
+            (int) $production->row_id,
+            $chains,
+        );
 
         return $chains
-            ->map(function (SpkChain $chain) use ($stockByLineId, $allocationByLineId): array {
+            ->map(function (SpkChain $chain) use ($stockByLineId, $allocationByLineId, $issuedByLineId): array {
                 $item = $this->toFormChainItem($chain);
                 $item['stock'] = $stockByLineId[(int) $chain->line_id] ?? null;
                 $item['allocation'] = $allocationByLineId[(int) $chain->line_id] ?? null;
+                $item['issuedUnit'] = $issuedByLineId[(int) $chain->line_id] ?? null;
 
                 return $item;
             })

@@ -39,6 +39,7 @@ test('spk show page includes chains list props', function () {
             ->has('chains.0.allocation.status')
             ->has('chains.0.allocation.label')
             ->has('chains.0.allocation.nextAction')
+            ->has('chains.0.issuedUnit')
         );
 
     if ($chain->wasRecentlyCreated) {

@@ -5161,6 +5161,25 @@ button.spkItemImagePreview--clickable:focus-visible {
     white-space: nowrap;
 }
 
+.spkChainIssuedRow td {
+    padding-top: 0.15rem;
+    padding-bottom: 0.45rem;
+    border-top: none;
+    background: #f8fafc;
+}
+
+.spkChainIssuedMeta {
+    display: block;
+    color: #4b5563;
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+
+.spkChainIssuedMeta strong {
+    color: #374151;
+    font-weight: 600;
+}
+
 .spkChainTable th.spkChainStatusCol,
 .spkChainTable td.spkChainStatusCol {
     text-align: center;

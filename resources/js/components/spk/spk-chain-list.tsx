@@ -4,12 +4,13 @@ import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { router } from '@inertiajs/react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 import { SpkChainAllocateDialog } from '@/components/spk/spk-chain-allocate-dialog';
 import { SpkChainReceiptPrintDialog } from '@/components/spk/spk-chain-receipt-print-dialog';
 import type {
     SpkChainFulfillmentAction,
+    SpkChainIssuedUnit,
     SpkChainItem,
     SpkChainStock,
     SpkMsChainOption,
@@ -642,6 +643,32 @@ export function SpkFormChainListCard({
     );
 }
 
+function formatIssuedUnitSummary(unit: SpkChainIssuedUnit): string {
+    const parts: string[] = [];
+
+    if (unit.color !== '' && unit.color !== '-') {
+        parts.push(unit.color);
+    }
+
+    if (unit.size !== '' && unit.size !== '-') {
+        parts.push(unit.size);
+    }
+
+    if (unit.unitNo !== null && unit.unitNo.trim() !== '') {
+        parts.push(`No. unit ${unit.unitNo}`);
+    }
+
+    if (unit.chainLength !== '' && unit.chainLength !== '-') {
+        parts.push(`Panjang ${unit.chainLength} cm`);
+    }
+
+    if (unit.weight !== null && unit.weight.trim() !== '') {
+        parts.push(`${unit.weight} g`);
+    }
+
+    return parts.length > 0 ? parts.join(' · ') : '—';
+}
+
 function emptyDash(value: string | number | null | undefined): string {
     if (value === null || value === undefined) {
         return '-';
@@ -1026,26 +1053,51 @@ export function SpkChainListCard({
                             </thead>
                             <tbody>
                                 {chains.map((chain) => (
-                                    <tr key={chain.id}>
-                                        <td>{emptyDash(chain.category)}</td>
-                                        <td>{emptyDash(chain.item)}</td>
-                                        <td>{emptyDash(chain.color)}</td>
-                                        <td>
-                                            {formatChainSizeDisplay(
-                                                chain.size,
-                                            )}
-                                        </td>
-                                        {showWorkflow ? (
-                                            <td className="spkChainStatusCol">
-                                                <SpkChainFulfillmentStatusCell
-                                                    chain={chain}
-                                                    onAllocate={() =>
-                                                        setAllocateChain(chain)
-                                                    }
-                                                />
+                                    <Fragment key={chain.id}>
+                                        <tr>
+                                            <td>{emptyDash(chain.category)}</td>
+                                            <td>{emptyDash(chain.item)}</td>
+                                            <td>{emptyDash(chain.color)}</td>
+                                            <td>
+                                                {formatChainSizeDisplay(
+                                                    chain.size,
+                                                )}
                                             </td>
+                                            {showWorkflow ? (
+                                                <td className="spkChainStatusCol">
+                                                    <SpkChainFulfillmentStatusCell
+                                                        chain={chain}
+                                                        onAllocate={() =>
+                                                            setAllocateChain(
+                                                                chain,
+                                                            )
+                                                        }
+                                                    />
+                                                </td>
+                                            ) : null}
+                                        </tr>
+                                        {chain.issuedUnit !== undefined &&
+                                        chain.issuedUnit !== null ? (
+                                            <tr className="spkChainIssuedRow">
+                                                <td
+                                                    colSpan={
+                                                        showWorkflow ? 5 : 4
+                                                    }
+                                                >
+                                                    <span
+                                                        className="spkChainIssuedMeta"
+                                                    >
+                                                        <strong>
+                                                            Rantai yang dialokasikan:
+                                                        </strong>{' '}
+                                                        {formatIssuedUnitSummary(
+                                                            chain.issuedUnit,
+                                                        )}
+                                                    </span>
+                                                </td>
+                                            </tr>
                                         ) : null}
-                                    </tr>
+                                    </Fragment>
                                 ))}
                             </tbody>
                         </table>

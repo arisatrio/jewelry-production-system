@@ -68,17 +68,21 @@ test('chain receipt store and print include chain item details', function () {
             ->toMatchArray([
                 'category' => 'Bracelet Chain',
                 'item' => 'Cable Chain',
-                'color' => 'White Gold',
+                'color' => 'Rose Gold',
                 'size' => '45 cm',
                 'chainLength' => '45',
-            ]);
+            ])
+            ->and($receipt->items[0])
+            ->not->toHaveKey('allocatedRow');
 
         $this->get(route('spk.print.chain-receipt', $receipt))
             ->assertOk()
             ->assertSee('TANDA TERIMA RANTAI', false)
             ->assertSee('Cable Chain', false)
             ->assertSee('Bracelet Chain', false)
-            ->assertSee('White Gold', false)
+            ->assertSee('Rose Gold', false)
+            ->assertDontSee('White Gold', false)
+            ->assertDontSee('Rantai dialokasikan', false)
             ->assertSee('45 cm', false)
             ->assertDontSee('44.5', false)
             ->assertDontSee('44,5', false)
