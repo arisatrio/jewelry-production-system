@@ -52,6 +52,36 @@ export function displayListDate(value: string | null | undefined): string {
     return trimmed !== '' && trimmed !== '-' ? trimmed : '—';
 }
 
+export function SpkTableCreatedByCell({
+    createdBy,
+    createdDate,
+}: {
+    createdBy: string | null | undefined;
+    createdDate: string | null | undefined;
+}) {
+    const creator = createdBy?.trim() ?? '';
+    const date = displayListDate(createdDate);
+
+    if (creator === '' && date === '—') {
+        return <span>—</span>;
+    }
+
+    if (creator === '') {
+        return <span>{date}</span>;
+    }
+
+    if (date === '—') {
+        return <span>{creator}</span>;
+    }
+
+    return (
+        <div className="flex flex-col text-center">
+            <span>{creator}</span>
+            <span>{date}</span>
+        </div>
+    );
+}
+
 export function isListRowIncomplete(status: string): boolean {
     return !status.toLowerCase().includes('done');
 }

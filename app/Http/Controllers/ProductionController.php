@@ -2290,7 +2290,7 @@ class ProductionController extends Controller
             'skuAssigned' => $this->listHasAssignedSku($production),
             'itemId' => $production->item_id !== null ? (string) $production->item_id : null,
             'orderDate' => $production->order_date?->format('d-M-Y') ?? '-',
-            'createdDate' => $production->created_date?->format('d-M-Y') ?? '-',
+            'createdDate' => $production->created_date?->format('d-M-Y H:i') ?? '-',
             'estimatedDelivery' => $production->estimated_delivery_time?->format('d-M-Y') ?? '-',
             'status' => SpkDashboardAnalytics::backlogStatusLabel($production, $completed),
             'prosesTerakhir' => $production->last_process ?? '',

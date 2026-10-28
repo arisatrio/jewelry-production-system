@@ -26,6 +26,7 @@ import {
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import {
     SpkPaymentStatusBadge,
+    SpkTableCreatedByCell,
     SpkTableDescriptionCell,
     SpkTableLastProcessCell,
     SpkTableStatusCell,
@@ -1579,8 +1580,7 @@ export default function SpkIndex({
                                     </th>
                                     <th className="spkTableColDoc--spk">ID</th>
                                     <th>Item</th>
-                                    <th>Dibuat Oleh</th>
-                                    <th>Tanggal</th>
+                                    <th className='spkTableColCenter'>Dibuat Oleh</th>
                                     <th className="spkTableColCenter">
                                         Tanggal Permintaan
                                     </th>
@@ -1598,7 +1598,7 @@ export default function SpkIndex({
                             <tbody>
                                 {productions.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9}>Tidak ada data SPK.</td>
+                                        <td colSpan={8}>Tidak ada data SPK.</td>
                                     </tr>
                                 ) : (
                                     productions.data.map((row) => {
@@ -1788,11 +1788,13 @@ export default function SpkIndex({
                                                         />
                                                     </div>
                                                 </td>
-                                                <td>{row.createdBy ?? '—'}</td>
                                                 <td>
-                                                    {displayListDate(
-                                                        row.createdDate,
-                                                    )}
+                                                    <SpkTableCreatedByCell
+                                                        createdBy={row.createdBy}
+                                                        createdDate={
+                                                            row.createdDate
+                                                        }
+                                                    />
                                                 </td>
                                                 <td className="spkTableColCenter">
                                                     {displayListDate(

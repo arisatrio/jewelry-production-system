@@ -687,6 +687,8 @@ test('spk index lists item column data from spk', function () {
         'category_prefix_id' => $category->id,
     ]);
 
+    $createdAt = now()->startOfMinute();
+
     $production = Production::factory()->create([
         'spk_no' => 'TEST/SPK/IDX-ITEM',
         'spk_type' => 'Stock',
@@ -695,6 +697,7 @@ test('spk index lists item column data from spk', function () {
         'sku_id' => $sku->id,
         'file_name' => 'spk-index-item.png',
         'created_by' => 'Genza',
+        'created_date' => $createdAt,
         'is_from_new_system' => 1,
         'is_deleted' => 0,
     ]);
@@ -715,6 +718,10 @@ test('spk index lists item column data from spk', function () {
             ->where('productions.data.0.orderType', null)
             ->where('productions.data.0.customer', 'Nadia')
             ->where('productions.data.0.createdBy', 'Genza')
+            ->where(
+                'productions.data.0.createdDate',
+                $createdAt->format('d-M-Y H:i'),
+            )
         );
 
     $production->delete();
