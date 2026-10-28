@@ -1,0 +1,1 @@
+import{Ti as e}from"./app-B2EFadSK.js";import"./Text-Dwgc-8U8.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};

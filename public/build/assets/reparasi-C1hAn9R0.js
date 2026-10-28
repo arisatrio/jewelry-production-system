@@ -1,1 +1,0 @@
-import{n as e,t}from"./compiler-runtime-DGKY7KiJ.js";import n from"./spk-BBDsLC72.js";var r=t(),i=e();function a(e){let t=(0,r.c)(2),a;return t[0]===e?a=t[1]:(a=(0,i.jsx)(n,{...e}),t[0]=e,t[1]=a),a}a.layout={activeMenu:`Reparasi`,pageTitle:`Reparasi`};export{a as default};

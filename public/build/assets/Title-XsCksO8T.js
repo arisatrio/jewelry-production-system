@@ -1,1 +1,0 @@
-import{Ti as e}from"./app-ERAtJR48.js";var t=e(`ui5-title`,[`level`,`size`,`wrappingType`],[],[],[]);t.displayName=`Title`;export{t};
