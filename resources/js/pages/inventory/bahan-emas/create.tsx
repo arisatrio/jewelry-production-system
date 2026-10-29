@@ -58,6 +58,6 @@ export default function BahanEmasCreate() {
 }
 
 BahanEmasCreate.layout = {
-    activeMenu: 'Bahan Emas',
+    activeMenu: 'Stok Bahan Emas',
     pageTitle: 'Tambah Bahan Emas',
 };

@@ -67,6 +67,6 @@ export default function BahanEmasEdit({ item }: BahanEmasEditProps) {
 }
 
 BahanEmasEdit.layout = {
-    activeMenu: 'Bahan Emas',
+    activeMenu: 'Stok Bahan Emas',
     pageTitle: 'Edit Bahan Emas',
 };

@@ -43,4 +43,15 @@ class DiamondDossierController extends Controller
             ],
         ]);
     }
+
+    public function show(int $diamond, DiamondDossierInventory $inventory): Response
+    {
+        $detail = $inventory->find($diamond);
+
+        abort_if($detail === null, 404);
+
+        return Inertia::render('inventory/batu-dossier/show', [
+            'diamond' => $detail,
+        ]);
+    }
 }

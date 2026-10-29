@@ -135,12 +135,19 @@ export type SpkStoneStock = {
     note: string | null;
 };
 
-export type SpkStoneAllocationStatus = 'not_allocated' | 'allocated';
+export type SpkStoneAllocationStatus =
+    | 'not_allocated'
+    | 'ordering'
+    | 'allocated';
+
+export type SpkStoneFulfillmentAction = 'mark_ordering';
 
 export type SpkStoneAllocation = {
     status: SpkStoneAllocationStatus;
     label: string;
     allocatedPcs: number;
+    nextAction?: SpkStoneFulfillmentAction | null;
+    nextActionLabel?: string | null;
 };
 
 export type SpkMsChainOption = {

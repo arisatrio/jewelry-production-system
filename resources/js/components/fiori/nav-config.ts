@@ -12,6 +12,7 @@ import { index as componentTransactionsIndex } from '@/routes/inventory/componen
 import { index as componentsIndex } from '@/routes/inventory/components';
 import { index as chainTransactionsIndex } from '@/routes/inventory/chain-transactions';
 import { index as chainsIndex } from '@/routes/inventory/chains';
+import { index as diamondDossierTransactionsIndex } from '@/routes/inventory/diamond-dossier-transactions';
 import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
@@ -92,26 +93,30 @@ export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
 ];
 
 export const defaultInventorySubmenus: ShellNavItem[] = [
-    { text: 'Batu Dossier', href: diamondDossiersIndex.url() },
-    { text: 'Batu Mikro', href: microStonesIndex.url() },
-    { text: 'Bahan Emas', href: goldMaterialsIndex.url() },
+    { text: 'Stok Batu Dossier', href: diamondDossiersIndex.url() },
+    { text: 'Stok Batu Mikro', href: microStonesIndex.url() },
+    { text: 'Stok Bahan Emas', href: goldMaterialsIndex.url() },
     { text: 'Stok Rantai', href: chainsIndex.url() },
-    {
-        text: 'Log Transaksi Chain',
-        href: chainTransactionsIndex.url(),
-    },
     { text: 'Stok Komponen', href: componentsIndex.url() },
     {
-        text: 'Log Transaksi Komponen',
-        href: componentTransactionsIndex.url(),
+        text: 'Transaksi Batu Dossier',
+        href: diamondDossierTransactionsIndex.url(),
+    },
+    {
+        text: 'Transaksi Batu Mikro',
+        href: stoneTransactionsIndex.url(),
     },
     {
         text: 'Transaksi Bahan Emas',
         href: goldMaterialTransactionsIndex.url(),
     },
     {
-        text: 'Transaksi Batu',
-        href: stoneTransactionsIndex.url(),
+        text: 'Transaksi Rantai',
+        href: chainTransactionsIndex.url(),
+    },
+    {
+        text: 'Transaksi Komponen',
+        href: componentTransactionsIndex.url(),
     },
 ];
 

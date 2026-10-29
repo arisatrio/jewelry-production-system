@@ -26,6 +26,7 @@ class SpkStoneStockChecker
     public function __construct(
         private readonly DiamondDossierInventory $dossierInventory,
         private readonly StoneLedger $stoneLedger,
+        private readonly SpkStoneFulfillment $fulfillment,
     ) {}
 
     /**
@@ -68,6 +69,33 @@ class SpkStoneStockChecker
             };
 
             $results[(int) $stone->line_id] = $this->result($match['source'], $match['requiredPcs'], $availablePcs, $match['note']);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Status alokasi & pemesanan batu per baris SPK.
+     *
+     * @param  Collection<int, SpkStone>  $stones
+     * @return array<int, array{
+     *     status: string,
+     *     label: string,
+     *     allocatedPcs: int,
+     *     nextAction: string|null,
+     *     nextActionLabel: string|null
+     * }>
+     */
+    public function allocationForStones(Collection $stones): array
+    {
+        if ($stones->isEmpty()) {
+            return [];
+        }
+
+        $results = [];
+
+        foreach ($stones as $stone) {
+            $results[(int) $stone->line_id] = $this->fulfillment->resolve($stone);
         }
 
         return $results;

@@ -1,6 +1,7 @@
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import outboxIcon from '@ui5/webcomponents-icons/dist/outbox.js';
 import pictureIcon from '@ui5/webcomponents-icons/dist/picture.js';
+import { router } from '@inertiajs/react';
 import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
 import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { Icon } from '@ui5/webcomponents-react/Icon';
@@ -20,9 +21,11 @@ import { useSpkFormStoneStock } from '@/hooks/use-spk-form-stone-stock';
 import type {
     SpkItemDetail,
     SpkStoneAllocationStatus,
+    SpkStoneFulfillmentAction,
     SpkStoneItem,
     SpkStoneStock,
 } from '@/components/spk/types';
+import { fulfillment as advanceStoneFulfillment } from '@/routes/spk/stones';
 
 type SpkItemStoneCardProps = {
     item: SpkItemDetail;
@@ -728,6 +731,8 @@ function stoneAllocationStatusBadgeClass(
     switch (status) {
         case 'allocated':
             return `${base} is-available`;
+        case 'ordering':
+            return `${base} spkChainFulfillmentBadge--progress`;
         case 'not_allocated':
         default:
             return `${base} is-unavailable`;
@@ -775,9 +780,45 @@ function SpkStoneAllocationActionCell({
     const allocateTitle = canAllocate
         ? 'Alokasikan batu ke SPK ini'
         : 'Lihat daftar stok batu';
+    const allocation = stone.allocation;
+    const orderAction = allocation?.nextAction;
+    const orderLabel = allocation?.nextActionLabel ?? 'Order';
+    const [processingOrder, setProcessingOrder] = useState(false);
+
+    const handleOrder = (): void => {
+        if (orderAction !== 'mark_ordering') {
+            return;
+        }
+
+        setProcessingOrder(true);
+        router.post(
+            advanceStoneFulfillment.url(Number(stone.id)),
+            { action: orderAction satisfies SpkStoneFulfillmentAction },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setProcessingOrder(false);
+                },
+            },
+        );
+    };
 
     return (
         <div className="spkChainTableActionCell">
+            {orderAction === 'mark_ordering' ? (
+                <button
+                    type="button"
+                    className="spkChainFulfillmentActionBtn spkChainFulfillmentActionBtn--send"
+                    disabled={processingOrder}
+                    title="Tandai batu sedang dipesan"
+                    onClick={handleOrder}
+                >
+                    <Icon name={outboxIcon} mode="Decorative" />
+                    <span className="spkChainFulfillmentActionBtnLabel">
+                        {orderLabel}
+                    </span>
+                </button>
+            ) : null}
             <button
                 type="button"
                 className="spkChainFulfillmentActionBtn"

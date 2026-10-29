@@ -108,11 +108,11 @@ export default function BahanEmasIndex({
 
     return (
         <>
-            <Head title="Bahan Emas" />
+            <Head title="Stok Bahan Emas" />
             <div className="masterDataPage">
                 <div className="masterDataHeader">
                     <div>
-                        <h1 className="masterDataTitle">Bahan Emas</h1>
+                        <h1 className="masterDataTitle">Stok Bahan Emas</h1>
                         <p className="masterDataSubtitle">
                             Kelola master data bahan emas dari tabel
                             msmaterialgold.
@@ -284,6 +284,6 @@ export default function BahanEmasIndex({
 }
 
 BahanEmasIndex.layout = {
-    activeMenu: 'Bahan Emas',
-    pageTitle: 'Bahan Emas',
+    activeMenu: 'Stok Bahan Emas',
+    pageTitle: 'Stok Bahan Emas',
 };

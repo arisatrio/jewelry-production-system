@@ -1,11 +1,13 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Input } from '@ui5/webcomponents-react/Input';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import { useEffect, useMemo, useState } from 'react';
-import { index } from '@/routes/inventory/diamond-dossiers';
+import { index, show as diamondDossierShow } from '@/routes/inventory/diamond-dossiers';
+import { index as diamondDossierTransactionsIndex } from '@/routes/inventory/diamond-dossier-transactions';
 
 type DiamondStatus = 'available' | 'used';
 
@@ -140,12 +142,27 @@ export default function DiamondDossierIndex({
 
     return (
         <>
-            <Head title="Batu Dossier" />
+            <Head title="Stok Batu Dossier" />
             <div className="spkTableShell">
                 <div className="spkTableCard">
                     <div className="spkTableActions">
                         <div className="spkTableTitleBlock">
-                            <h1 className="spkTableTitle">Batu Dossier</h1>
+                            <h1 className="spkTableTitle">Stok Batu Dossier</h1>
+                        </div>
+                        <div className="spkTableActionsRight">
+                            <button
+                                type="button"
+                                className="spkCreateBtn spkCreateBtn--outline"
+                                aria-label="Log transaksi batu dossier"
+                                onClick={() =>
+                                    router.visit(
+                                        diamondDossierTransactionsIndex.url(),
+                                    )
+                                }
+                            >
+                                <Icon name={listIcon} mode="Decorative" />
+                                <span>Log Transaksi</span>
+                            </button>
                         </div>
                     </div>
 
@@ -243,7 +260,19 @@ export default function DiamondDossierIndex({
                                     diamonds.data.map((diamond) => (
                                         <tr key={diamond.id}>
                                             <td className="font-medium">
-                                                {diamond.code ?? '—'}
+                                                {diamond.code !== null &&
+                                                diamond.code !== '' ? (
+                                                    <Link
+                                                        href={diamondDossierShow.url(
+                                                            diamond.id,
+                                                        )}
+                                                        className="spkProduksiLink"
+                                                    >
+                                                        {diamond.code}
+                                                    </Link>
+                                                ) : (
+                                                    (diamond.code ?? '—')
+                                                )}
                                             </td>
                                             <td>
                                                 {diamond.diamondType ?? '—'}
@@ -328,6 +357,6 @@ export default function DiamondDossierIndex({
 }
 
 DiamondDossierIndex.layout = {
-    activeMenu: 'Batu Dossier',
-    pageTitle: 'Batu Dossier',
+    activeMenu: 'Stok Batu Dossier',
+    pageTitle: 'Stok Batu Dossier',
 };

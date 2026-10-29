@@ -277,6 +277,6 @@ export default function BahanEmasShow({
 }
 
 BahanEmasShow.layout = {
-    activeMenu: 'Bahan Emas',
+    activeMenu: 'Stok Bahan Emas',
     pageTitle: 'Detail Bahan Emas',
 };

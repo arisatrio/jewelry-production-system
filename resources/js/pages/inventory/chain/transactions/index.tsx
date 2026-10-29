@@ -145,14 +145,14 @@ export default function ChainTransactionsIndex({
 
     return (
         <>
-            <Head title="Log Transaksi Chain" />
+            <Head title="Transaksi Rantai" />
             <div className="spkTableShell">
                 <div className="spkTableCard">
                     <div className="spkTableToolbar spkTableHeaderBar--finishing">
                         <div className="spkTableToolbarLeft">
                             <div className="spkTableTitleBlock spkTableTitleBlock--finishing">
                                 <h2 className="spkTableHeaderTitle--finishing">
-                                    Log Transaksi Chain
+                                    Transaksi Rantai
                                 </h2>
                                 <p className="spkTableHeaderSubtitle--finishing text-muted-foreground">
                                     Semua unit stok trxchain di seluruh master
@@ -465,6 +465,6 @@ export default function ChainTransactionsIndex({
 }
 
 ChainTransactionsIndex.layout = {
-    activeMenu: 'Log Transaksi Chain',
-    pageTitle: 'Log Transaksi Chain',
+    activeMenu: 'Transaksi Rantai',
+    pageTitle: 'Transaksi Rantai',
 };

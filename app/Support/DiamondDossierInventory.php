@@ -41,6 +41,41 @@ class DiamondDossierInventory
         ];
     }
 
+    /**
+     * @return array{
+     *     id: int,
+     *     code: string|null,
+     *     diamondType: string|null,
+     *     shape: string|null,
+     *     color: string|null,
+     *     crt: string|null,
+     *     certificate: string|null,
+     *     supplier: string|null,
+     *     entryDate: string|null,
+     *     outDate: string|null,
+     *     status: string,
+     *     mountingDocumentNo: string|null,
+     *     mountingDocumentId: int|null,
+     *     spkNo: string|null,
+     *     createdBy: string|null,
+     *     createdDate: string|null,
+     *     modifiedBy: string|null,
+     *     modifiedDate: string|null
+     * }|null
+     */
+    public function find(int $diamondId): ?array
+    {
+        $diamond = $this->detailQuery()
+            ->where('diamond.row_id', $diamondId)
+            ->first();
+
+        if ($diamond === null) {
+            return null;
+        }
+
+        return $this->toDetailRow($diamond);
+    }
+
     public function availableCountInCrtRange(int $shapeId, string $crtMin, string $crtMax): int
     {
         return $this->availableInCrtRangeQuery($shapeId, $crtMin, $crtMax)->count();
@@ -231,6 +266,74 @@ class DiamondDossierInventory
             'createdBy' => $this->nullableString($diamond->created_by),
             'createdDate' => $this->nullableString($diamond->created_date),
         ];
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     code: string|null,
+     *     diamondType: string|null,
+     *     shape: string|null,
+     *     color: string|null,
+     *     crt: string|null,
+     *     certificate: string|null,
+     *     supplier: string|null,
+     *     entryDate: string|null,
+     *     outDate: string|null,
+     *     status: string,
+     *     mountingDocumentNo: string|null,
+     *     mountingDocumentId: int|null,
+     *     spkNo: string|null,
+     *     createdBy: string|null,
+     *     createdDate: string|null,
+     *     modifiedBy: string|null,
+     *     modifiedDate: string|null
+     * }
+     */
+    private function toDetailRow(object $diamond): array
+    {
+        return [
+            ...$this->toRow($diamond),
+            'mountingDocumentId' => filled($diamond->mounting_doc_id ?? null)
+                ? (int) $diamond->mounting_doc_id
+                : null,
+            'spkNo' => $this->nullableString($diamond->spk_no ?? null),
+            'modifiedBy' => $this->nullableString($diamond->modified_by ?? null),
+            'modifiedDate' => $this->nullableString($diamond->modified_date ?? null),
+        ];
+    }
+
+    private function detailQuery(): Builder
+    {
+        return DB::connection('third')
+            ->table('trdiamond as diamond')
+            ->leftJoin('msshape as shape', 'shape.row_id', '=', 'diamond.shape_id')
+            ->leftJoin('diamondmounting as mounting_document', function ($join): void {
+                $join->on('mounting_document.row_id', '=', 'diamond.diamondmounting_id')
+                    ->where('mounting_document.is_deleted', 0);
+            })
+            ->leftJoin('spk as production', 'production.row_id', '=', 'mounting_document.spk_id')
+            ->where('diamond.is_deleted', 0)
+            ->select([
+                'diamond.row_id',
+                'diamond.doc_no',
+                'diamond.diamond_type',
+                'shape.name as shape_name',
+                'diamond.color',
+                'diamond.crt',
+                'diamond.certificate',
+                'diamond.supplier',
+                'diamond.entry_date',
+                'diamond.out_date',
+                'diamond.is_used',
+                'mounting_document.doc_no as mounting_doc_no',
+                'mounting_document.row_id as mounting_doc_id',
+                'production.spk_no as spk_no',
+                'diamond.created_by',
+                'diamond.created_date',
+                'diamond.modified_by',
+                'diamond.modified_date',
+            ]);
     }
 
     private function whereAvailable(Builder $query): Builder

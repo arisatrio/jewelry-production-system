@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $pcs
  * @property string|null $carat
  * @property string|null $size
+ * @property string|null $fulfillment_status
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -36,6 +37,7 @@ use Illuminate\Support\Carbon;
     'pcs',
     'carat',
     'size',
+    'fulfillment_status',
     'is_deleted',
     'created_date',
     'created_by',

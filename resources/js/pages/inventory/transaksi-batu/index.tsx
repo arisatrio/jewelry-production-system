@@ -147,12 +147,12 @@ export default function StoneTransactionsIndex({
 
     return (
         <>
-            <Head title="Transaksi Batu" />
+            <Head title="Transaksi Batu Mikro" />
             <div className="spkTableShell">
                 <div className="spkTableCard">
                     <div className="spkTableActions">
                         <div className="spkTableTitleBlock">
-                            <h1 className="spkTableTitle">Transaksi Batu</h1>
+                            <h1 className="spkTableTitle">Transaksi Batu Mikro</h1>
                         </div>
                     </div>
 
@@ -325,6 +325,6 @@ export default function StoneTransactionsIndex({
 }
 
 StoneTransactionsIndex.layout = {
-    activeMenu: 'Transaksi Batu',
-    pageTitle: 'Transaksi Batu',
+    activeMenu: 'Transaksi Batu Mikro',
+    pageTitle: 'Transaksi Batu Mikro',
 };

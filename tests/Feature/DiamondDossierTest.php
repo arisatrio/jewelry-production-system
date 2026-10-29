@@ -113,3 +113,33 @@ test('diamond dossier index rejects unknown status', function () {
     $this->get(route('inventory.diamond-dossiers.index', ['status' => 'unknown']))
         ->assertSessionHasErrors('status');
 });
+
+test('diamond dossier show displays detail', function () {
+    $docNo = 'DOS-'.Str::upper(Str::random(8));
+    $diamondId = createDossierDiamondForTest([
+        'doc_no' => $docNo,
+        'certificate' => 'CERT-SHOW',
+    ]);
+
+    $this->get(route('inventory.diamond-dossiers.show', $diamondId))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('inventory/batu-dossier/show')
+            ->where('diamond.id', $diamondId)
+            ->where('diamond.code', $docNo)
+            ->where('diamond.certificate', 'CERT-SHOW')
+            ->where('diamond.status', 'available')
+        );
+});
+
+test('diamond dossier show returns not found for missing diamond', function () {
+    $this->get(route('inventory.diamond-dossiers.show', 999_999_999))
+        ->assertNotFound();
+});
+
+test('diamond dossier show returns not found for deleted diamond', function () {
+    $diamondId = createDossierDiamondForTest(['is_deleted' => 1]);
+
+    $this->get(route('inventory.diamond-dossiers.show', $diamondId))
+        ->assertNotFound();
+});

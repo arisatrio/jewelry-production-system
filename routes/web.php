@@ -5,6 +5,7 @@ use App\Http\Controllers\CraftsmanPerformanceDashboardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiamondCrtMatrixController;
 use App\Http\Controllers\DiamondDossierController;
+use App\Http\Controllers\DiamondDossierTransactionController;
 use App\Http\Controllers\DiamondMountingController;
 use App\Http\Controllers\FinishingController;
 use App\Http\Controllers\FinishingShrinkAllowanceController;
@@ -155,6 +156,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('spk/stones/{spkStone}/stock', [SpkStoneStockController::class, 'show'])
         ->whereNumber('spkStone')
         ->name('spk.stones.stock');
+    Route::post('spk/stones/{spkStone}/fulfillment', [SpkStoneStockController::class, 'advanceFulfillment'])
+        ->whereNumber('spkStone')
+        ->name('spk.stones.fulfillment');
     Route::get('spk/chains/{spkChain}/allocation-units', [SpkChainStockController::class, 'allocationUnits'])
         ->whereNumber('spkChain')
         ->name('spk.chains.allocation-units');
@@ -402,6 +406,11 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('batu-dossier', [DiamondDossierController::class, 'index'])
             ->name('diamond-dossiers.index');
+        Route::get('batu-dossier/{diamond}', [DiamondDossierController::class, 'show'])
+            ->name('diamond-dossiers.show')
+            ->whereNumber('diamond');
+        Route::get('transaksi-batu-dossier', [DiamondDossierTransactionController::class, 'index'])
+            ->name('diamond-dossier-transactions.index');
 
         Route::get('batu-mikro', [MicroStoneController::class, 'index'])
             ->name('micro-stones.index');

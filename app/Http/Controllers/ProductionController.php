@@ -2475,15 +2475,18 @@ class ProductionController extends Controller
             ->values();
 
         $stockByLineId = $this->stoneStockChecker->forStones($stones);
+        $allocationByLineId = $this->stoneStockChecker->allocationForStones($stones);
 
         return $stones
-            ->map(function (SpkStone $stone, int $index) use ($masterStones, $stockByLineId): array {
+            ->map(function (SpkStone $stone, int $index) use ($masterStones, $stockByLineId, $allocationByLineId): array {
                 $item = $this->toStoneItem($stone);
                 $item['stock'] = $stockByLineId[(int) $stone->line_id] ?? null;
-                $item['allocation'] = [
+                $item['allocation'] = $allocationByLineId[(int) $stone->line_id] ?? [
                     'status' => 'not_allocated',
                     'label' => 'Belum Dialokasikan',
                     'allocatedPcs' => 0,
+                    'nextAction' => null,
+                    'nextActionLabel' => null,
                 ];
                 $master = $masterStones[$index] ?? null;
 

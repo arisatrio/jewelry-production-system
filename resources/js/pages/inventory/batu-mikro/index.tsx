@@ -153,12 +153,12 @@ export default function MicroStoneIndex({
 
     return (
         <>
-            <Head title="Batu Mikro" />
+            <Head title="Stok Batu Mikro" />
             <div className="spkTableShell">
                 <div className="spkTableCard">
                     <div className="spkTableActions">
                         <div className="spkTableTitleBlock">
-                            <h1 className="spkTableTitle">Batu Mikro</h1>
+                            <h1 className="spkTableTitle">Stok Batu Mikro</h1>
                             {activePeriod ? (
                                 <span className="spkTablePageSizeLabel">
                                     Periode {activePeriod.label}
@@ -342,6 +342,6 @@ export default function MicroStoneIndex({
 }
 
 MicroStoneIndex.layout = {
-    activeMenu: 'Batu Mikro',
-    pageTitle: 'Batu Mikro',
+    activeMenu: 'Stok Batu Mikro',
+    pageTitle: 'Stok Batu Mikro',
 };
