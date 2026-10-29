@@ -1,1 +1,0 @@
-import{zi as e}from"./app-DwvJ4V23.js";import"./Text-TuivoKKg.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};

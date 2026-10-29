@@ -1,1 +1,0 @@
-import{zi as e}from"./app-DwvJ4V23.js";var t=e(`ui5-label`,[`for`,`wrappingType`],[`required`,`showColon`],[],[]);t.displayName=`Label`;export{t};

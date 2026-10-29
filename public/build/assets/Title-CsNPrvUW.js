@@ -1,1 +1,0 @@
-import{zi as e}from"./app-DwvJ4V23.js";var t=e(`ui5-title`,[`level`,`size`,`wrappingType`],[],[],[]);t.displayName=`Title`;export{t};
