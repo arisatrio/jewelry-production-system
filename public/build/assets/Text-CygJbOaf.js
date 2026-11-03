@@ -1,0 +1,1 @@
+import{ea as e}from"./app-C8iUfZZW.js";import"./Text-DwIAjNYN.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};
