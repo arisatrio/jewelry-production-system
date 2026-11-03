@@ -7,6 +7,7 @@ use App\Support\StoneLedger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,12 +20,21 @@ class StoneTransactionController extends Controller
             'search',
             'date_from',
             'date_to',
+            'event_type',
             'per_page',
+            'sort',
+            'direction',
         ]), [
             'search' => ['nullable', 'string', 'max:100'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+            'event_type' => ['nullable', Rule::in([
+                StoneLedger::TRANSACTION_EVENT_ENTRY,
+                StoneLedger::TRANSACTION_EVENT_OUT,
+            ])],
             'per_page' => ['nullable', 'integer'],
+            'sort' => ['nullable', Rule::in(StoneLedger::transactionSorts())],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ])->validate();
 
         $search = trim((string) ($filters['search'] ?? ''));
@@ -34,8 +44,19 @@ class StoneTransactionController extends Controller
         $dateTo = filled($filters['date_to'] ?? null)
             ? (string) $filters['date_to']
             : null;
-        $perPage = (int) ($filters['per_page'] ?? 10);
-        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
+        $eventType = filled($filters['event_type'] ?? null)
+            ? (string) $filters['event_type']
+            : null;
+        $perPage = (int) ($filters['per_page'] ?? 50);
+        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
+        $sort = StoneLedger::resolveSort(
+            (string) ($filters['sort'] ?? StoneLedger::DEFAULT_TRANSACTION_SORT),
+            StoneLedger::transactionSorts(),
+            StoneLedger::DEFAULT_TRANSACTION_SORT,
+        );
+        $direction = StoneLedger::resolveDirection(
+            (string) ($filters['direction'] ?? StoneLedger::DEFAULT_TRANSACTION_DIRECTION),
+        );
         $activePeriod = $ledger->activePeriod();
 
         return Inertia::render('inventory/transaksi-batu/index', [
@@ -46,7 +67,10 @@ class StoneTransactionController extends Controller
                     $search,
                     $dateFrom,
                     $dateTo,
+                    $eventType,
                     $perPage,
+                    $sort,
+                    $direction,
                 ),
             'total' => $activePeriod === null
                 ? '0'
@@ -55,6 +79,7 @@ class StoneTransactionController extends Controller
                     $search,
                     $dateFrom,
                     $dateTo,
+                    $eventType,
                 ),
             'activePeriod' => $activePeriod,
             'stoneOptions' => $ledger->stoneOptions($activePeriod['id'] ?? null),
@@ -62,7 +87,14 @@ class StoneTransactionController extends Controller
                 'search' => $search,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'event_type' => $eventType,
                 'per_page' => $perPage,
+                'sort' => $sort,
+                'direction' => $direction,
+            ],
+            'filterOptions' => [
+                'sort' => StoneLedger::transactionSortOptions(),
+                'direction' => StoneLedger::directionSortOptions(),
             ],
         ]);
     }

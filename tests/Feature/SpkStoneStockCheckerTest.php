@@ -89,7 +89,8 @@ test('stone with carat per pcs at least 0.18 uses dossier stock within the matri
         'availablePcs' => $baseline + 2,
         'note' => MsShape::query()->find($shapeId)?->name.', range 0.400 – 0.490 ct',
     ])
-        ->and($results[2]['status'])->toBe(SpkStoneStockChecker::STATUS_UNAVAILABLE);
+        ->and($results[2]['status'])->toBe(SpkStoneStockChecker::STATUS_AVAILABLE)
+        ->and($results[2]['availablePcs'])->toBe($baseline + 2);
 });
 
 test('dossier stock only counts diamonds with the same shape', function () {
@@ -191,7 +192,7 @@ test('stone below 0.18 carat per pcs uses micro stone stock by shape and size', 
     ])
         ->and($results[2])->toMatchArray([
             'source' => SpkStoneStockChecker::SOURCE_MICRO,
-            'status' => SpkStoneStockChecker::STATUS_UNAVAILABLE,
+            'status' => SpkStoneStockChecker::STATUS_AVAILABLE,
             'availablePcs' => $rangeSizeAvailable,
         ]);
 });
@@ -215,7 +216,8 @@ test('matching stones lists available dossier diamonds of the same shape within 
         ->and($result['stock']['availablePcs'])->toBe($checker->forStones(collect([$heartStone]))[1]['availablePcs'])
         ->and($crts)->toContain('0.444')
         ->and($crts)->toContain('0.520')
-        ->and($shapes)->toBe([MsShape::query()->find($heartShapeId)?->name])
+        ->and($shapes)->toHaveCount(1)
+        ->and($shapes[0])->toBe('Heart (HS)')
         ->and(collect($result['rows'])->firstWhere('crt', '0.444')['matchesSpkRequirement'] ?? null)->toBeTrue()
         ->and(collect($result['rows'])->firstWhere('crt', '0.520')['matchesSpkRequirement'] ?? null)->toBeFalse();
 });
@@ -240,11 +242,42 @@ test('matching stones lists micro stones with their balance', function () {
     expect($row)->toMatchArray([
         'size' => '9.66',
         'balancePcs' => '15',
-        'balanceCrt' => '0.3000',
+        'balanceCrt' => '0.300',
         'matchesSpkRequirement' => true,
     ])
         ->and($result['stock']['source'])->toBe(SpkStoneStockChecker::SOURCE_MICRO)
         ->and($result['stock']['availablePcs'])->toBeGreaterThanOrEqual(15);
+});
+
+test('matching stones exposes dossier and micro sections when both sources apply', function () {
+    $ledger = app(StoneLedger::class);
+    $activePeriod = $ledger->activePeriod();
+
+    if ($activePeriod === null) {
+        $this->markTestSkipped('No active stone period.');
+    }
+
+    $shapeId = stockTestShapeId('MQ');
+    createAvailableDossierDiamond($shapeId, '0.444');
+
+    $microStone = MsStone::factory()->create([
+        'shape_id' => $shapeId,
+        'stone_size' => '9.66',
+        'mounting_rate' => 1,
+    ]);
+    $ledger->store($activePeriod['id'], 'addition', (int) $microStone->row_id, '15', '0.3000', 'test', 'tester');
+
+    $stone = stockTestStone(1, $shapeId, 2, '0.900', '9,66');
+
+    $result = app(SpkStoneStockChecker::class)->matchingStones($stone);
+
+    expect($result['dossier'])->not->toBeNull()
+        ->and($result['micro'])->not->toBeNull()
+        ->and($result['dossier']['rows'])->not->toBeEmpty()
+        ->and(
+            collect($result['micro']['rows'] ?? [])
+                ->contains(fn (array $row): bool => ($row['matchesSpkRequirement'] ?? false) === true),
+        )->toBeTrue();
 });
 
 test('spk stone check stock endpoint returns stock from form attributes', function () {

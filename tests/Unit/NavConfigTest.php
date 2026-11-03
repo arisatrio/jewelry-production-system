@@ -72,6 +72,7 @@ test('inventory submenu lists stock and transaction items in order', function ()
     expect($labels)->toBe([
         'Stok Batu Dossier',
         'Stok Batu Mikro',
+        'Pembelian Batu',
         'Stok Bahan Emas',
         'Stok Rantai',
         'Stok Komponen',

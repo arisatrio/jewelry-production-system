@@ -93,6 +93,10 @@ test('stone transaction index lists transaction types and calculates signed tota
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('inventory/transaksi-batu/index')
+            ->where('filters.per_page', 50)
+            ->where('filters.sort', 'created_date')
+            ->where('filters.direction', 'desc')
+            ->has('filterOptions.sort')
             ->has('transactions.data', 2)
             ->where('total', '-7')
             ->has('stoneOptions')
@@ -100,6 +104,67 @@ test('stone transaction index lists transaction types and calculates signed tota
                 'activePeriod.id',
                 activeStonePeriodIdForTransactionTest(),
             )
+        );
+});
+
+test('stone transaction index filters by event type', function () {
+    $stoneId = createStoneForTransactionTest();
+    createStoneTransactionForTest($stoneId, [
+        'transtype_id' => StoneLedger::ADDITION_TRANSACTION_TYPE_ID,
+        'pcs' => 5,
+    ]);
+    createStoneTransactionForTest($stoneId, [
+        'transtype_id' => 7,
+        'pcs' => 2,
+    ]);
+
+    $stoneName = DB::connection('third')
+        ->table('msstone')
+        ->where('row_id', $stoneId)
+        ->value('name');
+
+    $this->get(route('inventory.stone-transactions.index', [
+        'search' => $stoneName,
+        'event_type' => StoneLedger::TRANSACTION_EVENT_OUT,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('transactions.data', 1)
+            ->where('filters.event_type', StoneLedger::TRANSACTION_EVENT_OUT)
+        );
+});
+
+test('stone transaction index sorts by stone name ascending', function () {
+    $stoneA = createStoneForTransactionTest();
+    $stoneB = createStoneForTransactionTest();
+    createStoneTransactionForTest($stoneA, [
+        'created_date' => '2026-09-09 12:00:00',
+    ]);
+    createStoneTransactionForTest($stoneB, [
+        'created_date' => '2026-09-09 11:00:00',
+    ]);
+
+    $nameA = DB::connection('third')
+        ->table('msstone')
+        ->where('row_id', $stoneA)
+        ->value('name');
+    $nameB = DB::connection('third')
+        ->table('msstone')
+        ->where('row_id', $stoneB)
+        ->value('name');
+
+    $names = collect([$nameA, $nameB])->sort()->values();
+
+    $this->get(route('inventory.stone-transactions.index', [
+        'search' => 'Stone Transaction Test',
+        'sort' => 'stone',
+        'direction' => 'asc',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.sort', 'stone')
+            ->where('filters.direction', 'asc')
+            ->where('transactions.data.0.stone', $names[0])
         );
 });
 

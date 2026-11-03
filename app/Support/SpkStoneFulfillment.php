@@ -96,7 +96,7 @@ class SpkStoneFulfillment
 
     private function allocatedPcs(SpkStone $stone): int
     {
-        return 0;
+        return app(SpkStoneAllocationService::class)->allocatedPcs($stone);
     }
 
     private function normalizeStoredStatus(mixed $value): string
@@ -116,7 +116,11 @@ class SpkStoneFulfillment
             return $stored === self::ORDERING ? self::ORDERING : self::ALLOCATED;
         }
 
-        return $stored;
+        if ($stored === self::ORDERING) {
+            return self::ORDERING;
+        }
+
+        return self::NOT_ALLOCATED;
     }
 
     private function nextAction(string $status, int $allocatedPcs): ?string

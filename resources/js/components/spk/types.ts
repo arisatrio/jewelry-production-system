@@ -293,6 +293,25 @@ export type SpkComponentItem = {
     workshopReceived?: SpkComponentWorkshopReceived | null;
 };
 
+export type SpkStoneAllocatedItem = {
+    id: number;
+    source: string;
+    sourceLabel: string;
+    label: string;
+    code: string;
+    shape: string;
+    displayId: string | null;
+    diamondType: string | null;
+    color: string | null;
+    diamondId: number | null;
+    msStoneId: number | null;
+    reservedPcs: string;
+    reservedCrt: string | null;
+    spkNo: string | null;
+    allocatedDate: string | null;
+    allocatedBy: string | null;
+};
+
 export type SpkStoneItem = {
     id: string;
     positionId?: string;
@@ -307,6 +326,7 @@ export type SpkStoneItem = {
     size: string | number;
     stock?: SpkStoneStock | null;
     allocation?: SpkStoneAllocation | null;
+    allocatedItems?: SpkStoneAllocatedItem[];
     master?: {
         positionName?: string | null;
         shapeName?: string | null;

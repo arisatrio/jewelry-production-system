@@ -339,7 +339,6 @@ export function SpkChainAllocateDialog({
                     onOpenChange(false);
                     router.reload({
                         only: ['chains'],
-                        preserveScroll: true,
                     });
                 }}
             />

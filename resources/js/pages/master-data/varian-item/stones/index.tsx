@@ -598,7 +598,7 @@ export default function VarianItemStonesIndex({
                                     <th>Bentuk</th>
                                     <th>Diameter / Dimensi PxL (mm)</th>
                                     <th>Jumlah Butir (pcs)</th>
-                                    <th>Carat per Butir (pcs)</th>
+                                    <th>CRT per Butir (pcs)</th>
                                     <th>Total Carat</th>
                                     <th className="spkTableActionCol">Aksi</th>
                                 </tr>

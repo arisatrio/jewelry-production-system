@@ -17,6 +17,8 @@ class MicroStoneController extends Controller
             'search',
             'stock_status',
             'per_page',
+            'sort',
+            'direction',
         ]), [
             'search' => ['nullable', 'string', 'max:100'],
             'stock_status' => ['nullable', Rule::in([
@@ -24,14 +26,24 @@ class MicroStoneController extends Controller
                 StoneLedger::STOCK_STATUS_EMPTY,
             ])],
             'per_page' => ['nullable', 'integer'],
+            'sort' => ['nullable', Rule::in(StoneLedger::stockSorts())],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ])->validate();
 
         $search = trim((string) ($filters['search'] ?? ''));
         $stockStatus = filled($filters['stock_status'] ?? null)
             ? (string) $filters['stock_status']
             : null;
-        $perPage = (int) ($filters['per_page'] ?? 10);
-        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
+        $perPage = (int) ($filters['per_page'] ?? 50);
+        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
+        $sort = StoneLedger::resolveSort(
+            (string) ($filters['sort'] ?? StoneLedger::DEFAULT_STOCK_SORT),
+            StoneLedger::stockSorts(),
+            StoneLedger::DEFAULT_STOCK_SORT,
+        );
+        $direction = StoneLedger::resolveDirection(
+            (string) ($filters['direction'] ?? StoneLedger::DEFAULT_STOCK_DIRECTION),
+        );
         $activePeriod = $ledger->activePeriod();
 
         return Inertia::render('inventory/batu-mikro/index', [
@@ -42,15 +54,45 @@ class MicroStoneController extends Controller
                     $search,
                     $stockStatus,
                     $perPage,
+                    $sort,
+                    $direction,
                 ),
             'totals' => $activePeriod === null
                 ? ['pcs' => '0', 'crt' => '0.0000']
                 : $ledger->stockTotals($activePeriod['id'], $search, $stockStatus),
+            'statusSummaries' => $activePeriod === null
+                ? [
+                    'balance' => [
+                        'stoneCount' => 0,
+                        'pcs' => '0',
+                        'crt' => '0.0000',
+                        'reservedPcs' => '0',
+                    ],
+                    'available' => [
+                        'stoneCount' => 0,
+                        'pcs' => '0',
+                        'crt' => '0.0000',
+                        'reservedPcs' => '0',
+                    ],
+                    'empty' => [
+                        'stoneCount' => 0,
+                        'pcs' => '0',
+                        'crt' => '0.0000',
+                        'reservedPcs' => '0',
+                    ],
+                ]
+                : $ledger->stockSummaries($activePeriod['id'], $search),
             'activePeriod' => $activePeriod,
             'filters' => [
                 'search' => $search,
                 'stock_status' => $stockStatus,
                 'per_page' => $perPage,
+                'sort' => $sort,
+                'direction' => $direction,
+            ],
+            'filterOptions' => [
+                'sort' => StoneLedger::stockSortOptions(),
+                'direction' => StoneLedger::directionSortOptions(),
             ],
         ]);
     }

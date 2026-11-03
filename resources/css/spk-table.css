@@ -129,8 +129,52 @@
     background: #fff;
 }
 
+.spkTableCard:has(> .spkTableScroll--finishing) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.spkTableCard:has(> .spkTableScroll--finishing) > .spkTableScroll--finishing {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow: auto;
+}
+
+.spkTableCard:has(> .spkTableScroll--finishing) > .spkTableFooter {
+    flex-shrink: 0;
+}
+
+.spkTableCard:has(> .spkTableScroll--finishing) > .spkTableToolbar,
+.spkTableCard:has(> .spkTableScroll--finishing) > .spkActiveFilterBar,
+.spkTableCard:has(> .spkTableScroll--finishing) > .spkStatusCards {
+    flex-shrink: 0;
+}
+
+.spkTableCard:has(> .spkTableScroll--finishing) > .spkStatusCards {
+    margin-bottom: 1rem;
+}
+
+.spkTableCard:has(> .spkStatusCards--dossierStock) > .spkStatusCards--dossierStock {
+    margin: 0.65rem 1rem 0.8rem;
+}
+
+.spkTableCard:has(> .spkStatusCards--dossierStock) > .spkTableScroll--finishing {
+    margin-top: 0.25rem;
+}
+
+.spkTableCard:has(> .spkTableScroll--finishing) > .spkTableScroll--finishing {
+    margin-top: 0.35rem;
+}
+
+.spkStatusCard.is-filterActive {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 1px #bfdbfe;
+}
+
 .spkTableScroll--finishing {
-    max-height: min(70vh, 42rem);
     overflow: auto;
 }
 
@@ -138,7 +182,10 @@
     position: sticky;
     top: 0;
     z-index: 2;
-    box-shadow: inset 0 -1px 0 #eceff2;
+    background: var(--sapList_HeaderBackground, #f7f8f9);
+    color: var(--sapList_HeaderTextColor, #131e29);
+    font-weight: 600;
+    box-shadow: inset 0 -1px 0 var(--sapList_HeaderBorderColor, #a8b2bd);
 }
 
 .spkTableScroll--finishing .spkTable th.spkTableColCraftsmanDate,
@@ -206,6 +253,19 @@
 .spkTableColDoc--spk .spkProduksiLink {
     font-size: 0.9rem;
     line-height: 1.35;
+    font-weight: 600;
+}
+
+.spkTable th.spkTableColDoc--dossierId,
+.spkTable td.spkTableColDoc--dossierId {
+    width: 6.75rem;
+    min-width: 6.75rem;
+    max-width: 6.75rem;
+    white-space: nowrap;
+}
+
+.spkTableColDoc--dossierId .spkProduksiLink {
+    font-size: 0.8125rem;
     font-weight: 600;
 }
 
@@ -662,7 +722,7 @@
 .spkTableHeaderActions--finishing {
     display: inline-flex;
     align-items: center;
-    gap: 0.1rem;
+    gap: 0.35rem;
 }
 
 .spkTableHeaderDivider--finishing {
@@ -701,6 +761,16 @@
     width: 1rem;
     height: 1rem;
     color: currentColor;
+}
+
+.spkTableHeaderTextBtn--finishing {
+    gap: 0.35rem;
+    padding-inline: 0.55rem 0.65rem;
+    min-width: auto;
+    white-space: nowrap;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
 }
 
 .spkTableHeaderMenu--finishing {
@@ -1187,6 +1257,180 @@
     }
 }
 
+.spkDossierDetailBody {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0 1rem 1rem;
+}
+
+.spkDossierDetailHero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.spkDossierDetailHeroMain {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.spkDossierDetailHeroId {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #111827;
+    letter-spacing: 0.01em;
+}
+
+.spkDossierDetailHeroMeta {
+    font-size: 0.875rem;
+    color: #475569;
+    line-height: 1.4;
+}
+
+.spkDossierDetailHeroAside {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem 1.5rem;
+}
+
+.spkDossierDetailHeroMetric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    align-items: flex-start;
+}
+
+.spkDossierDetailHeroMetricValue {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+}
+
+.spkDossierDetailSections {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+@media (max-width: 960px) {
+    .spkDossierDetailSections {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkDossierDetailSections .spkDetailCard {
+    margin: 0;
+    height: 100%;
+}
+
+.spkDossierDetailSections .spkDetailGrid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+}
+
+.spkDossierDetailSections .spkShowSectionTitle {
+    margin-bottom: 0.25rem;
+}
+
+.spkDossierDetailAudit {
+    grid-column: 1 / -1;
+}
+
+.spkDetailBody--dossierOdoo {
+    padding: 0.65rem 1rem 1rem;
+    box-sizing: border-box;
+}
+
+.dashboardContent:has(.spkDetailBody--dossierOdoo) {
+    background: #f0f0f0;
+}
+
+.spkOdooFormSheetCard {
+    width: 100%;
+    min-width: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.35rem;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.spkOdooFormSheetHeader {
+    padding: 1.25rem 1.5rem 1.15rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.spkOdooFormSheetCard .spkFormLabel {
+    color: #374151;
+    font-weight: 600;
+}
+
+.spkOdooFormSheetNotebook {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.spkOdooFormSheetTabs {
+    padding: 0 1.5rem;
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.spkOdooFormSheetTabs .spkSectionTab {
+    margin-bottom: -1px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 0.25rem 0.25rem 0 0;
+}
+
+.spkOdooFormSheetTabs .spkSectionTab {
+    border-bottom: 1px solid transparent;
+}
+
+.spkOdooFormSheetTabs .spkSectionTab.is-active {
+    color: #017e84;
+    font-weight: 600;
+    border-color: #dee2e6;
+    border-bottom: 1px solid #fff;
+    background: #fff;
+}
+
+.spkOdooFormSheetPanel {
+    padding: 1.15rem 1.5rem 1.5rem;
+    min-width: 0;
+    box-sizing: border-box;
+    background: #fff;
+}
+
+.spkOdooFormSheetFields {
+    max-width: 44rem;
+    gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+    .spkOdooFormSheetHeader,
+    .spkOdooFormSheetTabs,
+    .spkOdooFormSheetPanel {
+        padding-inline: 1rem;
+    }
+}
+
 .spkChainStockBalanceLabel {
     display: inline-flex;
     min-width: 2rem;
@@ -1580,6 +1824,17 @@
     max-width: 100%;
 }
 
+.spkTableShell:has(.spkTableScroll--finishing) {
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 0;
+}
+
+.spkTableShell:has(.spkTableScroll--finishing) > .spkTableCard {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .spkTableActions {
     display: flex;
     align-items: center;
@@ -1868,6 +2123,175 @@
     border-color: #6ee7b7;
 }
 
+.spkStatusCard--jewelcadDone.is-filterActive {
+    border-color: #34d399;
+    box-shadow: 0 0 0 1px #a7f3d0;
+}
+
+/* Stok batu dossier — ringkasan status (Fiori tile) */
+.spkStatusCards--dossierStock {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+    width: 100%;
+    max-width: none;
+}
+
+.spkStatusCards--dossierStock .spkStatusCard {
+    width: auto;
+    max-width: none;
+    flex: unset;
+    gap: 0.25rem;
+    min-height: 0;
+    padding: 0.7rem 0.85rem 0.65rem 0.95rem;
+    border-radius: 0.625rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+
+.spkStatusCards--dossierStock .spkStatusCard::before {
+    width: 3px;
+    border-radius: 0.625rem 0 0 0.625rem;
+}
+
+.spkStatusCards--dossierStock .spkStatusCard:hover {
+    transform: none;
+    box-shadow: 0 2px 6px rgb(15 23 42 / 7%);
+}
+
+.spkStatusCards--dossierStock .spkStatusCardLabel {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    -webkit-line-clamp: 1;
+}
+
+.spkStatusCards--dossierStock .spkStatusCardCount {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    margin-top: 0.05rem;
+    font-size: 1.375rem;
+    line-height: 1.15;
+}
+
+.spkStatusCardCountValue {
+    font-variant-numeric: tabular-nums;
+}
+
+.spkStatusCardCountUnit {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0;
+}
+
+.spkStatusCards--dossierStock .spkStatusCardHint {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.05rem;
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+
+.spkStatusCardHintMetric {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+.spkStatusCardHintSep {
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.spkStatusCard--stockAvailable {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+
+.spkStatusCard--stockAvailable::before {
+    background: #059669;
+}
+
+.spkStatusCard--stockAvailable .spkStatusCardLabel {
+    color: #047857;
+}
+
+.spkStatusCard--stockAvailable .spkStatusCardCount {
+    color: #065f46;
+}
+
+.spkStatusCard--stockAvailable:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+.spkStatusCard--stockReserved {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+
+.spkStatusCard--stockReserved::before {
+    background: #d97706;
+}
+
+.spkStatusCard--stockReserved .spkStatusCardLabel {
+    color: #92400e;
+}
+
+.spkStatusCard--stockReserved .spkStatusCardCount {
+    color: #78350f;
+}
+
+.spkStatusCard--stockReserved:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+.spkStatusCard--stockUsed {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+
+.spkStatusCard--stockUsed::before {
+    background: #64748b;
+}
+
+.spkStatusCard--stockUsed .spkStatusCardLabel {
+    color: #475569;
+}
+
+.spkStatusCard--stockUsed .spkStatusCardCount {
+    color: #334155;
+}
+
+.spkStatusCard--stockUsed:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+.spkStatusCards--dossierStock .spkStatusCard.is-filterActive {
+    border-color: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
+.spkStatusCards--dossierStock .spkStatusCard--stockAvailable.is-filterActive {
+    border-color: #10b981;
+    box-shadow: 0 0 0 1px rgb(16 185 129 / 35%);
+}
+
+.spkStatusCards--dossierStock .spkStatusCard--stockReserved.is-filterActive {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 1px rgb(245 158 11 / 35%);
+}
+
+.spkStatusCards--dossierStock .spkStatusCard--stockUsed.is-filterActive {
+    border-color: #64748b;
+    box-shadow: 0 0 0 1px rgb(100 116 139 / 28%);
+}
+
 .spkAlertModalFootnote {
     margin: 0.75rem 0 0;
     padding: 0 0.25rem;
@@ -1888,6 +2312,10 @@
 
 @media (max-width: 640px) {
     .spkStatusCards {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .spkStatusCards--dossierStock {
         grid-template-columns: minmax(0, 1fr);
     }
 }
@@ -2268,6 +2696,13 @@
     font-size: 0.75rem;
     font-weight: 700;
     line-height: 1;
+}
+
+.dashboardContent:has(.spkTableShell .spkTableScroll--finishing) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
 }
 
 .dashboardContent:has(.spkTableShell) {
@@ -5178,6 +5613,16 @@ button.spkItemImagePreview--clickable:focus-visible {
     min-width: 0;
 }
 
+.spkStoneDiamondHeaderActions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
 .spkChainCardHeader .spkChainPrintReceiptBtn {
     flex-shrink: 0;
     margin-left: auto;
@@ -5714,6 +6159,26 @@ button.spkItemImagePreview--clickable:focus-visible {
     outline-offset: 1px;
 }
 
+.spkChainStatusCell .spkChainFulfillmentActionBtn--order,
+.spkChainTableActionCell .spkChainFulfillmentActionBtn--order {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.spkChainStatusCell .spkChainFulfillmentActionBtn--order:hover:not(:disabled),
+.spkChainTableActionCell
+    .spkChainFulfillmentActionBtn--order:hover:not(:disabled) {
+    border-color: #60a5fa;
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.spkChainStatusCell .spkChainFulfillmentActionBtn--order:focus-visible,
+.spkChainTableActionCell .spkChainFulfillmentActionBtn--order:focus-visible {
+    outline-color: #60a5fa;
+}
+
 .spkChainFulfillmentActionBtn ui5-icon {
     width: 0.875rem;
     height: 0.875rem;
@@ -5878,6 +6343,20 @@ button.spkItemImagePreview--clickable:focus-visible {
 
 .spkChainAllocateDialog
     .spkAlertModalTable.spkChainAllocateTable
+    tbody
+    tr.spkChainAllocateRowUnavailable {
+    background: var(--sapErrorBackground, #ffeaf1);
+}
+
+.spkChainAllocateDialog
+    .spkAlertModalTable.spkChainAllocateTable
+    tbody
+    tr.spkChainAllocateRowUnavailable:hover {
+    background: var(--sapErrorHoverBackground, #ffd6e3);
+}
+
+.spkChainAllocateDialog
+    .spkAlertModalTable.spkChainAllocateTable
     .spkAlertModalTableSubText {
     display: block;
     margin-top: 0.15rem;
@@ -5951,7 +6430,7 @@ button.spkItemImagePreview--clickable:focus-visible {
 
 .spkStoneStockModal.spkChainAllocateDialog
     .spkAlertModalTable.spkStoneAllocateTable--micro {
-    min-width: 42rem;
+    min-width: 48rem;
 }
 
 .spkStoneStockModal.spkChainAllocateDialog
@@ -6075,6 +6554,15 @@ button.spkItemImagePreview--clickable:focus-visible {
 
 .spkStoneStockModal.spkChainAllocateDialog
     .spkStoneAllocateTable--micro
+    .spkStoneAllocateColCrtPerPcs {
+    width: 6.5rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkStoneStockModal.spkChainAllocateDialog
+    .spkStoneAllocateTable--micro
     .spkChainAllocateColName,
 .spkStoneStockModal.spkChainAllocateDialog
     .spkStoneAllocateTable--micro
@@ -6095,6 +6583,63 @@ button.spkItemImagePreview--clickable:focus-visible {
     background: #fffbeb;
     border-radius: 0.35rem;
     font-size: 0.8125rem;
+}
+
+.spkStoneStockModal .spkStoneAllocateSectionTitle {
+    margin: 0.75rem 0 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.spkStoneStockModal .spkStoneAllocateSectionTitle:first-child {
+    margin-top: 0;
+}
+
+.spkStoneStockModal .spkStoneAllocatePickForm {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.35rem;
+    background: #f9fafb;
+}
+
+.spkStoneStockModal .spkStoneAllocatePickFormTitle {
+    margin: 0 0 0.65rem;
+    font-size: 0.8125rem;
+    color: #374151;
+}
+
+.spkStoneStockModal .spkStoneAllocatePickFormFields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.65rem 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.spkStoneStockModal .spkStoneAllocatePickFormActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.spkStoneStockModal .spkStoneAllocateAllocatedBlock {
+    margin-bottom: 0.75rem;
+}
+
+.spkStoneStockModal .spkStoneAllocateAllocatedInner {
+    align-items: flex-start;
+}
+
+.spkStoneStockModal .spkStoneAllocateAllocatedInner .spkChainIssuedMeta {
+    flex: 1;
+    min-width: 0;
+}
+
+.spkStoneStockModal .spkStoneAllocateSummaryActions {
+    flex-shrink: 0;
+    padding-top: 0.15rem;
 }
 
 .spkStoneStockSummary {
@@ -6295,6 +6840,119 @@ button.spkItemImagePreview--clickable:focus-visible {
 
 .spkReceiptPrintDialog {
     max-width: min(28rem, calc(100vw - 2rem)) !important;
+}
+
+.spkDiamondCreateDialog {
+    max-width: min(56rem, calc(100vw - 2rem)) !important;
+}
+
+.spkDiamondCreateForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.35rem;
+}
+
+.spkDiamondCreateFormRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+    .spkDiamondCreateFormRow {
+        grid-template-columns: 1fr;
+    }
+}
+
+.spkDiamondCreateField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.spkDiamondCreateReadOnlyInput {
+    background: #f9fafb;
+    color: #374151;
+    cursor: default;
+}
+
+.spkDiamondCreateListSection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.spkDiamondCreateListHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 0.75rem;
+}
+
+.spkDiamondCreateTableWrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.spkDiamondCreateFooter {
+    margin-top: 0.75rem;
+}
+
+.spkDossierSpkAllocationRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+}
+
+.spkDossierRevokeAllocationBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+    min-height: 1.85rem;
+    margin: 0;
+    padding: 0 0.65rem;
+    appearance: none;
+    border: 1px solid #dc2626;
+    border-radius: 0.35rem;
+    background: #fff;
+    color: #dc2626;
+    cursor: pointer;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.spkDossierRevokeAllocationBtn:hover:not(:disabled) {
+    background: #fef2f2;
+    border-color: #b91c1c;
+    color: #b91c1c;
+}
+
+.spkDossierRevokeAllocationBtn:active:not(:disabled) {
+    background: #fee2e2;
+    border-color: #991b1b;
+    color: #991b1b;
+}
+
+.spkDossierRevokeAllocationBtn:focus-visible {
+    outline: 2px solid #dc2626;
+    outline-offset: 1px;
+}
+
+.spkDossierRevokeAllocationBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkDossierRevokeAllocationBtn ui5-icon {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex-shrink: 0;
+    color: currentColor;
 }
 
 .spkHeaderActionBtn {
@@ -7701,6 +8359,14 @@ button.spkItemImagePreview--clickable:focus-visible {
 
 .spkStoneTable tfoot .spkStoneTableTotalValue {
     text-align: left;
+}
+
+.spkStoneTable tfoot .spkStoneTableTotal--allocated td {
+    color: #111827;
+}
+
+.spkStoneTable tfoot .spkStoneTableTotal--allocatedShort td {
+    color: #b91c1c;
 }
 
 .spkStoneTable--editable .spkStoneTableActionCol {

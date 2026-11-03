@@ -2476,9 +2476,10 @@ class ProductionController extends Controller
 
         $stockByLineId = $this->stoneStockChecker->forStones($stones);
         $allocationByLineId = $this->stoneStockChecker->allocationForStones($stones);
+        $allocatedItemsByLineId = $this->stoneStockChecker->allocatedItemsForStones($stones);
 
         return $stones
-            ->map(function (SpkStone $stone, int $index) use ($masterStones, $stockByLineId, $allocationByLineId): array {
+            ->map(function (SpkStone $stone, int $index) use ($masterStones, $stockByLineId, $allocationByLineId, $allocatedItemsByLineId): array {
                 $item = $this->toStoneItem($stone);
                 $item['stock'] = $stockByLineId[(int) $stone->line_id] ?? null;
                 $item['allocation'] = $allocationByLineId[(int) $stone->line_id] ?? [
@@ -2488,6 +2489,7 @@ class ProductionController extends Controller
                     'nextAction' => null,
                     'nextActionLabel' => null,
                 ];
+                $item['allocatedItems'] = $allocatedItemsByLineId[(int) $stone->line_id] ?? [];
                 $master = $masterStones[$index] ?? null;
 
                 $item['master'] = $master === null
@@ -4143,7 +4145,7 @@ class ProductionController extends Controller
                 'diameter' => $this->printSize($item['diameter'] ?? null),
                 'dimensi' => $this->printSize($item['dimensi'] ?? null),
                 'ringSize' => $this->printText($item['ringSize'] ?? null),
-                'goldWeight' => $this->printDecimal3($item['goldWeight'] ?? null),
+                'goldWeight' => $this->printDecimal2($item['goldWeight'] ?? null),
                 'goldColor' => $this->printText($item['goldColor'] ?? null),
                 'jwcad3d' => $this->printText($item['jwcad3d'] ?? null),
                 'description' => $this->printText($item['description'] ?? null),
@@ -4474,6 +4476,23 @@ class ProductionController extends Controller
         $text = trim((string) $value);
 
         return $text !== '' ? $text : $empty;
+    }
+
+    private function printDecimal2(mixed $value, string $empty = '-'): string
+    {
+        $text = $this->printText($value, $empty);
+
+        if ($text === $empty) {
+            return $empty;
+        }
+
+        $normalized = str_replace(',', '.', $text);
+
+        if (! is_numeric($normalized)) {
+            return $text;
+        }
+
+        return number_format((float) $normalized, 2, '.', '');
     }
 
     private function printDecimal3(mixed $value, string $empty = '-'): string

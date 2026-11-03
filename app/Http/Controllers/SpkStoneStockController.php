@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AdvanceSpkStoneFulfillmentRequest;
 use App\Http\Requests\CheckSpkStoneStockRequest;
+use App\Http\Requests\StoreSpkStoneDossierAllocationRequest;
+use App\Http\Requests\StoreSpkStoneMicroAllocationRequest;
 use App\Models\SpkStone;
+use App\Support\SpkStoneAllocationService;
 use App\Support\SpkStoneFulfillment;
 use App\Support\SpkStoneStockChecker;
 use Illuminate\Http\JsonResponse;
@@ -66,6 +69,96 @@ class SpkStoneStockController extends Controller
         Inertia::flash('toast', [
             'type' => 'success',
             'message' => 'Status batu diperbarui: '.$allocation['label'],
+        ]);
+
+        return back();
+    }
+
+    public function storeDossierAllocation(
+        StoreSpkStoneDossierAllocationRequest $request,
+        SpkStone $spkStone,
+        SpkStoneAllocationService $allocations,
+    ): RedirectResponse {
+        abort_if($spkStone->is_deleted === 1, 404);
+
+        $allocations->allocateDossier(
+            $spkStone,
+            (int) $request->validated('diamond_id'),
+            $this->actorName($request),
+            filled($request->validated('reserved_crt') ?? null)
+                ? (float) $request->validated('reserved_crt')
+                : null,
+        );
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Batu dossier berhasil dialokasikan ke SPK.',
+        ]);
+
+        return back();
+    }
+
+    public function storeMicroAllocation(
+        StoreSpkStoneMicroAllocationRequest $request,
+        SpkStone $spkStone,
+        SpkStoneAllocationService $allocations,
+    ): RedirectResponse {
+        abort_if($spkStone->is_deleted === 1, 404);
+
+        $validated = $request->validated();
+
+        $allocations->allocateMicro(
+            $spkStone,
+            (int) $validated['msstone_id'],
+            $this->actorName($request),
+            (float) $validated['reserved_pcs'],
+            filled($validated['reserved_crt'] ?? null)
+                ? (float) $validated['reserved_crt']
+                : null,
+        );
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Stok batu mikro berhasil dialokasikan ke SPK.',
+        ]);
+
+        return back();
+    }
+
+    public function revokeAllocationItem(
+        SpkStone $spkStone,
+        int $allocationRowId,
+        SpkStoneAllocationService $allocations,
+        Request $request,
+    ): RedirectResponse {
+        abort_if($spkStone->is_deleted === 1, 404);
+
+        $allocations->revokeAllocation(
+            $spkStone,
+            $allocationRowId,
+            $this->actorName($request),
+        );
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Alokasi batu dihapus.',
+        ]);
+
+        return back();
+    }
+
+    public function revokeAllocations(
+        SpkStone $spkStone,
+        SpkStoneAllocationService $allocations,
+        Request $request,
+    ): RedirectResponse {
+        abort_if($spkStone->is_deleted === 1, 404);
+
+        $allocations->revokeAll($spkStone, $this->actorName($request));
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Alokasi batu dibatalkan.',
         ]);
 
         return back();

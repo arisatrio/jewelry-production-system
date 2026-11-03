@@ -414,9 +414,9 @@
                 <th>Posisi</th>
                 <th>Bentuk</th>
                 <th>Diameter / Dimensi PxL (mm)</th>
-                <th>Carat per Butir (pcs)</th>
+                <th>CRT per Butir (pcs)</th>
                 <th>Jumlah Butir (pcs)</th>
-                <th>Total Carat</th>
+                <th>Total CRT</th>
             </tr>
         </thead>
         <tbody>
@@ -443,7 +443,7 @@
                 <tr class="spkPrintStoneTableTotal">
                     <td colspan="4">Total</td>
                     <td><span class="spkPrintHint">Total butir</span></td>
-                    <td><span class="spkPrintHint">Total carat</span></td>
+                    <td><span class="spkPrintHint">Total CRT</span></td>
                 </tr>
             @else
                 @forelse ($stones as $stone)

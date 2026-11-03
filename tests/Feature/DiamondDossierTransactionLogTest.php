@@ -2,9 +2,11 @@
 
 use App\Models\Production;
 use App\Support\DiamondDossierTransactionLog;
+use App\Support\DiamondDossierTransactionLogExport;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 beforeEach(function () {
     foreach (['trdiamond', 'msshape', 'diamondmounting'] as $table) {
@@ -63,6 +65,7 @@ test('diamond dossier transaction log lists entry and out events', function () {
     createDossierDiamondForTransactionLogTest([
         'certificate' => $certificate,
         'entry_date' => '2026-09-01',
+        'modified_by' => 'entry-user',
     ]);
     createDossierDiamondForTransactionLogTest([
         'certificate' => $certificate,
@@ -84,6 +87,7 @@ test('diamond dossier transaction log lists entry and out events', function () {
             ->where('transactions.data', fn ($rows) => collect($rows)->contains(
                 fn (array $row): bool => ($row['eventType'] ?? null) === DiamondDossierTransactionLog::EVENT_ENTRY
                     && ($row['eventLabel'] ?? null) === 'Penambahan'
+                    && ($row['actor'] ?? null) === 'entry-user'
             ) && collect($rows)->contains(
                 fn (array $row): bool => ($row['eventType'] ?? null) === DiamondDossierTransactionLog::EVENT_OUT
                     && ($row['eventLabel'] ?? null) === 'Pemakaian'
@@ -157,4 +161,47 @@ test('diamond dossier transaction log includes spk from pasang batu document', f
             ->where('transactions.data.0.spkNo', $production->spk_no)
             ->where('transactions.data.0.mountingDocumentId', $mountingId)
         );
+});
+
+test('diamond dossier transaction log export downloads filtered rows', function () {
+    $certificate = 'LOG-'.Str::upper(Str::random(8));
+
+    createDossierDiamondForTransactionLogTest([
+        'certificate' => $certificate,
+        'entry_date' => '2026-09-01',
+    ]);
+    createDossierDiamondForTransactionLogTest([
+        'certificate' => $certificate,
+        'entry_date' => '2026-09-05',
+        'out_date' => '2026-09-20',
+        'is_used' => 1,
+    ]);
+
+    Excel::fake();
+
+    $this->get(route('inventory.diamond-dossier-transactions.export', [
+        'search' => $certificate,
+        'event_type' => DiamondDossierTransactionLog::EVENT_ENTRY,
+    ]))->assertOk();
+
+    $expectedFileName = 'log-transaksi-batu-dossier-penambahan-'
+        .Str::slug(Str::limit($certificate, 40, ''))
+        .'.xlsx';
+
+    Excel::assertDownloaded(
+        $expectedFileName,
+        function (DiamondDossierTransactionLogExport $export): bool {
+            expect($export->headings())->toContain('Tanggal', 'Jenis', 'Kode')
+                ->and($export->array())->toHaveCount(2);
+
+            return true;
+        },
+    );
+});
+
+test('diamond dossier transaction log export rejects invalid date range', function () {
+    $this->get(route('inventory.diamond-dossier-transactions.export', [
+        'date_from' => '2026-10-10',
+        'date_to' => '2026-10-01',
+    ]))->assertSessionHasErrors('date_to');
 });

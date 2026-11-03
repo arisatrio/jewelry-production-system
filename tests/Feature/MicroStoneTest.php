@@ -70,6 +70,10 @@ test('micro stone index summarizes stock per stone from trstone', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('inventory/batu-mikro/index')
+            ->where('filters.per_page', 50)
+            ->where('filters.sort', 'name')
+            ->where('filters.direction', 'asc')
+            ->has('filterOptions.sort')
             ->has('stones.data', 1)
             ->where('stones.data.0.name', $prefix.' A')
             ->where('stones.data.0.shape', 'Round')
@@ -79,6 +83,8 @@ test('micro stone index summarizes stock per stone from trstone', function () {
             ->where('stones.data.0.balanceCrt', '0.1500')
             ->where('totals.pcs', '15')
             ->where('totals.crt', '0.1500')
+            ->has('statusSummaries.balance')
+            ->where('statusSummaries.balance.pcs', '15')
             ->has('activePeriod.id')
         );
 });
@@ -103,3 +109,34 @@ test('micro stone index filters by stock status', function (string $stockStatus,
     'available' => [StoneLedger::STOCK_STATUS_AVAILABLE, 'Available'],
     'empty' => [StoneLedger::STOCK_STATUS_EMPTY, 'Empty'],
 ]);
+
+test('micro stone index sorts by balance pcs descending', function () {
+    $prefix = 'Micro Stone Sort '.Str::uuid();
+    $lowStoneId = createMicroStoneForTest($prefix.' Low');
+    $highStoneId = createMicroStoneForTest($prefix.' High');
+    createMicroStoneTransactionForTest(
+        $lowStoneId,
+        StoneLedger::ADDITION_TRANSACTION_TYPE_ID,
+        5,
+        '0.0500',
+    );
+    createMicroStoneTransactionForTest(
+        $highStoneId,
+        StoneLedger::ADDITION_TRANSACTION_TYPE_ID,
+        20,
+        '0.2000',
+    );
+
+    $this->get(route('inventory.micro-stones.index', [
+        'search' => $prefix,
+        'sort' => 'balance_pcs',
+        'direction' => 'desc',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.sort', 'balance_pcs')
+            ->where('filters.direction', 'desc')
+            ->where('stones.data.0.name', $prefix.' High')
+            ->where('stones.data.1.name', $prefix.' Low')
+        );
+});

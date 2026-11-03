@@ -30,6 +30,7 @@ use App\Http\Controllers\SkuOutputDashboardController;
 use App\Http\Controllers\SpkChainStockController;
 use App\Http\Controllers\SpkComponentStockController;
 use App\Http\Controllers\SpkProcessSlaController;
+use App\Http\Controllers\SpkStonePurchaseController;
 use App\Http\Controllers\SpkStoneStockController;
 use App\Http\Controllers\StoneTransactionController;
 use App\Http\Controllers\TrxChainController;
@@ -159,6 +160,18 @@ Route::middleware(['auth'])->group(function () {
     Route::post('spk/stones/{spkStone}/fulfillment', [SpkStoneStockController::class, 'advanceFulfillment'])
         ->whereNumber('spkStone')
         ->name('spk.stones.fulfillment');
+    Route::post('spk/stones/{spkStone}/allocations/dossier', [SpkStoneStockController::class, 'storeDossierAllocation'])
+        ->whereNumber('spkStone')
+        ->name('spk.stones.allocations.dossier');
+    Route::post('spk/stones/{spkStone}/allocations/micro', [SpkStoneStockController::class, 'storeMicroAllocation'])
+        ->whereNumber('spkStone')
+        ->name('spk.stones.allocations.micro');
+    Route::post('spk/stones/{spkStone}/allocations/revoke', [SpkStoneStockController::class, 'revokeAllocations'])
+        ->whereNumber('spkStone')
+        ->name('spk.stones.allocations.revoke');
+    Route::post('spk/stones/{spkStone}/allocations/{allocationRowId}/revoke', [SpkStoneStockController::class, 'revokeAllocationItem'])
+        ->whereNumber(['spkStone', 'allocationRowId'])
+        ->name('spk.stones.allocations.items.revoke');
     Route::get('spk/chains/{spkChain}/allocation-units', [SpkChainStockController::class, 'allocationUnits'])
         ->whereNumber('spkChain')
         ->name('spk.chains.allocation-units');
@@ -406,14 +419,33 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('batu-dossier', [DiamondDossierController::class, 'index'])
             ->name('diamond-dossiers.index');
+        Route::post('batu-dossier', [DiamondDossierController::class, 'store'])
+            ->name('diamond-dossiers.store');
+        Route::get('batu-dossier/import/template', [DiamondDossierController::class, 'importTemplate'])
+            ->name('diamond-dossiers.import-template');
+        Route::post('batu-dossier/import', [DiamondDossierController::class, 'import'])
+            ->name('diamond-dossiers.import');
+        Route::put('batu-dossier/{diamond}', [DiamondDossierController::class, 'update'])
+            ->name('diamond-dossiers.update')
+            ->whereNumber('diamond');
+        Route::post('batu-dossier/{diamond}/revoke-allocation', [DiamondDossierController::class, 'revokeAllocation'])
+            ->name('diamond-dossiers.revoke-allocation')
+            ->whereNumber('diamond');
+        Route::post('batu-dossier/bulk-destroy', [DiamondDossierController::class, 'destroyMany'])
+            ->name('diamond-dossiers.bulk-destroy');
         Route::get('batu-dossier/{diamond}', [DiamondDossierController::class, 'show'])
             ->name('diamond-dossiers.show')
             ->whereNumber('diamond');
         Route::get('transaksi-batu-dossier', [DiamondDossierTransactionController::class, 'index'])
             ->name('diamond-dossier-transactions.index');
+        Route::get('transaksi-batu-dossier/export', [DiamondDossierTransactionController::class, 'export'])
+            ->name('diamond-dossier-transactions.export');
 
         Route::get('batu-mikro', [MicroStoneController::class, 'index'])
             ->name('micro-stones.index');
+
+        Route::get('pembelian-batu', [SpkStonePurchaseController::class, 'index'])
+            ->name('stone-purchases.index');
 
         Route::get('transaksi-batu', [StoneTransactionController::class, 'index'])
             ->name('stone-transactions.index');

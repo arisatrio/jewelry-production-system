@@ -17,6 +17,7 @@ import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossie
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
 import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
+import { index as stonePurchasesIndex } from '@/routes/inventory/stone-purchases';
 import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { edit as diamondCrtMatrixEdit } from '@/routes/master-data/diamond-crt-matrix';
@@ -95,6 +96,7 @@ export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
 export const defaultInventorySubmenus: ShellNavItem[] = [
     { text: 'Stok Batu Dossier', href: diamondDossiersIndex.url() },
     { text: 'Stok Batu Mikro', href: microStonesIndex.url() },
+    { text: 'Pembelian Batu', href: stonePurchasesIndex.url() },
     { text: 'Stok Bahan Emas', href: goldMaterialsIndex.url() },
     { text: 'Stok Rantai', href: chainsIndex.url() },
     { text: 'Stok Komponen', href: componentsIndex.url() },

@@ -17,6 +17,110 @@ class StoneLedger
 
     public const STOCK_STATUS_EMPTY = 'empty';
 
+    public const TRANSACTION_EVENT_ENTRY = 'entry';
+
+    public const TRANSACTION_EVENT_OUT = 'out';
+
+    public const DEFAULT_STOCK_SORT = 'name';
+
+    public const DEFAULT_STOCK_DIRECTION = 'asc';
+
+    public const DEFAULT_TRANSACTION_SORT = 'created_date';
+
+    public const DEFAULT_TRANSACTION_DIRECTION = 'desc';
+
+    /**
+     * @return list<string>
+     */
+    public static function stockSorts(): array
+    {
+        return [
+            'name',
+            'parcel',
+            'size',
+            'shape',
+            'balance_pcs',
+            'reserved_pcs',
+            'available_pcs',
+            'balance_crt',
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function stockSortOptions(): array
+    {
+        return [
+            ['value' => 'name', 'label' => 'Batu'],
+            ['value' => 'parcel', 'label' => 'Parcel'],
+            ['value' => 'size', 'label' => 'Ukuran'],
+            ['value' => 'shape', 'label' => 'Bentuk'],
+            ['value' => 'balance_pcs', 'label' => 'Saldo (pcs)'],
+            ['value' => 'reserved_pcs', 'label' => 'Reserved (pcs)'],
+            ['value' => 'available_pcs', 'label' => 'Tersedia (pcs)'],
+            ['value' => 'balance_crt', 'label' => 'Saldo (crt)'],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function transactionSorts(): array
+    {
+        return [
+            'created_date',
+            'stone',
+            'category',
+            'pcs',
+            'crt',
+            'transaction_type',
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function transactionSortOptions(): array
+    {
+        return [
+            ['value' => 'created_date', 'label' => 'Tanggal'],
+            ['value' => 'stone', 'label' => 'Batu'],
+            ['value' => 'category', 'label' => 'Jenis'],
+            ['value' => 'pcs', 'label' => 'Pcs'],
+            ['value' => 'crt', 'label' => 'CRT'],
+            ['value' => 'transaction_type', 'label' => 'Tipe transaksi'],
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function directionSortOptions(): array
+    {
+        return [
+            ['value' => 'asc', 'label' => 'A–Z / terkecil'],
+            ['value' => 'desc', 'label' => 'Z–A / terbesar'],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     */
+    public static function resolveSort(string $sort, array $allowed, string $default): string
+    {
+        if ($sort === '') {
+            return $default;
+        }
+
+        return in_array($sort, $allowed, true) ? $sort : $default;
+    }
+
+    public static function resolveDirection(string $direction): string
+    {
+        return in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+    }
+
     /**
      * @return array{id: int, label: string}|null
      */
@@ -111,9 +215,13 @@ class StoneLedger
         string $search,
         ?string $stockStatus,
         int $perPage,
+        string $sort = self::DEFAULT_STOCK_SORT,
+        string $direction = self::DEFAULT_STOCK_DIRECTION,
     ): LengthAwarePaginator {
-        return $this->stockQuery($periodId, $search, $stockStatus)
-            ->orderBy('stone.name')
+        $query = $this->stockQuery($periodId, $search, $stockStatus);
+        $this->applyStockSort($query, $sort, $direction);
+
+        return $query
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (object $stone): array => $this->toStockRow($stone));
@@ -142,6 +250,10 @@ class StoneLedger
      */
     private function toStockRow(object $stone): array
     {
+        $balancePcs = (float) ($stone->balance_pcs ?? 0);
+        $reservedPcs = (float) ($stone->reserved_pcs ?? 0);
+        $availablePcs = max(0, $balancePcs - $reservedPcs);
+
         return [
             'id' => (int) $stone->row_id,
             'name' => (string) $stone->name,
@@ -150,7 +262,9 @@ class StoneLedger
             'shape' => filled($stone->shape_name) ? (string) $stone->shape_name : null,
             'pcsIn' => $this->formatPcs((float) ($stone->pcs_in ?? 0)),
             'pcsOut' => $this->formatPcs((float) ($stone->pcs_out ?? 0)),
-            'balancePcs' => $this->formatPcs((float) ($stone->balance_pcs ?? 0)),
+            'balancePcs' => $this->formatPcs($balancePcs),
+            'reservedPcs' => $this->formatPcs($reservedPcs),
+            'availablePcs' => $this->formatPcs($availablePcs),
             'balanceCrt' => number_format((float) ($stone->balance_crt ?? 0), 4, '.', ''),
         ];
     }
@@ -160,17 +274,66 @@ class StoneLedger
      */
     public function stockTotals(int $periodId, string $search, ?string $stockStatus): array
     {
-        $totals = $this->stockQuery($periodId, $search, $stockStatus)
-            ->cloneWithout(['columns', 'orders'])
-            ->selectRaw(
-                'SUM(COALESCE(stone_stock.balance_pcs, 0)) as total_pcs, '
-                .'SUM(COALESCE(stone_stock.balance_crt, 0)) as total_crt'
-            )
-            ->first();
+        $totals = $this->stockSummaryAggregate($periodId, $search, $stockStatus);
 
         return [
             'pcs' => $this->formatPcs((float) ($totals->total_pcs ?? 0)),
             'crt' => number_format((float) ($totals->total_crt ?? 0), 4, '.', ''),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     balance: array{stoneCount: int, pcs: string, crt: string, reservedPcs: string},
+     *     available: array{stoneCount: int, pcs: string, crt: string, reservedPcs: string},
+     *     empty: array{stoneCount: int, pcs: string, crt: string, reservedPcs: string}
+     * }
+     */
+    public function stockSummaries(int $periodId, string $search): array
+    {
+        return [
+            'balance' => $this->toStockSummarySlice(
+                $this->stockSummaryAggregate($periodId, $search, null),
+            ),
+            'available' => $this->toStockSummarySlice(
+                $this->stockSummaryAggregate($periodId, $search, self::STOCK_STATUS_AVAILABLE),
+            ),
+            'empty' => $this->toStockSummarySlice(
+                $this->stockSummaryAggregate($periodId, $search, self::STOCK_STATUS_EMPTY),
+            ),
+        ];
+    }
+
+    /**
+     * @return object{stone_count: int|string|null, total_pcs: int|float|string|null, total_crt: int|float|string|null, total_reserved: int|float|string|null}|null
+     */
+    private function stockSummaryAggregate(
+        int $periodId,
+        string $search,
+        ?string $stockStatus,
+    ): ?object {
+        return $this->stockQuery($periodId, $search, $stockStatus)
+            ->cloneWithout(['columns', 'orders'])
+            ->selectRaw(
+                'COUNT(*) as stone_count, '
+                .'SUM(COALESCE(stone_stock.balance_pcs, 0)) as total_pcs, '
+                .'SUM(COALESCE(stone_stock.balance_crt, 0)) as total_crt, '
+                .'SUM(COALESCE(stone_reserved.reserved_pcs, 0)) as total_reserved'
+            )
+            ->first();
+    }
+
+    /**
+     * @param  object{stone_count: int|string|null, total_pcs: int|float|string|null, total_crt: int|float|string|null, total_reserved: int|float|string|null}|null  $totals
+     * @return array{stoneCount: int, pcs: string, crt: string, reservedPcs: string}
+     */
+    private function toStockSummarySlice(?object $totals): array
+    {
+        return [
+            'stoneCount' => (int) ($totals->stone_count ?? 0),
+            'pcs' => $this->formatPcs((float) ($totals->total_pcs ?? 0)),
+            'crt' => number_format((float) ($totals->total_crt ?? 0), 4, '.', ''),
+            'reservedPcs' => $this->formatPcs((float) ($totals->total_reserved ?? 0)),
         ];
     }
 
@@ -182,15 +345,22 @@ class StoneLedger
         string $search,
         ?string $dateFrom,
         ?string $dateTo,
+        ?string $eventType,
         int $perPage,
+        string $sort = self::DEFAULT_TRANSACTION_SORT,
+        string $direction = self::DEFAULT_TRANSACTION_DIRECTION,
     ): LengthAwarePaginator {
-        return $this->filteredQuery($periodId, $search, $dateFrom, $dateTo)
-            ->orderByDesc('stone_transaction.row_id')
+        $query = $this->filteredQuery($periodId, $search, $dateFrom, $dateTo, $eventType);
+        $this->applyTransactionSort($query, $sort, $direction);
+
+        return $query
             ->paginate($perPage)
             ->withQueryString()
             ->through(function (object $transaction): array {
                 $direction = strtoupper(trim((string) $transaction->in_out));
                 $pcs = (float) ($transaction->pcs ?? 0);
+                $transactionTypeId = (int) $transaction->transtype_id;
+                $refRowId = (int) $transaction->ref_row_id;
 
                 return [
                     'id' => (int) $transaction->row_id,
@@ -216,6 +386,10 @@ class StoneLedger
                     'documentNo' => filled($transaction->document_no)
                         ? (string) $transaction->document_no
                         : null,
+                    'mountingDocumentId' => in_array($transactionTypeId, [7, 8, 9], true)
+                        && $refRowId > 0
+                        ? $refRowId
+                        : null,
                     'notes' => filled($transaction->notes)
                         ? (string) $transaction->notes
                         : (filled($transaction->txt) ? (string) $transaction->txt : null),
@@ -234,8 +408,9 @@ class StoneLedger
         string $search,
         ?string $dateFrom,
         ?string $dateTo,
+        ?string $eventType,
     ): string {
-        $query = $this->filteredQuery($periodId, $search, $dateFrom, $dateTo)
+        $query = $this->filteredQuery($periodId, $search, $dateFrom, $dateTo, $eventType)
             ->cloneWithout(['columns', 'orders']);
 
         $total = $query
@@ -292,6 +467,7 @@ class StoneLedger
         string $search,
         ?string $dateFrom,
         ?string $dateTo,
+        ?string $eventType,
     ): Builder {
         return DB::connection('third')
             ->table('trstone as stone_transaction')
@@ -325,6 +501,18 @@ class StoneLedger
                 ->whereDate('stone_transaction.created_date', '>=', $dateFrom))
             ->when($dateTo !== null, fn (Builder $query) => $query
                 ->whereDate('stone_transaction.created_date', '<=', $dateTo))
+            ->when(
+                $eventType === self::TRANSACTION_EVENT_ENTRY,
+                fn (Builder $query) => $query->whereRaw(
+                    "UPPER(TRIM(transaction_type.in_out)) = 'IN'",
+                ),
+            )
+            ->when(
+                $eventType === self::TRANSACTION_EVENT_OUT,
+                fn (Builder $query) => $query->whereRaw(
+                    "UPPER(TRIM(transaction_type.in_out)) = 'OUT'",
+                ),
+            )
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $like = '%'.$search.'%';
 
@@ -340,6 +528,8 @@ class StoneLedger
             })
             ->select([
                 'stone_transaction.row_id',
+                'stone_transaction.ref_row_id',
+                'stone_transaction.transtype_id',
                 'period.period',
                 'transaction_type.in_out',
                 'transaction_type.name as transaction_type',
@@ -357,6 +547,8 @@ class StoneLedger
 
     private function stockQuery(int $periodId, string $search, ?string $stockStatus): Builder
     {
+        $reservedSubquery = $this->microReservedSubquery($periodId);
+
         return DB::connection('third')
             ->table('msstone as stone')
             ->leftJoinSub(
@@ -366,14 +558,21 @@ class StoneLedger
                 '=',
                 'stone.row_id',
             )
+            ->leftJoinSub(
+                $reservedSubquery,
+                'stone_reserved',
+                'stone_reserved.msstone_id',
+                '=',
+                'stone.row_id',
+            )
             ->leftJoin('msshape as shape', 'shape.row_id', '=', 'stone.shape_id')
             ->where('stone.is_deleted', 0)
             ->whereNotNull('stone.name')
             ->where('stone.name', '!=', '')
             ->when($stockStatus === self::STOCK_STATUS_AVAILABLE, fn (Builder $query) => $query
-                ->whereRaw('COALESCE(stone_stock.balance_pcs, 0) > 0'))
+                ->whereRaw('(COALESCE(stone_stock.balance_pcs, 0) - COALESCE(stone_reserved.reserved_pcs, 0)) > 0'))
             ->when($stockStatus === self::STOCK_STATUS_EMPTY, fn (Builder $query) => $query
-                ->whereRaw('COALESCE(stone_stock.balance_pcs, 0) <= 0'))
+                ->whereRaw('(COALESCE(stone_stock.balance_pcs, 0) - COALESCE(stone_reserved.reserved_pcs, 0)) <= 0'))
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $like = '%'.$search.'%';
 
@@ -393,7 +592,28 @@ class StoneLedger
                 'stone_stock.pcs_out',
                 'stone_stock.balance_pcs',
                 'stone_stock.balance_crt',
+                'stone_reserved.reserved_pcs',
             ]);
+    }
+
+    private function microReservedSubquery(int $periodId): Builder
+    {
+        if (! app(SpkStoneAllocationService::class)->tableAvailable()) {
+            return DB::connection('third')
+                ->table('msstone')
+                ->whereRaw('1 = 0')
+                ->selectRaw('row_id as msstone_id, 0 as reserved_pcs');
+        }
+
+        return DB::connection('third')
+            ->table(SpkStoneAllocationService::TABLE)
+            ->where('is_deleted', 0)
+            ->where('status', SpkStoneAllocationService::STATUS_RESERVED)
+            ->where('source', SpkStoneAllocationService::SOURCE_MICRO)
+            ->where('period_id', $periodId)
+            ->select('msstone_id')
+            ->selectRaw('SUM(COALESCE(reserved_pcs, 0)) as reserved_pcs')
+            ->groupBy('msstone_id');
     }
 
     private function stockSubquery(int $periodId): Builder
@@ -437,6 +657,53 @@ class StoneLedger
                 END) as balance_crt"
             )
             ->groupBy('stone_transaction.stone_id');
+    }
+
+    private function applyStockSort(Builder $query, string $sort, string $direction): void
+    {
+        $direction = self::resolveDirection($direction);
+        $sort = self::resolveSort($sort, self::stockSorts(), self::DEFAULT_STOCK_SORT);
+
+        $column = match ($sort) {
+            'parcel' => 'stone.parcel',
+            'size' => 'stone.stone_size',
+            'shape' => 'shape.name',
+            'balance_pcs' => 'stone_stock.balance_pcs',
+            'reserved_pcs' => 'stone_reserved.reserved_pcs',
+            'available_pcs' => DB::raw(
+                '(COALESCE(stone_stock.balance_pcs, 0) - COALESCE(stone_reserved.reserved_pcs, 0))',
+            ),
+            'balance_crt' => 'stone_stock.balance_crt',
+            default => 'stone.name',
+        };
+
+        $query->orderBy($column, $direction);
+
+        if ($sort !== 'name') {
+            $query->orderBy('stone.name');
+        }
+    }
+
+    private function applyTransactionSort(Builder $query, string $sort, string $direction): void
+    {
+        $direction = self::resolveDirection($direction);
+        $sort = self::resolveSort(
+            $sort,
+            self::transactionSorts(),
+            self::DEFAULT_TRANSACTION_SORT,
+        );
+
+        $column = match ($sort) {
+            'stone' => 'stone.name',
+            'category' => 'transaction_type.in_out',
+            'pcs' => 'stone_transaction.pcs',
+            'crt' => 'stone_transaction.crt',
+            'transaction_type' => 'transaction_type.name',
+            default => 'stone_transaction.created_date',
+        };
+
+        $query->orderBy($column, $direction);
+        $query->orderByDesc('stone_transaction.row_id');
     }
 
     private function formatPcs(float $value): string

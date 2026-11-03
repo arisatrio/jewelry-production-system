@@ -481,9 +481,9 @@ export default function SpkCreateGuide({ formDocumentNo }: SpkCreateGuideProps) 
                                                 <th>
                                                     Diameter / Dimensi PxL (mm)
                                                 </th>
-                                                <th>Carat per Butir (pcs)</th>
+                                                <th>CRT per Butir (pcs)</th>
                                                 <th>Jumlah Butir (pcs)</th>
-                                                <th>Total Carat</th>
+                                                <th>Total CRT</th>
                                                 <th className="spkStoneTableActionCol">
                                                     Aksi
                                                 </th>

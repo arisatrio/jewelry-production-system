@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import navBackIcon from '@ui5/webcomponents-icons/dist/nav-back.js';
@@ -6,14 +7,14 @@ import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useMemo, useState } from 'react';
-import { ActiveFilterSummary } from '@/components/active-filter-summary';
+import { ActiveFilterSummary, describeDateRange } from '@/components/active-filter-summary';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { index as diamondDossiersIndex, show as diamondDossierShow } from '@/routes/inventory/diamond-dossiers';
-import { index as diamondDossierTransactionsIndex } from '@/routes/inventory/diamond-dossier-transactions';
+import { index as diamondDossierTransactionsIndex, exportMethod as exportDiamondDossierTransactions } from '@/routes/inventory/diamond-dossier-transactions';
 import { show as pasangBatuShow } from '@/routes/pasang-batu';
 import { show as spkShow } from '@/routes/spk';
 
@@ -187,12 +188,20 @@ export default function DiamondDossierTransactionsIndex({
         router.get(
             diamondDossierTransactionsIndex.url({
                 query: {
-                    search: (params.search ?? filters.search) || undefined,
+                    search:
+                        ('search' in params ? params.search : filters.search)
+                        || undefined,
                     date_from:
-                        (params.date_from ?? filters.date_from) || undefined,
-                    date_to: (params.date_to ?? filters.date_to) || undefined,
+                        ('date_from' in params
+                            ? params.date_from
+                            : filters.date_from) || undefined,
+                    date_to:
+                        ('date_to' in params ? params.date_to : filters.date_to)
+                        || undefined,
                     event_type:
-                        (params.event_type ?? filters.event_type) || undefined,
+                        ('event_type' in params
+                            ? params.event_type
+                            : filters.event_type) || undefined,
                     per_page: params.per_page ?? filters.per_page,
                     page: params.page ?? 1,
                 },
@@ -299,6 +308,19 @@ export default function DiamondDossierTransactionsIndex({
         });
     };
 
+    const buildExportQuery = () => ({
+        search: filters.search || undefined,
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+        event_type: filters.event_type || undefined,
+    });
+
+    const downloadExcel = () => {
+        window.location.href = exportDiamondDossierTransactions.url({
+            query: buildExportQuery(),
+        });
+    };
+
     return (
         <>
             <Head title="Transaksi Batu Dossier" />
@@ -359,19 +381,21 @@ export default function DiamondDossierTransactionsIndex({
                                             className={[
                                                 'spkTableHeaderIconBtn--finishing',
                                                 'spkTableHeaderIconTrigger--finishing',
+                                                'spkTableHeaderTextBtn--finishing',
                                                 hasCustomEntries
                                                     ? 'is-active'
                                                     : '',
                                             ]
                                                 .filter(Boolean)
                                                 .join(' ')}
-                                            aria-label="Tampilkan entri"
-                                            title="Tampilkan entri"
+                                            aria-label="Tampilkan"
+                                            title="Tampilkan"
                                         >
                                             <Icon
                                                 name={listIcon}
                                                 mode="Decorative"
                                             />
+                                            <span>Tampilkan</span>
                                         </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent
@@ -471,6 +495,7 @@ export default function DiamondDossierTransactionsIndex({
                                             className={[
                                                 'spkTableHeaderIconBtn--finishing',
                                                 'spkTableHeaderIconTrigger--finishing',
+                                                'spkTableHeaderTextBtn--finishing',
                                                 hasActiveTableFilters
                                                     ? 'is-active'
                                                     : '',
@@ -484,6 +509,7 @@ export default function DiamondDossierTransactionsIndex({
                                                 name={filterIcon}
                                                 mode="Decorative"
                                             />
+                                            <span>Filter</span>
                                         </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent
@@ -598,6 +624,18 @@ export default function DiamondDossierTransactionsIndex({
                             <button
                                 type="button"
                                 className="spkCreateBtn spkCreateBtn--outline"
+                                aria-label="Export log transaksi ke Excel"
+                                onClick={downloadExcel}
+                            >
+                                <Icon
+                                    name={excelAttachmentIcon}
+                                    mode="Decorative"
+                                />
+                                <span>Export Excel</span>
+                            </button>
+                            <button
+                                type="button"
+                                className="spkCreateBtn spkCreateBtn--outline"
                                 aria-label="Kembali ke stok batu dossier"
                                 onClick={() =>
                                     router.visit(diamondDossiersIndex.url())
@@ -633,20 +671,19 @@ export default function DiamondDossierTransactionsIndex({
                                     visit({ event_type: null, page: 1 });
                                 },
                             },
-                            hasActiveDateFrom && {
-                                key: 'date_from',
-                                label: 'Dari',
-                                value: filters.date_from ?? '',
+                            (hasActiveDateFrom || hasActiveDateTo) && {
+                                key: 'date_range',
+                                label: 'Tanggal',
+                                value: describeDateRange(
+                                    filters.date_from,
+                                    filters.date_to,
+                                ),
                                 onRemove: () => {
-                                    visit({ date_from: null, page: 1 });
-                                },
-                            },
-                            hasActiveDateTo && {
-                                key: 'date_to',
-                                label: 'Sampai',
-                                value: filters.date_to ?? '',
-                                onRemove: () => {
-                                    visit({ date_to: null, page: 1 });
+                                    visit({
+                                        date_from: null,
+                                        date_to: null,
+                                        page: 1,
+                                    });
                                 },
                             },
                         ]}
@@ -768,7 +805,9 @@ export default function DiamondDossierTransactionsIndex({
                                                         </span>
                                                         {row.actorAt ? (
                                                             <span className="spkTableDescriptionItem">
-                                                                {row.actorAt}
+                                                                {formatDateDisplay(
+                                                                    row.actorAt,
+                                                                )}
                                                             </span>
                                                         ) : null}
                                                     </div>

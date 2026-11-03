@@ -599,6 +599,38 @@ test('spk print formats stone diameter size with two decimal places', function (
     $production->delete();
 });
 
+test('spk print formats gold weight with two decimal places', function () {
+    $production = app(SpkService::class)->createStock('system');
+    $production->update(['gold_weight' => 5.756]);
+
+    $this->get(route('spk.print.show', $production->row_id))
+        ->assertOk()
+        ->assertViewHas('document', fn (array $document): bool => ($document['item']['goldWeight'] ?? null) === '5.76')
+        ->assertSee('5.76', false)
+        ->assertDontSee('5.756', false);
+
+    $this->postJson(route('spk.print'), [
+        'document' => [
+            'info' => [
+                'spkType' => 'Stock',
+                'priority' => 'NO',
+            ],
+            'item' => [
+                'typeVariant' => 'TEST',
+                'goldWeight' => '6.90',
+            ],
+            'stones' => [],
+            'notes' => '',
+        ],
+    ])
+        ->assertOk()
+        ->assertViewHas('document', fn (array $document): bool => ($document['item']['goldWeight'] ?? null) === '6.90')
+        ->assertSee('6.90', false)
+        ->assertDontSee('6.900', false);
+
+    $production->delete();
+});
+
 test('spk print page includes chains and components from production', function () {
     $production = app(SpkService::class)->createStock('system');
 

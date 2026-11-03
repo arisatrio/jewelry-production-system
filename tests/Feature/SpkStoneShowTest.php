@@ -38,6 +38,7 @@ test('spk show page includes stones list props', function () {
             ->has('stones.0.allocation.allocatedPcs')
             ->has('stones.0.allocation.nextAction')
             ->has('stones.0.allocation.nextActionLabel')
+            ->has('stones.0.allocatedItems')
         );
 
     if (filled($stone->shape?->name) && filled($stone->shape?->code)) {

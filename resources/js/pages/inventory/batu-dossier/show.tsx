@@ -1,11 +1,20 @@
 import { Head, Link, router } from '@inertiajs/react';
-import navBackIcon from '@ui5/webcomponents-icons/dist/nav-back.js';
+import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
+import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
+import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
+import chainLinkIcon from '@ui5/webcomponents-icons/dist/chain-link.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
-import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
+import { useState, type ReactNode } from 'react';
+import { DiamondDossierEditDialog } from '@/pages/inventory/batu-dossier/diamond-dossier-form-dialog';
+import type {
+    DossierFormValues,
+    DossierShapeOption,
+} from '@/pages/inventory/batu-dossier/dossier-form-fields';
+import { index as diamondDossiersIndex, revokeAllocation as revokeDiamondAllocation } from '@/routes/inventory/diamond-dossiers';
 import { show as pasangBatuShow } from '@/routes/pasang-batu';
 import { show as spkShow } from '@/routes/spk';
 
-type DiamondStatus = 'available' | 'used';
+type DiamondStatus = 'available' | 'reserved' | 'used';
 
 type DossierDiamondDetail = {
     id: number;
@@ -19,6 +28,7 @@ type DossierDiamondDetail = {
     entryDate: string | null;
     outDate: string | null;
     status: DiamondStatus;
+    reservedSpkNo: string | null;
     mountingDocumentNo: string | null;
     mountingDocumentId: number | null;
     spkNo: string | null;
@@ -30,7 +40,54 @@ type DossierDiamondDetail = {
 
 type PageProps = {
     diamond: DossierDiamondDetail;
+    canEdit: boolean;
+    canRevokeAllocation: boolean;
+    shapeOptions: DossierShapeOption[];
+    diamondTypeOptions: DossierShapeOption[];
+    form: DossierFormValues | null;
 };
+
+type MainSection = 'produksi' | 'riwayat';
+
+const GIA_REPORT_CHECK_BASE_URL =
+    'https://www.gia.edu/report-check?locale=en_US&reportno=';
+
+function giaReportCheckUrl(certificate: string | null): string | null {
+    const trimmed = certificate?.trim() ?? '';
+
+    if (trimmed === '') {
+        return null;
+    }
+
+    return `${GIA_REPORT_CHECK_BASE_URL}${encodeURIComponent(trimmed)}`;
+}
+
+function certificateFieldValue(certificate: string | null): ReactNode {
+    const trimmed = certificate?.trim() ?? '';
+    const giaUrl = giaReportCheckUrl(certificate);
+
+    if (trimmed === '') {
+        return '—';
+    }
+
+    return (
+        <span className="inline-flex flex-wrap items-center gap-2">
+            <span>{trimmed}</span>
+            {giaUrl !== null ? (
+                <a
+                    href={giaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="spkFormLink inline-flex shrink-0 items-center"
+                    title="Cek sertifikat di GIA Report Check"
+                    aria-label={`Buka sertifikat GIA ${trimmed} di tab baru`}
+                >
+                    <Icon name={chainLinkIcon} mode="Decorative" className="text-blue-500" />
+                </a>
+            ) : null}
+        </span>
+    );
+}
 
 const MONTH_LABELS = [
     'Jan',
@@ -67,13 +124,99 @@ function formatDateDisplay(value: string | null): string {
         return trimmed;
     }
 
-    const dateLabel = `${day.padStart(2, '0')}-${monthLabel}-${year}`;
+    const dateLabel = `${Number(day)}-${monthLabel}-${year}`;
 
     if (!timePart) {
         return dateLabel;
     }
 
     return `${dateLabel} ${timePart.slice(0, 5)}`;
+}
+
+function parseStockDate(value: string | null): Date | null {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed === '') {
+        return null;
+    }
+
+    const datePart = trimmed.split(/\s+/u)[0] ?? '';
+    const [year, month, day] = datePart.split('-').map(Number);
+
+    if (!year || !month || !day) {
+        return null;
+    }
+
+    return new Date(year, month - 1, day);
+}
+
+function calendarDayDiff(start: Date, end: Date): number {
+    const startUtc = Date.UTC(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate(),
+    );
+    const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+
+    return Math.max(0, Math.floor((endUtc - startUtc) / 86_400_000));
+}
+
+function formatAgeDuration(totalDays: number): string {
+    if (totalDays < 30) {
+        return `${totalDays} hari`;
+    }
+
+    if (totalDays < 365) {
+        const months = Math.floor(totalDays / 30);
+        const days = totalDays % 30;
+
+        if (days === 0) {
+            return `${months} bulan`;
+        }
+
+        return `${months} bulan ${days} hari`;
+    }
+
+    const years = Math.floor(totalDays / 365);
+    const remainder = totalDays % 365;
+    const months = Math.floor(remainder / 30);
+    const days = remainder % 30;
+
+    const parts = [`${years} tahun`];
+
+    if (months > 0) {
+        parts.push(`${months} bulan`);
+    }
+
+    if (days > 0) {
+        parts.push(`${days} hari`);
+    }
+
+    return parts.join(' ');
+}
+
+function formatUmurBarang(
+    entryDate: string | null,
+    outDate: string | null,
+    status: DiamondStatus,
+): string {
+    const entry = parseStockDate(entryDate);
+
+    if (entry === null) {
+        return '—';
+    }
+
+    if (status === 'used') {
+        const out = parseStockDate(outDate);
+
+        if (out === null) {
+            return '—';
+        }
+
+        return formatAgeDuration(calendarDayDiff(entry, out));
+    }
+
+    return formatAgeDuration(calendarDayDiff(entry, new Date()));
 }
 
 function formatCrt(value: string | null): string {
@@ -105,164 +248,402 @@ function formatAudit(date: string | null, actor: string | null): string {
     return `${dateLabel} · ${actor}`;
 }
 
-function statusClass(status: DiamondStatus): string {
+function statusLabel(
+    status: DiamondStatus,
+    reservedSpkNo: string | null,
+): string {
     if (status === 'used') {
-        return 'inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700';
+        return 'Terpakai';
     }
 
-    return 'inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700';
+    if (status === 'reserved') {
+        return reservedSpkNo !== null && reservedSpkNo !== ''
+            ? `Reserved (${reservedSpkNo})`
+            : 'Reserved';
+    }
+
+    return 'Tersedia';
 }
 
-export default function DiamondDossierShow({ diamond }: PageProps) {
-    const title = diamond.code ?? `Batu #${diamond.id}`;
+function statusShortLabel(status: DiamondStatus): string {
+    if (status === 'used') {
+        return 'Terpakai';
+    }
+
+    if (status === 'reserved') {
+        return 'Reserved';
+    }
+
+    return 'Tersedia';
+}
+
+function statusBadgeClass(status: DiamondStatus): string {
+    if (status === 'used') {
+        return 'spkStoneStockBadge is-unavailable';
+    }
+
+    if (status === 'reserved') {
+        return 'inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800';
+    }
+
+    return 'spkStoneStockBadge is-available';
+}
+
+function recordTitle(diamond: DossierDiamondDetail): string {
+    if (diamond.code) {
+        return diamond.code;
+    }
+
+    return `Batu #${diamond.id}`;
+}
+
+function OdooFormField({
+    label,
+    children,
+    className,
+}: {
+    label: string;
+    children: ReactNode;
+    className?: string;
+}) {
+    return (
+        <div className="spkFormField">
+            <span className="spkFormLabel">{label}</span>
+            <div
+                className={['spkFormValue', className].filter(Boolean).join(' ')}
+            >
+                {children}
+            </div>
+        </div>
+    );
+}
+
+export default function DiamondDossierShow({
+    diamond,
+    canEdit,
+    canRevokeAllocation,
+    shapeOptions,
+    diamondTypeOptions,
+    form,
+}: PageProps) {
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [revokingAllocation, setRevokingAllocation] = useState(false);
+    const [mainSection, setMainSection] = useState<MainSection>('produksi');
+    const title = recordTitle(diamond);
+    const subtitle = [
+        diamond.diamondType,
+        diamond.shape,
+        diamond.color,
+        diamond.crt !== null
+            ? `${formatCrt(diamond.crt)} CRT`
+            : null,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+
+    const handleRevokeAllocation = (): void => {
+        if (revokingAllocation) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            'Batalkan alokasi batu dossier ini dari SPK? Batu akan kembali tersedia di stok.',
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setRevokingAllocation(true);
+
+        router.post(
+            revokeDiamondAllocation.url(diamond.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setRevokingAllocation(false);
+                },
+            },
+        );
+    };
 
     return (
         <>
             <Head title={`Batu Dossier · ${title}`} />
-            <div className="spkTableShell">
-                <div className="spkTableCard">
-                    <div className="spkTableToolbar spkTableHeaderBar--finishing">
-                        <div className="spkTableToolbarLeft">
-                            <div className="spkTableTitleBlock spkTableTitleBlock--finishing">
-                                <h2 className="spkTableHeaderTitle--finishing">
-                                    {title}
-                                </h2>
-                                <p className="spkTableHeaderSubtitle--finishing text-muted-foreground">
-                                    Detail batu dossier
-                                </p>
+            <div className="spkDetailShell">
+                <div className="spkDetailStack">
+                    <div className="spkTopBarCard">
+                        <div className="spkTopBarMain">
+                            <div className="spkTopBarLeft">
+                                <div className="spkDocTitleBlock">
+                                    <div className="spkDocTitleRow">
+                                        <h1 className="spkDocTitle">{title}</h1>
+                                        <span
+                                            className={statusBadgeClass(
+                                                diamond.status,
+                                            )}
+                                        >
+                                            {statusLabel(
+                                                diamond.status,
+                                                diamond.reservedSpkNo,
+                                            )}
+                                        </span>
+                                    </div>
+                                    {subtitle !== '' ? (
+                                        <p className="jewelCadDocSubtitle">
+                                            {subtitle}
+                                        </p>
+                                    ) : null}
+                                </div>
                             </div>
-                        </div>
-                        <div className="spkTableToolbarRight">
-                            <button
-                                type="button"
-                                className="spkCreateBtn spkCreateBtn--outline"
-                                aria-label="Kembali ke stok batu dossier"
-                                onClick={() =>
-                                    router.visit(diamondDossiersIndex.url())
-                                }
-                            >
-                                <Icon
-                                    name={navBackIcon}
-                                    mode="Decorative"
-                                />
-                                <span>Kembali ke Stok</span>
-                            </button>
+
+                            <div className="spkControlBarRight">
+                                <div className="spkHeaderActions">
+                                    {canEdit && form !== null ? (
+                                        <button
+                                            type="button"
+                                            className="spkHeaderActionBtn"
+                                            aria-label="Edit"
+                                            title="Edit batu dossier"
+                                            onClick={() =>
+                                                setEditDialogOpen(true)
+                                            }
+                                        >
+                                            <Icon
+                                                name={editIcon}
+                                                mode="Decorative"
+                                            />
+                                        </button>
+                                    ) : null}
+                                    <button
+                                        type="button"
+                                        className="spkHeaderActionBtn spkHeaderActionBtn--danger"
+                                        aria-label="Tutup"
+                                        title="Kembali ke stok"
+                                        onClick={() =>
+                                            router.visit(
+                                                diamondDossiersIndex.url(),
+                                            )
+                                        }
+                                    >
+                                        <Icon
+                                            name={declineIcon}
+                                            mode="Decorative"
+                                        />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="fioriVarianceDetailCard mx-4 mb-4">
-                        <span className="fioriVarianceDetailTitle">
-                            Informasi Batu
-                        </span>
-                        <dl className="fioriVarianceDetailGrid">
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Kode</dt>
-                                <dd className="font-medium">
-                                    {diamond.code ?? '—'}
-                                </dd>
+                    <div className="spkDetailBody spkDetailBody--dossierOdoo">
+                        <div className="spkOdooFormSheetCard">
+                            <div className="spkOdooFormSheetHeader spkFormGrid">
+                                <div className="spkFormColumn">
+                                    <OdooFormField label="ID">
+                                        {diamond.code ?? '—'}
+                                    </OdooFormField>
+                                    <OdooFormField label="Tipe">
+                                        {diamond.diamondType ?? '—'}
+                                    </OdooFormField>
+                                    <OdooFormField label="Bentuk">
+                                        {diamond.shape ?? '—'}
+                                    </OdooFormField>
+                                    <OdooFormField label="CRT">
+                                        {formatCrt(diamond.crt)}
+                                    </OdooFormField>
+                                    <OdooFormField label="Warna">
+                                        {diamond.color ?? '—'}
+                                    </OdooFormField>
+                                    <OdooFormField
+                                        label="No. Sertifikat"
+                                        className="break-all"
+                                    >
+                                        {certificateFieldValue(diamond.certificate)}
+                                    </OdooFormField>
+                                </div>
+                                <div className="spkFormColumn">
+                                    <OdooFormField label="Supplier">
+                                        {diamond.supplier ?? '—'}
+                                    </OdooFormField>
+                                    <OdooFormField label="Tanggal masuk">
+                                        {formatDateDisplay(diamond.entryDate)}
+                                    </OdooFormField>
+                                    <OdooFormField label="Umur Barang">
+                                        {formatUmurBarang(
+                                            diamond.entryDate,
+                                            diamond.outDate,
+                                            diamond.status,
+                                        )}
+                                    </OdooFormField>
+                                </div>
                             </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Tipe</dt>
-                                <dd>{diamond.diamondType ?? '—'}</dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Bentuk</dt>
-                                <dd>{diamond.shape ?? '—'}</dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Warna</dt>
-                                <dd>{diamond.color ?? '—'}</dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>CRT</dt>
-                                <dd className="tabular-nums">
-                                    {formatCrt(diamond.crt)}
-                                </dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>No. Sertifikat</dt>
-                                <dd>{diamond.certificate ?? '—'}</dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Supplier</dt>
-                                <dd>{diamond.supplier ?? '—'}</dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Status</dt>
-                                <dd>
-                                    <span className={statusClass(diamond.status)}>
-                                        {diamond.status === 'used'
-                                            ? 'Terpakai'
-                                            : 'Tersedia'}
-                                    </span>
-                                </dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Tanggal masuk</dt>
-                                <dd>
-                                    {formatDateDisplay(diamond.entryDate)}
-                                </dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Tanggal keluar</dt>
-                                <dd>{formatDateDisplay(diamond.outDate)}</dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Dokumen Pasang Batu</dt>
-                                <dd>
-                                    {diamond.mountingDocumentId !== null &&
-                                    diamond.mountingDocumentNo !== null ? (
-                                        <Link
-                                            href={pasangBatuShow.url(
-                                                diamond.mountingDocumentId,
-                                            )}
-                                            className="spkProduksiLink"
+
+                            <div className="spkOdooFormSheetNotebook">
+                                <div
+                                    className="spkSectionTabs spkOdooFormSheetTabs"
+                                    role="tablist"
+                                    aria-label="Detail batu dossier"
+                                >
+                                    {(
+                                        [
+                                            ['produksi', 'Produksi'],
+                                            ['riwayat', 'Riwayat'],
+                                        ] as const
+                                    ).map(([tabId, tabLabel]) => (
+                                        <button
+                                            key={tabId}
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={
+                                                mainSection === tabId
+                                            }
+                                            className={[
+                                                'spkSectionTab',
+                                                mainSection === tabId
+                                                    ? 'is-active'
+                                                    : '',
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' ')}
+                                            onClick={() =>
+                                                setMainSection(tabId)
+                                            }
                                         >
-                                            {diamond.mountingDocumentNo}
-                                        </Link>
-                                    ) : (
-                                        (diamond.mountingDocumentNo ?? '—')
-                                    )}
-                                </dd>
+                                            <span className="spkSectionTabLabel">
+                                                {tabLabel}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {mainSection === 'produksi' ? (
+                                    <div
+                                        role="tabpanel"
+                                        className="spkOdooFormSheetPanel"
+                                        aria-label="Produksi"
+                                    >
+                                        <div className="spkFormColumn spkOdooFormSheetFields">
+                                            <OdooFormField label="Status" className="spkFormField--inline">
+                                                <span
+                                                    className={statusBadgeClass(
+                                                        diamond.status,
+                                                    )}
+                                                >
+                                                    {statusShortLabel(
+                                                        diamond.status,
+                                                    )}
+                                                </span>
+                                            </OdooFormField>
+                                            <OdooFormField label="No. SPK">
+                                                <div className="spkDossierSpkAllocationRow">
+                                                    {diamond.spkNo !== null &&
+                                                    diamond.spkNo !== '' ? (
+                                                        <Link
+                                                            href={spkShow.url(
+                                                                diamond.spkNo,
+                                                            )}
+                                                            className="spkFormLink"
+                                                        >
+                                                            {diamond.spkNo}
+                                                        </Link>
+                                                    ) : (
+                                                        <span>—</span>
+                                                    )}
+                                                    {canRevokeAllocation ? (
+                                                        <button
+                                                            type="button"
+                                                            className="spkDossierRevokeAllocationBtn"
+                                                            aria-label="Hapus alokasi"
+                                                            title="Hapus alokasi batu dari SPK"
+                                                            disabled={
+                                                                revokingAllocation
+                                                            }
+                                                            onClick={
+                                                                handleRevokeAllocation
+                                                            }
+                                                        >
+                                                            <Icon
+                                                                name={
+                                                                    deleteIcon
+                                                                }
+                                                                mode="Decorative"
+                                                            />
+                                                            <span className="spkChainPrintReceiptBtnLabel">
+                                                                Hapus alokasi
+                                                            </span>
+                                                        </button>
+                                                    ) : null}
+                                                </div>
+                                            </OdooFormField>
+                                            <OdooFormField label="Dokumen Pasang Batu">
+                                                {diamond.mountingDocumentId !==
+                                                    null &&
+                                                diamond.mountingDocumentNo !==
+                                                    null ? (
+                                                    <Link
+                                                        href={pasangBatuShow.url(
+                                                            diamond.mountingDocumentId,
+                                                        )}
+                                                        className="spkFormLink"
+                                                    >
+                                                        {
+                                                            diamond.mountingDocumentNo
+                                                        }
+                                                    </Link>
+                                                ) : (
+                                                    (diamond.mountingDocumentNo ??
+                                                    '—')
+                                                )}
+                                            </OdooFormField>
+                                            <OdooFormField label="Tanggal keluar">
+                                                {formatDateDisplay(
+                                                    diamond.outDate,
+                                                )}
+                                            </OdooFormField>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {mainSection === 'riwayat' ? (
+                                    <div
+                                        role="tabpanel"
+                                        className="spkOdooFormSheetPanel"
+                                        aria-label="Riwayat"
+                                    >
+                                        <div className="spkFormColumn spkOdooFormSheetFields">
+                                            <OdooFormField label="Dibuat">
+                                                {formatAudit(
+                                                    diamond.createdDate,
+                                                    diamond.createdBy,
+                                                )}
+                                            </OdooFormField>
+                                            <OdooFormField label="Terakhir diubah">
+                                                {formatAudit(
+                                                    diamond.modifiedDate,
+                                                    diamond.modifiedBy,
+                                                )}
+                                            </OdooFormField>
+                                        </div>
+                                    </div>
+                                ) : null}
                             </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>No. SPK</dt>
-                                <dd>
-                                    {diamond.spkNo !== null &&
-                                    diamond.spkNo !== '' ? (
-                                        <Link
-                                            href={spkShow.url(diamond.spkNo)}
-                                            className="spkProduksiLink"
-                                        >
-                                            {diamond.spkNo}
-                                        </Link>
-                                    ) : (
-                                        '—'
-                                    )}
-                                </dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Dibuat</dt>
-                                <dd>
-                                    {formatAudit(
-                                        diamond.createdDate,
-                                        diamond.createdBy,
-                                    )}
-                                </dd>
-                            </div>
-                            <div className="fioriVarianceDetailRow">
-                                <dt>Diubah</dt>
-                                <dd>
-                                    {formatAudit(
-                                        diamond.modifiedDate,
-                                        diamond.modifiedBy,
-                                    )}
-                                </dd>
-                            </div>
-                        </dl>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {canEdit && form !== null ? (
+                <DiamondDossierEditDialog
+                    diamondId={diamond.id}
+                    shapeOptions={shapeOptions}
+                    diamondTypeOptions={diamondTypeOptions}
+                    form={form}
+                    open={editDialogOpen}
+                    onOpenChange={setEditDialogOpen}
+                />
+            ) : null}
         </>
     );
 }

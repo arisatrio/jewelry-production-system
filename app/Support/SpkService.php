@@ -880,6 +880,16 @@ class SpkService
     private function syncStones(Production $production, array $stones, string $actor): void
     {
         $now = now();
+        $allocationService = app(SpkStoneAllocationService::class);
+
+        $production->stones()
+            ->notDeleted()
+            ->get()
+            ->each(function (SpkStone $stone) use ($allocationService, $actor): void {
+                if ($allocationService->tableAvailable()) {
+                    $allocationService->revokeAll($stone, $actor);
+                }
+            });
 
         $production->stones()
             ->notDeleted()

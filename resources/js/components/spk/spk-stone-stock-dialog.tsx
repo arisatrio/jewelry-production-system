@@ -1,8 +1,15 @@
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
+import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import { check as checkStoneStock } from '@/actions/App/Http/Controllers/SpkStoneStockController';
-import type { SpkStoneItem, SpkStoneStock } from '@/components/spk/types';
+import type {
+    SpkStoneAllocatedItem,
+    SpkStoneItem,
+    SpkStoneStock,
+} from '@/components/spk/types';
+import { SpkStoneAllocatedItemsTable } from '@/components/spk/spk-stone-allocated-items-table';
+import { formatDecimal3Id } from '@/components/spk/spk-stone-decimal-format';
 import {
     Dialog,
     DialogContent,
@@ -10,6 +17,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+    dossier as storeDossierAllocation,
+    micro as storeMicroAllocation,
+    revoke as revokeStoneAllocations,
+} from '@/routes/spk/stones/allocations';
+import { revoke as revokeStoneAllocationItem } from '@/routes/spk/stones/allocations/items';
 import { stock as stoneStock } from '@/routes/spk/stones';
 
 type DossierStockRow = {
@@ -32,6 +46,8 @@ type MicroStockRow = {
     size: string | null;
     shape: string | null;
     balancePcs: string;
+    reservedPcs?: string;
+    availablePcs?: string;
     balanceCrt: string;
     matchesSpkRequirement?: boolean;
 };
@@ -39,6 +55,16 @@ type MicroStockRow = {
 type StoneStockPayload = {
     stock: SpkStoneStock;
     rows: Array<DossierStockRow | MicroStockRow>;
+    dossier?: {
+        stock: SpkStoneStock;
+        rows: DossierStockRow[];
+    } | null;
+    micro?: {
+        stock: SpkStoneStock;
+        rows: MicroStockRow[];
+    } | null;
+    allocations?: SpkStoneAllocatedItem[];
+    allocatedPcs?: number;
 };
 
 export type SpkStoneStockDialogStone = SpkStoneItem & {
@@ -94,6 +120,279 @@ function formatNumberId(
     });
 }
 
+const SPEC_MISMATCH_ALLOCATION_CONFIRM =
+    'Batu ini tidak sesuai spek permintaan SPK. Tetap tambahkan ke alokasi?';
+
+function confirmSpecMismatchProceed(
+    matchesSpkRequirement: boolean | undefined,
+): boolean {
+    if (matchesSpkRequirement === true) {
+        return true;
+    }
+
+    return window.confirm(SPEC_MISMATCH_ALLOCATION_CONFIRM);
+}
+
+type StonePickFormState = {
+    stockId: number;
+    label: string;
+    totalPcs: string;
+    totalCrt: string;
+    maxPcs: number;
+    matchesSpkRequirement?: boolean;
+};
+
+function parseDecimalInput(value: string): number | null {
+    const normalized = value.trim().replace(',', '.');
+
+    if (normalized === '') {
+        return null;
+    }
+
+    const parsed = Number(normalized);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function microAvailablePcs(row: MicroStockRow): number {
+    const parsed = parseDecimalInput(
+        String(row.availablePcs ?? row.balancePcs ?? '0'),
+    );
+
+    return parsed ?? 0;
+}
+
+function microTersediaIsZero(row: MicroStockRow): boolean {
+    return microAvailablePcs(row) <= 0;
+}
+
+function microStockRowClassName(row: MicroStockRow): string {
+    const classes = ['spkAlertModalRow'];
+
+    if (microTersediaIsZero(row)) {
+        classes.push('spkChainAllocateRowUnavailable');
+    } else if (row.matchesSpkRequirement === true) {
+        classes.push('spkChainAllocateRowMatch');
+    }
+
+    return classes.join(' ');
+}
+
+function microCrtPerPcsAverageValue(row: MicroStockRow): number | null {
+    const pcs = parseDecimalInput(String(row.balancePcs ?? ''));
+
+    if (pcs === null || pcs <= 0) {
+        return null;
+    }
+
+    const crt = parseDecimalInput(String(row.balanceCrt ?? ''));
+
+    if (crt === null) {
+        return null;
+    }
+
+    return crt / pcs;
+}
+
+function microCrtPerPcsAverage(row: MicroStockRow): string {
+    const value = microCrtPerPcsAverageValue(row);
+
+    if (value === null) {
+        return '—';
+    }
+
+    return formatDecimal3Id(value);
+}
+
+function formatDecimalField(
+    value: number,
+    fractionDigits: number,
+): string {
+    return value.toLocaleString('id-ID', {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+    });
+}
+
+function formatPcsField(value: number): string {
+    return formatDecimalField(Math.round(value), 0);
+}
+
+function remainingNeedPcs(requiredPcs: number, allocatedPcs: number): number {
+    return Math.max(0, requiredPcs - allocatedPcs);
+}
+
+function requiredPcsForStoneLine(
+    stone: SpkStoneStockDialogStone,
+    stock: SpkStoneStock | null,
+): number {
+    const fromStone = Number(stone.pcs ?? 0);
+
+    if (Number.isFinite(fromStone) && fromStone > 0) {
+        return fromStone;
+    }
+
+    const fromStock = Number(stock?.requiredPcs ?? 0);
+
+    return Number.isFinite(fromStock) && fromStock > 0 ? fromStock : 0;
+}
+
+function allocatedPcsForStoneLine(
+    stone: SpkStoneStockDialogStone | null,
+    payload: StoneStockPayload | null,
+): number {
+    if (payload?.allocatedPcs !== undefined) {
+        return payload.allocatedPcs;
+    }
+
+    if (stone === null) {
+        return 0;
+    }
+
+    if (stone.allocation?.allocatedPcs !== undefined) {
+        return stone.allocation.allocatedPcs;
+    }
+
+    let total = 0;
+
+    for (const item of stone.allocatedItems ?? []) {
+        const itemPcs = Number(String(item.reservedPcs).replace(',', '.'));
+
+        if (Number.isFinite(itemPcs)) {
+            total += itemPcs;
+        }
+    }
+
+    return total;
+}
+
+function remainingNeedCarat(
+    stone: SpkStoneStockDialogStone,
+    requiredPcs: number,
+    allocatedPcs: number,
+): number {
+    const total = parseDecimalInput(String(stone.totalCarat ?? ''));
+
+    if (total === null || requiredPcs <= 0) {
+        return 0;
+    }
+
+    const remainingPcs = remainingNeedPcs(requiredPcs, allocatedPcs);
+
+    return (total * remainingPcs) / requiredPcs;
+}
+
+function buildMicroPickForm(
+    row: MicroStockRow,
+    stone: SpkStoneStockDialogStone,
+    requiredPcs: number,
+    allocatedPcs: number,
+): StonePickFormState {
+    const available = parseDecimalInput(
+        String(row.availablePcs ?? row.balancePcs ?? '0'),
+    );
+    const needPcs = remainingNeedPcs(requiredPcs, allocatedPcs);
+    const defaultPcs = Math.min(
+        needPcs,
+        Math.floor(available ?? needPcs),
+    );
+    const crtPerPcs = microCrtPerPcsAverageValue(row);
+    const needCrt = remainingNeedCarat(stone, requiredPcs, allocatedPcs);
+    const defaultCrt =
+        crtPerPcs !== null && defaultPcs > 0
+            ? crtPerPcs * defaultPcs
+            : requiredPcs > 0 && needPcs > 0
+              ? (needCrt * defaultPcs) / needPcs
+              : needCrt;
+
+    return {
+        stockId: row.id,
+        label: displayValue(row.name),
+        totalPcs: formatPcsField(defaultPcs),
+        totalCrt: formatDecimalField(defaultCrt, 3),
+        maxPcs: Math.floor(available ?? needPcs),
+        matchesSpkRequirement: row.matchesSpkRequirement === true,
+    };
+}
+
+function SpkStoneAllocatePickForm({
+    form,
+    submitting,
+    onChange,
+    onCancel,
+    onConfirm,
+}: {
+    form: StonePickFormState;
+    submitting: boolean;
+    onChange: (next: StonePickFormState) => void;
+    onCancel: () => void;
+    onConfirm: () => void;
+}) {
+    return (
+        <div className="spkStoneAllocatePickForm" role="form">
+            <p className="spkStoneAllocatePickFormTitle">
+                Alokasi: <strong>{form.label}</strong>
+            </p>
+            <div className="spkStoneAllocatePickFormFields">
+                <div className="spkChainAllocateFilterField">
+                    <Label htmlFor="spk-stone-allocate-pcs">
+                        Total Pcs
+                    </Label>
+                    <input
+                        id="spk-stone-allocate-pcs"
+                        type="text"
+                        inputMode="numeric"
+                        className="spkChainAllocateFilterSelect"
+                        value={form.totalPcs}
+                        onChange={(event) => {
+                            onChange({
+                                ...form,
+                                totalPcs: event.target.value,
+                            });
+                        }}
+                    />
+                </div>
+                <div className="spkChainAllocateFilterField">
+                    <Label htmlFor="spk-stone-allocate-crt">
+                        Total Carat
+                    </Label>
+                    <input
+                        id="spk-stone-allocate-crt"
+                        type="text"
+                        inputMode="decimal"
+                        className="spkChainAllocateFilterSelect"
+                        value={form.totalCrt}
+                        onChange={(event) => {
+                            onChange({
+                                ...form,
+                                totalCrt: event.target.value,
+                            });
+                        }}
+                    />
+                </div>
+            </div>
+            <div className="spkStoneAllocatePickFormActions">
+                <button
+                    type="button"
+                    className="spkTableHeaderSortClear--finishing"
+                    disabled={submitting}
+                    onClick={onCancel}
+                >
+                    Batal
+                </button>
+                <button
+                    type="button"
+                    className="spkChainFulfillmentActionBtn"
+                    disabled={submitting}
+                    onClick={onConfirm}
+                >
+                    {submitting ? 'Menyimpan…' : 'Simpan alokasi'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 function stoneSummary(stone: SpkStoneStockDialogStone): string {
     return [
         stone.positionName,
@@ -104,7 +403,7 @@ function stoneSummary(stone: SpkStoneStockDialogStone): string {
             : '',
         stone.totalCarat !== undefined &&
         String(stone.totalCarat).trim() !== ''
-            ? `${stone.totalCarat} crt`
+            ? `${formatDecimal3Id(stone.totalCarat)} crt`
             : '',
     ]
         .map((part) => String(part ?? '').trim())
@@ -137,7 +436,19 @@ function microSearchHaystack(row: MicroStockRow): string {
         .toLowerCase();
 }
 
-function DossierStockTable({ rows }: { rows: DossierStockRow[] }) {
+function DossierStockTable({
+    rows,
+    remainingNeedPcs,
+    pickingDossierId,
+    pickFormOpen,
+    onPick,
+}: {
+    rows: DossierStockRow[];
+    remainingNeedPcs: number;
+    pickingDossierId: number | null;
+    pickFormOpen: boolean;
+    onPick: (row: DossierStockRow) => void;
+}) {
     return (
         <table className="spkAlertModalTable spkChainAllocateTable spkStoneAllocateTable spkStoneAllocateTable--dossier">
             <thead>
@@ -171,10 +482,15 @@ function DossierStockTable({ rows }: { rows: DossierStockRow[] }) {
                             <button
                                 type="button"
                                 className="spkChainFulfillmentActionBtn"
-                                disabled
-                                title="Alokasi stok batu dossier belum tersedia"
+                                disabled={
+                                    remainingNeedPcs <= 0 ||
+                                    pickFormOpen ||
+                                    pickingDossierId !== null
+                                }
+                                title="Alokasikan batu dossier ke SPK"
+                                onClick={() => onPick(row)}
                             >
-                                Pilih
+                                {pickingDossierId === row.id ? '…' : 'Pilih'}
                             </button>
                         </td>
                         <td className="spkChainAllocateColUnit tabular-nums spkAlertModalTableIdentifier">
@@ -208,7 +524,19 @@ function DossierStockTable({ rows }: { rows: DossierStockRow[] }) {
     );
 }
 
-function MicroStockTable({ rows }: { rows: MicroStockRow[] }) {
+function MicroStockTable({
+    rows,
+    remainingNeedPcs,
+    activeMicroPickId,
+    pickBlocked,
+    onPick,
+}: {
+    rows: MicroStockRow[];
+    remainingNeedPcs: number;
+    activeMicroPickId: number | null;
+    pickBlocked: boolean;
+    onPick: (row: MicroStockRow) => void;
+}) {
     return (
         <table className="spkAlertModalTable spkChainAllocateTable spkStoneAllocateTable spkStoneAllocateTable--micro">
             <thead>
@@ -223,29 +551,38 @@ function MicroStockTable({ rows }: { rows: MicroStockRow[] }) {
                     <th className="spkTableColCenter spkChainAllocateColWeight">
                         Saldo Pcs
                     </th>
+                    <th className="spkTableColCenter spkChainAllocateColWeight">
+                        Reserved
+                    </th>
+                    <th className="spkTableColCenter spkChainAllocateColWeight">
+                        Tersedia
+                    </th>
                     <th className="spkTableColCenter spkChainAllocateColWeight spkStoneAllocateColBalanceCrt">
                         Saldo Crt
+                    </th>
+                    <th className="spkTableColCenter spkChainAllocateColWeight spkStoneAllocateColCrtPerPcs">
+                        Crt per butir (avg)
                     </th>
                 </tr>
             </thead>
             <tbody>
                 {rows.map((row) => (
-                    <tr
-                        key={row.id}
-                        className={
-                            row.matchesSpkRequirement === true
-                                ? 'spkAlertModalRow spkChainAllocateRowMatch'
-                                : 'spkAlertModalRow'
-                        }
-                    >
+                    <tr key={row.id} className={microStockRowClassName(row)}>
                         <td className="spkChainAllocateColAction">
                             <button
                                 type="button"
                                 className="spkChainFulfillmentActionBtn"
-                                disabled
-                                title="Alokasi stok batu mikro belum tersedia"
+                                disabled={
+                                    remainingNeedPcs <= 0 ||
+                                    pickBlocked ||
+                                    microTersediaIsZero(row) ||
+                                    (activeMicroPickId !== null &&
+                                        activeMicroPickId !== row.id)
+                                }
+                                title="Alokasikan saldo mikro ke SPK"
+                                onClick={() => onPick(row)}
                             >
-                                Pilih
+                                {activeMicroPickId === row.id ? '…' : 'Pilih'}
                             </button>
                         </td>
                         <td className="spkChainAllocateColName">
@@ -261,10 +598,22 @@ function MicroStockTable({ rows }: { rows: MicroStockRow[] }) {
                             {displayValue(row.shape)}
                         </td>
                         <td className="spkTableColCenter spkChainAllocateColWeight tabular-nums">
-                            {displayValue(row.balancePcs)}
+                            {formatNumberId(row.balancePcs, 0)}
+                        </td>
+                        <td className="spkTableColCenter spkChainAllocateColWeight tabular-nums">
+                            {formatNumberId(row.reservedPcs ?? '0', 0)}
+                        </td>
+                        <td className="spkTableColCenter spkChainAllocateColWeight tabular-nums">
+                            {formatNumberId(
+                                row.availablePcs ?? row.balancePcs,
+                                0,
+                            )}
                         </td>
                         <td className="spkTableColCenter spkChainAllocateColWeight spkStoneAllocateColBalanceCrt tabular-nums">
-                            {formatNumberId(row.balanceCrt, 4)}
+                            {formatNumberId(row.balanceCrt, 3)}
+                        </td>
+                        <td className="spkTableColCenter spkChainAllocateColWeight spkStoneAllocateColCrtPerPcs tabular-nums">
+                            {microCrtPerPcsAverage(row)}
                         </td>
                     </tr>
                 ))}
@@ -283,12 +632,15 @@ export function SpkStoneStockDialog({
     const [failed, setFailed] = useState(false);
     const [payload, setPayload] = useState<StoneStockPayload | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [reloadToken, setReloadToken] = useState(0);
     const open = stone !== null;
     const stoneId = stone?.id ?? null;
 
     useEffect(() => {
         if (!open) {
             setSearchQuery('');
+            setPickForm(null);
+            setPickingDossierId(null);
         }
     }, [open]);
 
@@ -378,39 +730,220 @@ export function SpkStoneStockDialog({
         void load();
 
         return () => controller.abort();
-    }, [stone, stoneId]);
+    }, [stone, stoneId, reloadToken]);
+
+    const [pickForm, setPickForm] = useState<StonePickFormState | null>(null);
+    const [submittingPick, setSubmittingPick] = useState(false);
+    const [pickingDossierId, setPickingDossierId] = useState<number | null>(
+        null,
+    );
+    const [revokingAllocationId, setRevokingAllocationId] = useState<
+        number | null
+    >(null);
+    const [revokingAll, setRevokingAll] = useState(false);
 
     const stock = payload?.stock ?? stone?.stock ?? null;
-    const rows = payload?.rows ?? [];
-    const isDossier = stock?.source === 'dossier';
-    const allocation = stone?.allocation;
-    const isAllocated =
-        allocation?.status === 'allocated' &&
-        (allocation.allocatedPcs ?? 0) > 0;
-    const canAllocate =
-        stock?.status === 'available' && !isAllocated;
+    const legacyRows = payload?.rows ?? [];
+    const dossierSection = payload?.dossier ?? null;
+    const microSection = payload?.micro ?? null;
+    const dossierRows =
+        dossierSection?.rows ??
+        (stock?.source === 'dossier'
+            ? (legacyRows as DossierStockRow[])
+            : []);
+    const microRows =
+        microSection?.rows ??
+        (stock?.source === 'micro' ? (legacyRows as MicroStockRow[]) : []);
+    const allocations = payload?.allocations ?? [];
+    const requiredPcs =
+        stone !== null
+            ? requiredPcsForStoneLine(stone, stock)
+            : Number(stock?.requiredPcs ?? 0);
+    const allocatedPcs = allocatedPcsForStoneLine(stone, payload);
+    const remainingNeed = remainingNeedPcs(requiredPcs, allocatedPcs);
+    const isFullyAllocated = requiredPcs > 0 && remainingNeed <= 0;
+    const canAddMoreStones =
+        stone !== null && !isPreviewStone(stone) && !isFullyAllocated;
+    const hasStockTables = dossierRows.length > 0 || microRows.length > 0;
 
-    const filteredRows = useMemo(() => {
+    const reloadStoneStock = (): void => {
+        setReloadToken((value) => value + 1);
+        if (stone !== null && !isPreviewStone(stone)) {
+            router.reload({ only: ['stones'], preserveScroll: true });
+        }
+    };
+
+    const handlePickDossier = (row: DossierStockRow): void => {
+        if (stone === null || isPreviewStone(stone)) {
+            return;
+        }
+
+        if (!confirmSpecMismatchProceed(row.matchesSpkRequirement)) {
+            return;
+        }
+
+        const crt = parseDecimalInput(String(row.crt ?? ''));
+        const body: Record<string, number> = {
+            diamond_id: row.id,
+            reserved_pcs: 1,
+        };
+
+        if (crt !== null && crt >= 0) {
+            body.reserved_crt = Math.round(crt * 1000) / 1000;
+        }
+
+        setPickingDossierId(row.id);
+        router.post(storeDossierAllocation.url(Number(stone.id)), body, {
+            preserveScroll: true,
+            onFinish: () => {
+                setPickingDossierId(null);
+                reloadStoneStock();
+            },
+        });
+    };
+
+    const handlePickMicro = (row: MicroStockRow): void => {
+        if (stone === null) {
+            return;
+        }
+
+        if (!confirmSpecMismatchProceed(row.matchesSpkRequirement)) {
+            return;
+        }
+
+        setPickForm(
+            buildMicroPickForm(row, stone, requiredPcs, allocatedPcs),
+        );
+    };
+
+    const handleConfirmPick = (): void => {
+        if (stone === null || isPreviewStone(stone) || pickForm === null) {
+            return;
+        }
+
+        const pcsRaw = parseDecimalInput(pickForm.totalPcs);
+        const pcs = pcsRaw === null ? null : Math.round(pcsRaw);
+        const crt = parseDecimalInput(pickForm.totalCrt);
+
+        if (pcs === null || pcs <= 0) {
+            return;
+        }
+
+        if (pcs - pickForm.maxPcs > 0.0001) {
+            return;
+        }
+
+        const needPcs = remainingNeedPcs(requiredPcs, allocatedPcs);
+
+        if (pcs - needPcs > 0.0001) {
+            return;
+        }
+
+        const payload: Record<string, number> = {
+            reserved_pcs: pcs,
+            msstone_id: pickForm.stockId,
+        };
+
+        if (crt !== null && crt >= 0) {
+            payload.reserved_crt = Math.round(crt * 1000) / 1000;
+        }
+
+        setSubmittingPick(true);
+
+        router.post(
+            storeMicroAllocation.url(Number(stone.id)),
+            payload,
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setSubmittingPick(false);
+                    setPickForm(null);
+                    reloadStoneStock();
+                },
+            },
+        );
+    };
+
+    const activeMicroPickId = pickForm?.stockId ?? null;
+    const microPickBlocked =
+        pickingDossierId !== null || submittingPick;
+
+    const handleRevokeItem = (item: SpkStoneAllocatedItem): void => {
+        if (stone === null || isPreviewStone(stone)) {
+            return;
+        }
+
+        if (
+            !window.confirm('Hapus alokasi batu ini dari SPK?')
+        ) {
+            return;
+        }
+
+        setRevokingAllocationId(item.id);
+        router.post(
+            revokeStoneAllocationItem.url([Number(stone.id), item.id]),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setRevokingAllocationId(null);
+                    reloadStoneStock();
+                },
+            },
+        );
+    };
+
+    const handleRevokeAll = (): void => {
+        if (stone === null || isPreviewStone(stone)) {
+            return;
+        }
+
+        setRevokingAll(true);
+        router.post(
+            revokeStoneAllocations.url(Number(stone.id)),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setRevokingAll(false);
+                    reloadStoneStock();
+                },
+            },
+        );
+    };
+
+    const filteredDossierRows = useMemo(() => {
         const needle = searchQuery.trim().toLowerCase();
 
         if (needle === '') {
-            return rows;
+            return dossierRows;
         }
 
-        if (isDossier) {
-            return (rows as DossierStockRow[]).filter((row) =>
-                dossierSearchHaystack(row).includes(needle),
-            );
+        return dossierRows.filter((row) =>
+            dossierSearchHaystack(row).includes(needle),
+        );
+    }, [dossierRows, searchQuery]);
+
+    const filteredMicroRows = useMemo(() => {
+        const needle = searchQuery.trim().toLowerCase();
+
+        if (needle === '') {
+            return microRows;
         }
 
-        return (rows as MicroStockRow[]).filter((row) =>
+        return microRows.filter((row) =>
             microSearchHaystack(row).includes(needle),
         );
-    }, [isDossier, rows, searchQuery]);
+    }, [microRows, searchQuery]);
 
-    const searchPlaceholder = isDossier
-        ? 'Kode, tipe, bentuk, warna, CRT, sertifikat, supplier…'
-        : 'Nama, parcel, ukuran, bentuk, saldo pcs, saldo crt…';
+    const searchPlaceholder =
+        dossierRows.length > 0 && microRows.length > 0
+            ? 'Cari stok dossier atau mikro…'
+            : dossierRows.length > 0
+              ? 'Kode, tipe, bentuk, warna, CRT, sertifikat, supplier…'
+              : 'Nama, parcel, ukuran, bentuk, saldo pcs, saldo crt…';
+    const filteredRowsEmpty =
+        filteredDossierRows.length === 0 && filteredMicroRows.length === 0;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -432,26 +965,72 @@ export function SpkStoneStockDialog({
                     <p className="spkAlertModalEmpty">
                         Gagal memuat data. Silakan coba lagi.
                     </p>
-                ) : isAllocated ? (
+                ) : isPreviewStone(stone) ? (
                     <p className="spkAlertModalEmpty">
-                        {allocation?.label ?? 'Batu sudah dialokasikan.'}
+                        Simpan SPK terlebih dahulu sebelum mengalokasikan batu.
                     </p>
-                ) : rows.length === 0 ? (
+                ) : !hasStockTables && allocations.length === 0 ? (
                     <p className="spkAlertModalEmpty">
                         {stock?.note ??
-                            (isDossier
-                                ? 'Tidak ada batu dossier siap pakai untuk bentuk ini.'
-                                : 'Tidak ada master batu mikro untuk bentuk ini.')}
+                            'Tidak ada stok batu yang cocok untuk baris ini.'}
                     </p>
                 ) : (
                     <>
-                        {!canAllocate && stock?.note ? (
-                            <p
-                                className="spkAlertModalEmpty spkStoneAllocateStockNote"
-                                role="status"
-                            >
-                                {stock.note}
+                        {allocations.length > 0 ? (
+                            <div className="spkStoneAllocateAllocatedBlock">
+                                <div className="spkChainIssuedRowInner spkStoneAllocateAllocatedInner">
+                                    <div className="spkChainIssuedMeta">
+                                        <strong>
+                                            Batu yang dialokasikan:
+                                        </strong>
+                                        <span className="spkChainIssuedMetaAudit">
+                                            {allocatedPcs}/{requiredPcs} pcs
+                                        </span>
+                                        <span className="spkChainIssuedMetaDetail">
+                                            <SpkStoneAllocatedItemsTable
+                                                items={allocations}
+                                                revokingAllocationId={
+                                                    revokingAllocationId
+                                                }
+                                                onRevokeItem={handleRevokeItem}
+                                            />
+                                        </span>
+                                    </div>
+                                    <div className="spkStoneAllocateSummaryActions">
+                                        <button
+                                            type="button"
+                                            className="spkTableHeaderSortClear--finishing"
+                                            disabled={
+                                                revokingAll ||
+                                                revokingAllocationId !== null
+                                            }
+                                            onClick={handleRevokeAll}
+                                        >
+                                            Batalkan semua alokasi
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+                        {isFullyAllocated ? (
+                            <p className="spkAlertModalEmpty">
+                                Kebutuhan batu SPK sudah terpenuhi.
                             </p>
+                        ) : null}
+                        {!canAddMoreStones ? null : (
+                            <>
+                        {pickForm !== null ? (
+                            <SpkStoneAllocatePickForm
+                                form={pickForm}
+                                submitting={submittingPick}
+                                onChange={setPickForm}
+                                onCancel={() => {
+                                    if (!submittingPick) {
+                                        setPickForm(null);
+                                    }
+                                }}
+                                onConfirm={handleConfirmPick}
+                            />
                         ) : null}
                         <div className="spkChainAllocateFilters">
                             <div className="spkChainAllocateFilterField spkChainAllocateSearchField">
@@ -475,22 +1054,49 @@ export function SpkStoneStockDialog({
                             </div>
                         </div>
 
-                        {filteredRows.length === 0 ? (
+                        {filteredRowsEmpty ? (
                             <p className="spkAlertModalEmpty">
                                 Tidak ada stok yang cocok dengan pencarian.
                             </p>
                         ) : (
                             <div className="spkAlertModalBody spkChainAllocateBody">
-                                {isDossier ? (
-                                    <DossierStockTable
-                                        rows={filteredRows as DossierStockRow[]}
-                                    />
-                                ) : (
-                                    <MicroStockTable
-                                        rows={filteredRows as MicroStockRow[]}
-                                    />
-                                )}
+                                {filteredDossierRows.length > 0 ? (
+                                    <>
+                                        {dossierRows.length > 0 &&
+                                        microRows.length > 0 ? (
+                                            <p className="spkStoneAllocateSectionTitle">
+                                                Stok dossier
+                                            </p>
+                                        ) : null}
+                                        <DossierStockTable
+                                            rows={filteredDossierRows}
+                                            remainingNeedPcs={remainingNeed}
+                                            pickingDossierId={pickingDossierId}
+                                            pickFormOpen={pickForm !== null}
+                                            onPick={handlePickDossier}
+                                        />
+                                    </>
+                                ) : null}
+                                {filteredMicroRows.length > 0 ? (
+                                    <>
+                                        {dossierRows.length > 0 &&
+                                        microRows.length > 0 ? (
+                                            <p className="spkStoneAllocateSectionTitle">
+                                                Stok mikro
+                                            </p>
+                                        ) : null}
+                                        <MicroStockTable
+                                            rows={filteredMicroRows}
+                                            remainingNeedPcs={remainingNeed}
+                                            activeMicroPickId={activeMicroPickId}
+                                            pickBlocked={microPickBlocked}
+                                            onPick={handlePickMicro}
+                                        />
+                                    </>
+                                ) : null}
                             </div>
+                        )}
+                            </>
                         )}
                     </>
                 )}

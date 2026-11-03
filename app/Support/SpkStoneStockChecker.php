@@ -53,22 +53,64 @@ class SpkStoneStockChecker
         $context = $this->loadContext($stones);
         $results = [];
 
+        $allocationService = app(SpkStoneAllocationService::class);
+
         foreach ($stones as $stone) {
-            $match = $this->resolveMatch($stone, $context);
+            $caratPerPcs = $this->caratPerPcs($stone);
+            $shapeId = (int) $stone->shape_id;
+            $requiredPcs = max(0, (int) ($stone->pcs ?? 0));
+            $remainingPcs = max(0, $requiredPcs - $allocationService->allocatedPcs($stone));
 
-            $availablePcs = match (true) {
-                $match['dossierRange'] !== null => $this->dossierInventory->availableCountInCrtRange(
-                    (int) $stone->shape_id,
-                    $match['dossierRange']->crt_min,
-                    $match['dossierRange']->crt_max,
-                ),
-                $match['microStoneIds'] !== [] && $match['periodId'] !== null => $this->wholePcs(array_sum(
-                    $this->stoneLedger->balancePcsByStone($match['periodId'], $match['microStoneIds']),
-                )),
-                default => 0,
-            };
+            $dossierMatch = $caratPerPcs >= self::DOSSIER_MIN_CARAT_PER_PCS
+                ? $this->resolveDossierMatch(
+                    $stone,
+                    $caratPerPcs,
+                    $context['matrixByShape'][$shapeId] ?? null,
+                )
+                : null;
+            $microMatch = $this->resolveMicroMatch(
+                $stone,
+                $context['microStonesByShape'][$shapeId] ?? null,
+                $context['activePeriod'],
+            );
 
-            $results[(int) $stone->line_id] = $this->result($match['source'], $match['requiredPcs'], $availablePcs, $match['note']);
+            $dossierAvailable = $dossierMatch !== null && $dossierMatch['dossierRange'] !== null
+                ? $this->dossierInventory->availableCountInCrtRange(
+                    $shapeId,
+                    $dossierMatch['dossierRange']->crt_min,
+                    $dossierMatch['dossierRange']->crt_max,
+                )
+                : 0;
+            $microAvailable = $microMatch['microStoneIds'] !== [] && $microMatch['periodId'] !== null
+                ? $this->microAvailablePcs($microMatch['periodId'], $microMatch['microStoneIds'])
+                : 0;
+
+            $prefersDossier = $caratPerPcs >= self::DOSSIER_MIN_CARAT_PER_PCS;
+            $primarySource = $prefersDossier
+                ? self::SOURCE_DOSSIER
+                : self::SOURCE_MICRO;
+            $primaryMatch = $prefersDossier
+                ? ($dossierMatch ?? $microMatch)
+                : $microMatch;
+
+            $availablePcs = 0;
+
+            if ($remainingPcs > 0) {
+                if ($dossierAvailable > 0) {
+                    $availablePcs += $dossierAvailable;
+                }
+
+                if ($microAvailable > 0) {
+                    $availablePcs += $microAvailable;
+                }
+            }
+
+            $results[(int) $stone->line_id] = $this->result(
+                $primarySource,
+                $requiredPcs,
+                $availablePcs,
+                $primaryMatch['note'] ?? null,
+            );
         }
 
         return $results;
@@ -102,6 +144,14 @@ class SpkStoneStockChecker
     }
 
     /**
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public function allocatedItemsForStones(Collection $stones): array
+    {
+        return app(SpkStoneAllocationService::class)->allocationsGroupedByLineId($stones);
+    }
+
+    /**
      * Daftar batu stok yang cocok dengan kebutuhan satu baris batu SPK.
      *
      * @return array{
@@ -129,86 +179,249 @@ class SpkStoneStockChecker
     public function matchingStones(SpkStone $stone): array
     {
         $context = $this->loadContext(collect([$stone]));
-        $match = $this->resolveMatch($stone, $context);
+        $dossier = $this->buildDossierAllocationPayload($stone, $context);
+        $micro = $this->buildMicroAllocationPayload($stone, $context);
+        $primary = $dossier ?? $micro ?? [
+            'stock' => $this->result(
+                self::SOURCE_DOSSIER,
+                max(0, (int) ($stone->pcs ?? 0)),
+                0,
+                'Bentuk batu belum diisi.',
+            ),
+            'rows' => [],
+        ];
 
-        if ($match['source'] === self::SOURCE_DOSSIER) {
-            $shapeId = (int) $stone->shape_id;
+        return $this->withAllocationMeta($stone, [
+            'stock' => $primary['stock'],
+            'rows' => $primary['rows'],
+            'dossier' => $dossier,
+            'micro' => $micro,
+        ]);
+    }
 
-            if ($shapeId <= 0) {
-                return [
-                    'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
-                    'rows' => [],
-                ];
-            }
+    /**
+     * @param  array{
+     *     matrixByShape: array<int|string, EloquentCollection<int, DiamondCrtMatrix>>,
+     *     microStonesByShape: array<int|string, EloquentCollection<int, MsStone>>,
+     *     activePeriod: array{id: int, label: string}|null
+     * }  $context
+     * @return array{
+     *     stock: array{source: 'dossier', status: 'available'|'unavailable', requiredPcs: int, availablePcs: int, note: string|null},
+     *     rows: list<array<string, bool|int|string|null>>
+     * }|null
+     */
+    private function buildDossierAllocationPayload(SpkStone $stone, array $context): ?array
+    {
+        $caratPerPcs = $this->caratPerPcs($stone);
+        $shapeId = (int) $stone->shape_id;
 
-            $rows = $this->dossierAllocationRows(
-                $this->dossierInventory->availableForShape($shapeId),
-                $match['dossierRange'],
-            );
-            $matchingCount = count(array_filter(
-                $rows,
-                fn (array $row): bool => ($row['matchesSpkRequirement'] ?? false) === true,
-            ));
+        if ($caratPerPcs < self::DOSSIER_MIN_CARAT_PER_PCS || $shapeId <= 0) {
+            return null;
+        }
 
+        $match = $this->resolveDossierMatch(
+            $stone,
+            $caratPerPcs,
+            $context['matrixByShape'][$shapeId] ?? null,
+        );
+
+        if ($match['dossierRange'] === null) {
             return [
-                'stock' => $this->result($match['source'], $match['requiredPcs'], $matchingCount, $match['note']),
-                'rows' => $this->sortAllocationRows($rows),
+                'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
+                'rows' => [],
             ];
         }
 
-        if ($match['source'] === self::SOURCE_MICRO) {
-            $shapeId = (int) $stone->shape_id;
+        $rows = $this->dossierAllocationRows(
+            $this->dossierInventory->availableForShape($shapeId),
+            $match['dossierRange'],
+        );
+        $matchingCount = count(array_filter(
+            $rows,
+            fn (array $row): bool => ($row['matchesSpkRequirement'] ?? false) === true,
+        ));
 
-            if ($shapeId <= 0) {
-                return [
-                    'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
-                    'rows' => [],
-                ];
-            }
+        return [
+            'stock' => $this->result($match['source'], $match['requiredPcs'], $matchingCount, $match['note']),
+            'rows' => $this->sortAllocationRows($rows),
+        ];
+    }
 
-            $periodId = $match['periodId'];
-            if ($periodId === null && $context['activePeriod'] !== null) {
-                $periodId = $context['activePeriod']['id'];
-            }
+    /**
+     * @param  array{
+     *     matrixByShape: array<int|string, EloquentCollection<int, DiamondCrtMatrix>>,
+     *     microStonesByShape: array<int|string, EloquentCollection<int, MsStone>>,
+     *     activePeriod: array{id: int, label: string}|null
+     * }  $context
+     * @return array{
+     *     stock: array{source: 'micro', status: 'available'|'unavailable', requiredPcs: int, availablePcs: int, note: string|null},
+     *     rows: list<array<string, bool|int|string|null>>
+     * }|null
+     */
+    private function buildMicroAllocationPayload(SpkStone $stone, array $context): ?array
+    {
+        $shapeId = (int) $stone->shape_id;
 
-            if ($periodId === null) {
-                return [
-                    'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
-                    'rows' => [],
-                ];
-            }
+        if ($shapeId <= 0) {
+            return null;
+        }
 
-            $allMicroIds = ($context['microStonesByShape'][$shapeId] ?? collect())
-                ->map(fn (MsStone $microStone): int => (int) $microStone->row_id)
-                ->values()
-                ->all();
-            $matchedIds = array_flip($match['microStoneIds']);
-            $rows = $this->microAllocationRows(
-                $this->stoneLedger->stockByStoneIds($periodId, $allMicroIds),
-                $matchedIds,
-            );
-            $balance = array_sum(array_map(
-                fn (array $row): float => ($row['matchesSpkRequirement'] ?? false) === true
-                    ? (float) $row['balancePcs']
-                    : 0.0,
-                $rows,
-            ));
+        $match = $this->resolveMicroMatch(
+            $stone,
+            $context['microStonesByShape'][$shapeId] ?? null,
+            $context['activePeriod'],
+        );
 
+        $periodId = $match['periodId'];
+
+        if ($match['microStoneIds'] === [] && $periodId === null) {
             return [
-                'stock' => $this->result(
-                    $match['source'],
-                    $match['requiredPcs'],
-                    $this->wholePcs($balance),
-                    $match['note'],
-                ),
-                'rows' => $this->sortAllocationRows($rows),
+                'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
+                'rows' => [],
             ];
+        }
+
+        if ($periodId === null) {
+            return [
+                'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
+                'rows' => [],
+            ];
+        }
+
+        $allMicroIds = ($context['microStonesByShape'][$shapeId] ?? collect())
+            ->map(fn (MsStone $microStone): int => (int) $microStone->row_id)
+            ->values()
+            ->all();
+        $matchedIds = $match['microStoneIds'] === []
+            ? []
+            : array_flip($match['microStoneIds']);
+        $rows = $this->microAllocationRows(
+            $this->stoneLedger->stockByStoneIds($periodId, $allMicroIds),
+            $matchedIds,
+        );
+        $balance = array_sum(array_map(
+            fn (array $row): float => ($row['matchesSpkRequirement'] ?? false) === true
+                ? (float) ($row['availablePcs'] ?? $row['balancePcs'] ?? 0)
+                : 0.0,
+            $rows,
+        ));
+
+        return [
+            'stock' => $this->result(
+                $match['source'],
+                $match['requiredPcs'],
+                $this->wholePcs($balance),
+                $match['note'],
+            ),
+            'rows' => $this->sortAllocationRows($rows),
+        ];
+    }
+
+    /**
+     * @return list<array<string, bool|int|string|null>>
+     */
+    public function dossierAllocationRowsForStone(SpkStone $stone): array
+    {
+        $payload = $this->buildDossierAllocationPayload(
+            $stone,
+            $this->loadContext(collect([$stone])),
+        );
+
+        return $payload['rows'] ?? [];
+    }
+
+    /**
+     * @return list<array<string, bool|int|string|null>>
+     */
+    public function microAllocationRowsForStone(SpkStone $stone): array
+    {
+        $payload = $this->buildMicroAllocationPayload(
+            $stone,
+            $this->loadContext(collect([$stone])),
+        );
+
+        return $payload['rows'] ?? [];
+    }
+
+    /**
+     * @param  array{
+     *     stock: array{source: 'dossier'|'micro', status: 'available'|'unavailable', requiredPcs: int, availablePcs: int, note: string|null},
+     *     rows: list<array<string, int|string|null>>,
+     *     dossier?: array{stock: array<string, mixed>, rows: list<array<string, mixed>>}|null,
+     *     micro?: array{stock: array<string, mixed>, rows: list<array<string, mixed>>}|null
+     * }  $payload
+     * @return array{
+     *     stock: array{source: 'dossier'|'micro', status: 'available'|'unavailable', requiredPcs: int, availablePcs: int, note: string|null},
+     *     rows: list<array<string, int|string|null>>,
+     *     dossier: array{stock: array<string, mixed>, rows: list<array<string, mixed>>}|null,
+     *     micro: array{stock: array<string, mixed>, rows: list<array<string, mixed>>}|null,
+     *     allocations: list<array<string, mixed>>,
+     *     allocatedPcs: int
+     * }
+     */
+    private function withAllocationMeta(SpkStone $stone, array $payload): array
+    {
+        $allocationService = app(SpkStoneAllocationService::class);
+        $allocatedPcs = $allocationService->allocatedPcs($stone);
+
+        if (isset($payload['stock']) && is_array($payload['stock'])) {
+            $payload['stock'] = $this->stockResultForRemaining($payload['stock'], $allocatedPcs);
+        }
+
+        if (isset($payload['dossier']['stock']) && is_array($payload['dossier']['stock'])) {
+            $payload['dossier']['stock'] = $this->stockResultForRemaining(
+                $payload['dossier']['stock'],
+                $allocatedPcs,
+            );
+        }
+
+        if (isset($payload['micro']['stock']) && is_array($payload['micro']['stock'])) {
+            $payload['micro']['stock'] = $this->stockResultForRemaining(
+                $payload['micro']['stock'],
+                $allocatedPcs,
+            );
         }
 
         return [
-            'stock' => $this->result($match['source'], $match['requiredPcs'], 0, $match['note']),
-            'rows' => [],
+            ...$payload,
+            'allocations' => $allocationService->allocationsForStone($stone),
+            'allocatedPcs' => $allocatedPcs,
         ];
+    }
+
+    /**
+     * @param  array{source: 'dossier'|'micro', status: 'available'|'unavailable', requiredPcs: int, availablePcs: int, note: string|null}  $stock
+     * @return array{source: 'dossier'|'micro', status: 'available'|'unavailable', requiredPcs: int, availablePcs: int, note: string|null}
+     */
+    private function stockResultForRemaining(array $stock, int $allocatedPcs): array
+    {
+        $remainingRequired = max(0, (int) ($stock['requiredPcs'] ?? 0) - $allocatedPcs);
+        $availablePcs = (int) ($stock['availablePcs'] ?? 0);
+        $isAvailable = $remainingRequired > 0 && $availablePcs > 0;
+
+        return [
+            ...$stock,
+            'status' => $isAvailable ? self::STATUS_AVAILABLE : self::STATUS_UNAVAILABLE,
+        ];
+    }
+
+    /**
+     * @param  list<int>  $microStoneIds
+     */
+    private function microAvailablePcs(int $periodId, array $microStoneIds): int
+    {
+        $balances = $this->stoneLedger->balancePcsByStone($periodId, $microStoneIds);
+        $reservedMap = app(SpkStoneAllocationService::class)->microReservedPcsByStone($periodId);
+        $available = 0.0;
+
+        foreach ($microStoneIds as $microStoneId) {
+            $available += max(
+                0,
+                (float) ($balances[$microStoneId] ?? 0) - (float) ($reservedMap[$microStoneId] ?? 0),
+            );
+        }
+
+        return $this->wholePcs($available);
     }
 
     /**
@@ -241,9 +454,13 @@ class SpkStoneStockChecker
     private function microAllocationRows(array $rows, array $matchedMicroIds): array
     {
         return array_map(function (array $row) use ($matchedMicroIds): array {
-            $balancePcs = (float) ($row['balancePcs'] ?? 0);
+            $availablePcs = (float) ($row['availablePcs'] ?? $row['balancePcs'] ?? 0);
             $matches = isset($matchedMicroIds[(int) ($row['id'] ?? 0)])
-                && $this->wholePcs($balancePcs) > 0;
+                && $this->wholePcs($availablePcs) > 0;
+
+            if (filled($row['balanceCrt'] ?? null)) {
+                $row['balanceCrt'] = number_format((float) $row['balanceCrt'], 3, '.', '');
+            }
 
             return [
                 ...$row,
@@ -392,7 +609,17 @@ class SpkStoneStockChecker
             ->all());
 
         if ($matchedStoneIds === []) {
-            return [...$match, 'note' => 'Batu mikro dengan bentuk dan ukuran ini tidak ditemukan.'];
+            $note = 'Batu mikro dengan bentuk dan ukuran ini tidak ditemukan.';
+
+            if (($microStones ?? collect())->isEmpty()) {
+                return [...$match, 'note' => $note];
+            }
+
+            return [
+                ...$match,
+                'note' => $note,
+                'periodId' => $activePeriod['id'],
+            ];
         }
 
         return [
@@ -410,7 +637,7 @@ class SpkStoneStockChecker
      */
     private function result(string $source, int $requiredPcs, int $availablePcs, ?string $note): array
     {
-        $isAvailable = $requiredPcs > 0 && $availablePcs >= $requiredPcs;
+        $isAvailable = $requiredPcs > 0 && $availablePcs > 0;
 
         return [
             'source' => $source,

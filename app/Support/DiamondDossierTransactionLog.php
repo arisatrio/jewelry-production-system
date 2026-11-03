@@ -4,7 +4,6 @@ namespace App\Support;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -38,6 +37,48 @@ class DiamondDossierTransactionLog
         ?string $eventType,
         int $perPage,
     ): LengthAwarePaginator {
+        $query = $this->filteredEventsQuery($search, $dateFrom, $dateTo, $eventType);
+
+        return $query
+            ->orderByDesc('events.event_date')
+            ->orderByDesc('events.diamond_id')
+            ->orderByDesc('events.event_type')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (object $row): array => $this->toRow($row));
+    }
+
+    /**
+     * @return list<array<string, int|string|null>>
+     */
+    public function exportRows(
+        string $search,
+        ?string $dateFrom,
+        ?string $dateTo,
+        ?string $eventType,
+    ): array {
+        if (! $this->tableAvailable()) {
+            return [];
+        }
+
+        $query = $this->filteredEventsQuery($search, $dateFrom, $dateTo, $eventType);
+
+        return $query
+            ->orderByDesc('events.event_date')
+            ->orderByDesc('events.diamond_id')
+            ->orderByDesc('events.event_type')
+            ->get()
+            ->map(fn (object $row): array => $this->toRow($row))
+            ->values()
+            ->all();
+    }
+
+    private function filteredEventsQuery(
+        string $search,
+        ?string $dateFrom,
+        ?string $dateTo,
+        ?string $eventType,
+    ): Builder {
         $eventsQuery = $this->buildEventsQuery($search, $eventType);
 
         $query = DB::connection('third')
@@ -52,13 +93,7 @@ class DiamondDossierTransactionLog
             $query->whereDate('events.event_date', '<=', $dateTo);
         }
 
-        return $query
-            ->orderByDesc('events.event_date')
-            ->orderByDesc('events.diamond_id')
-            ->orderByDesc('events.event_type')
-            ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (object $row): array => $this->toRow($row));
+        return $query;
     }
 
     private function buildEventsQuery(string $search, ?string $eventType): Builder
@@ -95,8 +130,8 @@ class DiamondDossierTransactionLog
                 'mounting_document.row_id as mounting_doc_id',
                 'production.spk_no as spk_no',
                 'production.row_id as spk_id',
-                'diamond.created_by as actor',
-                'diamond.created_date as actor_at',
+                'diamond.modified_by as actor',
+                'diamond.modified_date as actor_at',
             ]);
     }
 
@@ -200,21 +235,8 @@ class DiamondDossierTransactionLog
             'spkNo' => $this->nullableString($row->spk_no),
             'spkId' => filled($row->spk_id ?? null) ? (int) $row->spk_id : null,
             'actor' => $this->nullableString($row->actor),
-            'actorAt' => $this->formatActorAt($row->actor_at ?? null),
+            'actorAt' => $this->nullableString($row->actor_at),
         ];
-    }
-
-    private function formatActorAt(mixed $value): ?string
-    {
-        if (! filled($value)) {
-            return null;
-        }
-
-        try {
-            return Carbon::parse((string) $value)->format('d-M-Y');
-        } catch (\Throwable) {
-            return null;
-        }
     }
 
     private function nullableString(mixed $value): ?string
