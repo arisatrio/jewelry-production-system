@@ -23,6 +23,25 @@ class SpkStoneStockChecker
 
     private const TOLERANCE = 0.0005;
 
+    public static function preferredSourceForStone(SpkStone $stone): string
+    {
+        $pcs = max(0, (int) ($stone->pcs ?? 0));
+        $caratPerPcs = $pcs > 0
+            ? round((float) ($stone->carat ?? 0) / $pcs, 3)
+            : 0.0;
+
+        return $caratPerPcs >= self::DOSSIER_MIN_CARAT_PER_PCS
+            ? self::SOURCE_DOSSIER
+            : self::SOURCE_MICRO;
+    }
+
+    public static function preferredSourceLabelForStone(SpkStone $stone): string
+    {
+        return self::preferredSourceForStone($stone) === self::SOURCE_DOSSIER
+            ? 'Dossier'
+            : 'Mikro';
+    }
+
     public function __construct(
         private readonly DiamondDossierInventory $dossierInventory,
         private readonly StoneLedger $stoneLedger,
@@ -341,6 +360,25 @@ class SpkStoneStockChecker
         );
 
         return $payload['rows'] ?? [];
+    }
+
+    public function primaryMicroStoneIdForRestock(SpkStone $stone): ?int
+    {
+        $rows = $this->microAllocationRowsForStone($stone);
+
+        foreach ($rows as $row) {
+            if (($row['matchesSpkRequirement'] ?? false) === true && isset($row['id'])) {
+                return (int) $row['id'];
+            }
+        }
+
+        foreach ($rows as $row) {
+            if (isset($row['id'])) {
+                return (int) $row['id'];
+            }
+        }
+
+        return null;
     }
 
     /**

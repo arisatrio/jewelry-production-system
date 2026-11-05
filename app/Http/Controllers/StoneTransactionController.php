@@ -118,7 +118,7 @@ class StoneTransactionController extends Controller
             (string) $validated['transaction_kind'],
             (int) $validated['stone_id'],
             (string) $validated['pcs'],
-            filled($validated['crt'] ?? null) ? (string) $validated['crt'] : null,
+            (string) $validated['crt'],
             filled($validated['notes'] ?? null) ? (string) $validated['notes'] : null,
             $request->user()?->name ?? 'system',
         );

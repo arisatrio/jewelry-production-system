@@ -40,7 +40,7 @@ class SpkStoneOrderingList
 
         $query = SpkStone::query()
             ->notDeleted()
-            ->where('fulfillment_status', SpkStoneFulfillment::ORDERING)
+            ->whereIn('fulfillment_status', SpkStoneFulfillment::purchaseStatuses())
             ->whereHas('production', fn (Builder $production): Builder => $production->notDeleted());
 
         if ($search !== '') {
@@ -71,7 +71,7 @@ class SpkStoneOrderingList
 
         /** @var LengthAwarePaginator<int, SpkStone> $paginator */
         $paginator = $query
-            ->with(['production', 'shape', 'position'])
+            ->with(['production.sku', 'production.categoryPrefix', 'shape'])
             ->orderByDesc('modified_date')
             ->orderByDesc('line_id')
             ->paginate($perPage, ['*'], 'page', $page);
@@ -115,14 +115,19 @@ class SpkStoneOrderingList
      *     lineId: int,
      *     spkId: int,
      *     spkNo: string,
-     *     customerName: string|null,
-     *     itemName: string|null,
-     *     positionName: string|null,
+     *     spkImageUrl: string|null,
+     *     typeSkuLabel: string|null,
+     *     itemDescription: string|null,
+     *     skuAssigned: bool,
+     *     stoneType: string,
+     *     stoneTypeLabel: string,
+     *     microStoneId: int|null,
      *     shapeName: string|null,
      *     size: string|null,
      *     pcs: int,
      *     caratPerPcs: string,
      *     totalCarat: string,
+     *     fulfillmentStatus: string,
      *     fulfillmentLabel: string,
      *     orderedAt: string|null
      * }
@@ -135,21 +140,88 @@ class SpkStoneOrderingList
         $pcs = (int) ($stone->pcs ?? 0);
         $totalCarat = (float) ($stone->carat ?? 0);
         $caratPerPcs = $pcs > 0 ? round($totalCarat / $pcs, 3) : 0.0;
+        $fulfillmentStatus = in_array(
+            (string) ($stone->fulfillment_status ?? ''),
+            SpkStoneFulfillment::purchaseStatuses(),
+            true,
+        )
+            ? (string) $stone->fulfillment_status
+            : SpkStoneFulfillment::ORDERING;
+
+        $stoneType = SpkStoneStockChecker::preferredSourceForStone($stone);
+        $microStoneId = $stoneType === SpkStoneStockChecker::SOURCE_MICRO
+            ? app(SpkStoneStockChecker::class)->primaryMicroStoneIdForRestock($stone)
+            : null;
+
+        $itemPresentation = $production !== null
+            ? $this->listItemPresentation($production)
+            : [
+                'spkImageUrl' => null,
+                'typeSkuLabel' => null,
+                'itemDescription' => null,
+                'skuAssigned' => false,
+            ];
 
         return [
             'lineId' => (int) $stone->line_id,
             'spkId' => (int) $stone->row_id,
             'spkNo' => (string) ($production?->spk_no ?? '—'),
-            'customerName' => $production?->customer_name,
-            'itemName' => $production?->item_name,
-            'positionName' => $stone->position?->nama,
+            ...$itemPresentation,
+            'stoneType' => $stoneType,
+            'stoneTypeLabel' => SpkStoneStockChecker::preferredSourceLabelForStone($stone),
+            'microStoneId' => $microStoneId,
             'shapeName' => $this->shapeDisplayName($stone->shape),
             'size' => filled($stone->size) ? (string) $stone->size : null,
             'pcs' => $pcs,
             'caratPerPcs' => number_format($caratPerPcs, 3, '.', ''),
             'totalCarat' => number_format($totalCarat, 3, '.', ''),
-            'fulfillmentLabel' => SpkStoneFulfillment::label(SpkStoneFulfillment::ORDERING),
+            'fulfillmentStatus' => $fulfillmentStatus,
+            'fulfillmentLabel' => SpkStoneFulfillment::label($fulfillmentStatus),
             'orderedAt' => $stone->modified_date?->format('Y-m-d H:i'),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     spkImageUrl: string|null,
+     *     typeSkuLabel: string|null,
+     *     itemDescription: string|null,
+     *     skuAssigned: bool
+     * }
+     */
+    private function listItemPresentation(Production $production): array
+    {
+        $production->loadMissing(['categoryPrefix', 'sku']);
+
+        $skuAssigned = filled($production->sku_id)
+            && (int) $production->sku_id !== 0
+            && $production->sku !== null;
+
+        $typeSkuLabel = null;
+
+        if ($skuAssigned) {
+            $typeCode = trim((string) ($production->categoryPrefix?->prefix ?? ''));
+            $skuCode = trim((string) ($production->sku?->sku_code ?? ''));
+            $parts = array_values(array_filter(
+                [$typeCode, $skuCode],
+                fn (string $part): bool => $part !== '',
+            ));
+            $typeSkuLabel = $parts !== [] ? implode(' | ', $parts) : null;
+        }
+
+        $itemDescription = null;
+
+        if (filled($production->description)) {
+            $description = trim((string) $production->description);
+
+            $itemDescription = $description !== '' ? $description : null;
+        }
+
+        return [
+            'spkImageUrl' => SpkItemImageUrl::fromFileName($production->file_name),
+            'typeSkuLabel' => $typeSkuLabel,
+            'itemDescription' => $itemDescription,
+            'skuAssigned' => $skuAssigned,
         ];
     }
 

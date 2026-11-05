@@ -200,6 +200,14 @@ test('stone addition and deduction append the correct legacy transaction types',
 ) {
     $stoneId = createStoneForTransactionTest();
 
+    if ($kind === 'deduction') {
+        createStoneTransactionForTest($stoneId, [
+            'transtype_id' => StoneLedger::ADDITION_TRANSACTION_TYPE_ID,
+            'pcs' => 20,
+            'crt' => '0.2000',
+        ]);
+    }
+
     $this->post(route('inventory.stone-transactions.store'), [
         'transaction_kind' => $kind,
         'stone_id' => $stoneId,
@@ -211,6 +219,8 @@ test('stone addition and deduction append the correct legacy transaction types',
     $transaction = DB::connection('third')
         ->table('trstone')
         ->where('stone_id', $stoneId)
+        ->where('transtype_id', $transactionTypeId)
+        ->orderByDesc('row_id')
         ->first();
 
     expect($transaction)->not->toBeNull()
@@ -226,11 +236,27 @@ test('stone addition and deduction append the correct legacy transaction types',
         'addition',
         StoneLedger::ADDITION_TRANSACTION_TYPE_ID,
     ],
-    'deduction that may make stock negative' => [
+    'deduction' => [
         'deduction',
         StoneLedger::DEDUCTION_TRANSACTION_TYPE_ID,
     ],
 ]);
+
+test('stone deduction rejects pcs above available stock', function () {
+    $stoneId = createStoneForTransactionTest();
+    createStoneTransactionForTest($stoneId, [
+        'transtype_id' => StoneLedger::ADDITION_TRANSACTION_TYPE_ID,
+        'pcs' => 5,
+        'crt' => '0.0500',
+    ]);
+
+    $this->post(route('inventory.stone-transactions.store'), [
+        'transaction_kind' => 'deduction',
+        'stone_id' => $stoneId,
+        'pcs' => '6',
+        'crt' => '0.0100',
+    ])->assertSessionHasErrors(['pcs']);
+});
 
 test('stone transaction store validates stone pcs and note length', function () {
     $this->post(route('inventory.stone-transactions.store'), [
@@ -242,6 +268,7 @@ test('stone transaction store validates stone pcs and note length', function () 
         ->assertSessionHasErrors([
             'stone_id',
             'pcs',
+            'crt',
             'notes',
         ]);
 });

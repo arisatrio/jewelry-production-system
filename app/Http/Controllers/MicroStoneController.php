@@ -46,6 +46,20 @@ class MicroStoneController extends Controller
         );
         $activePeriod = $ledger->activePeriod();
 
+        $addStockStoneId = filled($request->query('stone_id'))
+            ? (int) $request->query('stone_id')
+            : 0;
+        $openAddStockModal = $request->query('add_stock') === '1'
+            && $addStockStoneId > 0
+            && $activePeriod !== null;
+
+        $addStockStone = null;
+
+        if ($openAddStockModal) {
+            $rows = $ledger->stockByStoneIds($activePeriod['id'], [$addStockStoneId]);
+            $addStockStone = $rows[0] ?? null;
+        }
+
         return Inertia::render('inventory/batu-mikro/index', [
             'stones' => $activePeriod === null
                 ? $this->emptyPaginator($perPage)
@@ -83,6 +97,7 @@ class MicroStoneController extends Controller
                 ]
                 : $ledger->stockSummaries($activePeriod['id'], $search),
             'activePeriod' => $activePeriod,
+            'addStockStone' => $addStockStone,
             'filters' => [
                 'search' => $search,
                 'stock_status' => $stockStatus,

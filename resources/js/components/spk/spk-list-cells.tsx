@@ -1,6 +1,8 @@
 import { SpkProsesTerakhirDisplay } from '@/components/spk/spk-proses-terakhir-display';
+import { SpkStoneStatusLabelsCell } from '@/components/spk/spk-stone-status-labels-cell';
 import { CircleDollarSign } from 'lucide-react';
-import type { SpkIndexRow, SpkRow } from '@/components/spk/types';
+import type { ReactNode } from 'react';
+import type { SpkIndexRow, SpkRow, SpkStoneIndexStatus } from '@/components/spk/types';
 import {
     Tooltip,
     TooltipContent,
@@ -282,4 +284,100 @@ export function SpkTableStatusCell({ row }: { row: SpkListStatusFields }) {
             </span>
         </div>
     );
+}
+
+const MATERIAL_STATUS_WAITING = 'Menunggu dialokasikan';
+
+const MATERIAL_STATUS_ALLOCATED = 'Sudah dialokasikan';
+
+const STONE_PARTIAL_ALLOCATED_PATTERN =
+    /^\d+ dari \d+ batu sudah dialokasikan\.?$/i;
+
+function materialStatusBadgeClass(
+    value: string | null | undefined,
+): string | null {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed === '') {
+        return null;
+    }
+
+    if (trimmed === MATERIAL_STATUS_WAITING) {
+        return 'spkMaterialStatusBadge spkMaterialStatusBadge--waiting';
+    }
+
+    if (trimmed === MATERIAL_STATUS_ALLOCATED) {
+        return 'spkMaterialStatusBadge spkMaterialStatusBadge--allocated';
+    }
+
+    return 'spkMaterialStatusBadge spkMaterialStatusBadge--other';
+}
+
+function materialStatusBadge(
+    kind: 'Batu' | 'Komponen',
+    value: string | null | undefined,
+): ReactNode {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed === '') {
+        return (
+            <span className="spkTableMaterialStatusLine spkTableMaterialStatusLine--empty">
+                {kind}: —
+            </span>
+        );
+    }
+
+    const badgeClass = materialStatusBadgeClass(trimmed);
+    const isPartialStone =
+        kind === 'Batu' && STONE_PARTIAL_ALLOCATED_PATTERN.test(trimmed);
+    const badgeText = isPartialStone
+        ? trimmed
+        : `${kind}: ${trimmed}`;
+
+    return (
+        <span className="spkTableMaterialStatusLine">
+            <span
+                className={[
+                    badgeClass ?? 'spkMaterialStatusBadge',
+                    isPartialStone ? 'spkMaterialStatusBadge--partial' : '',
+                ]
+                    .filter(Boolean)
+                    .join(' ')}
+            >
+                {badgeText}
+            </span>
+        </span>
+    );
+}
+
+export function SpkTableStoneStatusCell({
+    stoneIndexStatus,
+}: {
+    stoneIndexStatus: SpkStoneIndexStatus | null | undefined;
+}) {
+    if (stoneIndexStatus == null) {
+        return (
+            <span className="spkTableMaterialStatusLine spkTableMaterialStatusLine--empty">
+                —
+            </span>
+        );
+    }
+
+    return (
+        <SpkStoneStatusLabelsCell
+            stock={stoneIndexStatus.stock}
+            allocation={stoneIndexStatus.allocation}
+        />
+    );
+}
+
+/** @deprecated Gunakan SpkTableStoneStatusCell */
+export function SpkTableMaterialStatusCell({
+    stoneIndexStatus,
+    componentStatus: _componentStatus,
+}: {
+    stoneIndexStatus?: SpkStoneIndexStatus | null | undefined;
+    componentStatus?: string | null | undefined;
+}) {
+    return <SpkTableStoneStatusCell stoneIndexStatus={stoneIndexStatus} />;
 }

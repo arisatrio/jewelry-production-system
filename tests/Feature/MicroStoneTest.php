@@ -80,7 +80,7 @@ test('micro stone index summarizes stock per stone from trstone', function () {
             ->where('stones.data.0.pcsIn', '20')
             ->where('stones.data.0.pcsOut', '5')
             ->where('stones.data.0.balancePcs', '15')
-            ->where('stones.data.0.balanceCrt', '0.1500')
+            ->where('stones.data.0.balanceCrt', '0.150')
             ->where('totals.pcs', '15')
             ->where('totals.crt', '0.1500')
             ->has('statusSummaries.balance')
@@ -138,5 +138,20 @@ test('micro stone index sorts by balance pcs descending', function () {
             ->where('filters.direction', 'desc')
             ->where('stones.data.0.name', $prefix.' High')
             ->where('stones.data.1.name', $prefix.' Low')
+        );
+});
+
+test('micro stone index exposes add stock stone for restock deep link', function () {
+    $prefix = 'Micro Stone Restock '.Str::uuid();
+    $stoneId = createMicroStoneForTest($prefix);
+
+    $this->get(route('inventory.micro-stones.index', [
+        'add_stock' => '1',
+        'stone_id' => $stoneId,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('addStockStone.id', $stoneId)
+            ->where('addStockStone.name', $prefix)
         );
 });

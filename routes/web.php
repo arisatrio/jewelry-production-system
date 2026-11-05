@@ -446,6 +446,12 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('pembelian-batu', [SpkStonePurchaseController::class, 'index'])
             ->name('stone-purchases.index');
+        Route::patch('pembelian-batu/stones/{spkStone}', [SpkStonePurchaseController::class, 'updateStatus'])
+            ->name('stone-purchases.update-status');
+        Route::delete('pembelian-batu/stones/{spkStone}', [SpkStonePurchaseController::class, 'destroy'])
+            ->name('stone-purchases.destroy');
+        Route::post('pembelian-batu/stones/{spkStone}/restock', [SpkStonePurchaseController::class, 'restock'])
+            ->name('stone-purchases.restock');
 
         Route::get('transaksi-batu', [StoneTransactionController::class, 'index'])
             ->name('stone-transactions.index');

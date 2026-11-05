@@ -5,11 +5,14 @@ use App\Models\Production;
 use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
+use App\Models\SpkStone;
 use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkService;
+use App\Support\SpkStoneFulfillment;
 use App\Support\StoreOrderRequestRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 test('spk index page is accessible and returns production list props', function () {
     $this->get(route('spk.index'))
@@ -1916,5 +1919,35 @@ test('spk index defers store order request count', function () {
             ->loadDeferredProps(fn ($reload) => $reload
                 ->where('storeOrderRequestCount', app(StoreOrderRequestRepository::class)->pendingSpkCount())
             )
+        );
+});
+
+test('spk index list rows include batu material status', function () {
+    if (! Schema::connection('third')->hasTable('spkstone')) {
+        $this->markTestSkipped('Table spkstone is not available.');
+    }
+
+    $stone = SpkStone::query()->notDeleted()->first();
+
+    expect($stone)->not->toBeNull();
+
+    $production = Production::query()->notDeleted()->find($stone->row_id);
+
+    expect($production)->not->toBeNull();
+
+    $stone->update(['fulfillment_status' => SpkStoneFulfillment::ORDERING]);
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data', fn ($rows) => collect($rows)->contains(
+                fn (array $row): bool => (int) ($row['rowId'] ?? 0) === (int) $production->row_id
+                    && is_array($row['stoneIndexStatus'] ?? null)
+                    && ($row['stoneIndexStatus']['allocation']['status'] ?? null) === SpkStoneFulfillment::ORDERING
+                    && ($row['stoneIndexStatus']['allocation']['label'] ?? null) === SpkStoneFulfillment::label(
+                        SpkStoneFulfillment::ORDERING,
+                    )
+            ))
         );
 });

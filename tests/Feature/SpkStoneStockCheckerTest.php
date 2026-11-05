@@ -331,3 +331,21 @@ test('micro stone without size is unavailable', function () {
         'note' => 'Bentuk atau ukuran batu belum diisi.',
     ]);
 });
+
+test('preferred source for stone uses dossier at carat per pcs threshold', function () {
+    $stone = stockTestStone(99901, stockTestShapeId('R'), 1, '0.180');
+
+    expect(SpkStoneStockChecker::preferredSourceForStone($stone))
+        ->toBe(SpkStoneStockChecker::SOURCE_DOSSIER)
+        ->and(SpkStoneStockChecker::preferredSourceLabelForStone($stone))
+        ->toBe('Dossier');
+});
+
+test('preferred source for stone uses micro below threshold', function () {
+    $stone = stockTestStone(99902, stockTestShapeId('R'), 10, '1.000');
+
+    expect(SpkStoneStockChecker::preferredSourceForStone($stone))
+        ->toBe(SpkStoneStockChecker::SOURCE_MICRO)
+        ->and(SpkStoneStockChecker::preferredSourceLabelForStone($stone))
+        ->toBe('Mikro');
+});

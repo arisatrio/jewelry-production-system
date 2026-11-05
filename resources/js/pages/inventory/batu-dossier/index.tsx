@@ -335,6 +335,15 @@ export default function DiamondDossierIndex({
     const [supplierDraft, setSupplierDraft] = useState(filters.supplier ?? '');
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+
+        if (params.get('create') === '1') {
+            setCreateDialogOpen(true);
+        }
+    }, []);
+
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [bulkDeleting, setBulkDeleting] = useState(false);
 

@@ -1501,6 +1501,72 @@
     vertical-align: middle;
 }
 
+.spkTable th.spkTableColMaterialStatus,
+.spkTable td.spkTableColMaterialStatus {
+    min-width: 11.5rem;
+    max-width: 14rem;
+    text-align: center;
+    vertical-align: middle;
+    white-space: normal;
+}
+
+.spkTableMaterialStatus {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.spkTableMaterialStatusLine {
+    display: flex;
+    justify-content: center;
+    align-self: center;
+    width: auto;
+    max-width: 100%;
+}
+
+.spkTableMaterialStatusLine--empty {
+    font-size: 0.6875rem;
+    color: var(--sapContent_LabelColor, #556b82);
+}
+
+.spkMaterialStatusBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: center;
+    white-space: normal;
+}
+
+.spkMaterialStatusBadge--partial {
+    white-space: normal;
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.spkMaterialStatusBadge--waiting {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.spkMaterialStatusBadge--allocated {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.spkMaterialStatusBadge--other {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
 .spkTable th.spkTableColWeight,
 .spkTable td.spkTableColWeight {
     width: 8.5rem;
@@ -5586,6 +5652,12 @@ button.spkItemImagePreview--clickable:focus-visible {
     color: #b91c1c;
 }
 
+.spkStoneStockBadge.spkStoneIndexStatusBadge--partial {
+    white-space: normal;
+    background: #fef9c3;
+    color: #854d0e;
+}
+
 .spkChainFulfillmentBadge--progress {
     background: #dbeafe;
     color: #1d4ed8;
@@ -5594,6 +5666,11 @@ button.spkItemImagePreview--clickable:focus-visible {
 .spkChainFulfillmentBadge--done {
     background: #e0e7ff;
     color: #4338ca;
+}
+
+.spkChainFulfillmentBadge--shipping {
+    background: #fffbeb;
+    color: #92400e;
 }
 
 .spkChainFulfillmentBadge--muted {
@@ -6179,6 +6256,27 @@ button.spkItemImagePreview--clickable:focus-visible {
     outline-color: #60a5fa;
 }
 
+.spkChainStatusCell .spkChainFulfillmentActionBtn--danger,
+.spkChainTableActionCell .spkChainFulfillmentActionBtn--danger {
+    border-color: #b91c1c;
+    background: #dc2626;
+    color: #fff;
+}
+
+.spkChainStatusCell
+    .spkChainFulfillmentActionBtn--danger:hover:not(:disabled),
+.spkChainTableActionCell
+    .spkChainFulfillmentActionBtn--danger:hover:not(:disabled) {
+    background: #b91c1c;
+    border-color: #991b1b;
+    color: #fff;
+}
+
+.spkChainStatusCell .spkChainFulfillmentActionBtn--danger:focus-visible,
+.spkChainTableActionCell .spkChainFulfillmentActionBtn--danger:focus-visible {
+    outline-color: #dc2626;
+}
+
 .spkChainFulfillmentActionBtn ui5-icon {
     width: 0.875rem;
     height: 0.875rem;
@@ -6431,6 +6529,177 @@ button.spkItemImagePreview--clickable:focus-visible {
 .spkStoneStockModal.spkChainAllocateDialog
     .spkAlertModalTable.spkStoneAllocateTable--micro {
     min-width: 48rem;
+}
+
+.spkStonePurchaseActionCol {
+    min-width: 10.5rem;
+    vertical-align: middle;
+}
+
+.spkStonePurchaseActionPrimaryRow {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    max-width: 100%;
+}
+
+.spkStonePurchaseActionPrimaryRow .spkStonePurchaseStatusSelect {
+    width: auto;
+    flex: 1 1 6.5rem;
+    min-width: 5.75rem;
+    max-width: 7.5rem;
+    min-height: 1.85rem;
+    font-size: 0.6875rem;
+}
+
+.spkTable th.spkChainAllocateColName,
+.spkTable td.spkChainAllocateColName {
+    min-width: 7rem;
+    max-width: 14rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    vertical-align: middle;
+}
+
+.spkStonePurchaseActionCell {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.spkStonePurchaseActionCell .spkChainFulfillmentReceiveBtn {
+    width: 100%;
+    max-width: 8.75rem;
+}
+
+.spkMicroStoneActionCol {
+    width: 7.5rem;
+    min-width: 7.5rem;
+}
+
+.spkMicroStoneStockActions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+}
+
+.spkMicroStoneStockBtn {
+    width: 100%;
+    max-width: 8.75rem;
+    margin-inline: auto;
+}
+
+.spkMicroStoneStockActions .spkChainFulfillmentReceiveBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    appearance: none;
+    min-height: 1.85rem;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid #15803d;
+    border-radius: 0.35rem;
+    background: #16a34a;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.spkMicroStoneStockActions .spkChainFulfillmentReceiveBtn:hover:not(:disabled) {
+    background: #15803d;
+    border-color: #166534;
+    color: #fff;
+}
+
+.spkMicroStoneStockActions .spkChainFulfillmentReceiveBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkMicroStoneStockActions .spkChainFulfillmentReceiveBtn:focus-visible {
+    outline: 2px solid #16a34a;
+    outline-offset: 1px;
+}
+
+.spkMicroStoneStockDeductBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    appearance: none;
+    min-height: 1.85rem;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid #b91c1c;
+    border-radius: 0.35rem;
+    background: #fff;
+    color: #b91c1c;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.spkMicroStoneStockDeductBtn:hover:not(:disabled) {
+    background: #fef2f2;
+    border-color: #991b1b;
+    color: #991b1b;
+}
+
+.spkMicroStoneStockDeductBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkMicroStoneStockDeductBtn:focus-visible {
+    outline: 2px solid #b91c1c;
+    outline-offset: 1px;
+}
+
+.microStoneStockSnapshot {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    border-radius: 0.35rem;
+    background: var(--sapGroup_ContentBackground, #fafafa);
+}
+
+.microStoneStockSnapshotTitle {
+    margin: 0 0 0.4rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--sapContent_LabelColor, #6a6d70);
+}
+
+.microStoneStockSnapshotGrid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.2rem 0.75rem;
+    margin: 0;
+    font-size: 0.8125rem;
+}
+
+.microStoneStockSnapshotGrid dt {
+    margin: 0;
+    color: var(--sapContent_LabelColor, #6a6d70);
+}
+
+.microStoneStockSnapshotGrid dd {
+    margin: 0;
+    font-weight: 600;
+    text-align: right;
 }
 
 .spkStoneStockModal.spkChainAllocateDialog

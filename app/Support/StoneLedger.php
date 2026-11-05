@@ -207,6 +207,23 @@ class StoneLedger
             ->all();
     }
 
+    public function availablePcsForStone(int $periodId, int $stoneId): float
+    {
+        if ($stoneId <= 0) {
+            return 0.0;
+        }
+
+        $balance = $this->balancePcsByStone($periodId, [$stoneId])[$stoneId] ?? 0.0;
+
+        $reserved = DB::connection('third')
+            ->query()
+            ->fromSub($this->microReservedSubquery($periodId), 'stone_reserved')
+            ->where('stone_reserved.msstone_id', $stoneId)
+            ->value('reserved_pcs');
+
+        return max(0.0, $balance - (float) ($reserved ?? 0));
+    }
+
     /**
      * @return LengthAwarePaginator<int, array<string, int|string|null>>
      */
@@ -265,7 +282,7 @@ class StoneLedger
             'balancePcs' => $this->formatPcs($balancePcs),
             'reservedPcs' => $this->formatPcs($reservedPcs),
             'availablePcs' => $this->formatPcs($availablePcs),
-            'balanceCrt' => number_format((float) ($stone->balance_crt ?? 0), 4, '.', ''),
+            'balanceCrt' => number_format((float) ($stone->balance_crt ?? 0), 3, '.', ''),
         ];
     }
 

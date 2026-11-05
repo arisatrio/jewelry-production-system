@@ -44,6 +44,22 @@ export type SpkIndexRow = SpkRow & {
     spkImageUrl: string | null;
     targetDaysLeft: number | null;
     createdBy: string | null;
+    componentStatus: string | null;
+    stoneIndexStatus: SpkStoneIndexStatus | null;
+};
+
+export type SpkStoneIndexAllocationStatus =
+    | SpkStoneAllocationStatus
+    | 'ordered'
+    | 'partial';
+
+export type SpkStoneIndexStatus = {
+    stock: SpkStoneStock | null;
+    allocation: {
+        status: SpkStoneIndexAllocationStatus;
+        label: string;
+        allocatedPcs: number;
+    };
 };
 
 export type SpkWorkflowStatusKey =
@@ -138,6 +154,7 @@ export type SpkStoneStock = {
 export type SpkStoneAllocationStatus =
     | 'not_allocated'
     | 'ordering'
+    | 'shipping'
     | 'allocated';
 
 export type SpkStoneFulfillmentAction = 'mark_ordering';

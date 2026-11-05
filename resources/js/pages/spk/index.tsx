@@ -29,6 +29,7 @@ import {
     SpkTableCreatedByCell,
     SpkTableDescriptionCell,
     SpkTableLastProcessCell,
+    SpkTableStoneStatusCell,
     SpkTableStatusCell,
     displayListDate,
     isListRowIncomplete,
@@ -1590,6 +1591,9 @@ export default function SpkIndex({
                                     <th className="spkTableColCenter">
                                         Proses Terakhir
                                     </th>
+                                    <th className="spkTableColCenter spkTableColMaterialStatus">
+                                        Status Batu
+                                    </th>
                                     <th className="spkTableColStatus spkTableColCenter">
                                         Status
                                     </th>
@@ -1598,7 +1602,7 @@ export default function SpkIndex({
                             <tbody>
                                 {productions.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8}>Tidak ada data SPK.</td>
+                                        <td colSpan={9}>Tidak ada data SPK.</td>
                                     </tr>
                                 ) : (
                                     productions.data.map((row) => {
@@ -1822,6 +1826,13 @@ export default function SpkIndex({
                                                 <td className="spkTableColCenter">
                                                     <SpkTableLastProcessCell
                                                         row={row}
+                                                    />
+                                                </td>
+                                                <td className="spkTableColCenter spkTableColMaterialStatus">
+                                                    <SpkTableStoneStatusCell
+                                                        stoneIndexStatus={
+                                                            row.stoneIndexStatus
+                                                        }
                                                     />
                                                 </td>
                                                 <td className="spkTableColStatus spkTableColCenter">

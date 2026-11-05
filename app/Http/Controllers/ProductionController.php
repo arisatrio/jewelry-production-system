@@ -54,6 +54,7 @@ use App\Support\SpkComponentStockChecker;
 use App\Support\SpkCraftsmanReport;
 use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkGoldReport;
+use App\Support\SpkIndexMaterialStatus;
 use App\Support\SpkItemImageUrl;
 use App\Support\SpkOrderPriorityResolver;
 use App\Support\SpkOrderReference;
@@ -2935,7 +2936,11 @@ class ProductionController extends Controller
             $pageProductions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
         ));
 
-        return function (Production $production) use ($doneKinds, $lastProcessDates, $requestOrders, $latestReceipts): array {
+        $materialStatuses = app(SpkIndexMaterialStatus::class)->summariesForRowIds(array_values(
+            $pageProductions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+        ));
+
+        return function (Production $production) use ($doneKinds, $lastProcessDates, $requestOrders, $latestReceipts, $materialStatuses): array {
             $row = $this->toIndexRow(
                 $production,
                 $doneKinds[(int) $production->row_id] ?? false,
@@ -2949,6 +2954,13 @@ class ProductionController extends Controller
                 $row['prosesTerakhir'] = 'Diserahkan ke '.($destination !== '' ? $destination : 'Workshop');
                 $row['prosesTerakhirDate'] = $receipt->tanggal->format('d-M-Y');
             }
+
+            $material = $materialStatuses[(int) $production->row_id] ?? [
+                'stoneIndexStatus' => null,
+                'componentStatus' => null,
+            ];
+            $row['stoneIndexStatus'] = $material['stoneIndexStatus'];
+            $row['componentStatus'] = $material['componentStatus'];
 
             return $this->applyLastProcessBadgeFields($row, $production);
         };

@@ -17,6 +17,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { index } from '@/routes/inventory/micro-stones';
 import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
+import {
+    formatMicroStoneBalanceCrt,
+    formatMicroStonePcs,
+} from '@/pages/inventory/batu-mikro/micro-stone-display';
+import {
+    MicroStoneAdjustStockDialog,
+    type MicroStoneStockDialogKind,
+} from '@/pages/inventory/batu-mikro/micro-stone-adjust-stock-dialog';
 
 type StockStatus = 'available' | 'empty';
 
@@ -54,6 +62,7 @@ type PageProps = {
         empty: StockSummaryMetrics;
     };
     activePeriod: { id: number; label: string } | null;
+    addStockStone: MicroStone | null;
     filters: {
         search: string;
         stock_status: StockStatus | null;
@@ -107,12 +116,7 @@ function stockStatusLabel(value: StockStatus | null): string | null {
 }
 
 function formatPcs(value: string): string {
-    const numeric = Number(value);
-    const formatted = new Intl.NumberFormat('id-ID', {
-        maximumFractionDigits: 2,
-    }).format(Math.abs(numeric));
-
-    return numeric < 0 ? `(${formatted})` : formatted;
+    return formatMicroStonePcs(value);
 }
 
 function formatCrt(value: string): string {
@@ -129,13 +133,7 @@ function formatCrt(value: string): string {
 }
 
 function formatBalanceCrt(value: string): string {
-    const numeric = Number(value);
-    const formatted = new Intl.NumberFormat('id-ID', {
-        minimumFractionDigits: 4,
-        maximumFractionDigits: 4,
-    }).format(Math.abs(numeric));
-
-    return numeric < 0 ? `(${formatted})` : formatted;
+    return formatMicroStoneBalanceCrt(value);
 }
 
 function formatSummaryPcs(value: string): string {
@@ -163,6 +161,7 @@ export default function MicroStoneIndex({
     totals,
     statusSummaries,
     activePeriod,
+    addStockStone,
     filters,
     filterOptions,
 }: PageProps) {
@@ -179,6 +178,10 @@ export default function MicroStoneIndex({
     const [stockStatusDraft, setStockStatusDraft] = useState(
         filters.stock_status ?? '',
     );
+    const [stockDialogStone, setStockDialogStone] =
+        useState<MicroStone | null>(null);
+    const [stockDialogKind, setStockDialogKind] =
+        useState<MicroStoneStockDialogKind | null>(null);
 
     if (syncedSearch !== filters.search) {
         setSyncedSearch(filters.search);
@@ -199,6 +202,15 @@ export default function MicroStoneIndex({
             direction: filters.direction,
         });
     }, [filters.sort, filters.direction]);
+
+    useEffect(() => {
+        if (addStockStone === null) {
+            return;
+        }
+
+        setStockDialogStone(addStockStone);
+        setStockDialogKind('addition');
+    }, [addStockStone]);
 
     const visit = (params: {
         page?: number;
@@ -367,6 +379,24 @@ export default function MicroStoneIndex({
             direction: DEFAULT_SORT_DIRECTION,
         });
     };
+
+    const openStockDialog = (
+        stone: MicroStone,
+        kind: MicroStoneStockDialogKind,
+    ): void => {
+        setStockDialogStone(stone);
+        setStockDialogKind(kind);
+    };
+
+    const handleStockDialogOpenChange = (open: boolean): void => {
+        if (!open) {
+            setStockDialogStone(null);
+            setStockDialogKind(null);
+        }
+    };
+
+    const stockDialogOpen =
+        stockDialogStone !== null && stockDialogKind !== null;
 
     const subtitle = activePeriod
         ? `Periode ${activePeriod.label} · saldo ${formatPcs(totals.pcs)} pcs · ${formatCrt(totals.crt)} crt`
@@ -982,12 +1012,12 @@ export default function MicroStoneIndex({
                             <thead>
                                 <tr>
                                     <th className="spkTableColCenter">#</th>
+                                    <th>Bentuk</th>
                                     <th>Batu</th>
                                     <th>Parcel</th>
                                     <th className="spkTableColCenter">
                                         Ukuran
                                     </th>
-                                    <th>Bentuk</th>
                                     <th className="spkTableColCenter">
                                         Masuk (pcs)
                                     </th>
@@ -1006,12 +1036,15 @@ export default function MicroStoneIndex({
                                     <th className="spkTableColCenter">
                                         Saldo (crt)
                                     </th>
+                                    <th className="spkTableColCenter spkMicroStoneActionCol">
+                                        Aksi
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {stones.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={11}>
+                                        <td colSpan={12}>
                                             {activePeriod
                                                 ? 'Tidak ada batu mikro.'
                                                 : 'Periode batu aktif tidak tersedia.'}
@@ -1026,6 +1059,7 @@ export default function MicroStoneIndex({
                                                     index +
                                                     1}
                                             </td>
+                                            <td>{stone.shape ?? '—'}</td>
                                             <td className="font-medium">
                                                 {stone.name}
                                             </td>
@@ -1035,7 +1069,6 @@ export default function MicroStoneIndex({
                                                     ? `${stone.size} mm`
                                                     : '—'}
                                             </td>
-                                            <td>{stone.shape ?? '—'}</td>
                                             <td className="spkTableColCenter tabular-nums spkChainStockIn">
                                                 {formatPcs(stone.pcsIn)}
                                             </td>
@@ -1061,6 +1094,50 @@ export default function MicroStoneIndex({
                                             </td>
                                             <td className="spkTableColCenter tabular-nums">
                                                 {formatBalanceCrt(stone.balanceCrt)}
+                                            </td>
+                                            <td className="spkTableColCenter spkMicroStoneActionCol">
+                                                <div className="spkMicroStoneStockActions">
+                                                    <button
+                                                        type="button"
+                                                        className="spkChainFulfillmentReceiveBtn spkMicroStoneStockBtn"
+                                                        disabled={
+                                                            activePeriod ===
+                                                            null
+                                                        }
+                                                        aria-label={`Tambah stok ${stone.name}`}
+                                                        title="Tambah stok"
+                                                        onClick={() => {
+                                                            openStockDialog(
+                                                                stone,
+                                                                'addition',
+                                                            );
+                                                        }}
+                                                    >
+                                                        <span className="spkChainFulfillmentActionBtnLabel">
+                                                            (+) Stok
+                                                        </span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="spkMicroStoneStockDeductBtn spkMicroStoneStockBtn"
+                                                        disabled={
+                                                            activePeriod ===
+                                                            null
+                                                        }
+                                                        aria-label={`Kurangi stok ${stone.name}`}
+                                                        title="Kurangi stok"
+                                                        onClick={() => {
+                                                            openStockDialog(
+                                                                stone,
+                                                                'deduction',
+                                                            );
+                                                        }}
+                                                    >
+                                                        <span className="spkChainFulfillmentActionBtnLabel">
+                                                            (-) Stok
+                                                        </span>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -1108,6 +1185,23 @@ export default function MicroStoneIndex({
                     </div>
                 </div>
             </div>
+
+            <MicroStoneAdjustStockDialog
+                stone={
+                    stockDialogStone !== null
+                        ? {
+                              id: stockDialogStone.id,
+                              name: stockDialogStone.name,
+                              balancePcs: stockDialogStone.balancePcs,
+                              availablePcs: stockDialogStone.availablePcs,
+                              balanceCrt: stockDialogStone.balanceCrt,
+                          }
+                        : null
+                }
+                kind={stockDialogKind}
+                open={stockDialogOpen}
+                onOpenChange={handleStockDialogOpenChange}
+            />
         </>
     );
 }

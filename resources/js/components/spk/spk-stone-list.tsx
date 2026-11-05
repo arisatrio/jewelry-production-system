@@ -25,12 +25,12 @@ import {
     allSpkStoneLinesFullyAllocated,
 } from '@/components/spk/spk-diamond-create-dialog';
 import { SpkStoneAllocatedItemsTable } from '@/components/spk/spk-stone-allocated-items-table';
+import { SpkStoneStatusLabelsCell } from '@/components/spk/spk-stone-status-labels-cell';
 import { formatDecimal3Id } from '@/components/spk/spk-stone-decimal-format';
 import { useSpkFormStoneStock } from '@/hooks/use-spk-form-stone-stock';
 import type {
     SpkItemDetail,
     SpkStoneAllocatedItem,
-    SpkStoneAllocationStatus,
     SpkStoneFulfillmentAction,
     SpkStoneItem,
     SpkStoneStock,
@@ -696,65 +696,25 @@ function SpkStoneStockCell({
     );
 }
 
-function stoneStockStatusLabel(
-    stock?: SpkStoneStock | null,
-): { text: string; available: boolean } | null {
-    if (stock === undefined || stock === null) {
-        return null;
-    }
-
-    const available = stock.status === 'available';
-
-    return {
-        text: available ? 'Stok Ada' : 'Stok Tidak Ada',
-        available,
-    };
-}
-
-function stoneAllocationStatusBadgeClass(
-    status: SpkStoneAllocationStatus,
-): string {
-    const base = 'spkStoneStockBadge';
-
-    switch (status) {
-        case 'allocated':
-            return `${base} is-available`;
-        case 'ordering':
-            return `${base} spkChainFulfillmentBadge--progress`;
-        case 'not_allocated':
-        default:
-            return `${base} is-unavailable`;
-    }
-}
-
-function stoneAllocationStatusLabel(
-    stone: SpkStoneItem,
-): { text: string; allocated: boolean; badgeClass: string } | null {
+function SpkStoneAllocationStatusCell({ stone }: { stone: SpkStoneItem }) {
     if (stone.stock === undefined) {
-        return null;
+        return (
+            <SpkStoneStatusLabelsCell stock={null} allocation={null} />
+        );
     }
 
-    const allocation = stone.allocation ?? {
-        status: 'not_allocated' as const,
-        label: 'Belum Dialokasikan',
-        allocatedPcs: 0,
-    };
-
-    const allocated =
-        allocation.status === 'allocated' && allocation.allocatedPcs > 0;
-
-    const text =
-        allocation.label.trim() !== ''
-            ? allocation.label
-            : allocated
-              ? 'Sudah Dialokasikan'
-              : 'Belum Dialokasikan';
-
-    return {
-        text,
-        allocated,
-        badgeClass: stoneAllocationStatusBadgeClass(allocation.status),
-    };
+    return (
+        <SpkStoneStatusLabelsCell
+            stock={stone.stock}
+            allocation={
+                stone.allocation ?? {
+                    status: 'not_allocated',
+                    label: 'Belum Dialokasikan',
+                    allocatedPcs: 0,
+                }
+            }
+        />
+    );
 }
 
 function SpkStoneAllocationActionCell({
@@ -770,7 +730,6 @@ function SpkStoneAllocationActionCell({
         : 'Lihat daftar stok batu';
     const allocation = stone.allocation;
     const orderAction = allocation?.nextAction;
-    const orderLabel = allocation?.nextActionLabel ?? 'Order Batu';
     const requiredPcs = Number(stone.pcs ?? 0);
     const allocatedPcs = allocation?.allocatedPcs ?? 0;
     const isFullyAllocated =
@@ -824,48 +783,6 @@ function SpkStoneAllocationActionCell({
                     </span>
                 </button>
             ) : null}
-        </div>
-    );
-}
-
-function SpkStoneAllocationStatusCell({ stone }: { stone: SpkStoneItem }) {
-    const stockLabel = stoneStockStatusLabel(stone.stock);
-    const allocationLabel = stoneAllocationStatusLabel(stone);
-    const showStockLabel =
-        stockLabel !== null &&
-        !(allocationLabel?.allocated === true && !stockLabel.available);
-
-    return (
-        <div className="spkChainStatusCell spkChainStatusCell--labelsOnly">
-            <div className="spkChainStatusLabels">
-                {showStockLabel ? (
-                    <div className="spkChainStatusLabelRow">
-                        <span
-                            className={
-                                stockLabel.available
-                                    ? 'spkStoneStockBadge is-available'
-                                    : 'spkStoneStockBadge is-unavailable'
-                            }
-                            title={stone.stock?.note ?? undefined}
-                        >
-                            {stockLabel.text}
-                        </span>
-                    </div>
-                ) : stockLabel === null ? (
-                    <div className="spkChainStatusLabelRow">
-                        <span className="spkStoneStockMeta">—</span>
-                    </div>
-                ) : null}
-                <div className="spkChainStatusLabelRow">
-                    {allocationLabel !== null ? (
-                        <span className={allocationLabel.badgeClass}>
-                            {allocationLabel.text}
-                        </span>
-                    ) : (
-                        <span className="spkStoneStockMeta">—</span>
-                    )}
-                </div>
-            </div>
         </div>
     );
 }

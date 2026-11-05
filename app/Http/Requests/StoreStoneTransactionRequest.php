@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\StoneLedger;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -48,7 +49,7 @@ class StoreStoneTransactionRequest extends FormRequest
             ],
             'stone_id' => ['required', 'integer', 'min:1'],
             'pcs' => ['required', 'numeric', 'gt:0'],
-            'crt' => ['nullable', 'numeric', 'min:0'],
+            'crt' => ['required', 'numeric', 'gt:0'],
             'notes' => ['nullable', 'string', 'max:100'],
         ];
     }
@@ -82,7 +83,46 @@ class StoreStoneTransactionRequest extends FormRequest
                     $validator->errors()->add('stone_id', 'Batu tidak valid.');
                 }
             },
+            function (Validator $validator): void {
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                if ($this->input('transaction_kind') !== 'deduction') {
+                    return;
+                }
+
+                $ledger = app(StoneLedger::class);
+                $activePeriod = $ledger->activePeriod();
+
+                if ($activePeriod === null) {
+                    return;
+                }
+
+                $stoneId = $this->integer('stone_id');
+                $requestedPcs = (float) $this->input('pcs');
+                $availablePcs = $ledger->availablePcsForStone(
+                    $activePeriod['id'],
+                    $stoneId,
+                );
+
+                if ($requestedPcs > $availablePcs + 0.0005) {
+                    $validator->errors()->add(
+                        'pcs',
+                        'Jumlah pcs melebihi stok tersedia ('.$this->formatAvailablePcs($availablePcs).').',
+                    );
+                }
+            },
         ];
+    }
+
+    private function formatAvailablePcs(float $value): string
+    {
+        if (abs($value - round($value)) < 0.00001) {
+            return (string) (int) round($value);
+        }
+
+        return number_format($value, 2, ',', '.');
     }
 
     /**
@@ -97,7 +137,9 @@ class StoreStoneTransactionRequest extends FormRequest
             'pcs.required' => 'Jumlah pcs wajib diisi.',
             'pcs.numeric' => 'Jumlah pcs harus berupa angka.',
             'pcs.gt' => 'Jumlah pcs harus lebih besar dari nol.',
+            'crt.required' => 'CRT wajib diisi.',
             'crt.numeric' => 'CRT harus berupa angka.',
+            'crt.gt' => 'CRT harus lebih besar dari nol.',
             'notes.max' => 'Catatan maksimal 100 karakter.',
         ];
     }

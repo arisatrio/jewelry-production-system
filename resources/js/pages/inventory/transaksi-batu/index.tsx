@@ -284,6 +284,15 @@ export default function StoneTransactionsIndex({
     };
 
     useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+
+        if (params.get('create') === '1' && filters.event_type !== 'entry') {
+            visit({ event_type: 'entry', page: 1 });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- landing restok pembelian batu mikro
+    }, []);
+
+    useEffect(() => {
         const timeout = window.setTimeout(() => {
             if (searchQuery === filters.search) {
                 return;
