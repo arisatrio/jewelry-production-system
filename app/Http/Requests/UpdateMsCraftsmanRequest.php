@@ -23,6 +23,9 @@ class UpdateMsCraftsmanRequest extends FormRequest
         $this->merge([
             'rate' => $this->filled('rate') ? $this->input('rate') : null,
             'employee_id' => $this->filled('employee_id') ? $this->input('employee_id') : null,
+            'label_tukang' => $this->filled('label_tukang')
+                ? trim((string) $this->input('label_tukang'))
+                : null,
         ]);
     }
 
@@ -66,6 +69,7 @@ class UpdateMsCraftsmanRequest extends FormRequest
                     },
                 ),
             ],
+            'label_tukang' => ['nullable', 'string', 'max:100'],
         ];
     }
 

@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -102,6 +103,7 @@ class MsCraftsmanController extends Controller
             'employees' => $this->employeeOptions(
                 isset($editing['employeeId']) ? (int) $editing['employeeId'] : null,
             ),
+            'labelTukangOptions' => $this->labelTukangOptions(),
             'filters' => [
                 'search' => $search,
                 'status' => $status,
@@ -144,6 +146,7 @@ class MsCraftsmanController extends Controller
             'is_active' => $request->validated('is_active'),
             'employee_id' => $employeeId = $request->validated('employee_id'),
             'user_id' => $this->userIdForEmployee($employeeId),
+            'label_tukang' => $request->validated('label_tukang'),
             'is_deleted' => 0,
             'created_date' => now(),
             'created_by' => $actor,
@@ -184,6 +187,7 @@ class MsCraftsmanController extends Controller
             'is_active' => $request->validated('is_active'),
             'employee_id' => $employeeId = $request->validated('employee_id'),
             'user_id' => $this->userIdForEmployee($employeeId),
+            'label_tukang' => $request->validated('label_tukang'),
             'modified_date' => now(),
             'modified_by' => $this->actorName($request),
         ]);
@@ -329,6 +333,7 @@ class MsCraftsmanController extends Controller
      *     employeeId: string|null,
      *     employeeName: string|null,
      *     positionName: string|null,
+     *     labelTukang: string|null,
      *     userId: string|null
      * }
      */
@@ -344,6 +349,7 @@ class MsCraftsmanController extends Controller
             'employeeId' => $employeeId !== null ? (string) $employeeId : null,
             'employeeName' => $employeeId !== null ? ($employeeNames[$employeeId] ?? null) : null,
             'positionName' => $employeeId !== null ? ($positionNames[$employeeId] ?? null) : null,
+            'labelTukang' => $craftsman->label_tukang,
             'userId' => $craftsman->user_id !== null ? (string) $craftsman->user_id : null,
         ];
     }
@@ -355,6 +361,7 @@ class MsCraftsmanController extends Controller
      *     rate: string|null,
      *     isActive: string,
      *     employeeId: string|null,
+     *     labelTukang: string|null,
      *     userId: string|null
      * }
      */
@@ -366,8 +373,34 @@ class MsCraftsmanController extends Controller
             'rate' => $craftsman->rate,
             'isActive' => $craftsman->is_active === 'YES' ? 'YES' : 'NO',
             'employeeId' => $craftsman->employee_id !== null ? (string) $craftsman->employee_id : null,
+            'labelTukang' => $craftsman->label_tukang,
             'userId' => $craftsman->user_id !== null ? (string) $craftsman->user_id : null,
         ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function labelTukangOptions(): array
+    {
+        if (! Schema::connection('third')->hasColumn('mscraftsman', 'label_tukang')) {
+            return [];
+        }
+
+        return MsCraftsman::query()
+            ->notDeleted()
+            ->whereNotNull('label_tukang')
+            ->where('label_tukang', '!=', '')
+            ->distinct()
+            ->orderBy('label_tukang')
+            ->pluck('label_tukang')
+            ->map(fn (mixed $label): array => [
+                'value' => trim((string) $label),
+                'label' => trim((string) $label),
+            ])
+            ->filter(fn (array $option): bool => $option['value'] !== '')
+            ->values()
+            ->all();
     }
 
     private function actorName(Request $request): string

@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $is_active
  * @property int|null $employee_id
  * @property int|null $user_id
+ * @property string|null $label_tukang
  * @property int $is_deleted
  * @property Carbon|null $created_date
  * @property string|null $created_by
@@ -30,6 +31,7 @@ use Illuminate\Support\Carbon;
     'is_active',
     'employee_id',
     'user_id',
+    'label_tukang',
     'is_deleted',
     'created_date',
     'created_by',

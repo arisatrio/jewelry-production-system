@@ -2137,6 +2137,40 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     box-shadow: 0 0 0 3px rgb(0 112 242 / 15%);
 }
 
+.masterDataFormComboBoxWrap {
+    width: 100%;
+    min-width: 0;
+}
+
+.masterDataFormComboBoxWrap ui5-combobox.masterDataFormComboBox {
+    width: 100%;
+    min-height: 2.375rem;
+    font-size: 0.875rem;
+    --sapFontSize: 0.875rem;
+    --sapField_BorderCornerRadius: 0.375rem;
+    --sapField_BorderColor: #d1d5db;
+    --sapField_Background: #fff;
+    --sapField_TextColor: #111827;
+    --sapField_PlaceholderTextColor: #6b7280;
+    --sapField_Focus_BorderColor: var(--sap-fiori-brand, #0070f2);
+    --sapContent_FocusWidth: 0;
+}
+
+.masterDataFormComboBoxWrap ui5-combobox.masterDataFormComboBox::part(input) {
+    font-size: 0.875rem;
+    min-height: 2.25rem;
+}
+
+.masterDataFormComboBoxWrap ui5-combobox.masterDataFormComboBox::part(input)::placeholder {
+    font-size: 0.875rem;
+    font-style: normal;
+    color: #6b7280;
+}
+
+.masterDataFormComboBoxWrap ui5-combobox.masterDataFormComboBox:focus-within {
+    box-shadow: 0 0 0 3px rgb(0 112 242 / 15%);
+}
+
 .masterDataTextarea {
     resize: vertical;
     min-height: 6rem;

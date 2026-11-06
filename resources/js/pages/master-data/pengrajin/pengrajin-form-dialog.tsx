@@ -3,6 +3,7 @@ import {
     PengrajinFields,
     type PengrajinEmployeeOption,
     type PengrajinFormValues,
+    type PengrajinLabelTukangOption,
 } from '@/components/master-data/pengrajin-fields';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +24,7 @@ type PengrajinFormDialogProps = {
     open: boolean;
     craftsman: PengrajinFormTarget | null;
     employees: PengrajinEmployeeOption[];
+    labelTukangOptions: PengrajinLabelTukangOption[];
     onOpenChange: (open: boolean) => void;
 };
 
@@ -30,6 +32,7 @@ export function PengrajinFormDialog({
     open,
     craftsman,
     employees,
+    labelTukangOptions,
     onOpenChange,
 }: PengrajinFormDialogProps) {
     const isEdit = craftsman !== null;
@@ -61,6 +64,7 @@ export function PengrajinFormDialog({
                                 <PengrajinFields
                                     craftsman={craftsman ?? undefined}
                                     employees={employees}
+                                    labelTukangOptions={labelTukangOptions}
                                     errors={errors}
                                 />
                                 <DialogFooter>

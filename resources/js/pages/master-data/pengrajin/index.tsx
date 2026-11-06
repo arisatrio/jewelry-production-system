@@ -11,7 +11,10 @@ import {
     ActiveFilterSummary,
     describeSort,
 } from '@/components/active-filter-summary';
-import type { PengrajinEmployeeOption } from '@/components/master-data/pengrajin-fields';
+import type {
+    PengrajinEmployeeOption,
+    PengrajinLabelTukangOption,
+} from '@/components/master-data/pengrajin-fields';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -51,6 +54,7 @@ type PengrajinIndexProps = {
     formMode: 'create' | null;
     editing: PengrajinFormTarget | null;
     employees: PengrajinEmployeeOption[];
+    labelTukangOptions: PengrajinLabelTukangOption[];
     filters: {
         search: string;
         status: CraftsmanStatus;
@@ -93,6 +97,7 @@ export default function PengrajinIndex({
     formMode,
     editing,
     employees,
+    labelTukangOptions,
     filters,
     filterOptions,
 }: PengrajinIndexProps) {
@@ -808,6 +813,7 @@ export default function PengrajinIndex({
                                     <th className="spkTableColCenter">#</th>
                                     <th>Nama</th>
                                     <th>Pegawai</th>
+                                    <th>Label Tukang</th>
                                     <th>Posisi</th>
                                     <th className="spkTableColCenter">
                                         Status
@@ -820,7 +826,7 @@ export default function PengrajinIndex({
                             <tbody>
                                 {craftsmen.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6}>
+                                        <td colSpan={7}>
                                             Tidak ada data pengrajin.
                                         </td>
                                     </tr>
@@ -838,6 +844,9 @@ export default function PengrajinIndex({
                                             </td>
                                             <td>
                                                 {craftsman.employeeName ?? '—'}
+                                            </td>
+                                            <td>
+                                                {craftsman.labelTukang ?? '—'}
                                             </td>
                                             <td>
                                                 {craftsman.positionName ?? '—'}
@@ -942,6 +951,7 @@ export default function PengrajinIndex({
                 open={dialogOpen}
                 craftsman={dialogCraftsman}
                 employees={employees}
+                labelTukangOptions={labelTukangOptions}
                 onOpenChange={handleDialogOpenChange}
             />
         </>

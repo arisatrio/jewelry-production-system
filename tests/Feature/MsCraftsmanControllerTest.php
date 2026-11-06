@@ -14,6 +14,7 @@ test('pengrajin index page is accessible', function () {
             ->has('craftsmen.data')
             ->has('craftsmen.total')
             ->has('employees')
+            ->has('labelTukangOptions')
             ->where('filters.search', '')
             ->where('filters.status', 'active')
             ->where('filters.sort', 'name')
@@ -45,6 +46,7 @@ test('pengrajin index page can filter by search query', function () {
             ->has('craftsmen.data', 1)
             ->where('craftsmen.data.0.name', $craftsman->name)
             ->where('craftsmen.data.0.employeeName', 'Pegawai Filter Pengrajin')
+            ->has('craftsmen.data.0.labelTukang')
             ->where('craftsmen.data.0.positionName', 'Pengrajin Perak')
             ->missing('craftsmen.data.0.userName')
         );
@@ -169,6 +171,7 @@ test('pengrajin can be stored with employee and user', function () {
         'rate' => '1500.50',
         'is_active' => 'YES',
         'employee_id' => $employee->id,
+        'label_tukang' => 'Tukang Poles',
         'user_id' => 999999,
     ])->assertRedirect(route('master-data.pengrajin.index'));
 
@@ -178,8 +181,30 @@ test('pengrajin can be stored with employee and user', function () {
         ->and($craftsman->rate)->toBe('1500.50')
         ->and($craftsman->is_active)->toBe('YES')
         ->and($craftsman->employee_id)->toBe($employee->id)
+        ->and($craftsman->label_tukang)->toBe('Tukang Poles')
         ->and($craftsman->user_id)->toBe($user->id)
         ->and($craftsman->created_by)->toBe('system');
+
+    $craftsman->delete();
+});
+
+test('pengrajin label tukang options include saved labels', function () {
+    $label = 'LabelTukang '.Str::upper(Str::random(6));
+    $craftsman = MsCraftsman::factory()->create([
+        'label_tukang' => $label,
+    ]);
+
+    $this->get(route('master-data.pengrajin.index', ['form' => 'create']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('labelTukangOptions', function (mixed $options) use ($label): bool {
+                return collect($options)->contains(
+                    fn (mixed $option): bool => is_array($option)
+                        && ($option['value'] ?? null) === $label
+                        && ($option['label'] ?? null) === $label,
+                );
+            })
+        );
 
     $craftsman->delete();
 });

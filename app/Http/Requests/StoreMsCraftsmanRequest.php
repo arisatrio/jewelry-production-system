@@ -23,6 +23,9 @@ class StoreMsCraftsmanRequest extends FormRequest
         $this->merge([
             'rate' => $this->filled('rate') ? $this->input('rate') : null,
             'employee_id' => $this->filled('employee_id') ? $this->input('employee_id') : null,
+            'label_tukang' => $this->filled('label_tukang')
+                ? trim((string) $this->input('label_tukang'))
+                : null,
         ]);
     }
 
@@ -54,6 +57,7 @@ class StoreMsCraftsmanRequest extends FormRequest
                         ->where('department_id', Employee::DEPARTMENT_PRODUCTION),
                 ),
             ],
+            'label_tukang' => ['nullable', 'string', 'max:100'],
         ];
     }
 
