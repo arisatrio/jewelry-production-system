@@ -367,6 +367,7 @@ export function SpkTableStoneStatusCell({
         <SpkStoneStatusLabelsCell
             stock={stoneIndexStatus.stock}
             allocation={stoneIndexStatus.allocation}
+            showStockStatus={false}
         />
     );
 }

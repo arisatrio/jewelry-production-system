@@ -8,6 +8,8 @@ test('guests are redirected to the login page', function (string $uri) {
     'home' => '/',
     'dashboard' => '/dashboard',
     'spk index' => '/spk',
+    'spk diamond index' => '/spk-diamond',
+    'spk diamond show' => '/spk-diamond/1',
     'spk create' => '/spk/create',
     'spk create guide' => '/spk/create-guide',
     'spk print' => '/spk/print',

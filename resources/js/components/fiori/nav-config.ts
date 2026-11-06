@@ -37,6 +37,7 @@ import {
 } from '@/routes/poles-rangka';
 import { index as reparasiIndex } from '@/routes/reparasi';
 import { index as resinIndex } from '@/routes/resin';
+import { index as spkDiamondIndex } from '@/routes/spk-diamond';
 import { index as spkIndex } from '@/routes/spk';
 
 export type ShellNavItem = {
@@ -57,6 +58,7 @@ export const defaultPrimaryNavItems: ShellNavItem[] = [
 export const defaultModuleNavItems: ShellNavItem[] = [
     { text: 'SPK', href: spkIndex.url() },
     { text: 'SPK Reparasi', href: reparasiIndex.url() },
+    { text: 'SPK Pasang Batu', href: spkDiamondIndex.url() },
     { text: 'JewelCAD', href: jewelCadIndex.url() },
     { text: 'Resin', href: resinIndex.url() },
     { text: 'Coran', href: coranIndex.url() },

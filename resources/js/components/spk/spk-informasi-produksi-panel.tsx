@@ -1,3 +1,4 @@
+import { SpkTableStoneStatusCell } from '@/components/spk/spk-list-cells';
 import { SpkProsesTerakhirDisplay } from '@/components/spk/spk-proses-terakhir-display';
 import { SpkChainListCard } from '@/components/spk/spk-chain-list';
 import { SpkComponentListCard } from '@/components/spk/spk-component-list';
@@ -357,6 +358,13 @@ export function SpkInformasiProduksiAsideSection({
                         <SpkProsesTerakhirDisplay row={production} />
                     </AsideField>
                 ) : null}
+                <AsideField label="Status Batu">
+                    <div className="spkDetailAsideStoneStatus">
+                        <SpkTableStoneStatusCell
+                            stoneIndexStatus={production.stoneIndexStatus}
+                        />
+                    </div>
+                </AsideField>
                 <AsideField label="Berat Terakhir">
                     {formatLastWeight(production.lastWeight)}
                 </AsideField>
@@ -426,6 +434,7 @@ export function SpkInformasiProduksiPanel({
                         rowId: Number(production.id),
                         produksiNo: production.produksiNo,
                     }}
+                    layout="requirementsOnly"
                 />
             </section>
 

@@ -1,9 +1,10 @@
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
+import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import outboxIcon from '@ui5/webcomponents-icons/dist/outbox.js';
 import pictureIcon from '@ui5/webcomponents-icons/dist/picture.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
-import { router } from '@inertiajs/react';
+import { router, Link } from '@inertiajs/react';
 import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
 import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { Icon } from '@ui5/webcomponents-react/Icon';
@@ -23,8 +24,13 @@ import {
 import {
     SpkDiamondCreateDialog,
     allSpkStoneLinesFullyAllocated,
+    spkStoneLineFullyAllocated,
 } from '@/components/spk/spk-diamond-create-dialog';
 import { SpkStoneAllocatedItemsTable } from '@/components/spk/spk-stone-allocated-items-table';
+import {
+    SpkAllocatedCertificateLink,
+    SpkAllocatedStoneLabelLink,
+} from '@/components/spk/spk-stone-allocated-display-cells';
 import { SpkStoneStatusLabelsCell } from '@/components/spk/spk-stone-status-labels-cell';
 import { formatDecimal3Id } from '@/components/spk/spk-stone-decimal-format';
 import { useSpkFormStoneStock } from '@/hooks/use-spk-form-stone-stock';
@@ -34,9 +40,12 @@ import type {
     SpkStoneFulfillmentAction,
     SpkStoneItem,
     SpkStoneStock,
+    SpkDiamondSummary,
+    SpkDiamondDocumentRow,
 } from '@/components/spk/types';
 import { fulfillment as advanceStoneFulfillment } from '@/routes/spk/stones';
 import { revoke as revokeStoneAllocationItem } from '@/routes/spk/stones/allocations/items';
+import { show as spkDiamondShow } from '@/routes/spk-diamond';
 
 type SpkItemStoneCardProps = {
     item: SpkItemDetail;
@@ -877,12 +886,300 @@ function formatStoneTableTotalCarat(value: number): string {
     });
 }
 
+function SpkStoneRequirementsTable({
+    stones,
+    totalButir,
+    totalCarat,
+    onShowStock,
+    title = 'Kebutuhan Batu',
+    headingLevel = 'h3',
+    showStatusAndActions = true,
+    embedAllocations = false,
+    revokingAllocationId = null,
+    onRevokeAllocation,
+    allocatedTotals,
+    allocatedTotalsShort = false,
+}: {
+    stones: SpkStoneItem[];
+    totalButir: number;
+    totalCarat: number;
+    onShowStock?: (stone: SpkStoneItem) => void;
+    title?: string;
+    headingLevel?: 'h2' | 'h3';
+    showStatusAndActions?: boolean;
+    embedAllocations?: boolean;
+    revokingAllocationId?: number | null;
+    onRevokeAllocation?: (
+        stone: SpkStoneItem,
+        item: SpkStoneAllocatedItem,
+    ) => void;
+    allocatedTotals?: { pcs: number; carat: number };
+    allocatedTotalsShort?: boolean;
+}) {
+    const HeadingTag = headingLevel;
+    const columnCount = showStatusAndActions ? 8 : 6;
+    const tableClassName = showStatusAndActions
+        ? 'spkStoneTable spkStoneTable--withStatus'
+        : 'spkStoneTable';
+
+    return (
+        <>
+            <div className="spkBatuPanelSectionHeader">
+                <HeadingTag className="spkFioriDetailBlockTitle">
+                    {title}
+                </HeadingTag>
+                <Text className="spkFioriDetailBlockMeta">
+                    {stones.length} baris
+                </Text>
+            </div>
+            {stones.length === 0 ? (
+                <div className="spkStoneEmpty">
+                    <Text>Tidak ada batu pada varian ini.</Text>
+                </div>
+            ) : (
+                <div className="spkStoneTableWrap">
+                    <table className={tableClassName}>
+                        <thead>
+                            <tr>
+                                <th>Posisi</th>
+                                <th>Bentuk</th>
+                                <th>Diameter / Dimensi PxL (mm)</th>
+                                <th>CRT per Butir (pcs)</th>
+                                <th>Jumlah Butir (pcs)</th>
+                                <th>Total CRT</th>
+                                {showStatusAndActions ? (
+                                    <>
+                                        <th className="spkStoneStatusCol">
+                                            Status
+                                        </th>
+                                        <th className="spkStoneTableActionCol">
+                                            Aksi
+                                        </th>
+                                    </>
+                                ) : null}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {stones.map((stone) => {
+                                const allocatedItems =
+                                    stone.allocatedItems ?? [];
+                                const allocatedAudit = embedAllocations
+                                    ? formatStoneAllocatedAudit(allocatedItems)
+                                    : null;
+
+                                return (
+                                    <Fragment key={stone.id}>
+                                        <tr>
+                                            <td>
+                                                {emptyDash(stone.positionName)}
+                                                <MasterDiffHint
+                                                    current={stone.positionName}
+                                                    master={
+                                                        stone.master
+                                                            ?.positionName
+                                                    }
+                                                />
+                                            </td>
+                                            <td>
+                                                {emptyDash(
+                                                    stone.shapeName ||
+                                                        stone.shape,
+                                                )}
+                                                <MasterDiffHint
+                                                    current={
+                                                        stone.shapeName ||
+                                                        stone.shape
+                                                    }
+                                                    master={
+                                                        stone.master?.shapeName
+                                                    }
+                                                />
+                                            </td>
+                                            <td>
+                                                {emptyDash(stone.size)}
+                                                <MasterDiffHint
+                                                    current={stone.size}
+                                                    master={stone.master?.size}
+                                                />
+                                            </td>
+                                            <td>
+                                                {formatDecimal3Id(
+                                                    stone.caratPerPcs ??
+                                                        stone.carat,
+                                                )}
+                                                <MasterDiffHint
+                                                    current={
+                                                        stone.caratPerPcs ??
+                                                        stone.carat
+                                                    }
+                                                    master={
+                                                        stone.master
+                                                            ?.caratPerPcs
+                                                    }
+                                                />
+                                            </td>
+                                            <td>
+                                                {emptyDash(stone.pcs)}
+                                                <MasterDiffHint
+                                                    current={stone.pcs}
+                                                    master={stone.master?.pcs}
+                                                />
+                                            </td>
+                                            <td>
+                                                {formatDecimal3Id(
+                                                    stone.totalCarat,
+                                                )}
+                                            </td>
+                                            {showStatusAndActions ? (
+                                                <>
+                                                    <td className="spkStoneStatusCol">
+                                                        <SpkStoneAllocationStatusCell
+                                                            stone={stone}
+                                                        />
+                                                    </td>
+                                                    <td className="spkStoneTableActionCol">
+                                                        <SpkStoneAllocationActionCell
+                                                            stone={stone}
+                                                            onShowStock={() =>
+                                                                onShowStock?.(
+                                                                    stone,
+                                                                )
+                                                            }
+                                                        />
+                                                    </td>
+                                                </>
+                                            ) : null}
+                                        </tr>
+                                        {embedAllocations &&
+                                        allocatedItems.length > 0 ? (
+                                            <tr className="spkChainIssuedRow">
+                                                <td colSpan={columnCount}>
+                                                    <div className="spkChainIssuedRowInner">
+                                                        <div className="spkChainIssuedMeta">
+                                                            <strong>
+                                                                Batu yang
+                                                                dialokasikan:
+                                                            </strong>
+                                                            {allocatedAudit !==
+                                                            null ? (
+                                                                <span className="spkChainIssuedMetaAudit">
+                                                                    {
+                                                                        allocatedAudit
+                                                                    }
+                                                                </span>
+                                                            ) : null}
+                                                            <span className="spkChainIssuedMetaDetail">
+                                                                <SpkStoneAllocatedItemsTable
+                                                                    items={
+                                                                        allocatedItems
+                                                                    }
+                                                                    revokingAllocationId={
+                                                                        revokingAllocationId
+                                                                    }
+                                                                    onRevokeItem={
+                                                                        stoneCanManageAllocation(
+                                                                            stone,
+                                                                        ) &&
+                                                                        onRevokeAllocation
+                                                                            ? (
+                                                                                  item,
+                                                                              ) => {
+                                                                                  onRevokeAllocation(
+                                                                                      stone,
+                                                                                      item,
+                                                                                  );
+                                                                              }
+                                                                            : undefined
+                                                                    }
+                                                                />
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : null}
+                                    </Fragment>
+                                );
+                            })}
+                        </tbody>
+                        <tfoot>
+                            <tr className="spkStoneTableTotal">
+                                <td colSpan={4}>Total kebutuhan batu</td>
+                                <td className="spkStoneTableTotalValue">
+                                    {totalButir}
+                                </td>
+                                <td className="spkStoneTableTotalValue">
+                                    {formatStoneTableTotalCarat(totalCarat)}
+                                </td>
+                                {showStatusAndActions ? (
+                                    <>
+                                        <td />
+                                        <td />
+                                    </>
+                                ) : null}
+                            </tr>
+                            {embedAllocations && allocatedTotals !== undefined ? (
+                                <tr
+                                    className={
+                                        allocatedTotalsShort
+                                            ? 'spkStoneTableTotal spkStoneTableTotal--allocated spkStoneTableTotal--allocatedShort'
+                                            : 'spkStoneTableTotal spkStoneTableTotal--allocated'
+                                    }
+                                >
+                                    <td colSpan={4}>
+                                        Total batu dialokasikan
+                                    </td>
+                                    <td className="spkStoneTableTotalValue">
+                                        {allocatedTotals.pcs}
+                                    </td>
+                                    <td className="spkStoneTableTotalValue">
+                                        {formatStoneTableTotalCarat(
+                                            allocatedTotals.carat,
+                                        )}
+                                    </td>
+                                    {showStatusAndActions ? (
+                                        <>
+                                            <td />
+                                            <td />
+                                        </>
+                                    ) : null}
+                                </tr>
+                            ) : null}
+                        </tfoot>
+                    </table>
+                </div>
+            )}
+        </>
+    );
+}
+
+function resolveSpkDiamondDocumentNo(
+    spkDiamondDocuments: SpkDiamondDocumentRow[],
+    spkDiamond: SpkDiamondSummary | null,
+): string {
+    const fromList = spkDiamondDocuments[0]?.docNo?.trim() ?? '';
+
+    if (fromList !== '') {
+        return fromList;
+    }
+
+    return spkDiamond?.docNo?.trim() ?? '';
+}
+
 export function SpkStoneListCard({
     stones,
     spk,
+    spkDiamond = null,
+    spkDiamondDocuments = [],
+    layout = 'combined',
+    showSpkBatuDocumentHeader = false,
 }: {
     stones: SpkStoneItem[];
     spk?: { rowId: number; produksiNo: string };
+    spkDiamond?: SpkDiamondSummary | null;
+    spkDiamondDocuments?: SpkDiamondDocumentRow[];
+    layout?: 'combined' | 'requirementsOnly';
+    showSpkBatuDocumentHeader?: boolean;
 }) {
     const [stockListStone, setStockListStone] = useState<SpkStoneItem | null>(
         null,
@@ -892,15 +1189,27 @@ export function SpkStoneListCard({
     >(null);
     const [createDiamondDialogOpen, setCreateDiamondDialogOpen] =
         useState(false);
+    const hasSpkDiamondDocument =
+        spkDiamondDocuments.length > 0 ||
+        (spkDiamond !== null && spkDiamond.docNo.trim() !== '');
     const canCreateDiamondSpk = useMemo(
-        () => allSpkStoneLinesFullyAllocated(stones),
-        [stones],
+        () =>
+            allSpkStoneLinesFullyAllocated(stones) && !hasSpkDiamondDocument,
+        [stones, hasSpkDiamondDocument],
     );
-    const createDiamondDisabledTitle = canCreateDiamondSpk
-        ? 'Buat dokumen SPK Diamond'
-        : 'Alokasikan semua baris batu pada SPK terlebih dahulu';
+    const createDiamondDisabledTitle = hasSpkDiamondDocument
+        ? `SPK Pasang Batu sudah ada: ${spkDiamond?.docNo ?? ''}`
+        : canCreateDiamondSpk
+          ? 'Buat dokumen SPK Pasang Batu'
+          : 'Alokasikan semua baris batu pada SPK terlebih dahulu';
 
     const openCreateDiamondDialog = (): void => {
+        if (hasSpkDiamondDocument) {
+            toast.info(createDiamondDisabledTitle);
+
+            return;
+        }
+
         if (!canCreateDiamondSpk) {
             toast.warning(createDiamondDisabledTitle);
 
@@ -908,6 +1217,18 @@ export function SpkStoneListCard({
         }
 
         setCreateDiamondDialogOpen(true);
+    };
+
+    const openPrintDiamondDocument = (): void => {
+        if (!hasSpkDiamondDocument) {
+            toast.warning('Buat SPK Pasang Batu terlebih dahulu.');
+
+            return;
+        }
+
+        toast.info(
+            `Dokumen ${spkDiamond?.docNo ?? ''} tersimpan. Cetak SPK Pasang Batu akan menyusul.`,
+        );
     };
     const totalButir = stones.reduce(
         (sum, stone) => sum + (Number(stone.pcs) || 0),
@@ -928,6 +1249,305 @@ export function SpkStoneListCard({
         totalCarat,
     );
 
+    const diamondHeaderActions =
+        spk !== undefined ? (
+            <div className="spkStoneDiamondHeaderActions">
+                <button
+                    type="button"
+                    className="spkChainPrintReceiptBtn"
+                    aria-label="Buat SPK Pasang Batu"
+                    title={createDiamondDisabledTitle}
+                    disabled={hasSpkDiamondDocument}
+                    onClick={openCreateDiamondDialog}
+                >
+                    <Icon name={addIcon} mode="Decorative" />
+                    <span className="spkChainPrintReceiptBtnLabel">
+                        Buat SPK Pasang Batu
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    className="spkChainPrintReceiptBtn"
+                    aria-label="Print SPK Pasang Batu"
+                    title={
+                        hasSpkDiamondDocument
+                            ? `Print SPK Pasang Batu ${spkDiamondDocuments[0]?.docNo ?? spkDiamond?.docNo ?? ''}`
+                            : 'Print SPK Pasang Batu'
+                    }
+                    disabled={!hasSpkDiamondDocument}
+                    onClick={openPrintDiamondDocument}
+                >
+                    <Icon name={printIcon} mode="Decorative" />
+                    <span className="spkChainPrintReceiptBtnLabel">
+                        Print SPK Pasang Batu
+                    </span>
+                </button>
+            </div>
+        ) : null;
+
+    if (layout === 'requirementsOnly') {
+        return (
+            <div className="spkItemStoneSection spkItemStoneSection--requirementsOnly">
+                <SpkStoneRequirementsTable
+                    stones={stones}
+                    totalButir={totalButir}
+                    totalCarat={totalCarat}
+                    headingLevel="h2"
+                    showStatusAndActions={false}
+                />
+            </div>
+        );
+    }
+
+    if (showSpkBatuDocumentHeader) {
+        const spkDiamondDocNo = resolveSpkDiamondDocumentNo(
+            spkDiamondDocuments,
+            spkDiamond,
+        );
+        const spkDiamondShowId = spkDiamondDocuments[0]?.id ?? null;
+        const stonesWithAllocations = stones.filter(
+            (stone) => (stone.allocatedItems?.length ?? 0) > 0,
+        );
+
+        const revokeAllocationItem = (
+            stone: SpkStoneItem,
+            item: SpkStoneAllocatedItem,
+        ): void => {
+            if (!window.confirm('Hapus alokasi batu ini dari SPK?')) {
+                return;
+            }
+
+            setRevokingAllocationId(item.id);
+            router.post(
+                revokeStoneAllocationItem.url([
+                    Number(stone.id),
+                    item.id,
+                ]),
+                {},
+                {
+                    preserveScroll: true,
+                    onFinish: () => {
+                        setRevokingAllocationId(null);
+                    },
+                },
+            );
+        };
+
+        return (
+            <div className="spkItemStoneSection spkItemStoneSection--allocationSpkTab">
+                <div className="spkSpkBatuDocHeader spkBatuPanelToolbar">
+                    <div className="spkSpkBatuDocHeaderMain">
+                        <Text className="spkSpkBatuDocHeaderLabel">
+                            No SPK Pasang Batu
+                        </Text>
+                        {spkDiamondDocNo !== '' ? (
+                            spkDiamondShowId !== null && spkDiamondShowId > 0 ? (
+                                <Link
+                                    href={spkDiamondShow.url(spkDiamondShowId)}
+                                    className="spkSpkBatuDocHeaderValue spkProduksiLink tabular-nums"
+                                >
+                                    {spkDiamondDocNo}
+                                </Link>
+                            ) : (
+                                <strong className="spkSpkBatuDocHeaderValue tabular-nums">
+                                    {spkDiamondDocNo}
+                                </strong>
+                            )
+                        ) : (
+                            <Text className="spkSpkBatuDocHeaderEmpty">
+                                (SPK Pasang Batu belum dibuat)
+                            </Text>
+                        )}
+                    </div>
+                    {diamondHeaderActions}
+                </div>
+
+                <section className="spkShowSection spkBatuPanelSection spkBatuPanelSection--requirements">
+                    <SpkStoneRequirementsTable
+                        stones={stones}
+                        totalButir={totalButir}
+                        totalCarat={totalCarat}
+                        onShowStock={setStockListStone}
+                    />
+                </section>
+
+                <section className="spkShowSection spkBatuPanelSection">
+                    <div className="spkBatuPanelSectionHeader">
+                        <h3 className="spkFioriDetailBlockTitle">
+                            Alokasi batu
+                        </h3>
+                        <Text className="spkFioriDetailBlockMeta">
+                            {allocatedTotals.pcs} pcs ·{' '}
+                            {formatStoneTableTotalCarat(allocatedTotals.carat)}{' '}
+                            CRT
+                        </Text>
+                    </div>
+
+                    {stonesWithAllocations.length === 0 ? (
+                        <div className="spkStoneEmpty">
+                            <Text>Belum ada batu yang dialokasikan.</Text>
+                        </div>
+                    ) : (
+                        <div className="spkStoneTableWrap">
+                            <table className="spkStoneTable spkStoneAllocatedFlatTable">
+                                <thead>
+                                    <tr>
+                                        <th>Tipe</th>
+                                        <th>No. sertifikat</th>
+                                        <th>Bentuk</th>
+                                        <th>Nama/Kode batu</th>
+                                        <th>CRT per butir</th>
+                                        <th>Jumlah butir (pcs)</th>
+                                        <th>Total CRT</th>
+                                        <th className="spkStoneTableActionCol">
+                                            Aksi
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {stonesWithAllocations.flatMap((stone) => {
+                                        const items =
+                                            stone.allocatedItems ?? [];
+
+                                        return items.map((item) => (
+                                            <tr key={item.id}>
+                                                <td>
+                                                    {item.source === 'dossier'
+                                                        ? 'Dossier'
+                                                        : item.source ===
+                                                            'micro'
+                                                          ? 'Mikro'
+                                                          : item.source}
+                                                </td>
+                                                <td>
+                                                    <SpkAllocatedCertificateLink
+                                                        certificate={
+                                                            item.certificate
+                                                        }
+                                                    />
+                                                </td>
+                                                <td>{emptyDash(item.shape)}</td>
+                                                <td>
+                                                    <SpkAllocatedStoneLabelLink
+                                                        item={item}
+                                                    />
+                                                </td>
+                                                <td className="tabular-nums">
+                                                    {item.reservedCrt !==
+                                                        null &&
+                                                    item.reservedPcs
+                                                        ? formatDecimal3Id(
+                                                              Number(
+                                                                  String(
+                                                                      item.reservedCrt,
+                                                                  ).replace(
+                                                                      ',',
+                                                                      '.',
+                                                                  ),
+                                                              ) /
+                                                                  Number(
+                                                                      String(
+                                                                          item.reservedPcs,
+                                                                      ).replace(
+                                                                          ',',
+                                                                          '.',
+                                                                      ),
+                                                                  ),
+                                                          )
+                                                        : '-'}
+                                                </td>
+                                                <td className="tabular-nums">
+                                                    {emptyDash(item.reservedPcs)}
+                                                </td>
+                                                <td className="tabular-nums">
+                                                    {formatDecimal3Id(
+                                                        item.reservedCrt,
+                                                    )}
+                                                </td>
+                                                <td className="spkStoneTableActionCol">
+                                                    {stoneCanManageAllocation(
+                                                        stone,
+                                                    ) ? (
+                                                        <button
+                                                            type="button"
+                                                            className="spkChainIssuedRowActionBtn spkChainIssuedRowActionBtn--danger"
+                                                            aria-label="Hapus alokasi batu"
+                                                            title="Hapus alokasi batu"
+                                                            disabled={
+                                                                revokingAllocationId ===
+                                                                item.id
+                                                            }
+                                                            onClick={() => {
+                                                                revokeAllocationItem(
+                                                                    stone,
+                                                                    item,
+                                                                );
+                                                            }}
+                                                        >
+                                                            <Icon
+                                                                name={deleteIcon}
+                                                                mode="Decorative"
+                                                            />
+                                                        </button>
+                                                    ) : (
+                                                        '-'
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ));
+                                    })}
+                                </tbody>
+                                <tfoot>
+                                    <tr
+                                        className={
+                                            allocatedTotalsShort
+                                                ? 'spkStoneTableTotal spkStoneTableTotal--allocated spkStoneTableTotal--allocatedShort'
+                                                : 'spkStoneTableTotal spkStoneTableTotal--allocated'
+                                        }
+                                    >
+                                        <td colSpan={5}>
+                                            Total batu dialokasikan
+                                        </td>
+                                        <td className="spkStoneTableTotalValue">
+                                            {allocatedTotals.pcs}
+                                        </td>
+                                        <td className="spkStoneTableTotalValue">
+                                            {formatStoneTableTotalCarat(
+                                                allocatedTotals.carat,
+                                            )}
+                                        </td>
+                                        <td />
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    )}
+                </section>
+
+                {spk !== undefined ? (
+                    <SpkStoneStockDialog
+                        stone={stockListStone}
+                        spk={spk}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setStockListStone(null);
+                            }
+                        }}
+                    />
+                ) : null}
+
+                {spk !== undefined ? (
+                    <SpkDiamondCreateDialog
+                        open={createDiamondDialogOpen}
+                        onOpenChange={setCreateDiamondDialogOpen}
+                        spk={spk}
+                        stones={stones}
+                    />
+                ) : null}
+            </div>
+        );
+    }
+
     return (
         <div className="spkItemStoneSection">
             <div className="spkStoneCardHeader spkChainCardHeader">
@@ -937,33 +1557,7 @@ export function SpkStoneListCard({
                         {stones.length} item
                     </Text>
                 </div>
-                {spk !== undefined ? (
-                    <div className="spkStoneDiamondHeaderActions">
-                        <button
-                            type="button"
-                            className="spkChainPrintReceiptBtn"
-                            aria-label="Buat SPK Diamond"
-                            title={createDiamondDisabledTitle}
-                            onClick={openCreateDiamondDialog}
-                        >
-                            <Icon name={addIcon} mode="Decorative" />
-                            <span className="spkChainPrintReceiptBtnLabel">
-                                Buat SPK Diamond
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            className="spkChainPrintReceiptBtn"
-                            aria-label="Print SPK Diamond"
-                            title="Print SPK Diamond"
-                        >
-                            <Icon name={printIcon} mode="Decorative" />
-                            <span className="spkChainPrintReceiptBtnLabel">
-                                Print SPK Diamond
-                            </span>
-                        </button>
-                    </div>
-                ) : null}
+                {diamondHeaderActions}
             </div>
 
             {stones.length === 0 ? (

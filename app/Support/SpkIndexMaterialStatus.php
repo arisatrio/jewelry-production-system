@@ -26,7 +26,7 @@ class SpkIndexMaterialStatus
 
     public const FLOW_ALLOCATED = 'Sudah dialokasikan';
 
-    public const FLOW_SPK_DIAMOND = 'SPK Diamond';
+    public const FLOW_SPK_DIAMOND = 'SPK Pasang Batu';
 
     /** @deprecated Use composite stoneStatus labels from summariesForRowIds */
     public const STONE_WAITING = 'Menunggu dialokasikan';
@@ -35,7 +35,7 @@ class SpkIndexMaterialStatus
     public const STONE_ALLOCATED = 'Sudah dialokasikan';
 
     /** @deprecated Use composite stoneStatus labels from summariesForRowIds */
-    public const STONE_SPK_DIAMOND = 'SPK Diamond';
+    public const STONE_SPK_DIAMOND = 'SPK Pasang Batu';
 
     /** @deprecated Use composite stoneStatus labels from summariesForRowIds */
     public const STONE_ORDERING = 'Sedang diorder';
@@ -102,7 +102,7 @@ class SpkIndexMaterialStatus
             $stones->pluck('line_id')->map(static fn (mixed $id): int => (int) $id)->all(),
         );
 
-        $spkDiamondByRowId = $this->spkDiamondDocumentByRowId($rowIds);
+        $spkDiamondDocNoByRowId = $this->spkDiamondDocNoByRowId($rowIds);
 
         /** @var Collection<int, Collection<int, SpkStone>> $stonesByRowId */
         $stonesByRowId = $stones->groupBy(static fn (SpkStone $stone): int => (int) $stone->row_id);
@@ -114,10 +114,12 @@ class SpkIndexMaterialStatus
             $stoneLines = $stonesByRowId->get($rowId, collect());
 
             if ($stoneLines->isNotEmpty()) {
+                $spkDiamondDocNo = $spkDiamondDocNoByRowId[$rowId] ?? null;
+
                 $result[$rowId]['stoneIndexStatus'] = $this->summarizeStoneIndexStatus(
                     $stoneLines,
                     $allocatedPcsByLineId,
-                    $spkDiamondByRowId[$rowId] ?? false,
+                    $spkDiamondDocNo,
                     $stockByLineId,
                 );
             }
@@ -138,13 +140,14 @@ class SpkIndexMaterialStatus
      * @param  array<int, array{source: string, status: string, requiredPcs: int, availablePcs: int, note: string|null}>  $stockByLineId
      * @return array{
      *     stock: array{source: string, status: string, requiredPcs: int, availablePcs: int, note: string|null}|null,
-     *     allocation: array{status: string, label: string, allocatedPcs: int}
+     *     allocation: array{status: string, label: string, allocatedPcs: int},
+     *     spkDiamondDocNo: string|null
      * }
      */
     private function summarizeStoneIndexStatus(
         Collection $stones,
         array $allocatedPcsByLineId,
-        bool $hasSpkDiamondDocument,
+        ?string $spkDiamondDocNo,
         array $stockByLineId,
     ): array {
         $stockAvailable = $this->stockLabelForSpk($stones, $stockByLineId, $allocatedPcsByLineId)
@@ -152,7 +155,7 @@ class SpkIndexMaterialStatus
         $allocation = $this->aggregateAllocation(
             $stones,
             $allocatedPcsByLineId,
-            $hasSpkDiamondDocument,
+            $spkDiamondDocNo,
         );
 
         $allocated = $allocation['status'] === 'allocated'
@@ -188,6 +191,7 @@ class SpkIndexMaterialStatus
         return [
             'stock' => $stockPayload,
             'allocation' => $allocation,
+            'spkDiamondDocNo' => filled($spkDiamondDocNo) ? trim((string) $spkDiamondDocNo) : null,
         ];
     }
 
@@ -199,7 +203,7 @@ class SpkIndexMaterialStatus
     private function aggregateAllocation(
         Collection $stones,
         array $allocatedPcsByLineId,
-        bool $hasSpkDiamondDocument,
+        ?string $spkDiamondDocNo,
     ): array {
         $lineStatuses = $stones->map(function (SpkStone $stone) use ($allocatedPcsByLineId): string {
             $lineId = (int) $stone->line_id;
@@ -242,8 +246,8 @@ class SpkIndexMaterialStatus
         if ($allFullyAllocated) {
             return [
                 'status' => 'allocated',
-                'label' => $hasSpkDiamondDocument
-                    ? self::FLOW_SPK_DIAMOND
+                'label' => filled($spkDiamondDocNo)
+                    ? $this->spkDiamondAllocationLabel($spkDiamondDocNo)
                     : SpkStoneFulfillment::label(SpkStoneFulfillment::ALLOCATED),
                 'allocatedPcs' => $allocatedPcs,
             ];
@@ -389,11 +393,11 @@ class SpkIndexMaterialStatus
 
     /**
      * @param  list<int>  $rowIds
-     * @return array<int, bool>
+     * @return array<int, string|null>
      */
-    private function spkDiamondDocumentByRowId(array $rowIds): array
+    private function spkDiamondDocNoByRowId(array $rowIds): array
     {
-        $flags = array_fill_keys($rowIds, false);
+        $docNos = array_fill_keys($rowIds, null);
         $schema = Schema::connection('third');
 
         if ($schema->hasTable('spk_diamond')) {
@@ -403,14 +407,27 @@ class SpkIndexMaterialStatus
                 : ($schema->hasColumn('spk_diamond', 'row_id') ? 'row_id' : null);
 
             if ($spkColumn !== null) {
-                $query = DB::connection('third')->table('spk_diamond')->whereIn($spkColumn, $rowIds);
+                $query = DB::connection('third')
+                    ->table('spk_diamond')
+                    ->whereIn($spkColumn, $rowIds)
+                    ->orderByDesc('row_id');
 
                 if ($hasDeleted) {
                     $query->where('is_deleted', 0);
                 }
 
-                foreach ($query->pluck($spkColumn) as $spkRowId) {
-                    $flags[(int) $spkRowId] = true;
+                foreach ($query->get([$spkColumn, 'doc_no']) as $row) {
+                    $spkRowId = (int) $row->{$spkColumn};
+
+                    if (! array_key_exists($spkRowId, $docNos) || filled($docNos[$spkRowId])) {
+                        continue;
+                    }
+
+                    $docNo = trim((string) ($row->doc_no ?? ''));
+
+                    if ($docNo !== '') {
+                        $docNos[$spkRowId] = $docNo;
+                    }
                 }
             }
         }
@@ -422,13 +439,34 @@ class SpkIndexMaterialStatus
                 ->where('is_deleted', 0)
                 ->whereNotNull('spk_diamond_doc_no')
                 ->where('spk_diamond_doc_no', '!=', '')
-                ->pluck('row_id')
-                ->each(function (mixed $rowId) use (&$flags): void {
-                    $flags[(int) $rowId] = true;
+                ->get(['row_id', 'spk_diamond_doc_no'])
+                ->each(function (object $row) use (&$docNos): void {
+                    $rowId = (int) $row->row_id;
+
+                    if (! array_key_exists($rowId, $docNos) || filled($docNos[$rowId])) {
+                        return;
+                    }
+
+                    $docNo = trim((string) ($row->spk_diamond_doc_no ?? ''));
+
+                    if ($docNo !== '') {
+                        $docNos[$rowId] = $docNo;
+                    }
                 });
         }
 
-        return $flags;
+        return $docNos;
+    }
+
+    private function spkDiamondAllocationLabel(?string $docNo): string
+    {
+        $docNo = is_string($docNo) ? trim($docNo) : '';
+
+        if ($docNo === '') {
+            return self::FLOW_SPK_DIAMOND;
+        }
+
+        return self::FLOW_SPK_DIAMOND.' · '.$docNo;
     }
 
     private function normalizeStoneStoredStatus(mixed $value): string

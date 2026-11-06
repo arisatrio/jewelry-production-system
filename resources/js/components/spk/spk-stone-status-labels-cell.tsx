@@ -74,13 +74,16 @@ function stoneAllocationStatusLabel(
 export function SpkStoneStatusLabelsCell({
     stock,
     allocation,
+    showStockStatus = true,
 }: {
     stock?: SpkStoneStock | null;
     allocation?: SpkStoneStatusLabelsAllocation | null;
+    showStockStatus?: boolean;
 }) {
-    const stockLabel = stoneStockStatusLabel(stock);
+    const stockLabel = showStockStatus ? stoneStockStatusLabel(stock) : null;
     const allocationLabel = stoneAllocationStatusLabel(allocation);
     const showStockLabel =
+        showStockStatus &&
         stockLabel !== null &&
         !(allocationLabel?.allocated === true && !stockLabel.available);
 
@@ -100,7 +103,7 @@ export function SpkStoneStatusLabelsCell({
                             {stockLabel.text}
                         </span>
                     </div>
-                ) : stockLabel === null ? (
+                ) : showStockStatus && stockLabel === null ? (
                     <div className="spkChainStatusLabelRow">
                         <span className="spkStoneStockMeta">—</span>
                     </div>

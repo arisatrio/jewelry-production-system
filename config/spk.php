@@ -54,6 +54,12 @@ return [
 
     'receipt_issue_date' => '29/09/2026',
 
+    'spk_diamond_receipt_document_no' => 'WHOJ-PRD-FRM-009',
+
+    'spk_diamond_receipt_revision' => '00',
+
+    'spk_diamond_receipt_issue_date' => '05/11/2026',
+
     'chain_receipt_document_no' => 'WHOJ-PRD-FRM-003',
 
     'chain_receipt_revision' => '00',

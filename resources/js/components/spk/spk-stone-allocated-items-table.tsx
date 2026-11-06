@@ -1,6 +1,10 @@
 import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { formatDecimal3Id } from '@/components/spk/spk-stone-decimal-format';
+import {
+    SpkAllocatedCertificateLink,
+    SpkAllocatedStoneLabelLink,
+} from '@/components/spk/spk-stone-allocated-display-cells';
 import type { SpkStoneAllocatedItem } from '@/components/spk/types';
 
 function emptyDash(value: string | number | null | undefined): string {
@@ -11,6 +15,18 @@ function emptyDash(value: string | number | null | undefined): string {
     const text = String(value).trim();
 
     return text !== '' ? text : '-';
+}
+
+function sourceTypeLabel(source: string): string {
+    if (source === 'dossier') {
+        return 'Dossier';
+    }
+
+    if (source === 'micro') {
+        return 'Mikro';
+    }
+
+    return source !== '' ? source : '-';
 }
 
 function allocatedCrtPerPcs(item: SpkStoneAllocatedItem): string {
@@ -51,11 +67,13 @@ export function SpkStoneAllocatedItemsTable({
                     {showActions ? (
                         <th className="spkChainAllocateColAction">Aksi</th>
                     ) : null}
-                    <th className="spkChainAllocateColName">Nama Batu</th>
+                    <th className="spkStoneAllocateColType">Tipe</th>
+                    <th>No. sertifikat</th>
                     <th className="spkStoneAllocateColShape">Bentuk</th>
-                    <th className="spkChainIssuedColLength">CRT per Butir</th>
+                    <th className="spkChainAllocateColName">Nama/Kode batu</th>
+                    <th className="spkChainIssuedColLength">CRT per butir</th>
                     <th className="spkChainIssuedColLength">
-                        Jumlah Butir (pcs)
+                        Jumlah butir (pcs)
                     </th>
                     <th className="spkChainIssuedColWeight">Total CRT</th>
                 </tr>
@@ -79,11 +97,19 @@ export function SpkStoneAllocatedItemsTable({
                                 </button>
                             </td>
                         ) : null}
-                        <td className="spkChainAllocateColName">
-                            {emptyDash(item.label)}
+                        <td className="spkStoneAllocateColType">
+                            {sourceTypeLabel(item.source)}
+                        </td>
+                        <td>
+                            <SpkAllocatedCertificateLink
+                                certificate={item.certificate}
+                            />
                         </td>
                         <td className="spkStoneAllocateColShape">
                             {emptyDash(item.shape)}
+                        </td>
+                        <td className="spkChainAllocateColName">
+                            <SpkAllocatedStoneLabelLink item={item} />
                         </td>
                         <td className="spkChainIssuedColLength tabular-nums">
                             {allocatedCrtPerPcs(item)}
