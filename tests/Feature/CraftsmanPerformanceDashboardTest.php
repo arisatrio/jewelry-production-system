@@ -15,6 +15,7 @@ test('craftsman performance dashboard includes analytics payload', function () {
             ->has('analytics.summary.heaviestShrinkCraftsman')
             ->has('analytics.summary.heaviestShrink')
             ->has('analytics.ranking')
+            ->has('analytics.ranking.0.spkCount')
             ->has('analytics.byProcess')
             ->has('filters.month')
             ->where('navigation.isCurrentMonth', true)

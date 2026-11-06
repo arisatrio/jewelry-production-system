@@ -3092,13 +3092,13 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * @return list<array{name: string, jobCount: int, totalShrink: string, avgShrink: string|null}>
+     * @return list<array{name: string, jobCount: int, spkCount: int, totalShrink: string, avgShrink: string|null}>
      */
     private function resolveCraftsmanPerformanceRanking(int $limit): array
     {
         /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
         $sources = config('spk_processes.shrink_sources', []);
-        /** @var array<int, array{id: int, jobCount: int, totalShrink: float}> $byCraftsman */
+        /** @var array<int, array{id: int, jobCount: int, totalShrink: float, spkIds: array<int, true>}> $byCraftsman */
         $byCraftsman = [];
 
         foreach ($sources as $source) {
@@ -3126,6 +3126,28 @@ class SpkDashboardAnalytics
 
             $this->applyProcessPeriodFilter($query, $table, $source['date_column']);
 
+            if (Schema::connection('third')->hasColumn($table, 'spk_id')) {
+                foreach ((clone $query)->selectRaw("{$craftsmanColumn} as craftsman_id, spk_id")->distinct()->get() as $spkRow) {
+                    $craftsmanId = (int) $spkRow->craftsman_id;
+                    $spkId = (int) $spkRow->spk_id;
+
+                    if ($craftsmanId <= 0 || $spkId <= 0) {
+                        continue;
+                    }
+
+                    if (! isset($byCraftsman[$craftsmanId])) {
+                        $byCraftsman[$craftsmanId] = [
+                            'id' => $craftsmanId,
+                            'jobCount' => 0,
+                            'totalShrink' => 0.0,
+                            'spkIds' => [],
+                        ];
+                    }
+
+                    $byCraftsman[$craftsmanId]['spkIds'][$spkId] = true;
+                }
+            }
+
             if ($source['shrink_column'] === 'computed_mounting') {
                 $rows = $query
                     ->selectRaw("{$craftsmanColumn} as craftsman_id, COUNT(*) as job_count, SUM(COALESCE(total_weigth_frame_diamond, 0) - COALESCE(weight_finish_goods, 0)) as total_shrink")
@@ -3152,6 +3174,7 @@ class SpkDashboardAnalytics
                         'id' => $id,
                         'jobCount' => 0,
                         'totalShrink' => 0.0,
+                        'spkIds' => [],
                     ];
                 }
 
@@ -3172,6 +3195,7 @@ class SpkDashboardAnalytics
             return [
                 'name' => $names[$row['id']] ?? "Pengrajin {$row['id']}",
                 'jobCount' => $row['jobCount'],
+                'spkCount' => count($row['spkIds']),
                 'totalShrink' => $this->formatWeight(round($row['totalShrink'], 2)),
                 'avgShrink' => $avgShrink !== null ? $this->formatWeight($avgShrink) : null,
             ];

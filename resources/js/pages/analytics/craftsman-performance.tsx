@@ -24,6 +24,7 @@ export type CraftsmanPerformanceAnalytics = {
     ranking: Array<{
         name: string;
         jobCount: number;
+        spkCount: number;
         totalShrink: string;
         avgShrink: string | null;
     }>;
@@ -277,8 +278,9 @@ export default function CraftsmanPerformanceDashboard({
                                         <th>#</th>
                                         <th>Pengrajin</th>
                                         <th>Job</th>
+                                        <th>Total SPK</th>
                                         <th>Total Susut</th>
-                                        <th>Avg Susut</th>
+                                        <th>Rata-rata Susut per proses</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -288,6 +290,11 @@ export default function CraftsmanPerformanceDashboard({
                                             <td>{row.name}</td>
                                             <td>
                                                 {row.jobCount.toLocaleString(
+                                                    'id-ID',
+                                                )}
+                                            </td>
+                                            <td>
+                                                {row.spkCount.toLocaleString(
                                                     'id-ID',
                                                 )}
                                             </td>

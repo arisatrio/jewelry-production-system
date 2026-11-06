@@ -24,4 +24,16 @@ test('craftsman performance analytics returns ranking payload', function () {
         ->and($report['summary']['activeCraftsmen'])->toBe(count($report['ranking']))
         ->and($report['ranking'])->toBeArray()
         ->and($report['byProcess'])->toBeArray();
+
+    if ($report['ranking'] !== []) {
+        expect($report['ranking'][0])->toHaveKeys([
+            'name',
+            'jobCount',
+            'spkCount',
+            'totalShrink',
+            'avgShrink',
+        ])
+            ->and($report['ranking'][0]['spkCount'])->toBeInt()
+            ->and($report['ranking'][0]['spkCount'])->toBeLessThanOrEqual($report['ranking'][0]['jobCount']);
+    }
 });
