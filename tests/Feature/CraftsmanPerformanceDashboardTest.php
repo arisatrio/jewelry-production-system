@@ -3,6 +3,7 @@
 use App\Models\Employee;
 use App\Models\Position;
 use App\Support\SpkCraftsmanPerformanceAnalytics;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 test('craftsman performance dashboard includes analytics payload', function () {
@@ -131,4 +132,22 @@ test('craftsman performance jobs endpoint returns process list payload', functio
             'items',
         ])
         ->assertJsonPath('craftsmanId', $craftsmanId);
+});
+
+test('craftsman performance job list uses process dates within selected month', function () {
+    $month = Carbon::parse('2026-11-01');
+    $craftsmanId = finishingCraftsmanId();
+    $payload = (new SpkCraftsmanPerformanceAnalytics($month))->listJobs($craftsmanId, null);
+
+    foreach ($payload['items'] as $item) {
+        $dateString = $item['sentAt'] ?? $item['receivedAt'] ?? null;
+
+        if ($dateString === null) {
+            continue;
+        }
+
+        $parsed = Carbon::createFromFormat('d-M-Y H:i', $dateString);
+
+        expect($parsed->format('Y-m'))->toBe('2026-11');
+    }
 });

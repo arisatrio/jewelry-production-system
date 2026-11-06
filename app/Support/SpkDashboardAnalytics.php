@@ -3140,7 +3140,7 @@ class SpkDashboardAnalytics
                 $query->where('is_deleted', 0);
             }
 
-            $this->applyProcessPeriodFilter($query, $table, $source['date_column']);
+            $this->applyCraftsmanPerformanceProcessPeriodFilter($query, $table, $source['date_column']);
 
             if (Schema::connection('third')->hasColumn($table, 'spk_id')) {
                 foreach ((clone $query)->selectRaw("{$craftsmanColumn} as craftsman_id, spk_id")->distinct()->get() as $spkRow) {
@@ -3403,7 +3403,7 @@ class SpkDashboardAnalytics
             $query->where('is_deleted', 0);
         }
 
-        $this->applyProcessPeriodFilter($query, $table, $source['date_column']);
+        $this->applyCraftsmanPerformanceProcessPeriodFilter($query, $table, $source['date_column']);
 
         $hasSendColumn = Schema::connection('third')->hasColumn($table, 'send_craftsman_date');
         $hasReceivedColumn = Schema::connection('third')->hasColumn($table, 'received_craftsman_date');
@@ -3580,7 +3580,7 @@ class SpkDashboardAnalytics
                 $query->where('is_deleted', 0);
             }
 
-            $this->applyProcessPeriodFilter($query, $table, $source['date_column']);
+            $this->applyCraftsmanPerformanceProcessPeriodFilter($query, $table, $source['date_column']);
 
             if ($source['shrink_column'] === 'computed_mounting') {
                 $stats = $query
@@ -3985,6 +3985,36 @@ class SpkDashboardAnalytics
             : (Schema::connection('third')->hasColumn($table, 'created_date') ? 'created_date' : null);
 
         if ($dateColumn === null) {
+            return;
+        }
+
+        $this->applyPeriodFilter($query, $dateColumn);
+    }
+
+    /**
+     * Performance pengrajin: filter job by tanggal proses di bulan terpilih
+     * (mis. send_craftsman_date), bukan scope SPK created/estimated delivery.
+     */
+    private function applyCraftsmanPerformanceProcessPeriodFilter(Builder $query, string $table, string $preferredDateColumn): void
+    {
+        $dateColumn = null;
+
+        if (Schema::connection('third')->hasColumn($table, $preferredDateColumn)) {
+            $dateColumn = $preferredDateColumn;
+        } elseif (Schema::connection('third')->hasColumn($table, 'send_craftsman_date')) {
+            $dateColumn = 'send_craftsman_date';
+        } elseif (Schema::connection('third')->hasColumn($table, 'created_date')) {
+            $dateColumn = 'created_date';
+        }
+
+        if ($dateColumn === null) {
+            if (
+                Schema::connection('third')->hasTable('spk')
+                && Schema::connection('third')->hasColumn($table, 'spk_id')
+            ) {
+                $query->whereIn('spk_id', $this->monthScopedSpkBase()->select('row_id'));
+            }
+
             return;
         }
 
