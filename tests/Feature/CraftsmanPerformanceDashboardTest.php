@@ -22,6 +22,7 @@ test('craftsman performance dashboard includes analytics payload', function () {
             ->has('analytics.ranking')
             ->has('analytics.ranking.0.spkCount')
             ->has('analytics.ranking.0.position')
+            ->has('analytics.ranking.0.craftsmanId')
             ->has('analytics.ranking.0.jobsByProcess')
             ->has('analytics.jobProcesses')
             ->has('analytics.byProcess')
@@ -106,4 +107,28 @@ test('craftsman performance ranking shows the linked employee position', functio
     } finally {
         DB::connection('third')->rollBack();
     }
+});
+
+test('craftsman performance jobs endpoint validates craftsman id', function () {
+    $this->getJson(route('analytics.craftsman-performance.jobs'))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['craftsman_id']);
+});
+
+test('craftsman performance jobs endpoint returns process list payload', function () {
+    $craftsmanId = finishingCraftsmanId();
+
+    $this->getJson(route('analytics.craftsman-performance.jobs', [
+        'craftsman_id' => $craftsmanId,
+        'process' => 'all',
+    ]))
+        ->assertOk()
+        ->assertJsonStructure([
+            'craftsmanId',
+            'craftsmanName',
+            'processLabel',
+            'period' => ['label', 'start', 'end'],
+            'items',
+        ])
+        ->assertJsonPath('craftsmanId', $craftsmanId);
 });

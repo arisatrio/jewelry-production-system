@@ -66,6 +66,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('analytics.material-yield');
     Route::get('analytics/craftsman-performance', [CraftsmanPerformanceDashboardController::class, 'index'])
         ->name('analytics.craftsman-performance');
+    Route::get('analytics/craftsman-performance/jobs', [CraftsmanPerformanceDashboardController::class, 'jobs'])
+        ->name('analytics.craftsman-performance.jobs');
     Route::get('analytics/sku-output', [SkuOutputDashboardController::class, 'index'])
         ->name('analytics.sku-output');
     Route::get('reparasi', [ProductionController::class, 'reparasiIndex'])->name('reparasi.index');

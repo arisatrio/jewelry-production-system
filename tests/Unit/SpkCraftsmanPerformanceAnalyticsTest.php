@@ -27,6 +27,7 @@ test('craftsman performance analytics returns ranking payload', function () {
 
     if ($report['ranking'] !== []) {
         expect($report['ranking'][0])->toHaveKeys([
+            'craftsmanId',
             'name',
             'position',
             'jobCount',

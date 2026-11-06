@@ -2,7 +2,12 @@ import { Head, router } from '@inertiajs/react';
 import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-arrow.js';
 import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
 import { Button } from '@ui5/webcomponents-react/Button';
+import { useState } from 'react';
 import { InProgressProcessBarChart } from '@/components/dashboard/in-progress-process-bar-chart';
+import {
+    CraftsmanPerformanceJobsDialog,
+    type CraftsmanPerformanceJobsDialogTarget,
+} from '@/pages/analytics/craftsman-performance-jobs-dialog';
 import { craftsmanPerformance } from '@/routes/analytics';
 
 export type CraftsmanPerformanceAnalytics = {
@@ -26,6 +31,7 @@ export type CraftsmanPerformanceAnalytics = {
         label: string;
     }>;
     ranking: Array<{
+        craftsmanId: number;
         name: string;
         position: string;
         jobCount: number;
@@ -62,11 +68,52 @@ function formatWeight(value: string): string {
     })} g`;
 }
 
+function JobCountButton({
+    count,
+    onClick,
+}: {
+    count: number;
+    onClick: () => void;
+}) {
+    const formatted = count.toLocaleString('id-ID');
+
+    if (count <= 0) {
+        return <>{formatted}</>;
+    }
+
+    return (
+        <button
+            type="button"
+            className="dashStatusSpkLink tabular-nums"
+            onClick={onClick}
+        >
+            {formatted}
+        </button>
+    );
+}
+
 export default function CraftsmanPerformanceDashboard({
     analytics,
     navigation,
+    filters,
 }: CraftsmanPerformanceDashboardProps) {
     const { summary, ranking, byProcess, jobProcesses, period } = analytics;
+    const [jobsDialogTarget, setJobsDialogTarget] =
+        useState<CraftsmanPerformanceJobsDialogTarget | null>(null);
+
+    const openJobsDialog = (
+        row: CraftsmanPerformanceAnalytics['ranking'][number],
+        processKey: string | null,
+        processLabel: string,
+    ): void => {
+        setJobsDialogTarget({
+            craftsmanId: row.craftsmanId,
+            craftsmanName: row.name,
+            processKey,
+            processLabel,
+            month: filters.month,
+        });
+    };
 
     const goToMonth = (month: string | null): void => {
         if (!month) {
@@ -336,32 +383,56 @@ export default function CraftsmanPerformanceDashboard({
                                                 </div>
                                             </td>
                                             {jobProcesses.length > 0 ? (
-                                                jobProcesses.map((process) => (
-                                                    <td
-                                                        key={process.key}
-                                                        className="is-text-center text-center tabular-nums"
-                                                    >
-                                                        {(
-                                                            row.jobsByProcess[
-                                                                process.key
-                                                            ] ?? 0
-                                                        ).toLocaleString(
-                                                            'id-ID',
-                                                        )}
-                                                    </td>
-                                                ))
+                                                jobProcesses.map((process) => {
+                                                    const count =
+                                                        row.jobsByProcess[
+                                                            process.key
+                                                        ] ?? 0;
+
+                                                    return (
+                                                        <td
+                                                            key={process.key}
+                                                            className="is-text-center text-center tabular-nums"
+                                                        >
+                                                            <JobCountButton
+                                                                count={count}
+                                                                onClick={() =>
+                                                                    openJobsDialog(
+                                                                        row,
+                                                                        process.key,
+                                                                        process.label,
+                                                                    )
+                                                                }
+                                                            />
+                                                        </td>
+                                                    );
+                                                })
                                             ) : (
                                                 <td className="is-text-center text-center tabular-nums">
-                                                    {row.jobCount.toLocaleString(
-                                                        'id-ID',
-                                                    )}
+                                                    <JobCountButton
+                                                        count={row.jobCount}
+                                                        onClick={() =>
+                                                            openJobsDialog(
+                                                                row,
+                                                                null,
+                                                                'Semua proses',
+                                                            )
+                                                        }
+                                                    />
                                                 </td>
                                             )}
                                             {jobProcesses.length > 0 ? (
                                                 <td className="is-text-center text-center tabular-nums">
-                                                    {row.jobCount.toLocaleString(
-                                                        'id-ID',
-                                                    )}
+                                                    <JobCountButton
+                                                        count={row.jobCount}
+                                                        onClick={() =>
+                                                            openJobsDialog(
+                                                                row,
+                                                                null,
+                                                                'Semua proses',
+                                                            )
+                                                        }
+                                                    />
                                                 </td>
                                             ) : null}
                                             <td className="is-text-center text-center tabular-nums">
@@ -387,6 +458,15 @@ export default function CraftsmanPerformanceDashboard({
                     )}
                 </article>
             </div>
+
+            <CraftsmanPerformanceJobsDialog
+                target={jobsDialogTarget}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setJobsDialogTarget(null);
+                    }
+                }}
+            />
         </>
     );
 }

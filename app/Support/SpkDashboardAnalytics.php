@@ -3096,7 +3096,7 @@ class SpkDashboardAnalytics
 
     /**
      * @param  list<array{key: string, label: string}>  $jobProcesses
-     * @return list<array{name: string, position: string, jobCount: int, jobsByProcess: array<string, int>, spkCount: int, totalShrink: string, avgShrink: string|null}>
+     * @return list<array{craftsmanId: int, name: string, position: string, jobCount: int, jobsByProcess: array<string, int>, spkCount: int, totalShrink: string, avgShrink: string|null}>
      */
     private function resolveCraftsmanPerformanceRanking(int $limit, array $jobProcesses = []): array
     {
@@ -3217,6 +3217,7 @@ class SpkDashboardAnalytics
             }
 
             return [
+                'craftsmanId' => $row['id'],
                 'name' => $names[$row['id']] ?? "Pengrajin {$row['id']}",
                 'position' => $positions[$row['id']] ?? '-',
                 'jobCount' => $row['jobCount'],
@@ -3267,6 +3268,284 @@ class SpkDashboardAnalytics
         }
 
         return $processes;
+    }
+
+    /**
+     * @return array{
+     *     craftsmanId: int,
+     *     craftsmanName: string,
+     *     processLabel: string,
+     *     period: array{label: string, start: string, end: string},
+     *     items: list<array{
+     *         id: int,
+     *         spkId: int|null,
+     *         spkNo: string|null,
+     *         process: string,
+     *         sentAt: string|null,
+     *         receivedAt: string|null,
+     *         workDuration: string|null,
+     *         shrink: string|null
+     *     }>
+     * }
+     */
+    public function listCraftsmanPerformanceJobs(int $craftsmanId, ?string $processTableKey): array
+    {
+        $jobProcesses = $this->resolveCraftsmanPerformanceJobProcesses();
+        $processLabels = collect($jobProcesses)->pluck('label', 'key');
+        $allowedKeys = $processLabels->keys()->all();
+
+        if ($processTableKey !== null && ! in_array($processTableKey, $allowedKeys, true)) {
+            $processTableKey = null;
+        }
+
+        /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
+        $sources = config('spk_processes.shrink_sources', []);
+        $items = [];
+
+        foreach ($sources as $source) {
+            if ($processTableKey !== null && $source['table'] !== $processTableKey) {
+                continue;
+            }
+
+            if (! in_array($source['table'], $allowedKeys, true)) {
+                continue;
+            }
+
+            foreach ($this->craftsmanPerformanceJobRowsForSource($craftsmanId, $source) as $item) {
+                $items[] = $item;
+            }
+        }
+
+        usort($items, fn (array $left, array $right): int => strcmp($left['sortDate'], $right['sortDate']));
+
+        $spkIds = array_values(array_filter(array_column($items, 'spkId')));
+        $spkNumbers = $this->resolveSpkNumbers($spkIds);
+        $craftsmanNames = $this->resolveCraftsmanNames([$craftsmanId]);
+
+        $numbered = [];
+
+        foreach (array_values($items) as $index => $item) {
+            $spkId = $item['spkId'];
+
+            $numbered[] = [
+                'no' => $index + 1,
+                'id' => $item['id'],
+                'spkId' => $spkId,
+                'spkNo' => $spkId !== null ? ($spkNumbers[$spkId] ?? null) : null,
+                'process' => $item['process'],
+                'sentAt' => $item['sentAt'],
+                'receivedAt' => $item['receivedAt'],
+                'workDuration' => $item['workDuration'],
+                'shrink' => $item['shrink'],
+            ];
+        }
+
+        $processLabel = $processTableKey !== null
+            ? (string) ($processLabels[$processTableKey] ?? $processTableKey)
+            : 'Semua proses';
+
+        return [
+            'craftsmanId' => $craftsmanId,
+            'craftsmanName' => $craftsmanNames[$craftsmanId] ?? "Pengrajin {$craftsmanId}",
+            'processLabel' => $processLabel,
+            'period' => [
+                'label' => $this->formatPeriodLabel(),
+                'start' => $this->periodStart->toDateString(),
+                'end' => $this->periodEnd->toDateString(),
+            ],
+            'items' => $numbered,
+        ];
+    }
+
+    /**
+     * @param  array{table: string, label: string, shrink_column: string, date_column: string}  $source
+     * @return list<array{
+     *     id: int,
+     *     spkId: int|null,
+     *     process: string,
+     *     sentAt: string|null,
+     *     receivedAt: string|null,
+     *     workDuration: string|null,
+     *     shrink: string|null,
+     *     sortDate: string
+     * }>
+     */
+    private function craftsmanPerformanceJobRowsForSource(int $craftsmanId, array $source): array
+    {
+        $table = $source['table'];
+
+        if (! Schema::connection('third')->hasTable($table)) {
+            return [];
+        }
+
+        $craftsmanColumn = Schema::connection('third')->hasColumn($table, 'craftsman_id')
+            ? 'craftsman_id'
+            : (Schema::connection('third')->hasColumn($table, 'craftman_id') ? 'craftman_id' : null);
+
+        if ($craftsmanColumn === null) {
+            return [];
+        }
+
+        if ($source['shrink_column'] !== 'computed_mounting') {
+            $column = $source['shrink_column'];
+
+            if (! Schema::connection('third')->hasColumn($table, $column)) {
+                return [];
+            }
+        }
+
+        $primaryKey = Schema::connection('third')->hasColumn($table, 'row_id') ? 'row_id' : 'id';
+
+        $query = DB::connection('third')->table($table)
+            ->where($craftsmanColumn, $craftsmanId);
+
+        if (Schema::connection('third')->hasColumn($table, 'is_deleted')) {
+            $query->where('is_deleted', 0);
+        }
+
+        $this->applyProcessPeriodFilter($query, $table, $source['date_column']);
+
+        $hasSendColumn = Schema::connection('third')->hasColumn($table, 'send_craftsman_date');
+        $hasReceivedColumn = Schema::connection('third')->hasColumn($table, 'received_craftsman_date');
+        $hasDateFrom = Schema::connection('third')->hasColumn($table, 'date_from');
+        $hasDateTo = Schema::connection('third')->hasColumn($table, 'date_to');
+        $hasSpkId = Schema::connection('third')->hasColumn($table, 'spk_id');
+
+        $records = $query->get();
+        $rows = [];
+
+        foreach ($records as $record) {
+            $sentAtCarbon = $hasSendColumn
+                ? $this->nullableCarbon($record->send_craftsman_date ?? null)
+                : null;
+            $receivedAtCarbon = $hasReceivedColumn
+                ? $this->nullableCarbon($record->received_craftsman_date ?? null)
+                : null;
+
+            if ($sentAtCarbon === null && $hasDateFrom) {
+                $sentAtCarbon = $this->nullableCarbon($record->date_from ?? null);
+            }
+
+            if ($receivedAtCarbon === null && $hasDateTo) {
+                $receivedAtCarbon = $this->nullableCarbon($record->date_to ?? null);
+            }
+
+            $durationMinutes = $this->craftsmanPerformanceDurationMinutes($sentAtCarbon, $receivedAtCarbon);
+            $shrink = $this->craftsmanPerformanceShrinkValue($record, $source['shrink_column']);
+            $spkId = $hasSpkId && isset($record->spk_id) && (int) $record->spk_id > 0
+                ? (int) $record->spk_id
+                : null;
+
+            $rows[] = [
+                'id' => (int) ($record->{$primaryKey} ?? 0),
+                'spkId' => $spkId,
+                'process' => $source['label'],
+                'sentAt' => $sentAtCarbon?->format('d-M-Y H:i'),
+                'receivedAt' => $receivedAtCarbon?->format('d-M-Y H:i'),
+                'workDuration' => $this->craftsmanPerformanceFormatDuration($durationMinutes),
+                'shrink' => $shrink !== null ? $this->formatWeight($shrink) : null,
+                'sortDate' => $sentAtCarbon?->format('Y-m-d H:i:s') ?? '9999-12-31',
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<int>  $spkIds
+     * @return array<int, string>
+     */
+    private function resolveSpkNumbers(array $spkIds): array
+    {
+        if ($spkIds === [] || ! Schema::connection('third')->hasTable('spk')) {
+            return [];
+        }
+
+        return DB::connection('third')
+            ->table('spk')
+            ->whereIn('row_id', array_values(array_unique($spkIds)))
+            ->pluck('spk_no', 'row_id')
+            ->map(fn (mixed $spkNo): string => trim((string) $spkNo))
+            ->filter(fn (string $spkNo): bool => $spkNo !== '')
+            ->all();
+    }
+
+    private function nullableCarbon(mixed $value): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse((string) $value);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function craftsmanPerformanceDurationMinutes(?Carbon $sentAt, ?Carbon $receivedAt): ?int
+    {
+        if ($sentAt === null || $receivedAt === null || $receivedAt->lt($sentAt)) {
+            return null;
+        }
+
+        $minutes = (int) $sentAt->diffInMinutes($receivedAt);
+
+        if ($minutes === 0 && $receivedAt->gt($sentAt)) {
+            return 0;
+        }
+
+        return $minutes;
+    }
+
+    private function craftsmanPerformanceFormatDuration(?int $minutes): ?string
+    {
+        if ($minutes === null) {
+            return null;
+        }
+
+        if ($minutes === 0) {
+            return '< 1 menit';
+        }
+
+        if ($minutes < 60) {
+            return "{$minutes} menit";
+        }
+
+        $hours = intdiv($minutes, 60);
+        $remainingMinutes = $minutes % 60;
+
+        if ($remainingMinutes === 0) {
+            return "{$hours} jam";
+        }
+
+        return "{$hours} jam {$remainingMinutes} menit";
+    }
+
+    private function craftsmanPerformanceShrinkValue(object $record, string $shrinkColumn): ?float
+    {
+        if ($shrinkColumn === 'computed_mounting') {
+            $before = isset($record->total_weigth_frame_diamond)
+                ? (float) $record->total_weigth_frame_diamond
+                : null;
+            $after = isset($record->weight_finish_goods)
+                ? (float) $record->weight_finish_goods
+                : null;
+
+            if ($before === null || $after === null) {
+                return isset($record->mounting_shrink)
+                    ? round((float) $record->mounting_shrink, 3)
+                    : null;
+            }
+
+            return round($before - $after, 3);
+        }
+
+        if (! isset($record->{$shrinkColumn}) || $record->{$shrinkColumn} === null || $record->{$shrinkColumn} === '') {
+            return null;
+        }
+
+        return round((float) $record->{$shrinkColumn}, 3);
     }
 
     /**
