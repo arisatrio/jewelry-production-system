@@ -364,13 +364,13 @@ export default function CraftsmanPerformanceDashboard({
                             Ranking Pengrajin
                         </h2>
                         <p className="dashPanelMeta">
-                            Top 20 berdasarkan jumlah job · dikelompokkan
-                            label tukang · {period.label}
+                            Semua pengrajin (berjob di atas · 0 job di bawah) ·
+                            dikelompokkan label tukang · {period.label}
                         </p>
                     </header>
                     {ranking.length === 0 ? (
                         <p className="dashEmpty">
-                            Belum ada data pengrajin untuk periode ini.
+                            Belum ada master pengrajin.
                         </p>
                     ) : (
                         <div className="dashStatusTableWrap">

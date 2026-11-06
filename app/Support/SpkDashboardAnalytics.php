@@ -650,14 +650,19 @@ class SpkDashboardAnalytics
     public function summarizeCraftsmanPerformance(): array
     {
         $jobProcesses = $this->resolveCraftsmanPerformanceJobProcesses();
-        $ranking = $this->resolveCraftsmanPerformanceRanking(20, $jobProcesses);
+        $ranking = $this->resolveCraftsmanPerformanceRanking(null, $jobProcesses);
         $byProcess = $this->resolveCraftsmanJobsByProcess();
         $totalJobs = (int) collect($ranking)->sum('jobCount');
-        $totalShrink = round((float) collect($ranking)->sum(
+        $rankingWithJobs = array_values(array_filter(
+            $ranking,
+            fn (array $row): bool => $row['jobCount'] > 0,
+        ));
+        $activeCraftsmanCount = count($rankingWithJobs);
+        $totalShrink = round((float) collect($rankingWithJobs)->sum(
             fn (array $row): float => (float) $row['totalShrink'],
         ), 3);
-        $top = $ranking[0] ?? null;
-        $heaviestShrink = collect($ranking)
+        $top = $rankingWithJobs[0] ?? null;
+        $heaviestShrink = collect($rankingWithJobs)
             ->sortByDesc(fn (array $row): float => (float) $row['totalShrink'])
             ->values()
             ->first();
@@ -669,11 +674,11 @@ class SpkDashboardAnalytics
                 'end' => $this->periodEnd->toDateString(),
             ],
             'summary' => [
-                'activeCraftsmen' => count($ranking),
+                'activeCraftsmen' => $activeCraftsmanCount,
                 'totalJobs' => $totalJobs,
                 'totalShrink' => $this->formatWeight($totalShrink),
-                'avgJobsPerCraftsman' => count($ranking) > 0
-                    ? number_format($totalJobs / count($ranking), 1, '.', '')
+                'avgJobsPerCraftsman' => $activeCraftsmanCount > 0
+                    ? number_format($totalJobs / $activeCraftsmanCount, 1, '.', '')
                     : null,
                 'topCraftsman' => $top['name'] ?? null,
                 'topCraftsmanJobs' => $top['jobCount'] ?? 0,
@@ -3098,7 +3103,7 @@ class SpkDashboardAnalytics
      * @param  list<array{key: string, label: string}>  $jobProcesses
      * @return list<array{craftsmanId: int, name: string, position: string, labelTukang: string|null, jobCount: int, jobsByProcess: array<string, int>, spkCount: int, totalShrink: string, avgShrink: string|null}>
      */
-    private function resolveCraftsmanPerformanceRanking(int $limit, array $jobProcesses = []): array
+    private function resolveCraftsmanPerformanceRanking(?int $limit, array $jobProcesses = []): array
     {
         if ($jobProcesses === []) {
             $jobProcesses = $this->resolveCraftsmanPerformanceJobProcesses();
@@ -3199,10 +3204,45 @@ class SpkDashboardAnalytics
             }
         }
 
-        uasort($byCraftsman, fn (array $left, array $right): int => $right['jobCount'] <=> $left['jobCount']);
-        $top = array_slice(array_values($byCraftsman), 0, $limit);
+        foreach ($this->listNonDeletedCraftsmanIds() as $id) {
+            if (! isset($byCraftsman[$id])) {
+                $byCraftsman[$id] = [
+                    'id' => $id,
+                    'jobCount' => 0,
+                    'totalShrink' => 0.0,
+                    'spkIds' => [],
+                    'jobsByProcess' => [],
+                ];
+            }
+        }
+
+        $craftsmanIdsForNames = array_column(array_values($byCraftsman), 'id');
+        $names = $this->resolveCraftsmanNames($craftsmanIdsForNames);
+
+        uasort(
+            $byCraftsman,
+            function (array $left, array $right) use ($names): int {
+                $leftHasJob = $left['jobCount'] > 0 ? 0 : 1;
+                $rightHasJob = $right['jobCount'] > 0 ? 0 : 1;
+
+                if ($leftHasJob !== $rightHasJob) {
+                    return $leftHasJob <=> $rightHasJob;
+                }
+
+                if ($left['jobCount'] !== $right['jobCount']) {
+                    return $right['jobCount'] <=> $left['jobCount'];
+                }
+
+                $leftName = $names[$left['id']] ?? '';
+                $rightName = $names[$right['id']] ?? '';
+
+                return strcasecmp($leftName, $rightName);
+            },
+        );
+
+        $ordered = array_values($byCraftsman);
+        $top = $limit === null ? $ordered : array_slice($ordered, 0, $limit);
         $craftsmanIds = array_column($top, 'id');
-        $names = $this->resolveCraftsmanNames($craftsmanIds);
         $positions = $this->resolveCraftsmanPositions($craftsmanIds);
         $labelTukangByCraftsman = $this->resolveCraftsmanLabelTukang($craftsmanIds);
 
@@ -3822,6 +3862,34 @@ class SpkDashboardAnalytics
             ->whereIn('row_id', $ids)
             ->pluck('name', 'row_id')
             ->map(fn (mixed $name): string => (string) $name)
+            ->all();
+    }
+
+    /**
+     * Master pengrajin (non-deleted) with a non-empty name.
+     *
+     * @return list<int>
+     */
+    private function listNonDeletedCraftsmanIds(): array
+    {
+        if (! Schema::connection('third')->hasTable('mscraftsman')) {
+            return [];
+        }
+
+        $query = DB::connection('third')
+            ->table('mscraftsman')
+            ->where('row_id', '>', 0);
+
+        if (Schema::connection('third')->hasColumn('mscraftsman', 'is_deleted')) {
+            $query->where('is_deleted', 0);
+        }
+
+        return $query
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
+            ->orderBy('row_id')
+            ->pluck('row_id')
+            ->map(fn (mixed $id): int => (int) $id)
             ->all();
     }
 

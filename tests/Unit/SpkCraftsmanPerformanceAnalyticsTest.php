@@ -21,7 +21,12 @@ test('craftsman performance analytics returns ranking payload', function () {
             'heaviestShrinkCraftsman',
             'heaviestShrink',
         ])
-        ->and($report['summary']['activeCraftsmen'])->toBe(count($report['ranking']))
+        ->and($report['summary']['activeCraftsmen'])->toBe(
+            count(array_filter(
+                $report['ranking'],
+                static fn (array $row): bool => $row['jobCount'] > 0,
+            )),
+        )
         ->and($report['ranking'])->toBeArray()
         ->and($report['byProcess'])->toBeArray();
 
