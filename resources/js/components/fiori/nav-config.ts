@@ -7,7 +7,10 @@ import {
     workOrder,
 } from '@/routes/analytics';
 import { index as coranIndex } from '@/routes/coran';
-import { index as finishingIndex, report as finishingReport } from '@/routes/finishing';
+import {
+    index as finishingIndex,
+    report as finishingReport,
+} from '@/routes/finishing';
 import { index as componentTransactionsIndex } from '@/routes/inventory/component-transactions';
 import { index as componentsIndex } from '@/routes/inventory/components';
 import { index as chainTransactionsIndex } from '@/routes/inventory/chain-transactions';
@@ -23,6 +26,7 @@ import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { edit as diamondCrtMatrixEdit } from '@/routes/master-data/diamond-crt-matrix';
 import { edit as finishingShrinkAllowanceEdit } from '@/routes/master-data/finishing-shrink-allowance';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
+import { index as pengrajinIndex } from '@/routes/master-data/pengrajin';
 import { edit as spkProcessSlaEdit } from '@/routes/master-data/spk-process-sla';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
 import { index as varianItemIndex } from '@/routes/master-data/varian-item';
@@ -124,6 +128,7 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
 
 export const defaultMasterDataSubmenus: ShellNavItem[] = [
     { text: 'Tipe Item', href: tipeItemIndex.url() },
+    { text: 'Pengrajin', href: pengrajinIndex.url() },
     { text: 'Master Item Product', href: varianItemIndex.url() },
     { text: 'Master SKU', href: masterSkuIndex.url() },
     { text: 'SLA Proses SPK', href: spkProcessSlaEdit.url() },

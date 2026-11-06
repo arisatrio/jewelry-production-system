@@ -9,7 +9,7 @@ uses(TestCase::class);
 test('craftsman performance analytics returns ranking payload', function () {
     $report = (new SpkCraftsmanPerformanceAnalytics(Carbon::parse('2026-03-01')))->summarize();
 
-    expect($report)->toHaveKeys(['period', 'summary', 'ranking', 'byProcess'])
+    expect($report)->toHaveKeys(['period', 'summary', 'ranking', 'jobProcesses', 'byProcess'])
         ->and($report['period']['start'])->toBe('2026-03-01')
         ->and($report['summary'])->toHaveKeys([
             'activeCraftsmen',
@@ -28,12 +28,26 @@ test('craftsman performance analytics returns ranking payload', function () {
     if ($report['ranking'] !== []) {
         expect($report['ranking'][0])->toHaveKeys([
             'name',
+            'position',
             'jobCount',
+            'jobsByProcess',
             'spkCount',
             'totalShrink',
             'avgShrink',
         ])
+            ->and($report['ranking'][0]['position'])->toBeString()
+            ->and($report['ranking'][0]['position'])->not->toBe('')
+            ->and($report['ranking'][0]['jobsByProcess'])->toBeArray()
             ->and($report['ranking'][0]['spkCount'])->toBeInt()
             ->and($report['ranking'][0]['spkCount'])->toBeLessThanOrEqual($report['ranking'][0]['jobCount']);
+
+        foreach ($report['jobProcesses'] as $process) {
+            expect($process)->toHaveKeys(['key', 'label']);
+        }
+
+        $processKeys = array_column($report['jobProcesses'], 'key');
+
+        expect(array_keys($report['ranking'][0]['jobsByProcess']))->toEqual($processKeys)
+            ->and(array_sum($report['ranking'][0]['jobsByProcess']))->toBe($report['ranking'][0]['jobCount']);
     }
 });

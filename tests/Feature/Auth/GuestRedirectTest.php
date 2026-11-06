@@ -14,6 +14,7 @@ test('guests are redirected to the login page', function (string $uri) {
     'jewelcad index' => '/jewelcad',
     'resin index' => '/resin',
     'master data tipe item' => '/master-data/tipe-item',
+    'master data pengrajin' => '/master-data/pengrajin',
     'master data varian item' => '/master-data/varian-item',
     'master data master sku' => '/master-data/master-sku',
     'settings profile' => '/settings/profile',

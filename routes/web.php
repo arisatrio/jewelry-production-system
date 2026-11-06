@@ -16,6 +16,7 @@ use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MicroStoneController;
 use App\Http\Controllers\MsChainController;
 use App\Http\Controllers\MsComponentController;
+use App\Http\Controllers\MsCraftsmanController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
@@ -477,6 +478,10 @@ Route::middleware(['auth'])->group(function () {
                 'varian-item' => 'msItemVariance',
                 'stones' => 'msItemVarianceStone',
             ]);
+
+        Route::resource('pengrajin', MsCraftsmanController::class)
+            ->except(['show'])
+            ->parameters(['pengrajin' => 'msCraftsman']);
 
         Route::get('master-sku', [SkuMasterController::class, 'index'])
             ->name('master-sku.index');

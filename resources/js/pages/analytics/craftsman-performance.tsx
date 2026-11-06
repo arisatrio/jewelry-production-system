@@ -21,9 +21,15 @@ export type CraftsmanPerformanceAnalytics = {
         heaviestShrinkCraftsman: string | null;
         heaviestShrink: string;
     };
+    jobProcesses: Array<{
+        key: string;
+        label: string;
+    }>;
     ranking: Array<{
         name: string;
+        position: string;
         jobCount: number;
+        jobsByProcess: Record<string, number>;
         spkCount: number;
         totalShrink: string;
         avgShrink: string | null;
@@ -60,7 +66,7 @@ export default function CraftsmanPerformanceDashboard({
     analytics,
     navigation,
 }: CraftsmanPerformanceDashboardProps) {
-    const { summary, ranking, byProcess, period } = analytics;
+    const { summary, ranking, byProcess, jobProcesses, period } = analytics;
 
     const goToMonth = (month: string | null): void => {
         if (!month) {
@@ -275,33 +281,98 @@ export default function CraftsmanPerformanceDashboard({
                             <table className="dashStatusTable">
                                 <thead>
                                     <tr>
-                                        <th>#</th>
-                                        <th>Pengrajin</th>
-                                        <th>Job</th>
-                                        <th>Total SPK</th>
-                                        <th>Total Susut</th>
-                                        <th>Rata-rata Susut per proses</th>
+                                        <th rowSpan={2}>#</th>
+                                        <th rowSpan={2}>Pengrajin</th>
+                                        <th
+                                            className="is-text-center"
+                                            colSpan={
+                                                jobProcesses.length > 0
+                                                    ? jobProcesses.length + 1
+                                                    : 1
+                                            }
+                                        >
+                                            Job (Proses Pekerjaan)
+                                        </th>
+                                        <th rowSpan={2} className="is-text-center">
+                                            Total SPK
+                                        </th>
+                                        <th rowSpan={2} className="is-text-center">
+                                            Total Susut
+                                        </th>
+                                        <th rowSpan={2} className="is-text-center">
+                                            Rata-rata Susut per proses
+                                        </th>
+                                    </tr>
+                                    <tr>
+                                        {jobProcesses.length > 0 ? (
+                                            jobProcesses.map((process) => (
+                                                <th
+                                                    key={process.key}
+                                                    className="is-text-center"
+                                                >
+                                                    {process.label}
+                                                </th>
+                                            ))
+                                        ) : (
+                                            <th className="is-text-center">
+                                                Job (Proses Pekerjaan)
+                                            </th>
+                                        )}
+                                        {jobProcesses.length > 0 ? (
+                                            <th className="is-text-center">
+                                                Total
+                                            </th>
+                                        ) : null}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {ranking.map((row, index) => (
                                         <tr key={`${row.name}-${index}`}>
                                             <td>{index + 1}</td>
-                                            <td>{row.name}</td>
                                             <td>
-                                                {row.jobCount.toLocaleString(
-                                                    'id-ID',
-                                                )}
+                                                <div>{row.name}</div>
+                                                <div className="text-muted-foreground text-sm">
+                                                    {row.position}
+                                                </div>
                                             </td>
-                                            <td>
+                                            {jobProcesses.length > 0 ? (
+                                                jobProcesses.map((process) => (
+                                                    <td
+                                                        key={process.key}
+                                                        className="is-text-center text-center tabular-nums"
+                                                    >
+                                                        {(
+                                                            row.jobsByProcess[
+                                                                process.key
+                                                            ] ?? 0
+                                                        ).toLocaleString(
+                                                            'id-ID',
+                                                        )}
+                                                    </td>
+                                                ))
+                                            ) : (
+                                                <td className="is-text-center text-center tabular-nums">
+                                                    {row.jobCount.toLocaleString(
+                                                        'id-ID',
+                                                    )}
+                                                </td>
+                                            )}
+                                            {jobProcesses.length > 0 ? (
+                                                <td className="is-text-center text-center tabular-nums">
+                                                    {row.jobCount.toLocaleString(
+                                                        'id-ID',
+                                                    )}
+                                                </td>
+                                            ) : null}
+                                            <td className="is-text-center text-center tabular-nums">
                                                 {row.spkCount.toLocaleString(
                                                     'id-ID',
                                                 )}
                                             </td>
-                                            <td>
+                                            <td className="is-text-center text-center tabular-nums">
                                                 {formatWeight(row.totalShrink)}
                                             </td>
-                                            <td>
+                                            <td className="is-text-center text-center tabular-nums">
                                                 {row.avgShrink !== null
                                                     ? formatWeight(
                                                           row.avgShrink,

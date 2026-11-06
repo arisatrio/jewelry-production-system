@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Employee;
 use App\Models\Production;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
@@ -648,7 +649,8 @@ class SpkDashboardAnalytics
      */
     public function summarizeCraftsmanPerformance(): array
     {
-        $ranking = $this->resolveCraftsmanPerformanceRanking(20);
+        $jobProcesses = $this->resolveCraftsmanPerformanceJobProcesses();
+        $ranking = $this->resolveCraftsmanPerformanceRanking(20, $jobProcesses);
         $byProcess = $this->resolveCraftsmanJobsByProcess();
         $totalJobs = (int) collect($ranking)->sum('jobCount');
         $totalShrink = round((float) collect($ranking)->sum(
@@ -679,6 +681,7 @@ class SpkDashboardAnalytics
                 'heaviestShrink' => $heaviestShrink['totalShrink'] ?? '0.000',
             ],
             'ranking' => $ranking,
+            'jobProcesses' => $jobProcesses,
             'byProcess' => $byProcess,
         ];
     }
@@ -3092,13 +3095,18 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * @return list<array{name: string, jobCount: int, spkCount: int, totalShrink: string, avgShrink: string|null}>
+     * @param  list<array{key: string, label: string}>  $jobProcesses
+     * @return list<array{name: string, position: string, jobCount: int, jobsByProcess: array<string, int>, spkCount: int, totalShrink: string, avgShrink: string|null}>
      */
-    private function resolveCraftsmanPerformanceRanking(int $limit): array
+    private function resolveCraftsmanPerformanceRanking(int $limit, array $jobProcesses = []): array
     {
+        if ($jobProcesses === []) {
+            $jobProcesses = $this->resolveCraftsmanPerformanceJobProcesses();
+        }
+
         /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
         $sources = config('spk_processes.shrink_sources', []);
-        /** @var array<int, array{id: int, jobCount: int, totalShrink: float, spkIds: array<int, true>}> $byCraftsman */
+        /** @var array<int, array{id: int, jobCount: int, totalShrink: float, spkIds: array<int, true>, jobsByProcess: array<string, int>}> $byCraftsman */
         $byCraftsman = [];
 
         foreach ($sources as $source) {
@@ -3114,6 +3122,14 @@ class SpkDashboardAnalytics
 
             if ($craftsmanColumn === null) {
                 continue;
+            }
+
+            if ($source['shrink_column'] !== 'computed_mounting') {
+                $column = $source['shrink_column'];
+
+                if (! Schema::connection('third')->hasColumn($table, $column)) {
+                    continue;
+                }
             }
 
             $query = DB::connection('third')->table($table)
@@ -3141,6 +3157,7 @@ class SpkDashboardAnalytics
                             'jobCount' => 0,
                             'totalShrink' => 0.0,
                             'spkIds' => [],
+                            'jobsByProcess' => [],
                         ];
                     }
 
@@ -3156,10 +3173,6 @@ class SpkDashboardAnalytics
             } else {
                 $column = $source['shrink_column'];
 
-                if (! Schema::connection('third')->hasColumn($table, $column)) {
-                    continue;
-                }
-
                 $rows = $query
                     ->selectRaw("{$craftsmanColumn} as craftsman_id, COUNT(*) as job_count, SUM(COALESCE({$column}, 0)) as total_shrink")
                     ->groupBy($craftsmanColumn)
@@ -3168,6 +3181,7 @@ class SpkDashboardAnalytics
 
             foreach ($rows as $row) {
                 $id = (int) $row->craftsman_id;
+                $processJobCount = (int) $row->job_count;
 
                 if (! isset($byCraftsman[$id])) {
                     $byCraftsman[$id] = [
@@ -3175,31 +3189,84 @@ class SpkDashboardAnalytics
                         'jobCount' => 0,
                         'totalShrink' => 0.0,
                         'spkIds' => [],
+                        'jobsByProcess' => [],
                     ];
                 }
 
-                $byCraftsman[$id]['jobCount'] += (int) $row->job_count;
+                $byCraftsman[$id]['jobCount'] += $processJobCount;
                 $byCraftsman[$id]['totalShrink'] += (float) $row->total_shrink;
+                $byCraftsman[$id]['jobsByProcess'][$table] = ($byCraftsman[$id]['jobsByProcess'][$table] ?? 0) + $processJobCount;
             }
         }
 
         uasort($byCraftsman, fn (array $left, array $right): int => $right['jobCount'] <=> $left['jobCount']);
         $top = array_slice(array_values($byCraftsman), 0, $limit);
-        $names = $this->resolveCraftsmanNames(array_column($top, 'id'));
+        $craftsmanIds = array_column($top, 'id');
+        $names = $this->resolveCraftsmanNames($craftsmanIds);
+        $positions = $this->resolveCraftsmanPositions($craftsmanIds);
 
-        return array_map(function (array $row) use ($names): array {
+        return array_map(function (array $row) use ($names, $positions, $jobProcesses): array {
             $avgShrink = $row['jobCount'] > 0
                 ? round($row['totalShrink'] / $row['jobCount'], 2)
                 : null;
 
+            $jobsByProcess = [];
+
+            foreach ($jobProcesses as $process) {
+                $jobsByProcess[$process['key']] = (int) ($row['jobsByProcess'][$process['key']] ?? 0);
+            }
+
             return [
                 'name' => $names[$row['id']] ?? "Pengrajin {$row['id']}",
+                'position' => $positions[$row['id']] ?? '-',
                 'jobCount' => $row['jobCount'],
+                'jobsByProcess' => $jobsByProcess,
                 'spkCount' => count($row['spkIds']),
                 'totalShrink' => $this->formatWeight(round($row['totalShrink'], 2)),
                 'avgShrink' => $avgShrink !== null ? $this->formatWeight($avgShrink) : null,
             ];
         }, $top);
+    }
+
+    /**
+     * @return list<array{key: string, label: string}>
+     */
+    private function resolveCraftsmanPerformanceJobProcesses(): array
+    {
+        /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
+        $sources = config('spk_processes.shrink_sources', []);
+        $processes = [];
+
+        foreach ($sources as $source) {
+            $table = $source['table'];
+
+            if (! Schema::connection('third')->hasTable($table)) {
+                continue;
+            }
+
+            $craftsmanColumn = Schema::connection('third')->hasColumn($table, 'craftsman_id')
+                ? 'craftsman_id'
+                : (Schema::connection('third')->hasColumn($table, 'craftman_id') ? 'craftman_id' : null);
+
+            if ($craftsmanColumn === null) {
+                continue;
+            }
+
+            if ($source['shrink_column'] !== 'computed_mounting') {
+                $column = $source['shrink_column'];
+
+                if (! Schema::connection('third')->hasColumn($table, $column)) {
+                    continue;
+                }
+            }
+
+            $processes[] = [
+                'key' => $table,
+                'label' => $source['label'],
+            ];
+        }
+
+        return $processes;
     }
 
     /**
@@ -3401,6 +3468,60 @@ class SpkDashboardAnalytics
         } catch (\Throwable) {
             return [];
         }
+    }
+
+    /**
+     * Position names keyed by craftsman row id.
+     * Craftsmen without a linked employee are omitted so callers can fall back to "-".
+     *
+     * @param  list<int>  $ids
+     * @return array<int, string>
+     */
+    private function resolveCraftsmanPositions(array $ids): array
+    {
+        if (
+            $ids === []
+            || ! Schema::connection('third')->hasTable('mscraftsman')
+            || ! Schema::connection('third')->hasColumn('mscraftsman', 'employee_id')
+            || ! Schema::hasTable('employee')
+            || ! Schema::hasTable('positions')
+        ) {
+            return [];
+        }
+
+        /** @var array<int, int> $employeeIdsByCraftsman */
+        $employeeIdsByCraftsman = DB::connection('third')
+            ->table('mscraftsman')
+            ->whereIn('row_id', $ids)
+            ->whereNotNull('employee_id')
+            ->where('employee_id', '>', 0)
+            ->pluck('employee_id', 'row_id')
+            ->map(fn (mixed $employeeId): int => (int) $employeeId)
+            ->all();
+
+        if ($employeeIdsByCraftsman === []) {
+            return [];
+        }
+
+        $positionNames = Employee::query()
+            ->with('position:id,name')
+            ->whereIn('id', array_values(array_unique($employeeIdsByCraftsman)))
+            ->get(['id', 'position_id'])
+            ->mapWithKeys(fn (Employee $employee): array => [
+                $employee->id => trim((string) $employee->position?->name),
+            ]);
+
+        $positions = [];
+
+        foreach ($employeeIdsByCraftsman as $craftsmanId => $employeeId) {
+            $position = $positionNames->get($employeeId, '');
+
+            if ($position !== '') {
+                $positions[(int) $craftsmanId] = $position;
+            }
+        }
+
+        return $positions;
     }
 
     /**

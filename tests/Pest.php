@@ -115,6 +115,8 @@ function ensureTestingAuthSchema(): void
             $table->string('legacy_password')->nullable();
             $table->unsignedBigInteger('role_id')->nullable();
             $table->string('spk_role')->nullable();
+            $table->unsignedBigInteger('employee_id')->nullable();
+            $table->boolean('is_deleted')->default(false);
             $table->timestamp('email_verified_at')->nullable();
             $table->text('two_factor_secret')->nullable();
             $table->text('two_factor_recovery_codes')->nullable();
@@ -169,26 +171,34 @@ function finishingShrinkAllowancePercent(
 
 function ensureTestingEmployeeSchema(): void
 {
-    if (Schema::hasTable('employee')) {
-        return;
+    if (! Schema::hasTable('employee')) {
+        Schema::create('employee', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('company_id')->nullable();
+            $table->unsignedBigInteger('department_id')->nullable();
+            $table->unsignedBigInteger('position_id')->nullable();
+            $table->unsignedBigInteger('sales_id')->nullable();
+            $table->string('nomor_pegawai')->nullable();
+            $table->string('nama_lengkap')->nullable();
+            $table->string('nama_panggilan')->nullable();
+            $table->string('foto')->nullable();
+            $table->string('penempatan')->nullable();
+            $table->timestamp('tukar_off_eligible_from')->nullable();
+            $table->boolean('is_deleted')->default(0);
+            $table->string('status')->nullable();
+            $table->string('created_by')->nullable();
+            $table->string('updated_by')->nullable();
+            $table->timestamps();
+        });
     }
 
-    Schema::create('employee', function (Blueprint $table): void {
-        $table->id();
-        $table->unsignedBigInteger('company_id')->nullable();
-        $table->unsignedBigInteger('department_id')->nullable();
-        $table->unsignedBigInteger('position_id')->nullable();
-        $table->unsignedBigInteger('sales_id')->nullable();
-        $table->string('nomor_pegawai')->nullable();
-        $table->string('nama_lengkap')->nullable();
-        $table->string('nama_panggilan')->nullable();
-        $table->string('foto')->nullable();
-        $table->string('penempatan')->nullable();
-        $table->timestamp('tukar_off_eligible_from')->nullable();
-        $table->boolean('is_deleted')->default(0);
-        $table->string('status')->nullable();
-        $table->string('created_by')->nullable();
-        $table->string('updated_by')->nullable();
-        $table->timestamps();
-    });
+    if (! Schema::hasTable('positions')) {
+        Schema::create('positions', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name')->nullable();
+            $table->unsignedBigInteger('department_id')->nullable();
+            $table->boolean('is_deleted')->default(0);
+            $table->timestamps();
+        });
+    }
 }
