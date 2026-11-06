@@ -23,6 +23,7 @@ test('craftsman performance dashboard includes analytics payload', function () {
             ->has('analytics.ranking')
             ->has('analytics.ranking.0.spkCount')
             ->has('analytics.ranking.0.position')
+            ->has('analytics.ranking.0.labelTukang')
             ->has('analytics.ranking.0.craftsmanId')
             ->has('analytics.ranking.0.jobsByProcess')
             ->has('analytics.jobProcesses')

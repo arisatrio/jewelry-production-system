@@ -30,6 +30,7 @@ test('craftsman performance analytics returns ranking payload', function () {
             'craftsmanId',
             'name',
             'position',
+            'labelTukang',
             'jobCount',
             'jobsByProcess',
             'spkCount',

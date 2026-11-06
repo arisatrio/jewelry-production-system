@@ -3096,7 +3096,7 @@ class SpkDashboardAnalytics
 
     /**
      * @param  list<array{key: string, label: string}>  $jobProcesses
-     * @return list<array{craftsmanId: int, name: string, position: string, jobCount: int, jobsByProcess: array<string, int>, spkCount: int, totalShrink: string, avgShrink: string|null}>
+     * @return list<array{craftsmanId: int, name: string, position: string, labelTukang: string|null, jobCount: int, jobsByProcess: array<string, int>, spkCount: int, totalShrink: string, avgShrink: string|null}>
      */
     private function resolveCraftsmanPerformanceRanking(int $limit, array $jobProcesses = []): array
     {
@@ -3204,8 +3204,9 @@ class SpkDashboardAnalytics
         $craftsmanIds = array_column($top, 'id');
         $names = $this->resolveCraftsmanNames($craftsmanIds);
         $positions = $this->resolveCraftsmanPositions($craftsmanIds);
+        $labelTukangByCraftsman = $this->resolveCraftsmanLabelTukang($craftsmanIds);
 
-        return array_map(function (array $row) use ($names, $positions, $jobProcesses): array {
+        return array_map(function (array $row) use ($names, $positions, $labelTukangByCraftsman, $jobProcesses): array {
             $avgShrink = $row['jobCount'] > 0
                 ? round($row['totalShrink'] / $row['jobCount'], 2)
                 : null;
@@ -3216,10 +3217,13 @@ class SpkDashboardAnalytics
                 $jobsByProcess[$process['key']] = (int) ($row['jobsByProcess'][$process['key']] ?? 0);
             }
 
+            $labelTukang = $labelTukangByCraftsman[$row['id']] ?? null;
+
             return [
                 'craftsmanId' => $row['id'],
                 'name' => $names[$row['id']] ?? "Pengrajin {$row['id']}",
                 'position' => $positions[$row['id']] ?? '-',
+                'labelTukang' => $labelTukang !== '' ? $labelTukang : null,
                 'jobCount' => $row['jobCount'],
                 'jobsByProcess' => $jobsByProcess,
                 'spkCount' => count($row['spkIds']),
@@ -3818,6 +3822,30 @@ class SpkDashboardAnalytics
             ->whereIn('row_id', $ids)
             ->pluck('name', 'row_id')
             ->map(fn (mixed $name): string => (string) $name)
+            ->all();
+    }
+
+    /**
+     * Label tukang keyed by craftsman row id.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, string>
+     */
+    private function resolveCraftsmanLabelTukang(array $ids): array
+    {
+        if (
+            $ids === []
+            || ! Schema::connection('third')->hasTable('mscraftsman')
+            || ! Schema::connection('third')->hasColumn('mscraftsman', 'label_tukang')
+        ) {
+            return [];
+        }
+
+        return DB::connection('third')
+            ->table('mscraftsman')
+            ->whereIn('row_id', $ids)
+            ->pluck('label_tukang', 'row_id')
+            ->map(fn (mixed $label): string => trim((string) $label))
             ->all();
     }
 

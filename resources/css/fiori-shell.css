@@ -1466,6 +1466,20 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     background: #f8fafc;
 }
 
+.dashStatusTable tbody tr.dashStatusTableGroupHeader td {
+    background: #eef2f7;
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    border-bottom-color: #e5e7eb;
+}
+
+.dashStatusTable tbody tr.dashStatusTableGroupHeader:hover {
+    background: #eef2f7;
+}
+
 .dashStatusSpkLink {
     border: 0;
     background: none;
