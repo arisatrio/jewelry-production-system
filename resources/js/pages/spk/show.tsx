@@ -19,6 +19,8 @@ import type {
     SpkComponentItem,
     SpkChainReceiptSummary,
     SpkComponentReceiptSummary,
+    SpkDiamondSummary,
+    SpkDiamondDocumentRow,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -51,6 +53,8 @@ type SpkShowProps = {
     receiptEmployeeOptions: string[];
     chainReceipt: SpkChainReceiptSummary | null;
     componentReceipt: SpkComponentReceiptSummary | null;
+    spkDiamond: SpkDiamondSummary | null;
+    spkDiamondDocuments: SpkDiamondDocumentRow[];
 };
 
 export default function SpkShow({
@@ -75,6 +79,8 @@ export default function SpkShow({
     receiptEmployeeOptions,
     chainReceipt,
     componentReceipt,
+    spkDiamond,
+    spkDiamondDocuments,
 }: SpkShowProps) {
     const productionProcesses = processes.filter(
         (process) =>
@@ -119,6 +125,8 @@ export default function SpkShow({
                     receiptEmployeeOptions={receiptEmployeeOptions}
                     chainReceipt={chainReceipt}
                     componentReceipt={componentReceipt}
+                    spkDiamond={spkDiamond}
+                    spkDiamondDocuments={spkDiamondDocuments}
                 >
                     {activeProcess ? (
                         <SpkProcessPanel process={activeProcess} />

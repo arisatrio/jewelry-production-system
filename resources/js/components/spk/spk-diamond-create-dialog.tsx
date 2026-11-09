@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { router, useHttp } from '@inertiajs/react';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
@@ -15,7 +15,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { show as diamondDossierShow } from '@/routes/inventory/diamond-dossiers';
+import {
+    InventoryDossierCodeLink,
+} from '@/components/spk/spk-stone-allocated-display-cells';
+import { store as storeSpkDiamond } from '@/routes/spk/spk-diamond';
 
 export type SpkDiamondCreateContext = {
     rowId: number;
@@ -25,6 +28,12 @@ export type SpkDiamondCreateContext = {
 export type SpkDiamondCreateLine = SpkStoneAllocatedItem & {
     spkStoneLineId: string;
     positionName?: string;
+};
+
+type SpkDiamondStoreResponse = {
+    id: number;
+    docNo: string;
+    tanggal: string;
 };
 
 function todayInputValue(): string {
@@ -81,25 +90,12 @@ function sourceLabel(source: string): string {
 }
 
 function allocatedItemIdCell(item: SpkDiamondCreateLine): ReactNode {
-    const idText = emptyDash(item.displayId ?? item.code);
-
-    if (
-        item.source === 'dossier' &&
-        item.diamondId !== null &&
-        item.displayId !== null &&
-        item.displayId.trim() !== ''
-    ) {
-        return (
-            <Link
-                href={diamondDossierShow.url(item.diamondId)}
-                className="spkFormLink tabular-nums"
-            >
-                {item.displayId}
-            </Link>
-        );
-    }
-
-    return idText;
+    return (
+        <InventoryDossierCodeLink
+            diamondId={item.diamondId}
+            code={item.displayId ?? item.code}
+        />
+    );
 }
 
 type SpkDiamondCreateDialogProps = {
@@ -120,6 +116,15 @@ export function SpkDiamondCreateDialog({
     const [docNoError, setDocNoError] = useState<string | null>(null);
     const [tanggalError, setTanggalError] = useState<string | null>(null);
 
+    const saveForm = useHttp<
+        { spk_row_id: number; doc_no: string; tanggal: string },
+        SpkDiamondStoreResponse
+    >({
+        spk_row_id: spk.rowId,
+        doc_no: '',
+        tanggal: todayInputValue(),
+    });
+
     const lines = useMemo(
         () => allocatedDiamondLinesForCreate(stones),
         [stones],
@@ -134,7 +139,16 @@ export function SpkDiamondCreateDialog({
         setTanggal(todayInputValue());
         setDocNoError(null);
         setTanggalError(null);
-    }, [open]);
+        saveForm.clearErrors();
+    }, [open, spk.rowId]);
+
+    const serverErrorMessages = useMemo(
+        () =>
+            Array.from(
+                new Set(Object.values(saveForm.errors).filter(Boolean)),
+            ),
+        [saveForm.errors],
+    );
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
@@ -143,7 +157,7 @@ export function SpkDiamondCreateDialog({
         let hasError = false;
 
         if (trimmedDocNo === '') {
-            setDocNoError('No SPK Diamond wajib diisi.');
+            setDocNoError('No SPK Pasang Batu wajib diisi.');
             hasError = true;
         } else {
             setDocNoError(null);
@@ -156,13 +170,40 @@ export function SpkDiamondCreateDialog({
             setTanggalError(null);
         }
 
-        if (hasError || lines.length === 0) {
+        if (hasError || lines.length === 0 || saveForm.processing) {
             return;
         }
 
-        toast.info(
-            'Penyimpanan dokumen SPK Diamond akan diaktifkan pada tahap berikutnya.',
-        );
+        saveForm.clearErrors();
+        saveForm.setData({
+            spk_row_id: spk.rowId,
+            doc_no: trimmedDocNo,
+            tanggal,
+        });
+
+        void saveForm
+            .post(storeSpkDiamond.url(), {
+                onSuccess: (response) => {
+                    toast.success(
+                        `SPK Pasang Batu ${response.docNo} berhasil disimpan.`,
+                    );
+                    onOpenChange(false);
+                    router.reload({
+                        only: ['stones', 'spkDiamond', 'spkDiamondDocuments'],
+                    });
+                },
+                onHttpException: () => {
+                    toast.error(
+                        'Gagal menyimpan SPK Pasang Batu. Silakan coba lagi.',
+                    );
+                },
+                onNetworkError: () => {
+                    toast.error(
+                        'Koneksi terputus saat menyimpan SPK Pasang Batu.',
+                    );
+                },
+            })
+            .catch(() => undefined);
     };
 
     return (
@@ -170,20 +211,28 @@ export function SpkDiamondCreateDialog({
             <DialogContent className="spkAlertModal spkStoneStockModal spkChainAllocateDialog spkDiamondCreateDialog">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>Buat SPK Diamond</DialogTitle>
+                        <DialogTitle>Buat SPK Pasang Batu</DialogTitle>
                         <DialogDescription>
-                            Isi nomor dan tanggal SPK Diamond. Daftar batu
+                            Isi nomor dan tanggal SPK Pasang Batu. Daftar batu
                             di bawah adalah batu yang sudah dialokasikan pada
                             SPK produksi{' '}
                             <strong>{spk.produksiNo}</strong>.
                         </DialogDescription>
                     </DialogHeader>
 
+                    {serverErrorMessages.length > 0 ? (
+                        <ul className="list-disc rounded-md border border-red-200 bg-red-50 py-2 pr-3 pl-7 text-xs text-red-700">
+                            {serverErrorMessages.map((message) => (
+                                <li key={message}>{message}</li>
+                            ))}
+                        </ul>
+                    ) : null}
+
                     <div className="spkDiamondCreateForm">
                         <div className="spkDiamondCreateFormRow">
                             <div className="spkDiamondCreateField">
                                 <Label htmlFor="spk-diamond-doc-no">
-                                    No SPK Diamond
+                                    No SPK Pasang Batu
                                 </Label>
                                 <Input
                                     id="spk-diamond-doc-no"
@@ -192,6 +241,7 @@ export function SpkDiamondCreateDialog({
                                     autoComplete="off"
                                     placeholder="MKDM"
                                     aria-invalid={docNoError !== null}
+                                    disabled={saveForm.processing}
                                     onChange={(event) => {
                                         setDocNo(event.target.value);
                                         if (docNoError !== null) {
@@ -215,6 +265,7 @@ export function SpkDiamondCreateDialog({
                                     type="date"
                                     value={tanggal}
                                     aria-invalid={tanggalError !== null}
+                                    disabled={saveForm.processing}
                                     onChange={(event) => {
                                         setTanggal(event.target.value);
                                         if (tanggalError !== null) {
@@ -331,6 +382,7 @@ export function SpkDiamondCreateDialog({
                         <Button
                             type="Button"
                             design="Transparent"
+                            disabled={saveForm.processing}
                             onClick={() => onOpenChange(false)}
                         >
                             Batal
@@ -338,9 +390,11 @@ export function SpkDiamondCreateDialog({
                         <Button
                             type="Submit"
                             design="Emphasized"
-                            disabled={lines.length === 0}
+                            disabled={
+                                lines.length === 0 || saveForm.processing
+                            }
                         >
-                            Simpan
+                            {saveForm.processing ? 'Menyimpan...' : 'Simpan'}
                         </Button>
                     </DialogFooter>
                 </form>

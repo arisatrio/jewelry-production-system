@@ -256,6 +256,26 @@
     font-weight: 600;
 }
 
+.spkTable th.spkTableColDoc--spkDiamond,
+.spkTable td.spkTableColDoc--spkDiamond {
+    width: 9.5rem;
+    min-width: 9.5rem;
+    max-width: 9.5rem;
+}
+
+.spkTableColDoc--spkDiamond .spkProduksiLink {
+    font-size: 0.8125rem;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.spkTable th.spkTableColCreatedMeta,
+.spkTable td.spkTableColCreatedMeta {
+    min-width: 6.5rem;
+    max-width: 8.5rem;
+    white-space: normal;
+}
+
 .spkTable th.spkTableColDoc--dossierId,
 .spkTable td.spkTableColDoc--dossierId {
     width: 6.75rem;
@@ -960,6 +980,31 @@
     cursor: default;
 }
 
+.spkTableThSortBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    text-align: inherit;
+    cursor: pointer;
+}
+
+.spkTableThSortBtn:hover,
+.spkTableThSortBtn.is-active {
+    color: #2563eb;
+}
+
+.spkTableThSortIndicator {
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
 .spkTableHeaderIconBtn--finishing:hover {
     background: #e8f2fc;
 }
@@ -1103,6 +1148,22 @@
 }
 
 .spkProduksiLink:hover {
+    text-decoration: underline;
+}
+
+.spkChainIssuedUnitTable a.spkProduksiLink,
+.spkStoneAllocatedItemsTable a.spkProduksiLink,
+.spkStoneTable a.spkProduksiLink,
+.spkChainIssuedMetaDetail a.spkProduksiLink {
+    color: #2563eb;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.spkChainIssuedUnitTable a.spkProduksiLink:hover,
+.spkStoneAllocatedItemsTable a.spkProduksiLink:hover,
+.spkStoneTable a.spkProduksiLink:hover,
+.spkChainIssuedMetaDetail a.spkProduksiLink:hover {
     text-decoration: underline;
 }
 
@@ -1508,6 +1569,90 @@
     text-align: center;
     vertical-align: middle;
     white-space: normal;
+}
+
+.spkTable th.spkTableColStoneDetailGroup,
+.spkTable td.spkTableColStoneDetailGroup {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.spkTable thead .spkTableSubHeaderRow--stoneDetail th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    vertical-align: bottom;
+    white-space: normal;
+}
+
+.spkTable th.spkTableColStoneDetailSub,
+.spkTable td.spkDiamondIndexStoneColShape,
+.spkTable td.spkDiamondIndexStoneColName,
+.spkTable td.spkDiamondIndexStoneColPcs,
+.spkTable td.spkDiamondIndexStoneColCrtPerPcs,
+.spkTable td.spkDiamondIndexStoneColTotalCrt {
+    vertical-align: top;
+    white-space: normal;
+}
+
+.spkTable--spkDiamondIndex th.spkTableColStoneDetailSub,
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColShape,
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColName,
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColPcs,
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColCrtPerPcs,
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColTotalCrt,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColShape,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColName,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColPcs,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColCrtPerPcs,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColTotalCrt {
+    padding: 0.3rem 0.35rem;
+    font-size: 0.6875rem;
+    line-height: 1.2;
+}
+
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColShape,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColShape {
+    width: 3.75rem;
+    min-width: 3.75rem;
+    max-width: 3.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColName,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColName {
+    min-width: 5rem;
+    max-width: 8.5rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColName .spkProduksiLink {
+    font-size: inherit;
+    line-height: inherit;
+}
+
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColPcs,
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColCrtPerPcs,
+.spkTable--spkDiamondIndex th.spkDiamondIndexStoneColTotalCrt,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColPcs,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColCrtPerPcs,
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColTotalCrt {
+    width: 3.1rem;
+    min-width: 3.1rem;
+    max-width: 3.75rem;
+    white-space: nowrap;
+    padding-inline: 0.2rem;
+}
+
+.spkTable td.spkDiamondIndexStoneColEmpty {
+    vertical-align: middle;
+}
+
+.spkTable--spkDiamondIndex td.spkDiamondIndexStoneColEmpty {
+    padding: 0.35rem 0.4rem;
+    font-size: 0.6875rem;
 }
 
 .spkTableMaterialStatus {
@@ -3039,6 +3184,15 @@
     font-weight: 600;
     line-height: 1.4;
     text-align: right;
+}
+
+.spkDetailAsideStoneStatus {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.spkDetailAsideStoneStatus .spkChainStatusCell--labelsOnly {
+    align-items: flex-end;
 }
 
 .spkProsesTerakhirValue {
@@ -7171,6 +7325,114 @@ button.spkItemImagePreview--clickable:focus-visible {
 
 .spkDiamondCreateFooter {
     margin-top: 0.75rem;
+}
+
+.spkBatuPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.spkBatuPanelToolbar {
+    margin-bottom: 0.25rem;
+}
+
+.spkBatuPanelSection {
+    margin-top: 0;
+}
+
+.spkBatuPanelSectionHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 0.75rem;
+    margin-bottom: 0.65rem;
+}
+
+.spkBatuPanelSectionHeader .spkFioriDetailBlockTitle {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.spkSpkBatuDocHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    background: var(--sapGroup_ContentBackground, #fff);
+}
+
+.spkSpkBatuDocHeaderMain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+    min-width: 0;
+}
+
+.spkSpkBatuDocHeaderLabel {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--sapContent_LabelColor, #556b82);
+}
+
+.spkSpkBatuDocHeaderValue {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--sapTextColor, #1d2d3e);
+}
+
+.spkSpkBatuDocHeaderValue.spkProduksiLink {
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.spkSpkBatuDocHeaderValue.spkProduksiLink:hover {
+    text-decoration: underline;
+}
+
+.spkSpkBatuDocHeaderEmpty {
+    font-size: 0.9375rem;
+    font-style: italic;
+    color: var(--sapContent_LabelColor, #6a6d70);
+}
+
+.spkItemStoneSection--allocationSpkTab .spkBatuPanelSection {
+    margin-top: 0;
+}
+
+.spkItemStoneSection--allocationSpkTab
+    .spkBatuPanelSection--requirements
+    + .spkBatuPanelSection {
+    margin-top: 1.25rem;
+}
+
+.spkBatuUnallocatedAlert {
+    margin-bottom: 0.75rem;
+}
+
+.spkBatuUnallocatedAlertBody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.spkBatuUnallocatedAlertList {
+    margin: 0.15rem 0 0;
+    padding-left: 1.15rem;
+}
+
+.spkBatuUnallocatedAlertHint {
+    font-size: 0.8125rem;
+    opacity: 0.9;
+}
+
+.spkItemStoneSection--batuTab .spkStoneTableWrap + .spkStoneTableWrap {
+    margin-top: 0;
 }
 
 .spkDossierSpkAllocationRow {

@@ -61,6 +61,15 @@ test('spk index material status summarizes ordered stone lines', function () {
         );
 });
 
+test('spk index material status formats spk diamond allocation label with document number', function () {
+    $reflection = new ReflectionClass(SpkIndexMaterialStatus::class);
+    $method = $reflection->getMethod('spkDiamondAllocationLabel');
+    $method->setAccessible(true);
+
+    expect($method->invoke(app(SpkIndexMaterialStatus::class), 'SD-2026-001'))
+        ->toBe('SPK Pasang Batu · SD-2026-001');
+});
+
 test('spk index material status formats stock and flow labels', function () {
     expect(SpkIndexMaterialStatus::formatStoneIndexStatus(
         SpkIndexMaterialStatus::STOCK_AVAILABLE,

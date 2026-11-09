@@ -60,6 +60,7 @@ export type SpkStoneIndexStatus = {
         label: string;
         allocatedPcs: number;
     };
+    spkDiamondDocNo?: string | null;
 };
 
 export type SpkWorkflowStatusKey =
@@ -110,6 +111,7 @@ export type SpkDetail = SpkRow & {
     modifiedDate: string;
     modifiedBy: string;
     workflowStatus: SpkWorkflowStatus;
+    stoneIndexStatus?: SpkStoneIndexStatus | null;
 };
 
 export type SpkItemDetail = {
@@ -229,6 +231,22 @@ export type SpkChainReceiptSummary = {
 
 export type SpkComponentReceiptSummary = SpkChainReceiptSummary;
 
+export type SpkDiamondSummary = {
+    docNo: string;
+    tanggal: string;
+    spkRowId: number;
+};
+
+export type SpkDiamondDocumentRow = {
+    id: number;
+    docNo: string;
+    tanggal: string;
+    lineCount: number;
+    spkProduksiNo: string | null;
+    createdBy: string | null;
+    createdDate: string | null;
+};
+
 export type SpkChainItem = {
     id: string;
     chainId?: string;
@@ -318,6 +336,7 @@ export type SpkStoneAllocatedItem = {
     code: string;
     shape: string;
     displayId: string | null;
+    certificate: string | null;
     diamondType: string | null;
     color: string | null;
     diamondId: number | null;

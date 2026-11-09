@@ -155,3 +155,26 @@ test('micro stone index exposes add stock stone for restock deep link', function
             ->where('addStockStone.name', $prefix)
         );
 });
+
+test('micro stone index filters list by stone_id deep link', function () {
+    $prefix = 'Micro Stone Focus '.Str::uuid();
+    $targetStoneId = createMicroStoneForTest($prefix.' Target');
+    createMicroStoneForTest($prefix.' Other');
+    createMicroStoneTransactionForTest(
+        $targetStoneId,
+        StoneLedger::ADDITION_TRANSACTION_TYPE_ID,
+        12,
+        '0.1200',
+    );
+
+    $this->get(route('inventory.micro-stones.index', [
+        'stone_id' => $targetStoneId,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('stones.data', 1)
+            ->where('stones.data.0.id', $targetStoneId)
+            ->where('stones.data.0.name', $prefix.' Target')
+            ->where('addStockStone', null)
+        );
+});

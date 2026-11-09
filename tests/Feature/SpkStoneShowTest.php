@@ -20,6 +20,7 @@ test('spk show page includes stones list props', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
+            ->has('production.stoneIndexStatus')
             ->has('stones')
             ->has('stones.0.id')
             ->has('stones.0.shape')

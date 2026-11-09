@@ -10,6 +10,7 @@ use App\Http\Requests\PrintSpkComponentReceiptRequest;
 use App\Http\Requests\PrintSpkReceiptRequest;
 use App\Http\Requests\SpkApprovalDecisionRequest;
 use App\Http\Requests\StoreProductionRequest;
+use App\Http\Requests\StoreSpkDiamondRequest;
 use App\Http\Requests\UpdateProductionRequest;
 use App\Models\Employee;
 use App\Models\MsChain;
@@ -53,6 +54,7 @@ use App\Support\SpkComponentReceiptBuilder;
 use App\Support\SpkComponentStockChecker;
 use App\Support\SpkCraftsmanReport;
 use App\Support\SpkDashboardAnalytics;
+use App\Support\SpkDiamondDocumentService;
 use App\Support\SpkGoldReport;
 use App\Support\SpkIndexMaterialStatus;
 use App\Support\SpkItemImageUrl;
@@ -2024,7 +2026,44 @@ class ProductionController extends Controller
             'receiptEmployeeOptions' => Inertia::once(fn (): array => $this->receiptEmployeeOptions()),
             'chainReceipt' => $this->latestChainReceiptForProduction($production),
             'componentReceipt' => $this->latestComponentReceiptForProduction($production),
+            'spkDiamond' => app(SpkDiamondDocumentService::class)
+                ->latestSummaryForProduction($production),
+            'spkDiamondDocuments' => app(SpkDiamondDocumentService::class)
+                ->documentsForProduction($production),
         ]);
+    }
+
+    /**
+     * Simpan dokumen SPK Pasang Batu dari alokasi batu pada detail SPK.
+     */
+    public function storeSpkDiamond(
+        StoreSpkDiamondRequest $request,
+        SpkDiamondDocumentService $spkDiamondDocuments,
+    ): JsonResponse {
+        $spkRowId = (int) $request->validated('spk_row_id');
+
+        $production = Production::query()
+            ->notDeleted()
+            ->where('row_id', $spkRowId)
+            ->firstOrFail();
+
+        $tanggal = Carbon::createFromFormat(
+            'Y-m-d',
+            $request->validated('tanggal'),
+        )->startOfDay();
+
+        $document = $spkDiamondDocuments->store(
+            $production,
+            (string) $request->validated('doc_no'),
+            $tanggal,
+            $this->actorName($request),
+        );
+
+        return response()->json([
+            'id' => (int) $document->row_id,
+            'docNo' => (string) $document->doc_no,
+            'tanggal' => $document->tanggal->toDateString(),
+        ], 201);
     }
 
     /**
@@ -3169,6 +3208,12 @@ class ProductionController extends Controller
             $detail['prosesTerakhir'] = 'Diserahkan ke '.($destination !== '' ? $destination : 'Workshop');
             $detail['prosesTerakhirDate'] = $receipt->tanggal->format('d-M-Y');
         }
+
+        $material = app(SpkIndexMaterialStatus::class)->summariesForRowIds([(int) $production->row_id])[(int) $production->row_id] ?? [
+            'stoneIndexStatus' => null,
+            'componentStatus' => null,
+        ];
+        $detail['stoneIndexStatus'] = $material['stoneIndexStatus'];
 
         return $this->applyLastProcessBadgeFields($detail, $production);
     }

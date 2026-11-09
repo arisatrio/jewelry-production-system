@@ -52,6 +52,9 @@ class MicroStoneController extends Controller
         $openAddStockModal = $request->query('add_stock') === '1'
             && $addStockStoneId > 0
             && $activePeriod !== null;
+        $focusStoneId = $addStockStoneId > 0 && ! $openAddStockModal
+            ? $addStockStoneId
+            : null;
 
         $addStockStone = null;
 
@@ -70,10 +73,11 @@ class MicroStoneController extends Controller
                     $perPage,
                     $sort,
                     $direction,
+                    $focusStoneId,
                 ),
             'totals' => $activePeriod === null
                 ? ['pcs' => '0', 'crt' => '0.0000']
-                : $ledger->stockTotals($activePeriod['id'], $search, $stockStatus),
+                : $ledger->stockTotals($activePeriod['id'], $search, $stockStatus, $focusStoneId),
             'statusSummaries' => $activePeriod === null
                 ? [
                     'balance' => [
@@ -95,7 +99,7 @@ class MicroStoneController extends Controller
                         'reservedPcs' => '0',
                     ],
                 ]
-                : $ledger->stockSummaries($activePeriod['id'], $search),
+                : $ledger->stockSummaries($activePeriod['id'], $search, $focusStoneId),
             'activePeriod' => $activePeriod,
             'addStockStone' => $addStockStone,
             'filters' => [

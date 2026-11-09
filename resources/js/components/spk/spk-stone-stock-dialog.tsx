@@ -9,6 +9,10 @@ import type {
     SpkStoneStock,
 } from '@/components/spk/types';
 import { SpkStoneAllocatedItemsTable } from '@/components/spk/spk-stone-allocated-items-table';
+import {
+    InventoryCertificateLink,
+    InventoryDossierCodeLink,
+} from '@/components/spk/spk-stone-allocated-display-cells';
 import { formatDecimal3Id } from '@/components/spk/spk-stone-decimal-format';
 import {
     Dialog,
@@ -494,7 +498,10 @@ function DossierStockTable({
                             </button>
                         </td>
                         <td className="spkChainAllocateColUnit tabular-nums spkAlertModalTableIdentifier">
-                            {displayValue(row.code)}
+                            <InventoryDossierCodeLink
+                                diamondId={row.id}
+                                code={row.code}
+                            />
                         </td>
                         <td className="spkStoneAllocateColType">
                             {displayValue(row.diamondType)}
@@ -509,7 +516,9 @@ function DossierStockTable({
                             {formatNumberId(row.crt, 3)}
                         </td>
                         <td className="spkStoneAllocateColCert">
-                            {displayValue(row.certificate)}
+                            <InventoryCertificateLink
+                                certificate={row.certificate}
+                            />
                         </td>
                         <td className="spkStoneAllocateColSupplier">
                             {displayValue(row.supplier)}

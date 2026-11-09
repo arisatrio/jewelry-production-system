@@ -30,6 +30,7 @@ use App\Http\Controllers\SkuMasterController;
 use App\Http\Controllers\SkuOutputDashboardController;
 use App\Http\Controllers\SpkChainStockController;
 use App\Http\Controllers\SpkComponentStockController;
+use App\Http\Controllers\SpkDiamondController;
 use App\Http\Controllers\SpkProcessSlaController;
 use App\Http\Controllers\SpkStonePurchaseController;
 use App\Http\Controllers\SpkStoneStockController;
@@ -38,11 +39,19 @@ use App\Http\Controllers\StoneTransactionController;
 use App\Http\Controllers\TrxChainController;
 use App\Http\Controllers\TrxComponentController;
 use App\Models\SpkComponent;
+use App\Models\SpkDiamond;
 use Illuminate\Support\Facades\Route;
 
 Route::bind('spkComponent', function (string $value): SpkComponent {
     return SpkComponent::query()
         ->where('line_id', (int) $value)
+        ->firstOrFail();
+});
+
+Route::bind('spkDiamond', function (string $value): SpkDiamond {
+    return SpkDiamond::query()
+        ->where('row_id', (int) $value)
+        ->where('is_deleted', 0)
         ->firstOrFail();
 });
 
@@ -72,6 +81,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('analytics/sku-output', [SkuOutputDashboardController::class, 'index'])
         ->name('analytics.sku-output');
     Route::get('reparasi', [ProductionController::class, 'reparasiIndex'])->name('reparasi.index');
+    Route::get('spk-diamond', [SpkDiamondController::class, 'index'])->name('spk-diamond.index');
+    Route::get('spk-diamond/{spkDiamond}', [SpkDiamondController::class, 'show'])
+        ->whereNumber('spkDiamond')
+        ->name('spk-diamond.show');
+    Route::get('spk-diamond/print/receipt', [SpkDiamondController::class, 'receiptHistory'])
+        ->name('spk-diamond.print.receipt.index');
+    Route::post('spk-diamond/print/receipt', [SpkDiamondController::class, 'storeReceipt'])
+        ->name('spk-diamond.print.receipt.store');
+    Route::get('spk-diamond/print/receipt/{serahTerimaSpkDiamond}', [SpkDiamondController::class, 'printReceipt'])
+        ->whereNumber('serahTerimaSpkDiamond')
+        ->name('spk-diamond.print.receipt');
+    Route::delete('spk-diamond/print/receipt/{serahTerimaSpkDiamond}', [SpkDiamondController::class, 'destroyReceipt'])
+        ->whereNumber('serahTerimaSpkDiamond')
+        ->name('spk-diamond.print.receipt.destroy');
     Route::get('spk', [ProductionController::class, 'index'])->name('spk.index');
     Route::get('spk/create-guide', [ProductionController::class, 'createGuide'])
         ->name('spk.create.guide');
@@ -98,6 +121,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('spk/print/receipt/{serahTerimaSpk}', [ProductionController::class, 'destroyReceipt'])
         ->whereNumber('serahTerimaSpk')
         ->name('spk.print.receipt.destroy');
+    Route::post('spk/spk-diamond', [ProductionController::class, 'storeSpkDiamond'])
+        ->name('spk.spk-diamond.store');
     Route::post('spk/print/chain-receipt', [ProductionController::class, 'storeChainReceipt'])
         ->name('spk.print.chain-receipt.store');
     Route::post('spk/print/chain-receipt/apply-send', [ProductionController::class, 'applyChainReceiptSend'])

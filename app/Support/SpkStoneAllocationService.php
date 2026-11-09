@@ -88,6 +88,7 @@ class SpkStoneAllocationService
      *     code: string,
      *     shape: string,
      *     displayId: string|null,
+     *     certificate: string|null,
      *     diamondType: string|null,
      *     color: string|null,
      *     diamondId: int|null,
@@ -155,6 +156,7 @@ class SpkStoneAllocationService
                 'allocation.created_by',
                 'diamond.doc_no as diamond_code',
                 'diamond.doc_no as diamond_doc_no',
+                'diamond.certificate as diamond_certificate',
                 'diamond.diamond_type',
                 'diamond.color as diamond_color',
                 'diamond.crt as diamond_crt',
@@ -176,6 +178,7 @@ class SpkStoneAllocationService
      *     code: string,
      *     shape: string,
      *     displayId: string|null,
+     *     certificate: string|null,
      *     diamondType: string|null,
      *     color: string|null,
      *     diamondId: int|null,
@@ -220,6 +223,10 @@ class SpkStoneAllocationService
             ? (string) $row->diamond_color
             : null;
 
+        $certificate = $isDossier
+            ? $this->nullableString($row->diamond_certificate ?? null)
+            : null;
+
         $reservedCrt = filled($row->reserved_crt ?? null)
             ? number_format((float) $row->reserved_crt, 3, '.', '')
             : null;
@@ -235,9 +242,10 @@ class SpkStoneAllocationService
             'source' => $source,
             'sourceLabel' => $isDossier ? 'Dossier' : 'Mikro',
             'label' => $label,
-            'code' => $displayId ?? $code,
+            'code' => $isDossier ? ($displayId ?? $code) : $code,
             'shape' => $shape,
             'displayId' => $displayId,
+            'certificate' => $certificate,
             'diamondType' => $diamondType,
             'color' => $color,
             'diamondId' => $row->diamond_id !== null ? (int) $row->diamond_id : null,

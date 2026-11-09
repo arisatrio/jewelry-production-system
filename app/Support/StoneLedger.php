@@ -234,8 +234,9 @@ class StoneLedger
         int $perPage,
         string $sort = self::DEFAULT_STOCK_SORT,
         string $direction = self::DEFAULT_STOCK_DIRECTION,
+        ?int $focusStoneId = null,
     ): LengthAwarePaginator {
-        $query = $this->stockQuery($periodId, $search, $stockStatus);
+        $query = $this->stockQuery($periodId, $search, $stockStatus, $focusStoneId);
         $this->applyStockSort($query, $sort, $direction);
 
         return $query
@@ -289,9 +290,9 @@ class StoneLedger
     /**
      * @return array{pcs: string, crt: string}
      */
-    public function stockTotals(int $periodId, string $search, ?string $stockStatus): array
+    public function stockTotals(int $periodId, string $search, ?string $stockStatus, ?int $focusStoneId = null): array
     {
-        $totals = $this->stockSummaryAggregate($periodId, $search, $stockStatus);
+        $totals = $this->stockSummaryAggregate($periodId, $search, $stockStatus, $focusStoneId);
 
         return [
             'pcs' => $this->formatPcs((float) ($totals->total_pcs ?? 0)),
@@ -306,17 +307,17 @@ class StoneLedger
      *     empty: array{stoneCount: int, pcs: string, crt: string, reservedPcs: string}
      * }
      */
-    public function stockSummaries(int $periodId, string $search): array
+    public function stockSummaries(int $periodId, string $search, ?int $focusStoneId = null): array
     {
         return [
             'balance' => $this->toStockSummarySlice(
-                $this->stockSummaryAggregate($periodId, $search, null),
+                $this->stockSummaryAggregate($periodId, $search, null, $focusStoneId),
             ),
             'available' => $this->toStockSummarySlice(
-                $this->stockSummaryAggregate($periodId, $search, self::STOCK_STATUS_AVAILABLE),
+                $this->stockSummaryAggregate($periodId, $search, self::STOCK_STATUS_AVAILABLE, $focusStoneId),
             ),
             'empty' => $this->toStockSummarySlice(
-                $this->stockSummaryAggregate($periodId, $search, self::STOCK_STATUS_EMPTY),
+                $this->stockSummaryAggregate($periodId, $search, self::STOCK_STATUS_EMPTY, $focusStoneId),
             ),
         ];
     }
@@ -328,8 +329,9 @@ class StoneLedger
         int $periodId,
         string $search,
         ?string $stockStatus,
+        ?int $focusStoneId = null,
     ): ?object {
-        return $this->stockQuery($periodId, $search, $stockStatus)
+        return $this->stockQuery($periodId, $search, $stockStatus, $focusStoneId)
             ->cloneWithout(['columns', 'orders'])
             ->selectRaw(
                 'COUNT(*) as stone_count, '
@@ -562,7 +564,7 @@ class StoneLedger
             ]);
     }
 
-    private function stockQuery(int $periodId, string $search, ?string $stockStatus): Builder
+    private function stockQuery(int $periodId, string $search, ?string $stockStatus, ?int $focusStoneId = null): Builder
     {
         $reservedSubquery = $this->microReservedSubquery($periodId);
 
@@ -586,6 +588,10 @@ class StoneLedger
             ->where('stone.is_deleted', 0)
             ->whereNotNull('stone.name')
             ->where('stone.name', '!=', '')
+            ->when(
+                $focusStoneId !== null && $focusStoneId > 0,
+                fn (Builder $query) => $query->where('stone.row_id', $focusStoneId),
+            )
             ->when($stockStatus === self::STOCK_STATUS_AVAILABLE, fn (Builder $query) => $query
                 ->whereRaw('(COALESCE(stone_stock.balance_pcs, 0) - COALESCE(stone_reserved.reserved_pcs, 0)) > 0'))
             ->when($stockStatus === self::STOCK_STATUS_EMPTY, fn (Builder $query) => $query

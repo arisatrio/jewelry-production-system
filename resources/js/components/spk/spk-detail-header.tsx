@@ -34,6 +34,7 @@ import {
     SpkInformasiProduksiAsideSection,
     SpkInformasiProduksiPanel,
 } from '@/components/spk/spk-informasi-produksi-panel';
+import { SpkBatuPanel } from '@/components/spk/spk-batu-panel';
 import type { SpkApprovalFooterColumn } from '@/components/spk/spk-informasi-produksi-panel';
 import { SpkProcessPanel } from '@/components/spk/spk-process-panel';
 import { SpkProductionControlReportSection } from '@/components/spk/spk-production-control-report';
@@ -53,6 +54,8 @@ import type {
     SpkComponentItem,
     SpkChainReceiptSummary,
     SpkComponentReceiptSummary,
+    SpkDiamondSummary,
+    SpkDiamondDocumentRow,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -108,6 +111,8 @@ type SpkDetailLayoutProps = {
     receiptEmployeeOptions?: string[];
     chainReceipt?: SpkChainReceiptSummary | null;
     componentReceipt?: SpkComponentReceiptSummary | null;
+    spkDiamond?: SpkDiamondSummary | null;
+    spkDiamondDocuments?: SpkDiamondDocumentRow[];
     children?: ReactNode;
 };
 
@@ -139,6 +144,8 @@ export function SpkDetailLayout({
     receiptEmployeeOptions = [],
     chainReceipt = null,
     componentReceipt = null,
+    spkDiamond = null,
+    spkDiamondDocuments = [],
     children,
 }: SpkDetailLayoutProps) {
     const [mainSection, setMainSection] = useState<MainSectionTab>(() =>
@@ -165,6 +172,7 @@ export function SpkDetailLayout({
     );
     const mainSectionTabs: Array<{ id: MainSectionTab; label: string }> = [
         { id: 'informasi-produksi', label: 'Detail Item' },
+        { id: 'batu', label: 'Alokasi & SPK Batu' },
         { id: 'proses-produksi', label: 'Proses Produksi' },
         ...mainProcesses.map((process) => ({
             id: process.key,
@@ -176,6 +184,7 @@ export function SpkDetailLayout({
     const activeMainProcess =
         mainProcesses.find((process) => process.key === mainSection) ?? null;
     const isInformasiProduksi = mainSection === 'informasi-produksi';
+    const isBatuSection = mainSection === 'batu';
 
     const goTo = (url: string | null): void => {
         if (!url) {
@@ -516,6 +525,15 @@ export function SpkDetailLayout({
                             receiptEmployeeOptions={receiptEmployeeOptions}
                             chainReceipt={chainReceipt}
                             componentReceipt={componentReceipt}
+                        />
+                    ) : null}
+
+                    {isBatuSection ? (
+                        <SpkBatuPanel
+                            production={production}
+                            stones={stones}
+                            spkDiamond={spkDiamond}
+                            spkDiamondDocuments={spkDiamondDocuments}
                         />
                     ) : null}
 
