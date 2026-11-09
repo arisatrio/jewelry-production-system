@@ -4,6 +4,57 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
+test('module navigation is rendered inside the shell header', function () {
+    $header = file_get_contents(resource_path('js/components/fiori/app-shell-header.tsx'));
+
+    expect($header)->not->toBeFalse()
+        ->and($header)->toContain('appNav--header')
+        ->and($header)->toContain('shellHeaderMain')
+        ->and($header)->not->toContain('<nav className="appNav" aria-label="Menu modul">');
+});
+
+test('spk index toolbar links to reparasi list beside tanda terima', function () {
+    $index = file_get_contents(resource_path('js/pages/spk/index.tsx'));
+
+    expect($index)->not->toBeFalse()
+        ->and($index)->toContain('SPK Reparasi')
+        ->and($index)->toContain('reparasiIndex.url()')
+        ->and($index)->toContain('spkReceiptPrintBtn');
+});
+
+test('production process modules are grouped under produksi dropdown', function () {
+    $config = file_get_contents(resource_path('js/components/fiori/nav-config.ts'));
+
+    expect($config)->not->toBeFalse();
+
+    preg_match(
+        '/export const defaultModuleNavItems: ShellNavItem\[\] = \[(.*?)\];/s',
+        (string) $config,
+        $moduleNav,
+    );
+    preg_match(
+        '/export const defaultProduksiSubmenus: ShellNavItem\[\] = \[(.*?)\];/s',
+        (string) $config,
+        $produksi,
+    );
+    preg_match(
+        '/export const defaultPostSpkDropdowns: ShellNavDropdown\[\] = \[(.*?)\];/s',
+        (string) $config,
+        $postSpk,
+    );
+
+    $moduleBlock = $moduleNav[1] ?? '';
+    $produksiBlock = $produksi[1] ?? '';
+
+    expect($moduleBlock)->not->toContain('JewelCAD')
+        ->and($moduleBlock)->not->toContain('Poles Chrome')
+        ->and($postSpk[1] ?? '')->toContain("'produksi'")
+        ->and($postSpk[1] ?? '')->toContain("'Produksi'")
+        ->and($postSpk[1] ?? '')->toContain('defaultProduksiSubmenus')
+        ->and($produksiBlock)->toContain('jewelCadIndex.url()')
+        ->and($produksiBlock)->toContain('polesChromeIndex.url()');
+});
+
 test('modifikasi barang jadi is nested under pengerjaan lanjutan submenu', function () {
     $config = file_get_contents(resource_path('js/components/fiori/nav-config.ts'));
 
@@ -20,20 +71,20 @@ test('modifikasi barang jadi is nested under pengerjaan lanjutan submenu', funct
         $pengerjaanLanjutan,
     );
     preg_match(
-        '/export const defaultPostSpkDropdowns: ShellNavDropdown\[\] = \[(.*?)\];/s',
+        '/export const defaultTrailingDropdowns: ShellNavDropdown\[\] = \[(.*?)\];/s',
         (string) $config,
-        $postSpk,
+        $trailing,
     );
 
     expect($moduleNav[1] ?? '')->not->toContain('Modifikasi Barang Jadi')
         ->and($moduleNav[1] ?? '')->toContain("'SPK'")
-        ->and($moduleNav[1] ?? '')->toContain("'Reparasi'")
-        ->and($moduleNav[1] ?? '')->toContain('reparasiIndex.url()')
+        ->and($moduleNav[1] ?? '')->not->toContain('SPK Reparasi')
+        ->and($moduleNav[1] ?? '')->not->toContain('reparasiIndex.url()')
         ->and($pengerjaanLanjutan[1] ?? '')->toContain('Modifikasi Barang Jadi')
         ->and($pengerjaanLanjutan[1] ?? '')->not->toContain('Reparasi')
         ->and($pengerjaanLanjutan[1] ?? '')->toContain('Penambahan Chain')
-        ->and($postSpk[1] ?? '')->toContain('pengerjaan-lanjutan')
-        ->and($postSpk[1] ?? '')->toContain('defaultPengerjaanLanjutanSubmenus');
+        ->and($trailing[1] ?? '')->not->toContain('pengerjaan-lanjutan')
+        ->and($trailing[1] ?? '')->not->toContain('Pengerjaan Lanjutan');
 });
 
 test('inventory submenu lists stock and transaction items in order', function () {
@@ -69,19 +120,17 @@ test('inventory submenu lists stock and transaction items in order', function ()
         $labels[] = $label;
     }
 
-    expect($labels)->toBe([
-        'Stok Batu Dossier',
-        'Stok Batu Mikro',
-        'Pembelian Batu',
-        'Stok Bahan Emas',
-        'Stok Rantai',
-        'Stok Komponen',
-        'Transaksi Batu Dossier',
-        'Transaksi Batu Mikro',
-        'Transaksi Bahan Emas',
-        'Transaksi Rantai',
-        'Transaksi Komponen',
-    ]);
+    expect($labels)->toContain('Rangka')
+        ->and($labels)->toContain('Stok Rangka')
+        ->and($labels)->toContain('Batu')
+        ->and($labels)->toContain('Emas')
+        ->and($labels)->toContain('Rantai & Komponen');
+
+    expect($block)->toContain("text: 'Batu'")
+        ->and($block)->toContain("text: 'Emas'")
+        ->and($block)->toContain("text: 'Rantai & Komponen'")
+        ->and($block)->not->toContain('Pembelian Batu')
+        ->and($block)->not->toContain('section:');
 });
 
 test('process report pages are listed under analytics submenu', function () {

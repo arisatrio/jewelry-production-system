@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FormEvent,
+    type KeyboardEvent,
+    type ReactNode,
+} from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import employeeIcon from '@ui5/webcomponents-icons/dist/employee.js';
 import exitFullScreenIcon from '@ui5/webcomponents-icons/dist/exit-full-screen.js';
@@ -14,7 +22,6 @@ import { MenuItem } from '@ui5/webcomponents-react/MenuItem';
 import { MenuSeparator } from '@ui5/webcomponents-react/MenuSeparator';
 import { ShellBar } from '@ui5/webcomponents-react/ShellBar';
 import { ShellBarItem } from '@ui5/webcomponents-react/ShellBarItem';
-import { ShellBarSpacer } from '@ui5/webcomponents-react/ShellBarSpacer';
 import { logout } from '@/routes';
 import { edit as editProfile } from '@/routes/profile';
 import { index as spkIndex, show as spkShow } from '@/routes/spk';
@@ -92,12 +99,39 @@ function formatHeaderDate(date: Date): string {
     });
 }
 
+function flattenNavItems(items: ShellNavItem[]): ShellNavItem[] {
+    return items.flatMap((item) =>
+        item.items && item.items.length > 0
+            ? flattenNavItems(item.items)
+            : [item],
+    );
+}
+
 function findNavHref(text: string, items: ShellNavItem[]): string | undefined {
-    return items.find((item) => item.text === text)?.href;
+    return flattenNavItems(items).find((item) => item.text === text)?.href;
 }
 
 function dropdownButtonId(id: string): string {
     return `${id}-menu-btn`;
+}
+
+function renderNestedMenuItems(
+    items: ShellNavItem[],
+    keyPrefix = '',
+): ReactNode[] {
+    return items.map((item) => {
+        const itemKey = `${keyPrefix}${item.text}`;
+
+        if (item.items && item.items.length > 0) {
+            return (
+                <MenuItem key={itemKey} text={item.text}>
+                    {renderNestedMenuItems(item.items, `${itemKey}/`)}
+                </MenuItem>
+            );
+        }
+
+        return <MenuItem key={itemKey} text={item.text} />;
+    });
 }
 
 export default function AppShellHeader({
@@ -265,10 +299,10 @@ export default function AppShellHeader({
     const ignoreProfileClickRef = useRef(false);
 
     const primaryModuleNavItems = moduleNavItems.filter(
-        (item) => item.text === 'SPK' || item.text === 'Reparasi',
+        (item) => item.text === 'SPK',
     );
     const trailingModuleNavItems = moduleNavItems.filter(
-        (item) => item.text !== 'SPK' && item.text !== 'Reparasi',
+        (item) => item.text !== 'SPK',
     );
 
     useEffect(() => {
@@ -310,8 +344,8 @@ export default function AppShellHeader({
 
         onActiveMenuChange?.(text);
 
-        const dropdownItems = allDropdowns.flatMap(
-            (dropdown) => dropdown.items,
+        const dropdownItems = allDropdowns.flatMap((dropdown) =>
+            flattenNavItems(dropdown.items),
         );
 
         const href =
@@ -425,17 +459,23 @@ export default function AppShellHeader({
     };
 
     const isDropdownActive = (dropdown: ShellNavDropdown): boolean =>
-        dropdown.items.some((item) => item.text === activeMenu);
-
-    const shellTitle = pageTitle ?? activeMenu;
+        flattenNavItems(dropdown.items).some(
+            (item) => item.text === activeMenu,
+        );
 
     const allMenuItems = [
         ...primaryNavItems,
-        ...midDropdowns.flatMap((dropdown) => dropdown.items),
+        ...midDropdowns.flatMap((dropdown) =>
+            flattenNavItems(dropdown.items),
+        ),
         ...primaryModuleNavItems,
-        ...postSpkDropdowns.flatMap((dropdown) => dropdown.items),
+        ...postSpkDropdowns.flatMap((dropdown) =>
+            flattenNavItems(dropdown.items),
+        ),
         ...trailingModuleNavItems,
-        ...trailingDropdowns.flatMap((dropdown) => dropdown.items),
+        ...trailingDropdowns.flatMap((dropdown) =>
+            flattenNavItems(dropdown.items),
+        ),
     ];
 
     const renderDropdownButton = (dropdown: ShellNavDropdown) => (
@@ -471,6 +511,143 @@ export default function AppShellHeader({
         </button>
     );
 
+    const moduleNavigation = (
+        <nav className="appNav appNav--header" aria-label="Menu modul">
+            {primaryNavItems.map(renderNavLink)}
+            {midDropdowns.map(renderDropdownButton)}
+            {primaryModuleNavItems.map(renderNavLink)}
+            {postSpkDropdowns.map(renderDropdownButton)}
+            {trailingModuleNavItems.map(renderNavLink)}
+            {trailingDropdowns.map(renderDropdownButton)}
+        </nav>
+    );
+
+    const headerUtilities = (
+        <div className="shellHeaderEnd">
+            {showSearch ? (
+                <div className="shellSearchWrap" ref={searchWrapRef}>
+                    <form
+                        className="shellSearchForm"
+                        role="search"
+                        onSubmit={handleSearchSubmit}
+                    >
+                        <input
+                            className="shellSearchInput"
+                            type="search"
+                            placeholder={searchPlaceholder}
+                            value={searchQuery}
+                            autoComplete="off"
+                            aria-autocomplete="list"
+                            aria-expanded={suggestionsOpen}
+                            aria-controls="shell-spk-suggestions"
+                            onChange={(event) =>
+                                updateSearchQuery(event.target.value)
+                            }
+                            onFocus={() => {
+                                if (
+                                    searchQuery.trim().length >= 2 &&
+                                    suggestions.length > 0
+                                ) {
+                                    setSuggestionsOpen(true);
+                                }
+                            }}
+                            onKeyDown={handleSearchKeyDown}
+                            aria-label="Cari SPK"
+                        />
+                        {searchQuery ? (
+                            <button
+                                type="button"
+                                className="shellSearchClear"
+                                aria-label="Hapus pencarian"
+                                onClick={() => {
+                                    updateSearchQuery('');
+                                    setSuggestions([]);
+                                    setSuggestionsOpen(false);
+                                }}
+                            >
+                                ×
+                            </button>
+                        ) : null}
+                        <Icon
+                            className="shellSearchIcon"
+                            name={searchIcon}
+                        />
+                    </form>
+
+                    {suggestionsOpen && searchQuery.trim().length >= 2 ? (
+                        <div
+                            id="shell-spk-suggestions"
+                            className="shellSearchSuggestions"
+                            role="listbox"
+                            aria-label="Saran SPK"
+                        >
+                            {suggestionsLoading ? (
+                                <div className="shellSearchSuggestionEmpty">
+                                    Mencari SPK...
+                                </div>
+                            ) : suggestions.length === 0 ? (
+                                <div className="shellSearchSuggestionEmpty">
+                                    Tidak ada SPK yang cocok.
+                                </div>
+                            ) : (
+                                suggestions.map((suggestion, index) => (
+                                    <button
+                                        key={suggestion.rowId}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={
+                                            index === highlightedIndex
+                                        }
+                                        className={cn(
+                                            'shellSearchSuggestionItem',
+                                            index === highlightedIndex &&
+                                                'is-active',
+                                        )}
+                                        onMouseEnter={() =>
+                                            setHighlightedIndex(index)
+                                        }
+                                        onClick={() =>
+                                            visitSpkSuggestion(suggestion)
+                                        }
+                                    >
+                                        <span className="shellSearchSuggestionPrimary">
+                                            {suggestion.spkNo}
+                                        </span>
+                                        <span className="shellSearchSuggestionSecondary">
+                                            {[
+                                                suggestion.item,
+                                                suggestion.customer,
+                                                suggestion.lastProcess,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · ') || '—'}
+                                        </span>
+                                    </button>
+                                ))
+                            )}
+
+                            <button
+                                type="button"
+                                className="shellSearchSuggestionFooter"
+                                onClick={() =>
+                                    visitSpkIndexSearch(searchQuery.trim())
+                                }
+                            >
+                                Lihat semua hasil pencarian
+                            </button>
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
+            <div className="shellUserMeta">
+                <span className="shellDate">{formattedDate}</span>
+                <span className="shellGreeting">
+                    {greeting}, {userName}
+                </span>
+            </div>
+        </div>
+    );
+
     return (
         <>
             <div className="shellHeaderWrap">
@@ -498,165 +675,12 @@ export default function AppShellHeader({
                                     {brandText}
                                 </span>
                             </div>
-                            <span
-                                className="shellBrandDivider"
-                                aria-hidden="true"
-                            />
-                            <span className="shellPageTitle">{shellTitle}</span>
                         </div>
                     }
                     content={
-                        <>
-                            {showSearch ? (
-                                <div
-                                    className="shellSearchWrap"
-                                    ref={searchWrapRef}
-                                >
-                                    <form
-                                        className="shellSearchForm"
-                                        role="search"
-                                        onSubmit={handleSearchSubmit}
-                                    >
-                                        <input
-                                            className="shellSearchInput"
-                                            type="search"
-                                            placeholder={searchPlaceholder}
-                                            value={searchQuery}
-                                            autoComplete="off"
-                                            aria-autocomplete="list"
-                                            aria-expanded={suggestionsOpen}
-                                            aria-controls="shell-spk-suggestions"
-                                            onChange={(event) =>
-                                                updateSearchQuery(
-                                                    event.target.value,
-                                                )
-                                            }
-                                            onFocus={() => {
-                                                if (
-                                                    searchQuery.trim().length >=
-                                                        2 &&
-                                                    suggestions.length > 0
-                                                ) {
-                                                    setSuggestionsOpen(true);
-                                                }
-                                            }}
-                                            onKeyDown={handleSearchKeyDown}
-                                            aria-label="Cari SPK"
-                                        />
-                                        {searchQuery ? (
-                                            <button
-                                                type="button"
-                                                className="shellSearchClear"
-                                                aria-label="Hapus pencarian"
-                                                onClick={() => {
-                                                    updateSearchQuery('');
-                                                    setSuggestions([]);
-                                                    setSuggestionsOpen(false);
-                                                }}
-                                            >
-                                                ×
-                                            </button>
-                                        ) : null}
-                                        <Icon
-                                            className="shellSearchIcon"
-                                            name={searchIcon}
-                                        />
-                                    </form>
-
-                                    {suggestionsOpen &&
-                                    searchQuery.trim().length >= 2 ? (
-                                        <div
-                                            id="shell-spk-suggestions"
-                                            className="shellSearchSuggestions"
-                                            role="listbox"
-                                            aria-label="Saran SPK"
-                                        >
-                                            {suggestionsLoading ? (
-                                                <div className="shellSearchSuggestionEmpty">
-                                                    Mencari SPK...
-                                                </div>
-                                            ) : suggestions.length === 0 ? (
-                                                <div className="shellSearchSuggestionEmpty">
-                                                    Tidak ada SPK yang cocok.
-                                                </div>
-                                            ) : (
-                                                suggestions.map(
-                                                    (suggestion, index) => (
-                                                        <button
-                                                            key={
-                                                                suggestion.rowId
-                                                            }
-                                                            type="button"
-                                                            role="option"
-                                                            aria-selected={
-                                                                index ===
-                                                                highlightedIndex
-                                                            }
-                                                            className={cn(
-                                                                'shellSearchSuggestionItem',
-                                                                index ===
-                                                                    highlightedIndex &&
-                                                                    'is-active',
-                                                            )}
-                                                            onMouseEnter={() =>
-                                                                setHighlightedIndex(
-                                                                    index,
-                                                                )
-                                                            }
-                                                            onClick={() =>
-                                                                visitSpkSuggestion(
-                                                                    suggestion,
-                                                                )
-                                                            }
-                                                        >
-                                                            <span className="shellSearchSuggestionPrimary">
-                                                                {
-                                                                    suggestion.spkNo
-                                                                }
-                                                            </span>
-                                                            <span className="shellSearchSuggestionSecondary">
-                                                                {[
-                                                                    suggestion.item,
-                                                                    suggestion.customer,
-                                                                    suggestion.lastProcess,
-                                                                ]
-                                                                    .filter(
-                                                                        Boolean,
-                                                                    )
-                                                                    .join(
-                                                                        ' · ',
-                                                                    ) || '—'}
-                                                            </span>
-                                                        </button>
-                                                    ),
-                                                )
-                                            )}
-
-                                            <button
-                                                type="button"
-                                                className="shellSearchSuggestionFooter"
-                                                onClick={() =>
-                                                    visitSpkIndexSearch(
-                                                        searchQuery.trim(),
-                                                    )
-                                                }
-                                            >
-                                                Lihat semua hasil pencarian
-                                            </button>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            ) : null}
-                            <ShellBarSpacer />
-                            <div className="shellUserMeta">
-                                <span className="shellDate">
-                                    {formattedDate}
-                                </span>
-                                <span className="shellGreeting">
-                                    {greeting}, {userName}
-                                </span>
-                            </div>
-                        </>
+                        <div className="shellHeaderMain">
+                            {moduleNavigation}
+                        </div>
                     }
                     profile={
                         <Avatar
@@ -705,6 +729,7 @@ export default function AppShellHeader({
                         }}
                     />
                 </ShellBar>
+                {headerUtilities}
                 {PROFILE_SETTINGS_LINKS_ENABLED ? (
                     <Link
                         href={resolvedSettingsHref}
@@ -726,14 +751,6 @@ export default function AppShellHeader({
                     </button>
                 )}
             </div>
-            <nav className="appNav" aria-label="Menu modul">
-                {primaryNavItems.map(renderNavLink)}
-                {midDropdowns.map(renderDropdownButton)}
-                {primaryModuleNavItems.map(renderNavLink)}
-                {postSpkDropdowns.map(renderDropdownButton)}
-                {trailingModuleNavItems.map(renderNavLink)}
-                {trailingDropdowns.map(renderDropdownButton)}
-            </nav>
             {allDropdowns.map((dropdown) => (
                 <Menu
                     key={dropdown.id}
@@ -749,9 +766,7 @@ export default function AppShellHeader({
                         setOpenDropdownId(null);
                     }}
                 >
-                    {dropdown.items.map((item) => (
-                        <MenuItem key={item.text} text={item.text} />
-                    ))}
+                    {renderNestedMenuItems(dropdown.items)}
                 </Menu>
             ))}
             <Menu

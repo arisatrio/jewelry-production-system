@@ -33,6 +33,7 @@ use App\Http\Controllers\SpkComponentStockController;
 use App\Http\Controllers\SpkProcessSlaController;
 use App\Http\Controllers\SpkStonePurchaseController;
 use App\Http\Controllers\SpkStoneStockController;
+use App\Http\Controllers\StokRangkaController;
 use App\Http\Controllers\StoneTransactionController;
 use App\Http\Controllers\TrxChainController;
 use App\Http\Controllers\TrxComponentController;
@@ -417,6 +418,8 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])
             ->name('gold-material-transactions.index');
+        Route::get('transaksi-bahan-emas/export', [GoldMaterialTransactionController::class, 'export'])
+            ->name('gold-material-transactions.export');
         Route::post('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'store'])
             ->name('gold-material-transactions.store');
 
@@ -460,6 +463,12 @@ Route::middleware(['auth'])->group(function () {
             ->name('stone-transactions.index');
         Route::post('transaksi-batu', [StoneTransactionController::class, 'store'])
             ->name('stone-transactions.store');
+
+        Route::get('stok-rangka', [StokRangkaController::class, 'index'])
+            ->name('frame-stocks.index');
+        Route::get('stok-rangka/{stokRangka}', [StokRangkaController::class, 'show'])
+            ->whereNumber('stokRangka')
+            ->name('frame-stocks.show');
     });
 
     Route::prefix('master-data')->name('master-data.')->group(function () {

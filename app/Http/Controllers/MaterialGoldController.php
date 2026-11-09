@@ -109,7 +109,17 @@ class MaterialGoldController extends Controller
                     'per_page' => $perPage,
                     'total' => 0,
                 ]
-                : $ledger->paginate($activePeriod['id'], '', null, null, $perPage, $materialId),
+                : $ledger->paginate(
+                    $activePeriod['id'],
+                    '',
+                    null,
+                    null,
+                    null,
+                    $perPage,
+                    GoldMaterialLedger::DEFAULT_TRANSACTION_SORT,
+                    GoldMaterialLedger::DEFAULT_TRANSACTION_DIRECTION,
+                    $materialId,
+                ),
             'filters' => [
                 'per_page' => $perPage,
             ],

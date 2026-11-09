@@ -9,6 +9,7 @@ import retailStoreIcon from '@ui5/webcomponents-icons/dist/retail-store.js';
 import salesOrderIcon from '@ui5/webcomponents-icons/dist/sales-order.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
+import wrenchIcon from '@ui5/webcomponents-icons/dist/wrench.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
@@ -1322,6 +1323,21 @@ export default function SpkIndex({
                                                 {selectedIds.length}
                                             </span>
                                         ) : null}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="spkReceiptPrintBtn"
+                                        aria-label="Buka daftar SPK Reparasi"
+                                        title="Buka daftar SPK Reparasi"
+                                        onClick={() =>
+                                            router.visit(reparasiIndex.url())
+                                        }
+                                    >
+                                        <Icon
+                                            name={wrenchIcon}
+                                            mode="Decorative"
+                                        />
+                                        <span>SPK Reparasi</span>
                                     </button>
                                     <button
                                         type="button"

@@ -8,6 +8,6 @@ export default function ReparasiIndex(props: ReparasiIndexProps) {
 }
 
 ReparasiIndex.layout = {
-    activeMenu: 'Reparasi',
+    activeMenu: 'SPK Reparasi',
     pageTitle: 'Reparasi',
 };
