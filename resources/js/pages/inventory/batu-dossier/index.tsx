@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
+import barChartIcon from '@ui5/webcomponents-icons/dist/bar-chart.js';
 import excelAttachmentIcon from '@ui5/webcomponents-icons/dist/excel-attachment.js';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
@@ -23,7 +24,12 @@ import {
 } from '@/pages/inventory/batu-dossier/diamond-dossier-form-dialog';
 import { DiamondDossierImportDialog } from '@/pages/inventory/batu-dossier/diamond-dossier-import-dialog';
 import type { DossierFormValues, DossierShapeOption } from '@/pages/inventory/batu-dossier/dossier-form-fields';
-import { index, bulkDestroy, show as diamondDossierShow } from '@/routes/inventory/diamond-dossiers';
+import {
+    index,
+    bulkDestroy,
+    show as diamondDossierShow,
+    stockReport as diamondDossierStockReport,
+} from '@/routes/inventory/diamond-dossiers';
 import { index as diamondDossierTransactionsIndex } from '@/routes/inventory/diamond-dossier-transactions';
 import { show as pasangBatuShow } from '@/routes/pasang-batu';
 import { show as spkShow } from '@/routes/spk';
@@ -1190,6 +1196,22 @@ export default function DiamondDossierIndex({
                             >
                                 <Icon name={listIcon} mode="Decorative" />
                                 <span>Log Transaksi</span>
+                            </button>
+                            <button
+                                type="button"
+                                className="spkCreateBtn spkCreateBtn--outline"
+                                aria-label="Laporan stok batu dossier"
+                                onClick={() =>
+                                    router.visit(
+                                        diamondDossierStockReport.url(),
+                                    )
+                                }
+                            >
+                                <Icon
+                                    name={barChartIcon}
+                                    mode="Decorative"
+                                />
+                                <span>Laporan Stok</span>
                             </button>
                             <button
                                 type="button"

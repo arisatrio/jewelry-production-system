@@ -2535,6 +2535,318 @@
     }
 }
 
+.spkTableShell:has(.spkTableScroll--dossierStockReport) {
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 0;
+}
+
+.spkTableShell:has(.spkTableScroll--dossierStockReport) > .spkTableCard {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.spkTableCard:has(> .spkTableScroll--dossierStockReport) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.spkTableCard:has(> .spkTableScroll--dossierStockReport) > .spkTableToolbar,
+.spkTableCard:has(> .spkTableScroll--dossierStockReport) > .spkActiveFilterBar,
+.spkTableCard:has(> .spkTableScroll--dossierStockReport) > .spkPlaceholderPanel {
+    flex-shrink: 0;
+}
+
+.spkTableCard:has(> .spkTableScroll--dossierStockReport)
+    > .spkTableScroll--dossierStockReport {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.spkTableScroll--dossierStockReport {
+    padding: 0.75rem 1rem 1rem;
+    width: 100%;
+    margin-top: 0.35rem;
+}
+
+.spkDossierStockReportGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+}
+
+@media (max-width: 1100px) {
+    .spkDossierStockReportGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .spkDossierStockReportGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.spkDossierStockReportShapeCard {
+    min-width: 0;
+    border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--sapGroup_ContentBackground, #fff);
+    box-shadow: 0 0 0.125rem 0 rgb(34 53 72 / 12%);
+}
+
+.spkDossierStockReportShapeTitle {
+    margin: 0;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--sapGroup_TitleTextColor, #131e29);
+    border-bottom: 1px solid var(--sapList_HeaderBorderColor, #a8b2bd);
+    background: var(--sapList_TableGroupHeaderBackground, #f5f6f7);
+}
+
+.spkDossierStockReportGrandTotalWrap {
+    margin-top: 0.85rem;
+    width: 100%;
+}
+
+.spkDossierStockReportTable.spkTable {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+    font-size: 0.8125rem;
+}
+
+.spkDossierStockReportTable--grandTotal.spkTable {
+    width: 100%;
+    border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.spkDossierStockReportTable--grandTotal .spkDossierStockReportGrandTotalLabel {
+    width: 24%;
+    padding: 0.55rem 0.5rem;
+    text-align: left;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+}
+
+.spkDossierStockReportTable--grandTotal th.spkDossierStockReportMetricCol,
+.spkDossierStockReportTable--grandTotal td.spkDossierStockReportMetricCol {
+    width: calc(76% / 3);
+    min-width: 0;
+    max-width: none;
+    padding-block: 0.45rem;
+}
+
+.spkDossierStockReportTable th,
+.spkDossierStockReportTable td {
+    padding: 0.3rem 0.4rem;
+    line-height: 1.25;
+}
+
+.spkTableScroll--finishing .spkDossierStockReportTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-block: 0.4rem;
+    font-size: 0.75rem;
+    vertical-align: bottom;
+    background: var(--sapList_HeaderBackground, #f7f8f9);
+    color: var(--sapList_HeaderTextColor, #131e29);
+    font-weight: 600;
+    box-shadow: inset 0 -1px 0 var(--sapList_HeaderBorderColor, #a8b2bd);
+}
+
+.spkDossierStockReportColHead {
+    color: var(--sapList_HeaderTextColor, #131e29);
+}
+
+.spkDossierStockReportColHeadSub {
+    color: var(--sapContent_LabelColor, #6a6d70);
+}
+
+.spkDossierStockReportColCrt {
+    width: 24%;
+    max-width: 4.75rem;
+    padding-inline: 0.25rem;
+}
+
+.spkDossierStockReportCrtRange {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+
+.spkDossierStockReportColHead {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+.spkDossierStockReportColHeadSub {
+    display: block;
+    margin-top: 0.1rem;
+    font-size: 0.625rem;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
+.spkDossierStockReportTable th.spkDossierStockReportMetricCol,
+.spkDossierStockReportTable td.spkDossierStockReportMetricCol {
+    width: 3.5rem;
+    min-width: 3.5rem;
+    max-width: 3.75rem;
+    padding-inline: 0.25rem;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.spkDossierStockReportSubtotalLabel,
+.spkDossierStockReportGrandTotalLabel {
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.spkDossierStockReportTable--grandTotal
+    .spkDossierStockReportGrandTotal
+    td {
+    background: var(--sapList_TableGroupHeaderBackground, #f5f6f7);
+    vertical-align: middle;
+}
+
+.spkDossierStockReportShapeCard .spkDossierStockReportTable tbody tr {
+    background: var(--sapList_Background, #fff);
+}
+
+.spkDossierStockReportShapeCard .spkDossierStockReportTable tbody tr:hover {
+    background: var(--sapList_Hover_Background, #e8f2fc);
+}
+
+.spkDossierStockReportShapeCard
+    .spkDossierStockReportTable
+    tbody
+    tr.spkDossierStockReportRow--empty {
+    background: var(--sapErrorBackground, #ffeaf4);
+}
+
+.spkDossierStockReportShapeCard
+    .spkDossierStockReportTable
+    tbody
+    tr.spkDossierStockReportRow--empty:hover {
+    background: #ffd6e8;
+}
+
+.spkDossierStockReportRow--empty .spkDossierStockReportCrtRange,
+.spkDossierStockReportRow--empty .spkDossierStockMetricEmpty {
+    color: var(--sapNegativeTextColor, #bb0000);
+    font-weight: 600;
+}
+
+.spkDossierStockReportTable .spkDossierStockMetricCell {
+    gap: 0.2rem;
+    width: 100%;
+    justify-content: center;
+}
+
+.spkDossierStockReportTable .spkDossierStockMetricCell--empty {
+    min-height: 1.5rem;
+}
+
+.spkDossierStockReportTable .spkDossierStockMetricEmpty {
+    color: var(--sapContent_LabelColor, #6a6d70);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.spkDossierStockReportTable .spkDossierStockMetricCount {
+    min-width: 1.125rem;
+    font-size: 0.8125rem;
+}
+
+.spkDossierStockReportTable .spkRowActionBtn {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.3125rem;
+}
+
+.spkDossierStockReportTable .spkRowActionBtn ui5-icon {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.spkDossierStockReportShapeCard.spkDossierStockReportShapeBand--0 {
+    border-left: 0.1875rem solid var(--sapAccentColor1, #0070f2);
+}
+
+.spkDossierStockReportShapeCard.spkDossierStockReportShapeBand--1 {
+    border-left: 0.1875rem solid var(--sapAccentColor2, #1d2d3e);
+}
+
+.spkDossierStockReportShapeCard.spkDossierStockReportShapeBand--2 {
+    border-left: 0.1875rem solid var(--sapAccentColor3, #aa0808);
+}
+
+.spkDossierStockReportShapeCard.spkDossierStockReportShapeBand--3 {
+    border-left: 0.1875rem solid var(--sapAccentColor4, #e9730c);
+}
+
+.spkDossierStockReportShapeCard.spkDossierStockReportShapeBand--4 {
+    border-left: 0.1875rem solid var(--sapAccentColor5, #5c3582);
+}
+
+.spkDossierStockReportShapeCard.spkDossierStockReportShapeBand--5 {
+    border-left: 0.1875rem solid var(--sapAccentColor6, #0373a0);
+}
+
+.spkDossierStockReportShapeCard
+    .spkDossierStockReportTable
+    tbody
+    tr.spkDossierStockReportShapeSubtotal
+    td {
+    border-top: 1px solid rgb(15 23 42 / 12%);
+}
+
+.spkDossierStockMetricCell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.spkDossierStockMetricCount {
+    min-width: 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.2;
+}
+
+.spkRowActionBtn--list {
+    color: var(--sapButton_TextColor, #0064d9);
+}
+
+.spkRowActionBtn--list:hover:not(:disabled) {
+    border-color: #93c5fd;
+    background: #e8f2fc;
+    color: #0054b4;
+}
+
 .spkAlertModal {
     max-width: min(52rem, calc(100vw - 2rem)) !important;
 }
@@ -7353,6 +7665,35 @@ button.spkItemImagePreview--clickable:focus-visible {
 .spkBatuPanelSectionHeader .spkFioriDetailBlockTitle {
     margin: 0;
     font-size: 0.95rem;
+}
+
+.spkBatuPanelSectionHeaderEnd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 0.35rem 0.75rem;
+}
+
+.spkBatuPanelSectionStockLinks {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.5rem;
+    font-size: 0.8125rem;
+}
+
+.spkBatuPanelSectionStockLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.spkBatuPanelSectionStockLink ui5-icon {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
+    color: currentColor;
 }
 
 .spkSpkBatuDocHeader {

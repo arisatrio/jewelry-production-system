@@ -450,6 +450,12 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('batu-dossier', [DiamondDossierController::class, 'index'])
             ->name('diamond-dossiers.index');
+        Route::get('batu-dossier/laporan-stok', [DiamondDossierController::class, 'stockReport'])
+            ->name('diamond-dossiers.stock-report');
+        Route::get('batu-dossier/laporan-stok/export', [DiamondDossierController::class, 'stockReportExport'])
+            ->name('diamond-dossiers.stock-report-export');
+        Route::get('batu-dossier/laporan-stok/diamonds', [DiamondDossierController::class, 'stockReportDiamonds'])
+            ->name('diamond-dossiers.stock-report-diamonds');
         Route::post('batu-dossier', [DiamondDossierController::class, 'store'])
             ->name('diamond-dossiers.store');
         Route::get('batu-dossier/import/template', [DiamondDossierController::class, 'importTemplate'])

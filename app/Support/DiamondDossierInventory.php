@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\DiamondCrtMatrix;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,8 @@ class DiamondDossierInventory
     public const STATUS_RESERVED = 'reserved';
 
     public const STATUS_USED = 'used';
+
+    public const STATUS_ACTUAL_AVAILABLE = 'actual_available';
 
     public const DEFAULT_LOCATION = 'Head Office';
 
@@ -1074,6 +1077,8 @@ class DiamondDossierInventory
                 ->where(fn (Builder $innerQuery) => $this->whereAvailable($innerQuery)))
             ->when($status === self::STATUS_USED, fn (Builder $builder) => $builder
                 ->where('diamond.is_used', 1))
+            ->when($status === self::STATUS_ACTUAL_AVAILABLE, fn (Builder $builder) => $builder
+                ->where('diamond.is_used', 0))
             ->when(filled($diamondType), fn (Builder $builder): Builder => $builder
                 ->where('diamond.diamond_type', $diamondType))
             ->when($shapeId !== null && $shapeId > 0, fn (Builder $builder): Builder => $builder
@@ -1131,6 +1136,382 @@ class DiamondDossierInventory
         }
 
         return $query->select($select);
+    }
+
+    /**
+     * @return list<array<string, int|string|null>>
+     */
+    public function listForMatrixCell(
+        ?int $shapeId,
+        ?string $crtMin,
+        ?string $crtMax,
+        ?string $status = null,
+        ?string $diamondType = null,
+    ): array {
+        if (! Schema::connection('third')->hasTable('trdiamond')) {
+            return [];
+        }
+
+        $query = $this->filteredQuery(
+            '',
+            $status,
+            $diamondType,
+            $shapeId !== null && $shapeId > 0 ? $shapeId : null,
+            null,
+        );
+
+        if ($crtMin !== null && $crtMax !== null) {
+            $query->whereBetween('diamond.crt', [$crtMin, $crtMax]);
+        }
+
+        return array_values($query
+            ->orderBy('diamond.crt')
+            ->orderByDesc('diamond.row_id')
+            ->get()
+            ->map(fn (object $diamond): array => $this->toRow($diamond))
+            ->all());
+    }
+
+    /**
+     * @return list<array{
+     *     id: int,
+     *     code: string|null,
+     *     diamondType: string|null,
+     *     shape: string|null,
+     *     color: string|null,
+     *     crt: string|null,
+     *     certificate: string|null,
+     *     supplier: string|null,
+     *     entryDate: string|null,
+     *     outDate: string|null,
+     *     status: string,
+     *     reservedSpkNo: string|null,
+     *     spkNo: string|null,
+     *     mountingDocumentNo: string|null,
+     *     mountingDocumentId: int|null,
+     *     createdBy: string|null,
+     *     createdDate: string|null,
+     *     modifiedBy: string|null,
+     *     modifiedDate: string|null
+     * }>
+     */
+    public function listForStockReportShapeExport(
+        ?string $status,
+        ?string $diamondType,
+        int $shapeId,
+    ): array {
+        if (! Schema::connection('third')->hasTable('trdiamond') || $shapeId <= 0) {
+            return [];
+        }
+
+        $query = $this->filteredQuery('', $status, $diamondType, $shapeId, null);
+        $this->applyIndexSort($query, 'entry_date', 'desc');
+
+        return $query
+            ->get()
+            ->map(fn (object $diamond): array => $this->toRow($diamond))
+            ->all();
+    }
+
+    public static function inventoryStatusLabel(string $status, ?string $reservedSpkNo): string
+    {
+        if ($status === self::STATUS_USED) {
+            return 'Terpakai';
+        }
+
+        if ($status === self::STATUS_RESERVED) {
+            return filled($reservedSpkNo)
+                ? 'Reserved ('.$reservedSpkNo.')'
+                : 'Reserved';
+        }
+
+        return 'Tersedia';
+    }
+
+    /**
+     * Rekap stok batu dossier per sel matrix CRT (per shape dan range).
+     *
+     * @return array{
+     *     sections: list<array{
+     *         shapeId: int,
+     *         shapeLabel: string,
+     *         shapeCode: string|null,
+     *         rows: list<array{
+     *             rangeNo: int,
+     *             crtMin: string,
+     *             crtMax: string,
+     *             available: array{pcs: int, crt: string},
+     *             reserved: array{pcs: int, crt: string},
+     *             used: array{pcs: int, crt: string},
+     *             total: array{pcs: int, crt: string},
+     *         }>,
+     *         totals: array{
+     *             available: array{pcs: int, crt: string},
+     *             reserved: array{pcs: int, crt: string},
+     *             used: array{pcs: int, crt: string},
+     *             total: array{pcs: int, crt: string},
+     *         },
+     *     }>,
+     *     grandTotals: array{
+     *         available: array{pcs: int, crt: string},
+     *         reserved: array{pcs: int, crt: string},
+     *         used: array{pcs: int, crt: string},
+     *         total: array{pcs: int, crt: string},
+     *     },
+     *     unmapped: array{pcs: int, crt: string},
+     * }
+     */
+    public function matrixStockReport(?string $status = null, ?string $diamondType = null): array
+    {
+        $emptyMetric = static fn (): array => ['pcs' => 0, 'crt' => '0.000'];
+
+        if (! Schema::connection('third')->hasTable('diamond_crt_matrix')
+            || ! Schema::connection('third')->hasTable('trdiamond')) {
+            return [
+                'sections' => [],
+                'grandTotals' => [
+                    'available' => $emptyMetric(),
+                    'reserved' => $emptyMetric(),
+                    'used' => $emptyMetric(),
+                    'actualAvailable' => $emptyMetric(),
+                    'total' => $emptyMetric(),
+                ],
+                'unmapped' => $emptyMetric(),
+            ];
+        }
+
+        /** @var array<string, array{
+         *     shapeId: int,
+         *     crtMin: string,
+         *     crtMax: string,
+         *     sortOrder: int,
+         *     available: array{pcs: int, crt: float},
+         *     reserved: array{pcs: int, crt: float},
+         *     used: array{pcs: int, crt: float},
+         * }> $cells
+         */
+        $cells = [];
+
+        $matrixRows = DiamondCrtMatrix::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($matrixRows as $range) {
+            $key = $this->matrixCellKey($range->shape_id, (string) $range->crt_min, (string) $range->crt_max);
+            $cells[$key] = [
+                'shapeId' => $range->shape_id,
+                'crtMin' => number_format((float) $range->crt_min, 3, '.', ''),
+                'crtMax' => number_format((float) $range->crt_max, 3, '.', ''),
+                'sortOrder' => $range->sort_order,
+                'available' => ['pcs' => 0, 'crt' => 0.0],
+                'reserved' => ['pcs' => 0, 'crt' => 0.0],
+                'used' => ['pcs' => 0, 'crt' => 0.0],
+            ];
+        }
+
+        $unmapped = ['pcs' => 0, 'crt' => 0.0];
+
+        foreach ($this->filteredQuery('', null, $diamondType, null, null)->get() as $diamond) {
+            $inventoryStatus = $this->resolveInventoryStatus($diamond);
+
+            if ($status !== null && $inventoryStatus !== $status) {
+                continue;
+            }
+
+            $shapeId = filled($diamond->shape_id ?? null) ? (int) $diamond->shape_id : 0;
+            $crt = (float) ($diamond->crt ?? 0);
+
+            if ($shapeId <= 0) {
+                $unmapped['pcs']++;
+                $unmapped['crt'] += $crt;
+
+                continue;
+            }
+
+            $cellKey = $this->matchingMatrixCellKey($cells, $shapeId, $crt);
+
+            if ($cellKey === null) {
+                $unmapped['pcs']++;
+                $unmapped['crt'] += $crt;
+
+                continue;
+            }
+
+            $cells[$cellKey][$inventoryStatus]['pcs']++;
+            $cells[$cellKey][$inventoryStatus]['crt'] += $crt;
+        }
+
+        $shapeIds = array_values(array_unique(array_map(
+            fn (array $cell): int => $cell['shapeId'],
+            $cells,
+        )));
+
+        $shapesById = $shapeIds === []
+            ? collect()
+            : DB::connection('third')
+                ->table('msshape')
+                ->whereIn('row_id', $shapeIds)
+                ->get(['row_id', 'name', 'code'])
+                ->keyBy('row_id');
+
+        $sections = [];
+        $sectionIndex = [];
+
+        foreach ($cells as $cell) {
+            $shapeId = $cell['shapeId'];
+
+            if (! isset($sectionIndex[$shapeId])) {
+                $shape = $shapesById->get($shapeId);
+                $sectionIndex[$shapeId] = count($sections);
+                $sections[] = [
+                    'shapeId' => $shapeId,
+                    'shapeLabel' => self::formatShapeLabel(
+                        $shape ? $this->nullableString($shape->name) : null,
+                        $shape ? $this->nullableString($shape->code) : null,
+                    ),
+                    'shapeCode' => $shape ? $this->nullableString($shape->code) : null,
+                    'rows' => [],
+                    'totals' => [
+                        'available' => ['pcs' => 0, 'crt' => 0.0],
+                        'reserved' => ['pcs' => 0, 'crt' => 0.0],
+                        'used' => ['pcs' => 0, 'crt' => 0.0],
+                        'actualAvailable' => ['pcs' => 0, 'crt' => 0.0],
+                        'total' => ['pcs' => 0, 'crt' => 0.0],
+                    ],
+                ];
+            }
+
+            $available = $cell['available'];
+            $reserved = $cell['reserved'];
+            $used = $cell['used'];
+            $actualAvailablePcs = $available['pcs'] + $reserved['pcs'];
+            $actualAvailableCrt = $available['crt'] + $reserved['crt'];
+            $totalPcs = $available['pcs'] + $reserved['pcs'] + $used['pcs'];
+            $totalCrt = $available['crt'] + $reserved['crt'] + $used['crt'];
+
+            $sectionKey = $sectionIndex[$shapeId];
+            $rangeNo = count($sections[$sectionKey]['rows']) + 1;
+
+            $sections[$sectionKey]['rows'][] = [
+                'rangeNo' => $rangeNo,
+                'crtMin' => $cell['crtMin'],
+                'crtMax' => $cell['crtMax'],
+                'available' => [
+                    'pcs' => $available['pcs'],
+                    'crt' => $this->formatMatrixCrtTotal($available['crt']),
+                ],
+                'reserved' => [
+                    'pcs' => $reserved['pcs'],
+                    'crt' => $this->formatMatrixCrtTotal($reserved['crt']),
+                ],
+                'used' => [
+                    'pcs' => $used['pcs'],
+                    'crt' => $this->formatMatrixCrtTotal($used['crt']),
+                ],
+                'actualAvailable' => [
+                    'pcs' => $actualAvailablePcs,
+                    'crt' => $this->formatMatrixCrtTotal($actualAvailableCrt),
+                ],
+                'total' => [
+                    'pcs' => $totalPcs,
+                    'crt' => $this->formatMatrixCrtTotal($totalCrt),
+                ],
+            ];
+
+            foreach (['available', 'reserved', 'used', 'actualAvailable', 'total'] as $bucket) {
+                if ($bucket === 'actualAvailable') {
+                    $sections[$sectionKey]['totals']['actualAvailable']['pcs'] += $actualAvailablePcs;
+                    $sections[$sectionKey]['totals']['actualAvailable']['crt'] += $actualAvailableCrt;
+
+                    continue;
+                }
+
+                if ($bucket === 'total') {
+                    $sections[$sectionKey]['totals'][$bucket]['pcs'] += $totalPcs;
+                    $sections[$sectionKey]['totals'][$bucket]['crt'] += $totalCrt;
+
+                    continue;
+                }
+
+                $sections[$sectionKey]['totals'][$bucket]['pcs'] += $cell[$bucket]['pcs'];
+                $sections[$sectionKey]['totals'][$bucket]['crt'] += $cell[$bucket]['crt'];
+            }
+        }
+
+        $grandTotals = [
+            'available' => ['pcs' => 0, 'crt' => 0.0],
+            'reserved' => ['pcs' => 0, 'crt' => 0.0],
+            'used' => ['pcs' => 0, 'crt' => 0.0],
+            'actualAvailable' => ['pcs' => 0, 'crt' => 0.0],
+            'total' => ['pcs' => 0, 'crt' => 0.0],
+        ];
+
+        foreach ($sections as $sectionIndex => $section) {
+            foreach (['available', 'reserved', 'used', 'actualAvailable', 'total'] as $bucket) {
+                $grandTotals[$bucket]['pcs'] += $section['totals'][$bucket]['pcs'];
+                $grandTotals[$bucket]['crt'] += $section['totals'][$bucket]['crt'];
+                $sections[$sectionIndex]['totals'][$bucket] = [
+                    'pcs' => $section['totals'][$bucket]['pcs'],
+                    'crt' => $this->formatMatrixCrtTotal($section['totals'][$bucket]['crt']),
+                ];
+            }
+        }
+
+        foreach (['available', 'reserved', 'used', 'actualAvailable', 'total'] as $bucket) {
+            $grandTotals[$bucket] = [
+                'pcs' => $grandTotals[$bucket]['pcs'],
+                'crt' => $this->formatMatrixCrtTotal($grandTotals[$bucket]['crt']),
+            ];
+        }
+
+        return [
+            'sections' => array_values($sections),
+            'grandTotals' => $grandTotals,
+            'unmapped' => [
+                'pcs' => $unmapped['pcs'],
+                'crt' => $this->formatMatrixCrtTotal($unmapped['crt']),
+            ],
+        ];
+    }
+
+    private function matrixCellKey(int $shapeId, string $crtMin, string $crtMax): string
+    {
+        return $shapeId.'|'.$crtMin.'|'.$crtMax;
+    }
+
+    /**
+     * @param  array<string, array{shapeId: int, crtMin: string, crtMax: string, sortOrder: int}>  $cells
+     */
+    private function matchingMatrixCellKey(array $cells, int $shapeId, float $crt): ?string
+    {
+        $bestKey = null;
+        $bestSort = PHP_INT_MAX;
+
+        foreach ($cells as $key => $cell) {
+            if ($cell['shapeId'] !== $shapeId) {
+                continue;
+            }
+
+            $min = (float) $cell['crtMin'];
+            $max = (float) $cell['crtMax'];
+
+            if ($crt < $min || $crt > $max) {
+                continue;
+            }
+
+            if ($cell['sortOrder'] < $bestSort) {
+                $bestSort = $cell['sortOrder'];
+                $bestKey = $key;
+            }
+        }
+
+        return $bestKey;
+    }
+
+    private function formatMatrixCrtTotal(float $value): string
+    {
+        return number_format($value, 3, '.', '');
     }
 
     private function nullableString(mixed $value): ?string

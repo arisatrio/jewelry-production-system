@@ -1,3 +1,4 @@
+import chainLinkIcon from '@ui5/webcomponents-icons/dist/chain-link.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import addIcon from '@ui5/webcomponents-icons/dist/add.js';
 import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
@@ -43,6 +44,8 @@ import type {
     SpkDiamondSummary,
     SpkDiamondDocumentRow,
 } from '@/components/spk/types';
+import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
+import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
 import { fulfillment as advanceStoneFulfillment } from '@/routes/spk/stones';
 import { revoke as revokeStoneAllocationItem } from '@/routes/spk/stones/allocations/items';
 import { show as spkDiamondShow } from '@/routes/spk-diamond';
@@ -1376,11 +1379,38 @@ export function SpkStoneListCard({
                         <h3 className="spkFioriDetailBlockTitle">
                             Alokasi batu
                         </h3>
-                        <Text className="spkFioriDetailBlockMeta">
-                            {allocatedTotals.pcs} pcs ·{' '}
-                            {formatStoneTableTotalCarat(allocatedTotals.carat)}{' '}
-                            CRT
-                        </Text>
+                        <div className="spkBatuPanelSectionHeaderEnd">
+                            <span className="spkBatuPanelSectionStockLinks">
+                                <Link
+                                    href={microStonesIndex.url()}
+                                    className="spkProduksiLink spkBatuPanelSectionStockLink"
+                                >
+                                    <Icon
+                                        name={chainLinkIcon}
+                                        mode="Decorative"
+                                    />
+                                    Cek Stok Batu Mikro
+                                </Link>
+                                <span aria-hidden="true">·</span>
+                                <Link
+                                    href={diamondDossiersIndex.url()}
+                                    className="spkProduksiLink spkBatuPanelSectionStockLink"
+                                >
+                                    <Icon
+                                        name={chainLinkIcon}
+                                        mode="Decorative"
+                                    />
+                                    Cek Stok batu dossier
+                                </Link>
+                            </span>
+                            <Text className="spkFioriDetailBlockMeta">
+                                {allocatedTotals.pcs} pcs ·{' '}
+                                {formatStoneTableTotalCarat(
+                                    allocatedTotals.carat,
+                                )}{' '}
+                                CRT
+                            </Text>
+                        </div>
                     </div>
 
                     {stonesWithAllocations.length === 0 ? (

@@ -9,7 +9,9 @@ use App\Http\Requests\UpdateDiamondDossierRequest;
 use App\Support\DiamondDossierImporter;
 use App\Support\DiamondDossierImportTemplateExport;
 use App\Support\DiamondDossierInventory;
+use App\Support\DiamondDossierStockReportWorkbookExport;
 use App\Support\SpkStoneAllocationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -123,6 +125,131 @@ class DiamondDossierController extends Controller
             ],
             'lastUpdatedAt' => $inventory->lastInventoryModifiedAt(),
         ]);
+    }
+
+    public function stockReport(
+        Request $request,
+        DiamondDossierInventory $inventory,
+    ): Response {
+        $filters = Validator::make($request->only([
+            'status',
+            'diamond_type',
+        ]), [
+            'status' => ['nullable', Rule::in([
+                DiamondDossierInventory::STATUS_AVAILABLE,
+                DiamondDossierInventory::STATUS_RESERVED,
+                DiamondDossierInventory::STATUS_USED,
+            ])],
+            'diamond_type' => ['nullable', Rule::in(DiamondDossierInventory::diamondTypes())],
+        ])->validate();
+
+        $status = filled($filters['status'] ?? null)
+            ? (string) $filters['status']
+            : null;
+        $diamondType = filled($filters['diamond_type'] ?? null)
+            ? (string) $filters['diamond_type']
+            : null;
+
+        $report = $inventory->matrixStockReport($status, $diamondType);
+
+        return Inertia::render('inventory/batu-dossier/stock-report', [
+            'sections' => $report['sections'],
+            'grandTotals' => $report['grandTotals'],
+            'unmapped' => $report['unmapped'],
+            'filters' => [
+                'status' => $status,
+                'diamond_type' => $diamondType,
+            ],
+            'diamondTypeOptions' => DiamondDossierInventory::diamondTypeOptions(),
+            'lastUpdatedAt' => $inventory->lastInventoryModifiedAt(),
+        ]);
+    }
+
+    public function stockReportDiamonds(
+        Request $request,
+        DiamondDossierInventory $inventory,
+    ): JsonResponse {
+        $filters = Validator::make($request->query(), [
+            'shape_id' => ['nullable', 'integer'],
+            'crt_min' => ['nullable', 'numeric'],
+            'crt_max' => ['nullable', 'numeric'],
+            'status' => ['nullable', Rule::in([
+                DiamondDossierInventory::STATUS_AVAILABLE,
+                DiamondDossierInventory::STATUS_RESERVED,
+                DiamondDossierInventory::STATUS_USED,
+                DiamondDossierInventory::STATUS_ACTUAL_AVAILABLE,
+            ])],
+            'diamond_type' => ['nullable', Rule::in(DiamondDossierInventory::diamondTypes())],
+        ])->validate();
+
+        $status = filled($filters['status'] ?? null)
+            ? (string) $filters['status']
+            : null;
+        $diamondType = filled($filters['diamond_type'] ?? null)
+            ? (string) $filters['diamond_type']
+            : null;
+
+        $shapeId = filled($filters['shape_id'] ?? null)
+            ? (int) $filters['shape_id']
+            : null;
+        $crtMin = filled($filters['crt_min'] ?? null)
+            ? number_format((float) $filters['crt_min'], 3, '.', '')
+            : null;
+        $crtMax = filled($filters['crt_max'] ?? null)
+            ? number_format((float) $filters['crt_max'], 3, '.', '')
+            : null;
+
+        return response()->json([
+            'diamonds' => $inventory->listForMatrixCell(
+                $shapeId,
+                $crtMin,
+                $crtMax,
+                $status,
+                $diamondType,
+            ),
+        ]);
+    }
+
+    public function stockReportExport(
+        Request $request,
+        DiamondDossierInventory $inventory,
+    ): BinaryFileResponse {
+        $filters = Validator::make($request->only([
+            'status',
+            'diamond_type',
+        ]), [
+            'status' => ['nullable', Rule::in([
+                DiamondDossierInventory::STATUS_AVAILABLE,
+                DiamondDossierInventory::STATUS_RESERVED,
+                DiamondDossierInventory::STATUS_USED,
+            ])],
+            'diamond_type' => ['nullable', Rule::in(DiamondDossierInventory::diamondTypes())],
+        ])->validate();
+
+        $status = filled($filters['status'] ?? null)
+            ? (string) $filters['status']
+            : null;
+        $diamondType = filled($filters['diamond_type'] ?? null)
+            ? (string) $filters['diamond_type']
+            : null;
+
+        $report = $inventory->matrixStockReport($status, $diamondType);
+
+        $shapeDiamonds = [];
+
+        foreach ($report['sections'] as $section) {
+            $shapeId = (int) $section['shapeId'];
+            $shapeDiamonds[$shapeId] = $inventory->listForStockReportShapeExport(
+                $status,
+                $diamondType,
+                $shapeId,
+            );
+        }
+
+        return Excel::download(
+            new DiamondDossierStockReportWorkbookExport($report, $shapeDiamonds),
+            'laporan-stok-batu-dossier-'.now()->format('Y-m-d-His').'.xlsx',
+        );
     }
 
     public function store(
