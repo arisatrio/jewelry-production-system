@@ -1,0 +1,1 @@
+function e(e){switch(e){case`purchase`:return`Pembelian`;case`remnant`:return`Sisa potongan`;case`adjustment`:return`Penyesuaian`;default:return e}}function t(e){if(e==null||e===``)return`—`;let t=Number(e);return Number.isNaN(t)?e:`$${t.toLocaleString(`en-US`,{minimumFractionDigits:2,maximumFractionDigits:2})}`}export{e as n,t};
