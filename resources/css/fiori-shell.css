@@ -13,6 +13,8 @@
 :root {
     --app-navbar-inline-padding: 1.5rem;
     --app-header-action-size: 2.25rem;
+    --shell-header-shellbar-actions-width: 8.5rem;
+    --shell-header-utilities-width: min(32rem, 38vw);
 
     /*
      * Brand Fiori (tombol Emphasized / primary action).
@@ -123,6 +125,10 @@ ui5-shellbar[breakpoint-size='XXL'] {
     position: relative;
 }
 
+.shellHeaderWrap ui5-shellbar {
+    width: 100%;
+}
+
 .shellSettingsBtn {
     position: absolute;
     right: var(--app-navbar-inline-padding);
@@ -176,6 +182,20 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     min-height: 2.25rem;
 }
 
+.shellHeaderMain {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 0.25rem;
+    box-sizing: border-box;
+    padding-inline-end: calc(
+        var(--shell-header-utilities-width) +
+            var(--shell-header-shellbar-actions-width) + 1rem
+    );
+}
+
 .appNav {
     display: flex;
     flex-wrap: wrap;
@@ -186,6 +206,27 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     background: #fff;
     border-bottom: 1px solid #e5e5e5;
     box-sizing: border-box;
+}
+
+.appNav--header {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
+    border-bottom: none;
+    background: transparent;
+    scrollbar-width: thin;
+}
+
+.appNav--header .appNavItem {
+    padding: 0.45rem 0.7rem;
+    font-size: 1rem;
+}
+
+.appNav--header .appNavChevron {
+    font-size: 0.85rem;
 }
 
 .appNavItem {
@@ -288,15 +329,34 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     white-space: nowrap;
 }
 
+.shellHeaderEnd {
+    position: absolute;
+    top: 50%;
+    right: calc(
+        var(--app-navbar-inline-padding) + var(--app-header-action-size) +
+            0.25rem + var(--shell-header-shellbar-actions-width)
+    );
+    transform: translateY(-50%);
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    flex-shrink: 0;
+    min-width: 0;
+    max-width: var(--shell-header-utilities-width);
+}
+
 .shellUserMeta {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     justify-content: center;
     gap: 0.1rem;
-    padding-inline: 0.75rem 0.25rem;
+    padding-inline: 0 0.25rem;
     line-height: 1.2;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .shellDate {
@@ -311,12 +371,11 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
 }
 
 .shellSearchWrap {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    position: relative;
     z-index: 3;
-    width: min(28rem, 42vw);
+    width: min(18rem, 28vw);
+    flex-shrink: 1;
+    min-width: 9rem;
 }
 
 .shellSearchForm {
@@ -477,7 +536,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
 
 @media (max-width: 900px) {
     .shellSearchWrap {
-        width: min(18rem, 36vw);
+        width: min(14rem, 24vw);
     }
 }
 
@@ -491,7 +550,7 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     padding: 1rem 1.5rem;
     box-sizing: border-box;
     overflow: auto;
-    height: calc(100% - 4.25rem - 2.5rem);
+    height: calc(100% - 4.25rem);
 }
 
 .dashboardContent:has(.dashShell) {
@@ -1466,6 +1525,20 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     background: #f8fafc;
 }
 
+.dashStatusTable tbody tr.dashStatusTableGroupHeader td {
+    background: #eef2f7;
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    border-bottom-color: #e5e7eb;
+}
+
+.dashStatusTable tbody tr.dashStatusTableGroupHeader:hover {
+    background: #eef2f7;
+}
+
 .dashStatusSpkLink {
     border: 0;
     background: none;
@@ -2134,6 +2207,40 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
 .masterDataTextarea:focus {
     outline: none;
     border-color: var(--sap-fiori-brand, #0070f2);
+    box-shadow: 0 0 0 3px rgb(0 112 242 / 15%);
+}
+
+.masterDataFormComboBoxWrap {
+    width: 100%;
+    min-width: 0;
+}
+
+.masterDataFormComboBoxWrap ui5-combobox.masterDataFormComboBox {
+    width: 100%;
+    min-height: 2.375rem;
+    font-size: 0.875rem;
+    --sapFontSize: 0.875rem;
+    --sapField_BorderCornerRadius: 0.375rem;
+    --sapField_BorderColor: #d1d5db;
+    --sapField_Background: #fff;
+    --sapField_TextColor: #111827;
+    --sapField_PlaceholderTextColor: #6b7280;
+    --sapField_Focus_BorderColor: var(--sap-fiori-brand, #0070f2);
+    --sapContent_FocusWidth: 0;
+}
+
+.masterDataFormComboBoxWrap ui5-combobox.masterDataFormComboBox::part(input) {
+    font-size: 0.875rem;
+    min-height: 2.25rem;
+}
+
+.masterDataFormComboBoxWrap ui5-combobox.masterDataFormComboBox::part(input)::placeholder {
+    font-size: 0.875rem;
+    font-style: normal;
+    color: #6b7280;
+}
+
+.masterDataFormComboBoxWrap ui5-combobox.masterDataFormComboBox:focus-within {
     box-shadow: 0 0 0 3px rgb(0 112 242 / 15%);
 }
 

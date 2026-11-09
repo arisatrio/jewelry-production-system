@@ -16,6 +16,7 @@ use App\Http\Controllers\MaterialYieldDashboardController;
 use App\Http\Controllers\MicroStoneController;
 use App\Http\Controllers\MsChainController;
 use App\Http\Controllers\MsComponentController;
+use App\Http\Controllers\MsCraftsmanController;
 use App\Http\Controllers\MsItemController;
 use App\Http\Controllers\MsItemVarianceController;
 use App\Http\Controllers\MsItemVarianceStoneController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\SpkDiamondController;
 use App\Http\Controllers\SpkProcessSlaController;
 use App\Http\Controllers\SpkStonePurchaseController;
 use App\Http\Controllers\SpkStoneStockController;
+use App\Http\Controllers\StokRangkaController;
 use App\Http\Controllers\StoneTransactionController;
 use App\Http\Controllers\TrxChainController;
 use App\Http\Controllers\TrxComponentController;
@@ -74,6 +76,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('analytics.material-yield');
     Route::get('analytics/craftsman-performance', [CraftsmanPerformanceDashboardController::class, 'index'])
         ->name('analytics.craftsman-performance');
+    Route::get('analytics/craftsman-performance/jobs', [CraftsmanPerformanceDashboardController::class, 'jobs'])
+        ->name('analytics.craftsman-performance.jobs');
     Route::get('analytics/sku-output', [SkuOutputDashboardController::class, 'index'])
         ->name('analytics.sku-output');
     Route::get('reparasi', [ProductionController::class, 'reparasiIndex'])->name('reparasi.index');
@@ -439,6 +443,8 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'index'])
             ->name('gold-material-transactions.index');
+        Route::get('transaksi-bahan-emas/export', [GoldMaterialTransactionController::class, 'export'])
+            ->name('gold-material-transactions.export');
         Route::post('transaksi-bahan-emas', [GoldMaterialTransactionController::class, 'store'])
             ->name('gold-material-transactions.store');
 
@@ -482,6 +488,12 @@ Route::middleware(['auth'])->group(function () {
             ->name('stone-transactions.index');
         Route::post('transaksi-batu', [StoneTransactionController::class, 'store'])
             ->name('stone-transactions.store');
+
+        Route::get('stok-rangka', [StokRangkaController::class, 'index'])
+            ->name('frame-stocks.index');
+        Route::get('stok-rangka/{stokRangka}', [StokRangkaController::class, 'show'])
+            ->whereNumber('stokRangka')
+            ->name('frame-stocks.show');
     });
 
     Route::prefix('master-data')->name('master-data.')->group(function () {
@@ -502,6 +514,10 @@ Route::middleware(['auth'])->group(function () {
                 'varian-item' => 'msItemVariance',
                 'stones' => 'msItemVarianceStone',
             ]);
+
+        Route::resource('pengrajin', MsCraftsmanController::class)
+            ->except(['show'])
+            ->parameters(['pengrajin' => 'msCraftsman']);
 
         Route::get('master-sku', [SkuMasterController::class, 'index'])
             ->name('master-sku.index');

@@ -9,9 +9,73 @@ use Illuminate\Support\Facades\Schema;
 
 class GoldMaterialLedger
 {
+    public const TRANSACTION_EVENT_ENTRY = 'entry';
+
+    public const TRANSACTION_EVENT_OUT = 'out';
+
     public const ADDITION_TRANSACTION_TYPE_ID = 12;
 
     public const DEDUCTION_TRANSACTION_TYPE_ID = 13;
+
+    public const DEFAULT_TRANSACTION_SORT = 'created_date';
+
+    public const DEFAULT_TRANSACTION_DIRECTION = 'desc';
+
+    /**
+     * @return list<string>
+     */
+    public static function transactionSorts(): array
+    {
+        return [
+            'created_date',
+            'material',
+            'category',
+            'weight',
+            'transaction_type',
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function transactionSortOptions(): array
+    {
+        return [
+            ['value' => 'created_date', 'label' => 'Tanggal'],
+            ['value' => 'material', 'label' => 'Bahan emas'],
+            ['value' => 'category', 'label' => 'Jenis'],
+            ['value' => 'weight', 'label' => 'Berat (g)'],
+            ['value' => 'transaction_type', 'label' => 'Tipe transaksi'],
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function directionSortOptions(): array
+    {
+        return [
+            ['value' => 'asc', 'label' => 'A–Z / terkecil'],
+            ['value' => 'desc', 'label' => 'Z–A / terbesar'],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     */
+    public static function resolveSort(string $sort, array $allowed, string $default): string
+    {
+        if ($sort === '') {
+            return $default;
+        }
+
+        return in_array($sort, $allowed, true) ? $sort : $default;
+    }
+
+    public static function resolveDirection(string $direction): string
+    {
+        return in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+    }
 
     /**
      * @return array{id: int, label: string}|null
@@ -111,13 +175,18 @@ class GoldMaterialLedger
         string $search,
         ?string $dateFrom,
         ?string $dateTo,
+        ?string $eventType,
         int $perPage,
+        string $sort = self::DEFAULT_TRANSACTION_SORT,
+        string $direction = self::DEFAULT_TRANSACTION_DIRECTION,
         ?int $materialId = null,
     ): LengthAwarePaginator {
-        return $this->filteredQuery($periodId, $search, $dateFrom, $dateTo)
+        $query = $this->filteredQuery($periodId, $search, $dateFrom, $dateTo, $eventType)
             ->when($materialId !== null, fn (Builder $query) => $query
-                ->where('gold_transaction.materialgold_id', $materialId))
-            ->orderByDesc('gold_transaction.row_id')
+                ->where('gold_transaction.materialgold_id', $materialId));
+        $this->applyTransactionSort($query, $sort, $direction);
+
+        return $query
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (object $transaction): array => [
@@ -156,13 +225,37 @@ class GoldMaterialLedger
             ]);
     }
 
+    /**
+     * @return list<int>
+     */
+    public function spkIdsForFilteredTransactions(
+        int $periodId,
+        string $search,
+        ?string $dateFrom,
+        ?string $dateTo,
+        ?string $eventType,
+    ): array {
+        return $this->filteredQuery($periodId, $search, $dateFrom, $dateTo, $eventType)
+            ->cloneWithout(['columns', 'orders'])
+            ->selectRaw(
+                'DISTINCT COALESCE(NULLIF(gold_transaction.spk_id, 0), production.row_id) as resolved_spk_id'
+            )
+            ->whereRaw('COALESCE(NULLIF(gold_transaction.spk_id, 0), production.row_id) > 0')
+            ->orderBy('resolved_spk_id')
+            ->pluck('resolved_spk_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
+    }
+
     public function total(
         int $periodId,
         string $search,
         ?string $dateFrom,
         ?string $dateTo,
+        ?string $eventType = null,
     ): string {
-        $query = $this->filteredQuery($periodId, $search, $dateFrom, $dateTo)
+        $query = $this->filteredQuery($periodId, $search, $dateFrom, $dateTo, $eventType)
             ->cloneWithout(['columns', 'orders']);
 
         $total = $query
@@ -240,6 +333,7 @@ class GoldMaterialLedger
         string $search,
         ?string $dateFrom,
         ?string $dateTo,
+        ?string $eventType = null,
     ): Builder {
         return DB::connection('third')
             ->table('trmaterialgold as gold_transaction')
@@ -278,6 +372,18 @@ class GoldMaterialLedger
                 ->whereDate('gold_transaction.created_date', '>=', $dateFrom))
             ->when($dateTo !== null, fn (Builder $query) => $query
                 ->whereDate('gold_transaction.created_date', '<=', $dateTo))
+            ->when(
+                $eventType === self::TRANSACTION_EVENT_ENTRY,
+                fn (Builder $query) => $query->whereRaw(
+                    "UPPER(TRIM(transaction_type.in_out)) = 'IN'",
+                ),
+            )
+            ->when(
+                $eventType === self::TRANSACTION_EVENT_OUT,
+                fn (Builder $query) => $query->whereRaw(
+                    "UPPER(TRIM(transaction_type.in_out)) = 'OUT'",
+                ),
+            )
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $like = '%'.$search.'%';
 
@@ -308,5 +414,26 @@ class GoldMaterialLedger
             ->selectRaw(
                 'COALESCE(coran_document.doc_no, finishing_document.doc_no) as document_no'
             );
+    }
+
+    private function applyTransactionSort(Builder $query, string $sort, string $direction): void
+    {
+        $direction = self::resolveDirection($direction);
+        $sort = self::resolveSort(
+            $sort,
+            self::transactionSorts(),
+            self::DEFAULT_TRANSACTION_SORT,
+        );
+
+        $column = match ($sort) {
+            'material' => 'material.name',
+            'category' => 'transaction_type.in_out',
+            'weight' => 'gold_transaction.weight',
+            'transaction_type' => 'transaction_type.name',
+            default => 'gold_transaction.created_date',
+        };
+
+        $query->orderBy($column, $direction);
+        $query->orderByDesc('gold_transaction.row_id');
     }
 }

@@ -17,6 +17,21 @@ void addCustomCSS(
   ::slotted([slot="logo"]) {
     max-height: none;
   }
+
+  .ui5-shellbar-overflow-container,
+  .ui5-shellbar-overflow-container-inner,
+  .ui5-shellbar-content-area {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  ::slotted([slot="content"]) {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
   `,
 );
 

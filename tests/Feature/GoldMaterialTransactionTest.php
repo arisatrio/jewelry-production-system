@@ -1,9 +1,11 @@
 <?php
 
 use App\Support\GoldMaterialLedger;
+use App\Support\GoldMaterialTransactionWorkbookExport;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 beforeEach(function () {
     foreach (['msperiod', 'msmaterialgold', 'mstranstype', 'trmaterialgold'] as $table) {
@@ -101,6 +103,68 @@ test('transaction index lists all transaction types and calculates signed total'
         );
 });
 
+test('transaction index filters by event type', function () {
+    $materialId = createGoldMaterialForTransactionTest();
+    createGoldTransactionForTest($materialId, [
+        'transtype_id' => GoldMaterialLedger::DEDUCTION_TRANSACTION_TYPE_ID,
+        'weight' => '4.00',
+    ]);
+    createGoldTransactionForTest($materialId, [
+        'transtype_id' => GoldMaterialLedger::ADDITION_TRANSACTION_TYPE_ID,
+        'weight' => '3.00',
+    ]);
+
+    $materialName = DB::connection('third')
+        ->table('msmaterialgold')
+        ->where('row_id', $materialId)
+        ->value('name');
+
+    $this->get(route('inventory.gold-material-transactions.index', [
+        'search' => $materialName,
+        'event_type' => GoldMaterialLedger::TRANSACTION_EVENT_OUT,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('transactions.data', 1)
+            ->where('filters.event_type', GoldMaterialLedger::TRANSACTION_EVENT_OUT)
+        );
+});
+
+test('transaction index sorts by material name ascending', function () {
+    $materialA = createGoldMaterialForTransactionTest();
+    $materialB = createGoldMaterialForTransactionTest();
+    createGoldTransactionForTest($materialA, [
+        'created_date' => '2026-09-09 12:00:00',
+    ]);
+    createGoldTransactionForTest($materialB, [
+        'created_date' => '2026-09-09 11:00:00',
+    ]);
+
+    $nameA = DB::connection('third')
+        ->table('msmaterialgold')
+        ->where('row_id', $materialA)
+        ->value('name');
+    $nameB = DB::connection('third')
+        ->table('msmaterialgold')
+        ->where('row_id', $materialB)
+        ->value('name');
+
+    $names = collect([$nameA, $nameB])->sort()->values();
+
+    $this->get(route('inventory.gold-material-transactions.index', [
+        'search' => 'Gold Transaction Test',
+        'sort' => 'material',
+        'direction' => 'asc',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.sort', 'material')
+            ->where('filters.direction', 'asc')
+            ->where('transactions.data.0.material', $names[0])
+            ->has('filterOptions.sort')
+        );
+});
+
 test('transaction index filters by created date', function () {
     $materialId = createGoldMaterialForTransactionTest();
     createGoldTransactionForTest($materialId, [
@@ -162,6 +226,54 @@ test('addition and deduction append the correct legacy transaction types', funct
         GoldMaterialLedger::DEDUCTION_TRANSACTION_TYPE_ID,
     ],
 ]);
+
+test('transaction export downloads workbook with legacy layout', function () {
+    $this->travelTo('2026-11-09 09:38:34');
+
+    $materialId = createGoldMaterialForTransactionTest();
+    createGoldTransactionForTest($materialId, [
+        'transtype_id' => GoldMaterialLedger::ADDITION_TRANSACTION_TYPE_ID,
+        'spk_id' => DB::connection('third')
+            ->table('spk')
+            ->where('is_deleted', 0)
+            ->value('row_id') ?? 0,
+    ]);
+
+    Excel::fake();
+
+    $materialName = DB::connection('third')
+        ->table('msmaterialgold')
+        ->where('row_id', $materialId)
+        ->value('name');
+
+    $this->get(route('inventory.gold-material-transactions.export', [
+        'search' => $materialName,
+    ]))->assertOk();
+
+    $period = app(GoldMaterialLedger::class)->activePeriod();
+
+    expect($period)->not->toBeNull();
+
+    Excel::assertDownloaded(
+        'Laporan_Trans_Material_Gold_'
+            .Str::slug($period['label'])
+            .'_'
+            .Str::slug(Str::limit((string) $materialName, 40, ''))
+            .'_20261109093834.xlsx',
+        function (GoldMaterialTransactionWorkbookExport $export): bool {
+            expect($export->array())->toBeArray();
+
+            return true;
+        },
+    );
+});
+
+test('transaction export rejects invalid date range', function () {
+    $this->get(route('inventory.gold-material-transactions.export', [
+        'date_from' => '2026-10-10',
+        'date_to' => '2026-10-01',
+    ]))->assertSessionHasErrors('date_to');
+});
 
 test('transaction store validates material weight precision and note length', function () {
     $this->post(route('inventory.gold-material-transactions.store'), [

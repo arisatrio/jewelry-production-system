@@ -55,6 +55,7 @@ test('ledger paginates every transaction type and calculates signed totals', fun
         $materialName,
         null,
         null,
+        null,
         10,
     );
 

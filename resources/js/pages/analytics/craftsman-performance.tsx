@@ -2,7 +2,12 @@ import { Head, router } from '@inertiajs/react';
 import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-arrow.js';
 import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
 import { Button } from '@ui5/webcomponents-react/Button';
+import { useState } from 'react';
 import { InProgressProcessBarChart } from '@/components/dashboard/in-progress-process-bar-chart';
+import {
+    CraftsmanPerformanceJobsDialog,
+    type CraftsmanPerformanceJobsDialogTarget,
+} from '@/pages/analytics/craftsman-performance-jobs-dialog';
 import { craftsmanPerformance } from '@/routes/analytics';
 
 export type CraftsmanPerformanceAnalytics = {
@@ -21,9 +26,18 @@ export type CraftsmanPerformanceAnalytics = {
         heaviestShrinkCraftsman: string | null;
         heaviestShrink: string;
     };
+    jobProcesses: Array<{
+        key: string;
+        label: string;
+    }>;
     ranking: Array<{
+        craftsmanId: number;
         name: string;
+        position: string;
+        labelTukang: string | null;
         jobCount: number;
+        jobsByProcess: Record<string, number>;
+        spkCount: number;
         totalShrink: string;
         avgShrink: string | null;
     }>;
@@ -55,11 +69,93 @@ function formatWeight(value: string): string {
     })} g`;
 }
 
+const UNLABELED_LABEL_TUKANG = 'Tanpa label tukang';
+
+function resolveLabelTukangGroupKey(labelTukang: string | null | undefined): string {
+    const trimmed = (labelTukang ?? '').trim();
+
+    return trimmed !== '' ? trimmed : UNLABELED_LABEL_TUKANG;
+}
+
+function groupRankingByLabelTukang(
+    ranking: CraftsmanPerformanceAnalytics['ranking'],
+): Array<{
+    labelTukang: string;
+    rows: CraftsmanPerformanceAnalytics['ranking'];
+}> {
+    const groups = new Map<string, CraftsmanPerformanceAnalytics['ranking']>();
+
+    for (const row of ranking) {
+        const key = resolveLabelTukangGroupKey(row.labelTukang);
+
+        if (!groups.has(key)) {
+            groups.set(key, []);
+        }
+
+        groups.get(key)?.push(row);
+    }
+
+    return [...groups.entries()]
+        .sort(([leftLabel], [rightLabel]) => {
+            if (leftLabel === UNLABELED_LABEL_TUKANG) {
+                return 1;
+            }
+
+            if (rightLabel === UNLABELED_LABEL_TUKANG) {
+                return -1;
+            }
+
+            return leftLabel.localeCompare(rightLabel, 'id');
+        })
+        .map(([labelTukang, rows]) => ({ labelTukang, rows }));
+}
+
+function JobCountButton({
+    count,
+    onClick,
+}: {
+    count: number;
+    onClick: () => void;
+}) {
+    const formatted = count.toLocaleString('id-ID');
+
+    if (count <= 0) {
+        return <>{formatted}</>;
+    }
+
+    return (
+        <button
+            type="button"
+            className="dashStatusSpkLink tabular-nums"
+            onClick={onClick}
+        >
+            {formatted}
+        </button>
+    );
+}
+
 export default function CraftsmanPerformanceDashboard({
     analytics,
     navigation,
+    filters,
 }: CraftsmanPerformanceDashboardProps) {
-    const { summary, ranking, byProcess, period } = analytics;
+    const { summary, ranking, byProcess, jobProcesses, period } = analytics;
+    const [jobsDialogTarget, setJobsDialogTarget] =
+        useState<CraftsmanPerformanceJobsDialogTarget | null>(null);
+
+    const openJobsDialog = (
+        row: CraftsmanPerformanceAnalytics['ranking'][number],
+        processKey: string | null,
+        processLabel: string,
+    ): void => {
+        setJobsDialogTarget({
+            craftsmanId: row.craftsmanId,
+            craftsmanName: row.name,
+            processKey,
+            processLabel,
+            month: filters.month,
+        });
+    };
 
     const goToMonth = (month: string | null): void => {
         if (!month) {
@@ -82,6 +178,12 @@ export default function CraftsmanPerformanceDashboard({
         label: row.process,
         count: row.jobCount,
     }));
+
+    const rankingByLabelTukang = groupRankingByLabelTukang(ranking);
+    const rankingTableColumnCount =
+        2 +
+        (jobProcesses.length > 0 ? jobProcesses.length + 1 : 1) +
+        3;
 
     const kpiCards: Array<{
         label: string;
@@ -262,53 +364,179 @@ export default function CraftsmanPerformanceDashboard({
                             Ranking Pengrajin
                         </h2>
                         <p className="dashPanelMeta">
-                            Top 20 berdasarkan jumlah job · {period.label}
+                            Semua pengrajin (berjob di atas · 0 job di bawah) ·
+                            dikelompokkan label tukang · {period.label}
                         </p>
                     </header>
                     {ranking.length === 0 ? (
                         <p className="dashEmpty">
-                            Belum ada data pengrajin untuk periode ini.
+                            Belum ada master pengrajin.
                         </p>
                     ) : (
                         <div className="dashStatusTableWrap">
                             <table className="dashStatusTable">
                                 <thead>
                                     <tr>
-                                        <th>#</th>
-                                        <th>Pengrajin</th>
-                                        <th>Job</th>
-                                        <th>Total Susut</th>
-                                        <th>Avg Susut</th>
+                                        <th rowSpan={2}>#</th>
+                                        <th rowSpan={2}>Pengrajin</th>
+                                        <th
+                                            className="is-text-center"
+                                            colSpan={
+                                                jobProcesses.length > 0
+                                                    ? jobProcesses.length + 1
+                                                    : 1
+                                            }
+                                        >
+                                            Job (Proses Pekerjaan)
+                                        </th>
+                                        <th rowSpan={2} className="is-text-center">
+                                            Total SPK
+                                        </th>
+                                        <th rowSpan={2} className="is-text-center">
+                                            Total Susut
+                                        </th>
+                                        <th rowSpan={2} className="is-text-center">
+                                            Rata-rata Susut per proses
+                                        </th>
+                                    </tr>
+                                    <tr>
+                                        {jobProcesses.length > 0 ? (
+                                            jobProcesses.map((process) => (
+                                                <th
+                                                    key={process.key}
+                                                    className="is-text-center"
+                                                >
+                                                    {process.label}
+                                                </th>
+                                            ))
+                                        ) : (
+                                            <th className="is-text-center">
+                                                Job (Proses Pekerjaan)
+                                            </th>
+                                        )}
+                                        {jobProcesses.length > 0 ? (
+                                            <th className="is-text-center">
+                                                Total
+                                            </th>
+                                        ) : null}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {ranking.map((row, index) => (
-                                        <tr key={`${row.name}-${index}`}>
-                                            <td>{index + 1}</td>
-                                            <td>{row.name}</td>
-                                            <td>
-                                                {row.jobCount.toLocaleString(
-                                                    'id-ID',
+                                    {rankingByLabelTukang.flatMap((group) => [
+                                        <tr
+                                            key={`label-${group.labelTukang}`}
+                                            className="dashStatusTableGroupHeader"
+                                        >
+                                            <td colSpan={rankingTableColumnCount}>
+                                                {group.labelTukang}
+                                            </td>
+                                        </tr>,
+                                        ...group.rows.map((row, index) => (
+                                            <tr
+                                                key={`${group.labelTukang}-${row.craftsmanId}`}
+                                            >
+                                                <td>{index + 1}</td>
+                                                <td>
+                                                    <div>{row.name}</div>
+                                                    <div className="text-muted-foreground text-sm">
+                                                        {row.position}
+                                                    </div>
+                                                </td>
+                                                {jobProcesses.length > 0 ? (
+                                                    jobProcesses.map(
+                                                        (process) => {
+                                                            const count =
+                                                                row
+                                                                    .jobsByProcess[
+                                                                    process.key
+                                                                ] ?? 0;
+
+                                                            return (
+                                                                <td
+                                                                    key={
+                                                                        process.key
+                                                                    }
+                                                                    className="is-text-center text-center tabular-nums"
+                                                                >
+                                                                    <JobCountButton
+                                                                        count={
+                                                                            count
+                                                                        }
+                                                                        onClick={() =>
+                                                                            openJobsDialog(
+                                                                                row,
+                                                                                process.key,
+                                                                                process.label,
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                </td>
+                                                            );
+                                                        },
+                                                    )
+                                                ) : (
+                                                    <td className="is-text-center text-center tabular-nums">
+                                                        <JobCountButton
+                                                            count={row.jobCount}
+                                                            onClick={() =>
+                                                                openJobsDialog(
+                                                                    row,
+                                                                    null,
+                                                                    'Semua proses',
+                                                                )
+                                                            }
+                                                        />
+                                                    </td>
                                                 )}
-                                            </td>
-                                            <td>
-                                                {formatWeight(row.totalShrink)}
-                                            </td>
-                                            <td>
-                                                {row.avgShrink !== null
-                                                    ? formatWeight(
-                                                          row.avgShrink,
-                                                      )
-                                                    : '—'}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                {jobProcesses.length > 0 ? (
+                                                    <td className="is-text-center text-center tabular-nums">
+                                                        <JobCountButton
+                                                            count={row.jobCount}
+                                                            onClick={() =>
+                                                                openJobsDialog(
+                                                                    row,
+                                                                    null,
+                                                                    'Semua proses',
+                                                                )
+                                                            }
+                                                        />
+                                                    </td>
+                                                ) : null}
+                                                <td className="is-text-center text-center tabular-nums">
+                                                    {row.spkCount.toLocaleString(
+                                                        'id-ID',
+                                                    )}
+                                                </td>
+                                                <td className="is-text-center text-center tabular-nums">
+                                                    {formatWeight(
+                                                        row.totalShrink,
+                                                    )}
+                                                </td>
+                                                <td className="is-text-center text-center tabular-nums">
+                                                    {row.avgShrink !== null
+                                                        ? formatWeight(
+                                                              row.avgShrink,
+                                                          )
+                                                        : '—'}
+                                                </td>
+                                            </tr>
+                                        )),
+                                    ])}
                                 </tbody>
                             </table>
                         </div>
                     )}
                 </article>
             </div>
+
+            <CraftsmanPerformanceJobsDialog
+                target={jobsDialogTarget}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setJobsDialogTarget(null);
+                    }
+                }}
+            />
         </>
     );
 }

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ListCraftsmanPerformanceJobsRequest;
 use App\Support\SpkCraftsmanPerformanceAnalytics;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,6 +38,17 @@ class CraftsmanPerformanceDashboardController extends Controller
                 'isCurrentMonth' => $month->isSameMonth($currentMonth),
             ],
         ]);
+    }
+
+    public function jobs(ListCraftsmanPerformanceJobsRequest $request): JsonResponse
+    {
+        $month = $this->resolveMonth($request->string('month')->toString());
+        $payload = (new SpkCraftsmanPerformanceAnalytics($month))->listJobs(
+            $request->craftsmanId(),
+            $request->processTableKey(),
+        );
+
+        return response()->json($payload);
     }
 
     private function resolveMonth(string $month): CarbonInterface

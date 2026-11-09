@@ -15,4 +15,12 @@ class SpkCraftsmanPerformanceAnalytics
     {
         return (new SpkDashboardAnalytics($this->month))->summarizeCraftsmanPerformance();
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function listJobs(int $craftsmanId, ?string $processTableKey): array
+    {
+        return (new SpkDashboardAnalytics($this->month))->listCraftsmanPerformanceJobs($craftsmanId, $processTableKey);
+    }
 }

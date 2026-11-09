@@ -7,7 +7,10 @@ import {
     workOrder,
 } from '@/routes/analytics';
 import { index as coranIndex } from '@/routes/coran';
-import { index as finishingIndex, report as finishingReport } from '@/routes/finishing';
+import {
+    index as finishingIndex,
+    report as finishingReport,
+} from '@/routes/finishing';
 import { index as componentTransactionsIndex } from '@/routes/inventory/component-transactions';
 import { index as componentsIndex } from '@/routes/inventory/components';
 import { index as chainTransactionsIndex } from '@/routes/inventory/chain-transactions';
@@ -16,13 +19,14 @@ import { index as diamondDossierTransactionsIndex } from '@/routes/inventory/dia
 import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
+import { index as frameStocksIndex } from '@/routes/inventory/frame-stocks';
 import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
-import { index as stonePurchasesIndex } from '@/routes/inventory/stone-purchases';
 import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
 import { index as jewelCadIndex } from '@/routes/jewelcad';
 import { edit as diamondCrtMatrixEdit } from '@/routes/master-data/diamond-crt-matrix';
 import { edit as finishingShrinkAllowanceEdit } from '@/routes/master-data/finishing-shrink-allowance';
 import { index as masterSkuIndex } from '@/routes/master-data/master-sku';
+import { index as pengrajinIndex } from '@/routes/master-data/pengrajin';
 import { edit as spkProcessSlaEdit } from '@/routes/master-data/spk-process-sla';
 import { index as tipeItemIndex } from '@/routes/master-data/tipe-item';
 import { index as varianItemIndex } from '@/routes/master-data/varian-item';
@@ -35,14 +39,13 @@ import {
     index as polesRangkaIndex,
     report as polesRangkaReport,
 } from '@/routes/poles-rangka';
-import { index as reparasiIndex } from '@/routes/reparasi';
 import { index as resinIndex } from '@/routes/resin';
-import { index as spkDiamondIndex } from '@/routes/spk-diamond';
 import { index as spkIndex } from '@/routes/spk';
 
 export type ShellNavItem = {
     text: string;
     href?: string;
+    items?: ShellNavItem[];
 };
 
 export type ShellNavDropdown = {
@@ -57,15 +60,6 @@ export const defaultPrimaryNavItems: ShellNavItem[] = [
 
 export const defaultModuleNavItems: ShellNavItem[] = [
     { text: 'SPK', href: spkIndex.url() },
-    { text: 'SPK Reparasi', href: reparasiIndex.url() },
-    { text: 'SPK Pasang Batu', href: spkDiamondIndex.url() },
-    { text: 'JewelCAD', href: jewelCadIndex.url() },
-    { text: 'Resin', href: resinIndex.url() },
-    { text: 'Coran', href: coranIndex.url() },
-    { text: 'Finishing', href: finishingIndex.url() },
-    { text: 'Poles Rangka', href: polesRangkaIndex.url() },
-    { text: 'Pasang Batu', href: pasangBatuIndex.url() },
-    { text: 'Poles Chrome', href: polesChromeIndex.url() },
 ];
 
 export const defaultAnalyticsSubmenus: ShellNavItem[] = [
@@ -96,36 +90,75 @@ export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
 ];
 
 export const defaultInventorySubmenus: ShellNavItem[] = [
-    { text: 'Stok Batu Dossier', href: diamondDossiersIndex.url() },
-    { text: 'Stok Batu Mikro', href: microStonesIndex.url() },
-    { text: 'Pembelian Batu', href: stonePurchasesIndex.url() },
-    { text: 'Stok Bahan Emas', href: goldMaterialsIndex.url() },
-    { text: 'Stok Rantai', href: chainsIndex.url() },
-    { text: 'Stok Komponen', href: componentsIndex.url() },
     {
-        text: 'Transaksi Batu Dossier',
-        href: diamondDossierTransactionsIndex.url(),
+        text: 'Batu',
+        items: [
+            {
+                text: 'Stok Batu Dossier',
+                href: diamondDossiersIndex.url(),
+            },
+            {
+                text: 'Transaksi Batu Dossier',
+                href: diamondDossierTransactionsIndex.url(),
+            },
+            {
+                text: 'Stok Batu Mikro',
+                href: microStonesIndex.url(),
+            },
+            {
+                text: 'Transaksi Batu Mikro',
+                href: stoneTransactionsIndex.url(),
+            },
+        ],
     },
     {
-        text: 'Transaksi Batu Mikro',
-        href: stoneTransactionsIndex.url(),
+        text: 'Emas',
+        items: [
+            {
+                text: 'Stok Bahan Emas',
+                href: goldMaterialsIndex.url(),
+            },
+            {
+                text: 'Transaksi Bahan Emas',
+                href: goldMaterialTransactionsIndex.url(),
+            },
+        ],
     },
     {
-        text: 'Transaksi Bahan Emas',
-        href: goldMaterialTransactionsIndex.url(),
+        text: 'Rangka',
+        items: [
+            {
+                text: 'Stok Rangka',
+                href: frameStocksIndex.url(),
+            },
+        ],
     },
     {
-        text: 'Transaksi Rantai',
-        href: chainTransactionsIndex.url(),
-    },
-    {
-        text: 'Transaksi Komponen',
-        href: componentTransactionsIndex.url(),
+        text: 'Rantai & Komponen',
+        items: [
+            {
+                text: 'Stok Rantai',
+                href: chainsIndex.url(),
+            },
+            {
+                text: 'Stok Komponen',
+                href: componentsIndex.url(),
+            },
+            {
+                text: 'Transaksi Rantai',
+                href: chainTransactionsIndex.url(),
+            },
+            {
+                text: 'Transaksi Komponen',
+                href: componentTransactionsIndex.url(),
+            },
+        ],
     },
 ];
 
 export const defaultMasterDataSubmenus: ShellNavItem[] = [
     { text: 'Tipe Item', href: tipeItemIndex.url() },
+    { text: 'Pengrajin', href: pengrajinIndex.url() },
     { text: 'Master Item Product', href: varianItemIndex.url() },
     { text: 'Master SKU', href: masterSkuIndex.url() },
     { text: 'SLA Proses SPK', href: spkProcessSlaEdit.url() },
@@ -139,15 +172,12 @@ export const defaultMidDropdowns: ShellNavDropdown[] = [
 ];
 
 /** Dropdown menus rendered after SPK, before trailing module links. */
-export const defaultPostSpkDropdowns: ShellNavDropdown[] = [];
+export const defaultPostSpkDropdowns: ShellNavDropdown[] = [
+    { id: 'produksi', text: 'Produksi', items: defaultProduksiSubmenus },
+];
 
 /** Dropdown menus rendered after trailing module links. */
 export const defaultTrailingDropdowns: ShellNavDropdown[] = [
-    {
-        id: 'pengerjaan-lanjutan',
-        text: 'Pengerjaan Lanjutan',
-        items: defaultPengerjaanLanjutanSubmenus,
-    },
     { id: 'inventory', text: 'Inventory', items: defaultInventorySubmenus },
     {
         id: 'master-data',
