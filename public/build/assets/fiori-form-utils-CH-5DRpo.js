@@ -1,1 +1,0 @@
-function e(e){return e?`Negative`:`None`}export{e as t};
