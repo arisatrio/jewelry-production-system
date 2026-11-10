@@ -77,6 +77,9 @@ class PolishFinishedGood extends Model
 
     public const STATUS_DONE = 'PFGDONE';
 
+    /** Poles Barang Jadi selesai untuk Exchange / Refund / Reparasi (legacy). */
+    public const STATUS_REPARATION_DONE = 'RPFDONE';
+
     /**
      * @return list<string>
      */

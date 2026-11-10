@@ -924,6 +924,7 @@ class PolishFinishedGoodController extends Controller
                 PolishFinishedGoodApprovalService::STATUS_DONE,
                 PolishFinishedGood::STATUS_DONE,
                 PolishFinishedGood::STATUS_TO_JB,
+                PolishFinishedGood::STATUS_REPARATION_DONE,
             ],
         ];
     }

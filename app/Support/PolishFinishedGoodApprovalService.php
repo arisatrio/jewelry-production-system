@@ -87,6 +87,7 @@ class PolishFinishedGoodApprovalService
             self::STATUS_DONE,
             PolishFinishedGood::STATUS_DONE,
             PolishFinishedGood::STATUS_TO_JB,
+            PolishFinishedGood::STATUS_REPARATION_DONE,
         ], true);
     }
 
@@ -364,6 +365,7 @@ class PolishFinishedGoodApprovalService
             PolishFinishedGood::STATUS_TO_PPIC => 'Serahkan ke PPIC',
             PolishFinishedGood::STATUS_TO_JB => 'Completed',
             PolishFinishedGood::STATUS_DONE => 'Completed',
+            PolishFinishedGood::STATUS_REPARATION_DONE => 'Completed',
         ];
 
         if (! Schema::connection('third')->hasTable('sysstatus')) {
@@ -393,6 +395,7 @@ class PolishFinishedGoodApprovalService
             PolishFinishedGood::STATUS_TO_PPIC => 'Serahkan ke PPIC',
             PolishFinishedGood::STATUS_TO_JB => 'Completed',
             PolishFinishedGood::STATUS_DONE => 'Completed',
+            PolishFinishedGood::STATUS_REPARATION_DONE => 'Completed',
         ]);
     }
 

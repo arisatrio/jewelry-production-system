@@ -191,6 +191,50 @@ test('poles chrome report page summarizes approved documents per craftsman', fun
     }
 });
 
+test('poles chrome report page includes reparation documents with RPFDONE status', function () {
+    $craftsman = DB::connection('third')
+        ->table('mscraftsman')
+        ->whereNotNull('name')
+        ->where('name', '!=', '')
+        ->orderBy('name')
+        ->first(['row_id']);
+
+    if ($craftsman === null) {
+        $this->markTestSkipped('Butuh minimal satu pengrajin di mscraftsman.');
+    }
+
+    $document = PolishFinishedGood::factory()->create([
+        'doc_no' => 'PFGRPTRPF0001',
+        'status' => PolishFinishedGood::STATUS_REPARATION_DONE,
+        'process_name' => 'Reparation',
+        'craftsman_id' => $craftsman->row_id,
+        'send_craftsman_date' => '1999-08-07 08:00:00',
+        'received_craftsman_date' => '1999-08-07 11:00:00',
+        'start_weight' => '4.00',
+        'finish_weight' => '3.80',
+        'shrink' => '0.20',
+        'status_item' => 'OK',
+    ]);
+
+    try {
+        $this->get(route('poles-chrome.report', [
+            'craftsman' => (string) $craftsman->row_id,
+            'date_from' => '1999-08-01',
+            'date_to' => '1999-08-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('poles-chrome/report')
+                ->where('summary.documentCount', 1)
+                ->where('summary.shrink', '0.20')
+                ->where('rows.0.docNo', 'PFGRPTRPF0001')
+                ->where('rows.0.processName', 'Reparation')
+            );
+    } finally {
+        $document->delete();
+    }
+});
+
 test('poles rangka report page averages shrink per process and per spk', function () {
     $craftsman = DB::connection('third')
         ->table('mscraftsman')
