@@ -3101,7 +3101,7 @@ class SpkDashboardAnalytics
 
     /**
      * @param  list<array{key: string, label: string}>  $jobProcesses
-     * @return list<array{craftsmanId: int, name: string, position: string, labelTukang: string|null, jobCount: int, jobsByProcess: array<string, int>, spkCount: int, totalShrink: string, avgShrink: string|null}>
+     * @return list<array{craftsmanId: int, name: string, position: string, labelTukang: string|null, jobCount: int, jobsByProcess: array<string, int>, spkCount: int, totalShrink: string, avgShrink: string|null, avgShrinkPercent: string|null}>
      */
     private function resolveCraftsmanPerformanceRanking(?int $limit, array $jobProcesses = []): array
     {
@@ -3111,7 +3111,7 @@ class SpkDashboardAnalytics
 
         /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
         $sources = config('spk_processes.shrink_sources', []);
-        /** @var array<int, array{id: int, jobCount: int, totalShrink: float, spkIds: array<int, true>, jobsByProcess: array<string, int>}> $byCraftsman */
+        /** @var array<int, array{id: int, jobCount: int, totalShrink: float, spkIds: array<int, true>, jobsByProcess: array<string, int>, processPercents: list<float>}> $byCraftsman */
         $byCraftsman = [];
 
         foreach ($sources as $source) {
@@ -3146,6 +3146,7 @@ class SpkDashboardAnalytics
             }
 
             $this->applyCraftsmanPerformanceProcessPeriodFilter($query, $table, $source['date_column']);
+            $recordsQuery = clone $query;
 
             if (Schema::connection('third')->hasColumn($table, 'spk_id')) {
                 foreach ((clone $query)->selectRaw("{$craftsmanColumn} as craftsman_id, spk_id")->distinct()->get() as $spkRow) {
@@ -3157,13 +3158,7 @@ class SpkDashboardAnalytics
                     }
 
                     if (! isset($byCraftsman[$craftsmanId])) {
-                        $byCraftsman[$craftsmanId] = [
-                            'id' => $craftsmanId,
-                            'jobCount' => 0,
-                            'totalShrink' => 0.0,
-                            'spkIds' => [],
-                            'jobsByProcess' => [],
-                        ];
+                        $byCraftsman[$craftsmanId] = $this->emptyCraftsmanPerformanceBucket($craftsmanId);
                     }
 
                     $byCraftsman[$craftsmanId]['spkIds'][$spkId] = true;
@@ -3189,30 +3184,40 @@ class SpkDashboardAnalytics
                 $processJobCount = (int) $row->job_count;
 
                 if (! isset($byCraftsman[$id])) {
-                    $byCraftsman[$id] = [
-                        'id' => $id,
-                        'jobCount' => 0,
-                        'totalShrink' => 0.0,
-                        'spkIds' => [],
-                        'jobsByProcess' => [],
-                    ];
+                    $byCraftsman[$id] = $this->emptyCraftsmanPerformanceBucket($id);
                 }
 
                 $byCraftsman[$id]['jobCount'] += $processJobCount;
                 $byCraftsman[$id]['totalShrink'] += (float) $row->total_shrink;
                 $byCraftsman[$id]['jobsByProcess'][$table] = ($byCraftsman[$id]['jobsByProcess'][$table] ?? 0) + $processJobCount;
             }
+
+            foreach ($recordsQuery->get() as $record) {
+                $id = (int) ($record->{$craftsmanColumn} ?? 0);
+
+                if ($id <= 0) {
+                    continue;
+                }
+
+                $goldIn = $this->craftsmanPerformanceGoldInValue($record, $source['shrink_column']);
+
+                if ($goldIn === null) {
+                    continue;
+                }
+
+                $shrink = $this->craftsmanPerformanceShrinkValue($record, $source['shrink_column']) ?? 0.0;
+
+                if (! isset($byCraftsman[$id])) {
+                    $byCraftsman[$id] = $this->emptyCraftsmanPerformanceBucket($id);
+                }
+
+                $byCraftsman[$id]['processPercents'][] = ($shrink / $goldIn) * 100;
+            }
         }
 
         foreach ($this->listNonDeletedCraftsmanIds() as $id) {
             if (! isset($byCraftsman[$id])) {
-                $byCraftsman[$id] = [
-                    'id' => $id,
-                    'jobCount' => 0,
-                    'totalShrink' => 0.0,
-                    'spkIds' => [],
-                    'jobsByProcess' => [],
-                ];
+                $byCraftsman[$id] = $this->emptyCraftsmanPerformanceBucket($id);
             }
         }
 
@@ -3250,6 +3255,10 @@ class SpkDashboardAnalytics
             $avgShrink = $row['jobCount'] > 0
                 ? round($row['totalShrink'] / $row['jobCount'], 2)
                 : null;
+            $processPercents = $row['processPercents'] ?? [];
+            $avgShrinkPercent = $processPercents === []
+                ? null
+                : $this->formatGainAwarePercent(array_sum($processPercents) / count($processPercents));
 
             $jobsByProcess = [];
 
@@ -3269,8 +3278,24 @@ class SpkDashboardAnalytics
                 'spkCount' => count($row['spkIds']),
                 'totalShrink' => $this->formatWeight(round($row['totalShrink'], 2)),
                 'avgShrink' => $avgShrink !== null ? $this->formatWeight($avgShrink) : null,
+                'avgShrinkPercent' => $avgShrinkPercent,
             ];
         }, $top);
+    }
+
+    /**
+     * @return array{id: int, jobCount: int, totalShrink: float, spkIds: array<int, true>, jobsByProcess: array<string, int>, processPercents: list<float>}
+     */
+    private function emptyCraftsmanPerformanceBucket(int $craftsmanId): array
+    {
+        return [
+            'id' => $craftsmanId,
+            'jobCount' => 0,
+            'totalShrink' => 0.0,
+            'spkIds' => [],
+            'jobsByProcess' => [],
+            'processPercents' => [],
+        ];
     }
 
     /**
@@ -3592,14 +3617,57 @@ class SpkDashboardAnalytics
         return round((float) $record->{$shrinkColumn}, 3);
     }
 
+    private function craftsmanPerformanceGoldInValue(object $record, string $shrinkColumn): ?float
+    {
+        if ($shrinkColumn === 'computed_mounting') {
+            if (isset($record->total_weigth_frame_diamond) && $record->total_weigth_frame_diamond !== null && $record->total_weigth_frame_diamond !== '') {
+                return round((float) $record->total_weigth_frame_diamond, 3);
+            }
+
+            if (! isset($record->weight_frame) || $record->weight_frame === null || $record->weight_frame === '') {
+                return null;
+            }
+
+            $diamond = isset($record->weight_diamond) && $record->weight_diamond !== null && $record->weight_diamond !== ''
+                ? (float) $record->weight_diamond
+                : 0.0;
+
+            return round((float) $record->weight_frame + $diamond, 3);
+        }
+
+        $start = isset($record->start_weight) && $record->start_weight !== null && $record->start_weight !== ''
+            ? (float) $record->start_weight
+            : 0.0;
+        $submit = isset($record->submit_materialgold) && $record->submit_materialgold !== null && $record->submit_materialgold !== ''
+            ? (float) $record->submit_materialgold
+            : 0.0;
+        $goldIn = $start + $submit;
+
+        if (abs($goldIn) < 0.0005) {
+            return null;
+        }
+
+        return round($goldIn, 3);
+    }
+
+    private function formatGainAwarePercent(float $percent): string
+    {
+        if ($percent < -0.0005) {
+            return '+'.number_format(abs($percent), 2, '.', '').'%';
+        }
+
+        return number_format($percent, 2, '.', '').'%';
+    }
+
     /**
-     * @return list<array{process: string, jobCount: int, craftsmanCount: int, totalShrink: string}>
+     * @return list<array{process: string, jobCount: int, reparasiJobCount: int, nonReparasiJobCount: int, craftsmanCount: int, totalShrink: string}>
      */
     private function resolveCraftsmanJobsByProcess(): array
     {
         /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
         $sources = config('spk_processes.shrink_sources', []);
         $byProcess = [];
+        $reparationType = SpkService::REPARATION_TYPE;
 
         foreach ($sources as $source) {
             $table = $source['table'];
@@ -3616,19 +3684,42 @@ class SpkDashboardAnalytics
                 continue;
             }
 
+            $qualifiedCraftsmanColumn = "{$table}.{$craftsmanColumn}";
+            $hasSpkId = Schema::connection('third')->hasColumn($table, 'spk_id');
+            $canClassifyReparasi = $hasSpkId
+                && Schema::connection('third')->hasTable('spk')
+                && Schema::connection('third')->hasColumn('spk', 'spk_type');
+
             $query = DB::connection('third')->table($table)
-                ->whereNotNull($craftsmanColumn)
-                ->where($craftsmanColumn, '>', 0);
+                ->whereNotNull($qualifiedCraftsmanColumn)
+                ->where($qualifiedCraftsmanColumn, '>', 0);
 
             if (Schema::connection('third')->hasColumn($table, 'is_deleted')) {
-                $query->where('is_deleted', 0);
+                $query->where("{$table}.is_deleted", 0);
+            }
+
+            if ($canClassifyReparasi) {
+                $query->leftJoin('spk', 'spk.row_id', '=', "{$table}.spk_id");
             }
 
             $this->applyCraftsmanPerformanceProcessPeriodFilter($query, $table, $source['date_column']);
 
+            $reparasiCountSql = $canClassifyReparasi
+                ? "SUM(CASE WHEN spk.spk_type = '{$reparationType}' THEN 1 ELSE 0 END)"
+                : '0';
+            $nonReparasiCountSql = $canClassifyReparasi
+                ? "SUM(CASE WHEN spk.spk_type IS NULL OR spk.spk_type != '{$reparationType}' THEN 1 ELSE 0 END)"
+                : 'COUNT(*)';
+
             if ($source['shrink_column'] === 'computed_mounting') {
                 $stats = $query
-                    ->selectRaw("COUNT(*) as job_count, COUNT(DISTINCT {$craftsmanColumn}) as craftsman_count, SUM(COALESCE(total_weigth_frame_diamond, 0) - COALESCE(weight_finish_goods, 0)) as total_shrink")
+                    ->selectRaw("
+                        COUNT(*) as job_count,
+                        {$reparasiCountSql} as reparasi_job_count,
+                        {$nonReparasiCountSql} as non_reparasi_job_count,
+                        COUNT(DISTINCT {$qualifiedCraftsmanColumn}) as craftsman_count,
+                        SUM(COALESCE({$table}.total_weigth_frame_diamond, 0) - COALESCE({$table}.weight_finish_goods, 0)) as total_shrink
+                    ")
                     ->first();
             } else {
                 $column = $source['shrink_column'];
@@ -3638,7 +3729,13 @@ class SpkDashboardAnalytics
                 }
 
                 $stats = $query
-                    ->selectRaw("COUNT(*) as job_count, COUNT(DISTINCT {$craftsmanColumn}) as craftsman_count, SUM(COALESCE({$column}, 0)) as total_shrink")
+                    ->selectRaw("
+                        COUNT(*) as job_count,
+                        {$reparasiCountSql} as reparasi_job_count,
+                        {$nonReparasiCountSql} as non_reparasi_job_count,
+                        COUNT(DISTINCT {$qualifiedCraftsmanColumn}) as craftsman_count,
+                        SUM(COALESCE({$table}.{$column}, 0)) as total_shrink
+                    ")
                     ->first();
             }
 
@@ -3651,6 +3748,8 @@ class SpkDashboardAnalytics
             $byProcess[] = [
                 'process' => $source['label'],
                 'jobCount' => $jobCount,
+                'reparasiJobCount' => (int) ($stats->reparasi_job_count ?? 0),
+                'nonReparasiJobCount' => (int) ($stats->non_reparasi_job_count ?? 0),
                 'craftsmanCount' => (int) ($stats->craftsman_count ?? 0),
                 'totalShrink' => $this->formatWeight(round((float) ($stats->total_shrink ?? 0), 3)),
             ];

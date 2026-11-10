@@ -3,7 +3,7 @@ import navigationLeftIcon from '@ui5/webcomponents-icons/dist/navigation-left-ar
 import navigationRightIcon from '@ui5/webcomponents-icons/dist/navigation-right-arrow.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { useState } from 'react';
-import { InProgressProcessBarChart } from '@/components/dashboard/in-progress-process-bar-chart';
+import { CraftsmanProcessStackedBarChart } from '@/components/dashboard/craftsman-process-stacked-bar-chart';
 import {
     CraftsmanPerformanceJobsDialog,
     type CraftsmanPerformanceJobsDialogTarget,
@@ -40,10 +40,13 @@ export type CraftsmanPerformanceAnalytics = {
         spkCount: number;
         totalShrink: string;
         avgShrink: string | null;
+        avgShrinkPercent: string | null;
     }>;
     byProcess: Array<{
         process: string;
         jobCount: number;
+        reparasiJobCount: number;
+        nonReparasiJobCount: number;
         craftsmanCount: number;
         totalShrink: string;
     }>;
@@ -176,7 +179,8 @@ export default function CraftsmanPerformanceDashboard({
 
     const processChartItems = byProcess.map((row) => ({
         label: row.process,
-        count: row.jobCount,
+        nonReparasiCount: row.nonReparasiJobCount,
+        reparasiCount: row.reparasiJobCount,
     }));
 
     const rankingByLabelTukang = groupRankingByLabelTukang(ranking);
@@ -300,10 +304,13 @@ export default function CraftsmanPerformanceDashboard({
                         <header className="dashPanelHeader">
                             <h2 className="dashPanelTitle">Job per Proses</h2>
                             <p className="dashPanelMeta">
-                                {period.label} · beban pengrajin per proses
+                                {period.label} · non-reparasi vs reparasi per
+                                proses
                             </p>
                         </header>
-                        <InProgressProcessBarChart items={processChartItems} />
+                        <CraftsmanProcessStackedBarChart
+                            items={processChartItems}
+                        />
                     </article>
 
                     <article className="dashPanel">
@@ -513,11 +520,25 @@ export default function CraftsmanPerformanceDashboard({
                                                     )}
                                                 </td>
                                                 <td className="is-text-center text-center tabular-nums">
-                                                    {row.avgShrink !== null
-                                                        ? formatWeight(
-                                                              row.avgShrink,
-                                                          )
-                                                        : '—'}
+                                                    {row.avgShrink !== null ? (
+                                                        <div>
+                                                            <div>
+                                                                {formatWeight(
+                                                                    row.avgShrink,
+                                                                )}
+                                                            </div>
+                                                            {row.avgShrinkPercent !==
+                                                            null ? (
+                                                                <div className="text-muted-foreground text-sm">
+                                                                    {
+                                                                        row.avgShrinkPercent
+                                                                    }
+                                                                </div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        '—'
+                                                    )}
                                                 </td>
                                             </tr>
                                         )),

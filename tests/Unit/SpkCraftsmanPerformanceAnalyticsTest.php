@@ -41,12 +41,26 @@ test('craftsman performance analytics returns ranking payload', function () {
             'spkCount',
             'totalShrink',
             'avgShrink',
+            'avgShrinkPercent',
         ])
             ->and($report['ranking'][0]['position'])->toBeString()
             ->and($report['ranking'][0]['position'])->not->toBe('')
             ->and($report['ranking'][0]['jobsByProcess'])->toBeArray()
             ->and($report['ranking'][0]['spkCount'])->toBeInt()
             ->and($report['ranking'][0]['spkCount'])->toBeLessThanOrEqual($report['ranking'][0]['jobCount']);
+
+        if ($report['byProcess'] !== []) {
+            expect($report['byProcess'][0])->toHaveKeys([
+                'process',
+                'jobCount',
+                'reparasiJobCount',
+                'nonReparasiJobCount',
+                'craftsmanCount',
+                'totalShrink',
+            ])
+                ->and($report['byProcess'][0]['reparasiJobCount'] + $report['byProcess'][0]['nonReparasiJobCount'])
+                ->toBe($report['byProcess'][0]['jobCount']);
+        }
 
         foreach ($report['jobProcesses'] as $process) {
             expect($process)->toHaveKeys(['key', 'label']);

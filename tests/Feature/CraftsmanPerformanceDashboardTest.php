@@ -26,8 +26,11 @@ test('craftsman performance dashboard includes analytics payload', function () {
             ->has('analytics.ranking.0.labelTukang')
             ->has('analytics.ranking.0.craftsmanId')
             ->has('analytics.ranking.0.jobsByProcess')
+            ->has('analytics.ranking.0.avgShrinkPercent')
             ->has('analytics.jobProcesses')
             ->has('analytics.byProcess')
+            ->has('analytics.byProcess.0.reparasiJobCount')
+            ->has('analytics.byProcess.0.nonReparasiJobCount')
             ->has('filters.month')
             ->where('navigation.isCurrentMonth', true)
         );
