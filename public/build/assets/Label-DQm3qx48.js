@@ -1,1 +1,0 @@
-import{ua as e}from"./app-CpLHreVX.js";var t=e(`ui5-label`,[`for`,`wrappingType`],[`required`,`showColon`],[],[]);t.displayName=`Label`;export{t};
