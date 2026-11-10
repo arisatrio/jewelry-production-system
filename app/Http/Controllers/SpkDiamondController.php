@@ -8,13 +8,18 @@ use App\Models\SerahTerimaSpkDiamond;
 use App\Models\SpkDiamond;
 use App\Support\SerahTerimaSpkDiamondDocNumberGenerator;
 use App\Support\SpkDiamondDocumentService;
+use App\Support\SpkDiamondStatus;
+use App\Support\SpkStoneAllocationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class SpkDiamondController extends Controller
 {
@@ -91,6 +96,7 @@ class SpkDiamondController extends Controller
                 ],
             ],
             'receiptEmployeeOptions' => Inertia::once(fn (): array => $this->receiptEmployeeOptions()),
+            'shippingInvoiceReceiptCount' => $this->shippingInvoiceReceiptCount(),
         ]);
     }
 
@@ -126,6 +132,32 @@ class SpkDiamondController extends Controller
             ->orderByDesc('id')
             ->paginate(20);
 
+        $receiptRowIds = $receipts->getCollection()
+            ->flatMap(fn (SerahTerimaSpkDiamond $receipt): array => $receipt->spk_diamond_row_ids ?? [])
+            ->map(intval(...))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        /** @var array<int, true> $receivableDocumentRowIds */
+        $receivableDocumentRowIds = [];
+
+        if (
+            SpkDiamondStatus::columnAvailable()
+            && $receiptRowIds->isNotEmpty()
+        ) {
+            $receivableDocumentRowIds = SpkDiamond::query()
+                ->where('is_deleted', 0)
+                ->whereIn('row_id', $receiptRowIds)
+                ->whereIn('status', [
+                    SpkDiamondStatus::DRAFT,
+                    SpkDiamondStatus::SENT_TO_WORKSHOP,
+                ])
+                ->pluck('row_id')
+                ->mapWithKeys(fn ($id): array => [(int) $id => true])
+                ->all();
+        }
+
         return response()->json([
             'data' => $receipts->getCollection()
                 ->map(fn (SerahTerimaSpkDiamond $receipt): array => [
@@ -142,6 +174,10 @@ class SpkDiamondController extends Controller
                     'createdBy' => $receipt->created_by,
                     'createdAt' => $receipt->created_at?->format('d-M-Y H:i'),
                     'printUrl' => route('spk-diamond.print.receipt', $receipt),
+                    'canReceiveDocuments' => collect($receipt->spk_diamond_row_ids ?? [])
+                        ->contains(
+                            fn ($rowId): bool => isset($receivableDocumentRowIds[(int) $rowId]),
+                        ),
                 ])
                 ->values(),
             'meta' => [
@@ -189,19 +225,38 @@ class SpkDiamondController extends Controller
             'tanggal' => $document->tanggal->format('d-M-Y'),
         ])->all();
 
-        $receipt = DB::connection('third')->transaction(fn (): SerahTerimaSpkDiamond => SerahTerimaSpkDiamond::query()->create([
-            'doc_no' => $docNumberGenerator->generate($receiptDate),
-            'tanggal' => $receiptDate->toDateString(),
-            'dari' => $this->nullableTrimmed($request->validated('dari')),
-            'untuk' => $this->nullableTrimmed($request->validated('untuk')),
-            'diserahkan_oleh' => $this->nullableTrimmed($request->validated('diserahkan_oleh')),
-            'diterima_oleh' => $this->nullableTrimmed($request->validated('diterima_oleh')),
-            'diketahui_oleh' => $this->nullableTrimmed($request->validated('diketahui_oleh')),
-            'jumlah_dokumen' => count($items),
-            'spk_diamond_row_ids' => array_column($items, 'spkDiamondRowId'),
-            'items' => $items,
-            'created_by' => $this->actorName($request),
-        ]));
+        $actor = $this->actorName($request);
+
+        $receipt = DB::connection('third')->transaction(function () use (
+            $docNumberGenerator,
+            $receiptDate,
+            $request,
+            $items,
+            $documents,
+            $actor,
+        ): SerahTerimaSpkDiamond {
+            $receipt = SerahTerimaSpkDiamond::query()->create([
+                'doc_no' => $docNumberGenerator->generate(
+                    $receiptDate,
+                    $this->nullableTrimmed($request->validated('dari')),
+                    $this->nullableTrimmed($request->validated('untuk')),
+                ),
+                'tanggal' => $receiptDate->toDateString(),
+                'dari' => $this->nullableTrimmed($request->validated('dari')),
+                'untuk' => $this->nullableTrimmed($request->validated('untuk')),
+                'diserahkan_oleh' => $this->nullableTrimmed($request->validated('diserahkan_oleh')),
+                'diterima_oleh' => $this->nullableTrimmed($request->validated('diterima_oleh')),
+                'diketahui_oleh' => $this->nullableTrimmed($request->validated('diketahui_oleh')),
+                'jumlah_dokumen' => count($items),
+                'spk_diamond_row_ids' => array_column($items, 'spkDiamondRowId'),
+                'items' => $items,
+                'created_by' => $actor,
+            ]);
+
+            $this->markSpkDiamondDocumentsSentToWorkshop($documents, $actor);
+
+            return $receipt;
+        });
 
         return response()->json([
             'id' => $receipt->id,
@@ -253,6 +308,57 @@ class SpkDiamondController extends Controller
         ]);
     }
 
+    /**
+     * Tandai dokumen SPK Pasang Batu pada faktur sebagai diterima workshop.
+     */
+    public function receiveReceiptDocuments(
+        Request $request,
+        SerahTerimaSpkDiamond $serahTerimaSpkDiamond,
+    ): JsonResponse {
+        if (! SpkDiamondStatus::columnAvailable()) {
+            throw new HttpException(422, 'Status SPK Pasang Batu tidak tersedia.');
+        }
+
+        /** @var list<int> $rowIds */
+        $rowIds = array_values(array_filter(array_map(
+            intval(...),
+            $serahTerimaSpkDiamond->spk_diamond_row_ids ?? [],
+        ), fn (int $id): bool => $id > 0));
+
+        abort_if($rowIds === [], 404);
+
+        $documents = SpkDiamond::query()
+            ->where('is_deleted', 0)
+            ->whereIn('row_id', $rowIds)
+            ->get();
+
+        abort_if($documents->isEmpty(), 404);
+
+        $actor = $this->actorName($request);
+
+        $stoneAllocations = app(SpkStoneAllocationService::class);
+
+        $receivedCount = DB::connection('third')->transaction(function () use (
+            $documents,
+            $actor,
+            $stoneAllocations,
+        ): int {
+            $receivedCount = $this->markSpkDiamondDocumentsReceivedByWorkshop($documents, $actor);
+            $stoneAllocations->relocateAllocatedStonesToWorkshop($documents, $actor);
+
+            return $receivedCount;
+        });
+
+        if ($receivedCount === 0) {
+            throw new HttpException(422, 'Tidak ada dokumen yang dapat diterima.');
+        }
+
+        return response()->json([
+            'message' => "{$receivedCount} dokumen diterima.",
+            'receivedCount' => $receivedCount,
+        ]);
+    }
+
     private function resolveIndexDate(string $value): ?string
     {
         $trimmed = trim($value);
@@ -268,6 +374,45 @@ class SpkDiamondController extends Controller
         }
 
         return $parsed->format('Y-m-d');
+    }
+
+    private function shippingInvoiceReceiptCount(): int
+    {
+        if (! Schema::connection('third')->hasTable('serah_terima_spk_diamond')) {
+            return 0;
+        }
+
+        if (! SpkDiamondStatus::columnAvailable()) {
+            return SerahTerimaSpkDiamond::query()->count();
+        }
+
+        /** @var array<int, true> $receivableDocumentRowIds */
+        $receivableDocumentRowIds = SpkDiamond::query()
+            ->where('is_deleted', 0)
+            ->whereIn('status', [
+                SpkDiamondStatus::DRAFT,
+                SpkDiamondStatus::SENT_TO_WORKSHOP,
+            ])
+            ->pluck('row_id')
+            ->mapWithKeys(fn ($id): array => [(int) $id => true])
+            ->all();
+
+        if ($receivableDocumentRowIds === []) {
+            return 0;
+        }
+
+        return SerahTerimaSpkDiamond::query()
+            ->get(['spk_diamond_row_ids'])
+            ->filter(function (SerahTerimaSpkDiamond $receipt) use ($receivableDocumentRowIds): bool {
+                foreach ($receipt->spk_diamond_row_ids ?? [] as $rowId) {
+                    if (isset($receivableDocumentRowIds[(int) $rowId])) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->count();
     }
 
     /**
@@ -309,6 +454,85 @@ class SpkDiamondController extends Controller
             'revision' => (string) config('spk.spk_diamond_receipt_revision', '00'),
             'issueDate' => (string) config('spk.spk_diamond_receipt_issue_date', '05/11/2026'),
         ];
+    }
+
+    /**
+     * @param  Collection<int, SpkDiamond>  $documents
+     */
+    private function markSpkDiamondDocumentsSentToWorkshop(
+        Collection $documents,
+        string $actor,
+    ): void {
+        if (! SpkDiamondStatus::columnAvailable()) {
+            return;
+        }
+
+        $schema = Schema::connection('third');
+        $now = now();
+
+        foreach ($documents as $document) {
+            if (SpkDiamondStatus::normalize($document->status) !== SpkDiamondStatus::DRAFT) {
+                continue;
+            }
+
+            $payload = [
+                'status' => SpkDiamondStatus::SENT_TO_WORKSHOP,
+            ];
+
+            if ($schema->hasColumn('spk_diamond', 'modified_date')) {
+                $payload['modified_date'] = $now;
+            }
+
+            if ($schema->hasColumn('spk_diamond', 'modified_by')) {
+                $payload['modified_by'] = $actor;
+            }
+
+            $document->update($payload);
+        }
+    }
+
+    /**
+     * @param  Collection<int, SpkDiamond>  $documents
+     */
+    private function markSpkDiamondDocumentsReceivedByWorkshop(
+        Collection $documents,
+        string $actor,
+    ): int {
+        if (! SpkDiamondStatus::columnAvailable()) {
+            return 0;
+        }
+
+        $schema = Schema::connection('third');
+        $now = now();
+        $updated = 0;
+
+        foreach ($documents as $document) {
+            $currentStatus = SpkDiamondStatus::normalize($document->status);
+
+            if (in_array($currentStatus, [
+                SpkDiamondStatus::RECEIVED_BY_WORKSHOP,
+                SpkDiamondStatus::INSTALLED,
+            ], true)) {
+                continue;
+            }
+
+            $payload = [
+                'status' => SpkDiamondStatus::RECEIVED_BY_WORKSHOP,
+            ];
+
+            if ($schema->hasColumn('spk_diamond', 'modified_date')) {
+                $payload['modified_date'] = $now;
+            }
+
+            if ($schema->hasColumn('spk_diamond', 'modified_by')) {
+                $payload['modified_by'] = $actor;
+            }
+
+            $document->update($payload);
+            $updated++;
+        }
+
+        return $updated;
     }
 
     private function nullableTrimmed(mixed $value): ?string

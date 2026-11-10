@@ -1605,25 +1605,31 @@
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColPcs,
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColCrtPerPcs,
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColTotalCrt {
-    padding: 0.3rem 0.35rem;
-    font-size: 0.6875rem;
-    line-height: 1.2;
+    padding: 0.35rem 0.45rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
+}
+
+.spkTable--spkDiamondIndex th.spkTableColStoneDetailGroup {
+    min-width: 36rem;
 }
 
 .spkTable--spkDiamondIndex th.spkDiamondIndexStoneColShape,
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColShape {
-    width: 3.75rem;
-    min-width: 3.75rem;
-    max-width: 3.75rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    width: 7.5rem;
+    min-width: 7.5rem;
+    max-width: 9rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.25;
 }
 
 .spkTable--spkDiamondIndex th.spkDiamondIndexStoneColName,
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColName {
-    min-width: 5rem;
-    max-width: 8.5rem;
+    min-width: 11rem;
+    max-width: 16rem;
+    width: 14rem;
     overflow-wrap: anywhere;
     word-break: break-word;
 }
@@ -1639,11 +1645,11 @@
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColPcs,
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColCrtPerPcs,
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColTotalCrt {
-    width: 3.1rem;
-    min-width: 3.1rem;
-    max-width: 3.75rem;
+    width: 4rem;
+    min-width: 4rem;
+    max-width: 4.5rem;
     white-space: nowrap;
-    padding-inline: 0.2rem;
+    padding-inline: 0.25rem;
 }
 
 .spkTable td.spkDiamondIndexStoneColEmpty {
@@ -1653,6 +1659,68 @@
 .spkTable--spkDiamondIndex td.spkDiamondIndexStoneColEmpty {
     padding: 0.35rem 0.4rem;
     font-size: 0.6875rem;
+}
+
+.spkTable--spkDiamondIndex td.spkDiamondIndexItemCol {
+    min-width: 11rem;
+    max-width: 22rem;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.spkTable th.spkTableColSpkDiamondShippingInvoice,
+.spkTable td.spkTableColSpkDiamondShippingInvoice {
+    min-width: 11.5rem;
+    max-width: 16rem;
+    white-space: normal;
+    vertical-align: middle;
+    text-align: center;
+    word-break: break-word;
+    line-height: 1.25;
+    font-size: 0.75rem;
+}
+
+.spkTableColSpkDiamondShippingInvoiceLink {
+    display: inline-block;
+    max-width: 100%;
+}
+
+.spkDiamondIndexItemStack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.spkDiamondIndexItemStack .spkTableDescription {
+    width: 100%;
+}
+
+.spkDiamondIndexSpkOrderCell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    line-height: 1.35;
+}
+
+.spkDiamondIndexSpkOrderCell .spkDiamondIndexSpkOrderSep {
+    color: var(--sapContent_LabelColor, #64748b);
+    font-weight: 500;
+}
+
+.spkDiamondIndexSpkOrderCell .spkOrderTypeColumn {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    text-align: left;
+}
+
+.spkDiamondIndexSpkOrderCell .spkOrderTypeColumn > span:last-child {
+    display: inline;
+    white-space: normal;
 }
 
 .spkTableMaterialStatus {
@@ -2960,6 +3028,157 @@
 .spkReceiptHistoryTable td.spkReceiptHistoryColWrap {
     min-width: 24rem;
     white-space: normal;
+}
+
+.spkDiamondReceiptHistoryModal .spkStatusListBody {
+    overflow-x: auto;
+}
+
+.spkDiamondReceiptHistoryModal .spkReceiptHistoryTable.spkDiamondReceiptHistoryTable {
+    table-layout: fixed;
+    width: 100%;
+    max-width: 100%;
+}
+
+.spkDiamondReceiptHistoryModal
+    .spkDiamondReceiptHistoryTable
+    th,
+.spkDiamondReceiptHistoryModal
+    .spkDiamondReceiptHistoryTable
+    td {
+    padding: 0.4rem 0.5rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    vertical-align: top;
+    height: auto;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryColDoc {
+    width: 9.75rem;
+    max-width: 9.75rem;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryColDate {
+    width: 4.5rem;
+    max-width: 4.5rem;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryColRoute {
+    width: 5.25rem;
+    max-width: 5.25rem;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryColSpk {
+    width: 7.25rem;
+    max-width: 7.25rem;
+    min-width: 0;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryColMeta {
+    width: 5.5rem;
+    max-width: 5.5rem;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryColAction {
+    width: 8.5rem;
+    min-width: 8.5rem;
+    max-width: 8.5rem;
+    padding-inline: 0.25rem;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.spkDiamondReceiptHistoryModal
+    .spkDiamondReceiptHistoryColSpk.spkReceiptHistoryColWrap {
+    min-width: 0;
+}
+
+.spkDiamondReceiptHistoryModal .spkAlertModalTableIdentifier {
+    font-size: inherit;
+    font-weight: 600;
+}
+
+.spkDiamondReceiptHistoryModal .spkAlertModalLink {
+    font-size: inherit;
+    line-height: 1.25;
+    text-align: left;
+    word-break: break-all;
+}
+
+.spkDiamondReceiptHistoryActionRow {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryReceiveBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    width: 100%;
+    margin: 0;
+    appearance: none;
+    min-height: 1.85rem;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid #15803d;
+    border-radius: 0.35rem;
+    background: #16a34a;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.spkDiamondReceiptHistoryModal
+    .spkDiamondReceiptHistoryReceiveBtn:hover:not(:disabled) {
+    background: #15803d;
+    border-color: #166534;
+    color: #fff;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryReceiveBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.spkDiamondReceiptHistoryModal
+    .spkDiamondReceiptHistoryReceiveBtn:focus-visible {
+    outline: 2px solid #16a34a;
+    outline-offset: 1px;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryReceiveBtn ui5-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    color: currentColor;
+}
+
+.spkDiamondReceiptHistoryActionRow .spkDiamondReceiptHistoryReceiveBtn
+    + ui5-button {
+    align-self: center;
+}
+
+.spkDiamondReceiptHistoryActionRow
+    .spkDiamondReceiptHistoryIconActions {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+}
+
+.spkDiamondReceiptHistoryModal .spkDiamondReceiptHistoryActionRow ui5-button {
+    min-width: 2rem;
+    height: 1.75rem;
 }
 
 .spkReceiptHistoryDeleteBtn::part(icon) {
@@ -5027,6 +5246,31 @@
     align-items: start;
 }
 
+.spkPasangBatuBatchList {
+    margin-top: 0.25rem;
+}
+
+.spkPasangBatuBatchListTable {
+    width: 100%;
+}
+
+.spkPasangBatuBatchActionCol {
+    min-width: 11.5rem;
+    white-space: nowrap;
+}
+
+.spkPasangBatuBatchActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: flex-end;
+}
+
+.spkPasangBatuBatchNote {
+    color: #6b7280;
+    font-size: 0.8125rem;
+}
+
 .spkStoneBatchGrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6501,8 +6745,7 @@ button.spkItemImagePreview--clickable:focus-visible {
 }
 
 /*
- * Komponen SPK (tanpa kolom ukuran): jangan terapkan lebar kolom-4 ukuran rantai.
- * Pakai selector class (bukan nth-child(4) width:auto) agar Status tidak melebar.
+ * Komponen SPK: kolom status/aksi memakai class agar tidak bentrok dengan ukuran (cm).
  */
 .spkChainTable.spkComponentTable thead th:nth-child(1),
 .spkChainTable.spkComponentTable tbody td:nth-child(1) {
@@ -7651,6 +7894,22 @@ button.spkItemImagePreview--clickable:focus-visible {
 
 .spkBatuPanelSection {
     margin-top: 0;
+}
+
+.spkPasangBatuDetailBatuStack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.spkPasangBatuDetailBatuStack .spkBatuPanelSection + .spkBatuPanelSection {
+    padding-top: 0;
+    border-top: none;
+}
+
+.spkPasangBatuDetailBatuDocLink {
+    margin: 0 0 0.65rem;
+    font-size: 0.875rem;
 }
 
 .spkBatuPanelSectionHeader {

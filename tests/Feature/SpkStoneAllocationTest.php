@@ -315,6 +315,58 @@ function matchingMicroCandidate(SpkStone $stone): array
     ];
 }
 
+test('spk stone micro allocation merges pcs on same line and stone master', function () {
+    $stone = SpkStone::query()
+        ->notDeleted()
+        ->where('pcs', '>=', 3)
+        ->whereNotNull('shape_id')
+        ->first();
+
+    if ($stone === null) {
+        test()->markTestSkipped('No SPK stone line with pcs >= 3.');
+    }
+
+    $micro = matchingMicroCandidate($stone);
+
+    expect($micro['id'])->toBeGreaterThan(0);
+
+    $this->actingAs(User::factory()->create());
+
+    $this->post(route('spk.stones.allocations.micro', $stone), [
+        'msstone_id' => $micro['id'],
+        'reserved_pcs' => 1,
+    ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->post(route('spk.stones.allocations.micro', $stone), [
+        'msstone_id' => $micro['id'],
+        'reserved_pcs' => 2,
+    ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(app(SpkStoneAllocationService::class)->allocatedPcs($stone->refresh()))
+        ->toBe(3);
+
+    $microRows = DB::connection('third')
+        ->table('spkstone_allocation')
+        ->where('line_id', $stone->line_id)
+        ->where('source', SpkStoneAllocationService::SOURCE_MICRO)
+        ->where('msstone_id', $micro['id'])
+        ->where('is_deleted', 0)
+        ->get();
+
+    expect($microRows)->toHaveCount(1)
+        ->and((float) $microRows[0]->reserved_pcs)->toBe(3.0);
+
+    $items = app(SpkStoneAllocationService::class)->allocationsForStone($stone);
+
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['source'])->toBe(SpkStoneAllocationService::SOURCE_MICRO)
+        ->and((float) $items[0]['reservedPcs'])->toBe(3.0);
+});
+
 test('spk stone line can combine dossier and micro allocations', function () {
     $stone = SpkStone::query()
         ->notDeleted()

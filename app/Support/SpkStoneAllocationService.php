@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\SpkDiamond;
 use App\Models\SpkStone;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -18,6 +19,8 @@ class SpkStoneAllocationService
     public const SOURCE_DOSSIER = 'dossier';
 
     public const SOURCE_MICRO = 'micro';
+
+    public const LOCATION_WORKSHOP = 'Workshop';
 
     public function tableAvailable(): bool
     {
@@ -466,21 +469,52 @@ class SpkStoneAllocationService
 
         $now = now();
 
-        DB::connection('third')->table(self::TABLE)->insert([
-            'line_id' => $stone->line_id,
-            'source' => self::SOURCE_MICRO,
-            'diamond_id' => null,
-            'msstone_id' => $msStoneId,
-            'period_id' => $period['id'],
-            'reserved_pcs' => $reservedPcs,
-            'reserved_crt' => $crtValue,
-            'status' => self::STATUS_RESERVED,
-            'is_deleted' => 0,
-            'created_date' => $now,
-            'created_by' => $actor,
-            'modified_date' => $now,
-            'modified_by' => $actor,
-        ]);
+        $existing = DB::connection('third')
+            ->table(self::TABLE)
+            ->where('line_id', $stone->line_id)
+            ->where('source', self::SOURCE_MICRO)
+            ->where('msstone_id', $msStoneId)
+            ->where('period_id', $period['id'])
+            ->where('status', self::STATUS_RESERVED)
+            ->where('is_deleted', 0)
+            ->first();
+
+        if ($existing !== null) {
+            $existingPcs = (float) ($existing->reserved_pcs ?? 0);
+            $newPcs = round($existingPcs + $reservedPcs, 4);
+            $existingCrt = filled($existing->reserved_crt ?? null)
+                ? (float) $existing->reserved_crt
+                : null;
+            $newCrt = $crtValue !== null
+                ? round(($existingCrt ?? 0) + $crtValue, 4)
+                : $existingCrt;
+
+            DB::connection('third')
+                ->table(self::TABLE)
+                ->where('row_id', $existing->row_id)
+                ->update([
+                    'reserved_pcs' => $newPcs,
+                    'reserved_crt' => $newCrt,
+                    'modified_date' => $now,
+                    'modified_by' => $actor,
+                ]);
+        } else {
+            DB::connection('third')->table(self::TABLE)->insert([
+                'line_id' => $stone->line_id,
+                'source' => self::SOURCE_MICRO,
+                'diamond_id' => null,
+                'msstone_id' => $msStoneId,
+                'period_id' => $period['id'],
+                'reserved_pcs' => $reservedPcs,
+                'reserved_crt' => $crtValue,
+                'status' => self::STATUS_RESERVED,
+                'is_deleted' => 0,
+                'created_date' => $now,
+                'created_by' => $actor,
+                'modified_date' => $now,
+                'modified_by' => $actor,
+            ]);
+        }
 
         $this->syncFulfillment($stone, $actor);
     }
@@ -609,6 +643,31 @@ class SpkStoneAllocationService
         });
     }
 
+    public function whereReservedForProduction(
+        Builder $query,
+        int $productionRowId,
+        string $diamondColumn = 'diamond.row_id',
+    ): Builder {
+        if (! $this->tableAvailable() || $productionRowId <= 0) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereExists(function (Builder $subquery) use ($productionRowId, $diamondColumn): void {
+            $subquery->selectRaw('1')
+                ->from(self::TABLE.' as stone_allocation')
+                ->join('spkstone as spk_line', 'spk_line.line_id', '=', 'stone_allocation.line_id')
+                ->whereColumn('stone_allocation.diamond_id', $diamondColumn)
+                ->where('spk_line.row_id', $productionRowId)
+                ->where('stone_allocation.is_deleted', 0)
+                ->where('stone_allocation.status', self::STATUS_RESERVED)
+                ->where('stone_allocation.source', self::SOURCE_DOSSIER);
+
+            if (Schema::connection('third')->hasColumn('spkstone', 'is_deleted')) {
+                $subquery->where('spk_line.is_deleted', 0);
+            }
+        });
+    }
+
     public function diamondIsReserved(int $diamondId): bool
     {
         if (! $this->tableAvailable()) {
@@ -679,5 +738,151 @@ class SpkStoneAllocationService
         $text = trim((string) $value);
 
         return $text !== '' ? $text : null;
+    }
+
+    /**
+     * @param  Collection<int, SpkDiamond>  $documents
+     */
+    public function relocateAllocatedStonesToWorkshop(Collection $documents, string $actor): void
+    {
+        if (! $this->tableAvailable()) {
+            return;
+        }
+
+        $allocationRowIds = $this->allocationRowIdsFromSpkDiamondDocuments($documents);
+
+        if ($allocationRowIds === []) {
+            return;
+        }
+
+        $allocations = DB::connection('third')
+            ->table(self::TABLE)
+            ->whereIn('row_id', $allocationRowIds)
+            ->where('is_deleted', 0)
+            ->where('status', self::STATUS_RESERVED)
+            ->get(['row_id', 'source', 'diamond_id', 'msstone_id', 'period_id']);
+
+        if ($allocations->isEmpty()) {
+            return;
+        }
+
+        $schema = Schema::connection('third');
+        $now = now();
+
+        /** @var list<int> $diamondIds */
+        $diamondIds = [];
+        /** @var list<array{stone_id: int, period_id: int}> $microScopes */
+        $microScopes = [];
+
+        foreach ($allocations as $allocation) {
+            if (
+                (string) $allocation->source === self::SOURCE_DOSSIER
+                && filled($allocation->diamond_id)
+            ) {
+                $diamondIds[] = (int) $allocation->diamond_id;
+            }
+
+            if (
+                (string) $allocation->source === self::SOURCE_MICRO
+                && filled($allocation->msstone_id)
+            ) {
+                $microScopes[] = [
+                    'stone_id' => (int) $allocation->msstone_id,
+                    'period_id' => (int) ($allocation->period_id ?? 0),
+                ];
+            }
+        }
+
+        $diamondIds = array_values(array_unique($diamondIds));
+        $microScopes = collect($microScopes)
+            ->unique(fn (array $scope): string => "{$scope['stone_id']}|{$scope['period_id']}")
+            ->values()
+            ->all();
+
+        if (
+            $diamondIds !== []
+            && $schema->hasTable('trdiamond')
+            && $schema->hasColumn('trdiamond', 'location')
+        ) {
+            $diamondUpdate = [
+                'location' => self::LOCATION_WORKSHOP,
+            ];
+
+            if ($schema->hasColumn('trdiamond', 'modified_date')) {
+                $diamondUpdate['modified_date'] = $now;
+            }
+
+            if ($schema->hasColumn('trdiamond', 'modified_by')) {
+                $diamondUpdate['modified_by'] = $actor;
+            }
+
+            DB::connection('third')
+                ->table('trdiamond')
+                ->whereIn('row_id', $diamondIds)
+                ->update($diamondUpdate);
+        }
+
+        if (
+            $microScopes !== []
+            && $schema->hasTable('trstone')
+            && $schema->hasColumn('trstone', 'location')
+        ) {
+            $stoneUpdate = [
+                'location' => self::LOCATION_WORKSHOP,
+            ];
+
+            if ($schema->hasColumn('trstone', 'modified_date')) {
+                $stoneUpdate['modified_date'] = $now;
+            }
+
+            if ($schema->hasColumn('trstone', 'modified_by')) {
+                $stoneUpdate['modified_by'] = $actor;
+            }
+
+            foreach ($microScopes as $scope) {
+                $query = DB::connection('third')
+                    ->table('trstone')
+                    ->where('stone_id', $scope['stone_id'])
+                    ->where('is_deleted', 0);
+
+                if ($scope['period_id'] > 0) {
+                    $query->where('period_id', $scope['period_id']);
+                }
+
+                $query->update($stoneUpdate);
+            }
+        }
+    }
+
+    /**
+     * @param  Collection<int, SpkDiamond>  $documents
+     * @return list<int>
+     */
+    private function allocationRowIdsFromSpkDiamondDocuments(Collection $documents): array
+    {
+        return $documents
+            ->flatMap(function (SpkDiamond $document): array {
+                /** @var mixed $storedIds */
+                $storedIds = $document->allocation_row_ids ?? [];
+
+                if (is_array($storedIds) && $storedIds !== []) {
+                    return $storedIds;
+                }
+
+                $items = $document->items ?? [];
+
+                if (! is_array($items)) {
+                    return [];
+                }
+
+                return collect($items)
+                    ->pluck('allocationRowId')
+                    ->all();
+            })
+            ->map(intval(...))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 }

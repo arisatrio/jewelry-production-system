@@ -42,6 +42,7 @@ use App\Support\ResinSpkEligibility;
 use App\Support\SerahTerimaChainDocNumberGenerator;
 use App\Support\SerahTerimaComponentDocNumberGenerator;
 use App\Support\SerahTerimaSpkDocNumberGenerator;
+use App\Support\SkuMasterChainPrefill;
 use App\Support\SkuMasterDescriptionExtractor;
 use App\Support\SkuMasterDiamondMapper;
 use App\Support\SpkApprovalRoles;
@@ -3540,6 +3541,31 @@ class ProductionController extends Controller
      */
     private function skuFormOptions(): array
     {
+        $skuColumns = [
+            'id',
+            'sku_code',
+            'item_original',
+            'name_prefix_id',
+            'category_prefix_id',
+            'gold_prefix_id',
+            'size_prefix_id',
+            'stone_shape_prefix_id',
+            'stone_type_prefix_id',
+            'diamond_type_prefix_id',
+            'crt',
+            'gold_weight',
+            'design_image',
+            'file_jwlcad',
+            'image_url',
+            'catalog_image',
+            'image_filename',
+        ];
+
+        if (app(SkuMasterChainPrefill::class)->skuHasChainColumn()) {
+            $skuColumns[] = 'chain_id';
+            $skuColumns[] = 'chain_color_id';
+        }
+
         return SkuMaster::query()
             ->active()
             ->with([
@@ -3553,25 +3579,7 @@ class ProductionController extends Controller
                 'diamonds' => fn ($query) => $query->notDeleted()->orderBy('line_id'),
             ])
             ->orderBy('sku_code')
-            ->get([
-                'id',
-                'sku_code',
-                'item_original',
-                'name_prefix_id',
-                'category_prefix_id',
-                'gold_prefix_id',
-                'size_prefix_id',
-                'stone_shape_prefix_id',
-                'stone_type_prefix_id',
-                'diamond_type_prefix_id',
-                'crt',
-                'gold_weight',
-                'design_image',
-                'file_jwlcad',
-                'image_url',
-                'catalog_image',
-                'image_filename',
-            ])
+            ->get($skuColumns)
             ->map(fn (SkuMaster $sku): array => [
                 'value' => (string) $sku->id,
                 'label' => $sku->displayName(),
@@ -3586,6 +3594,7 @@ class ProductionController extends Controller
                 'jwcad3d' => (string) ($sku->resolvedJwcadFile() ?? ''),
                 'imageUrl' => $sku->resolvedImageUrl(),
                 'stones' => $this->diamondMapper->toFormStones($sku->diamonds),
+                'chains' => app(SkuMasterChainPrefill::class)->formRowsFromSku($sku),
             ])
             ->values()
             ->all();
@@ -3655,7 +3664,12 @@ class ProductionController extends Controller
             ?? '0';
         $production['jwcad3d'] = (string) ($sku->resolvedJwcadFile() ?? '');
 
-        return [$production, $this->stoneRowsFromSku($sku), [], []];
+        return [
+            $production,
+            $this->stoneRowsFromSku($sku),
+            app(SkuMasterChainPrefill::class)->formRowsFromSku($sku),
+            [],
+        ];
     }
 
     private function queryDate(Request $request, string $key): ?string

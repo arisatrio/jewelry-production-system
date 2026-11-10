@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use App\Models\DiamondMounting;
 use App\Models\MsStone;
 use App\Models\Production;
+use App\Models\SerahTerimaSpkDiamond;
 use App\Models\SpkDiamond;
 use App\Models\SpkStone;
 use DateTimeInterface;
@@ -393,7 +395,10 @@ class SpkDiamondDocumentService
      *     createdDate: string|null,
      *     status: string,
      *     statusLabel: string,
-     *     diamondMountingId: int|null
+     *     diamondMountingId: int|null,
+     *     diamondMountingDocNo: string|null,
+     *     shippingInvoiceDocNo: string|null,
+     *     shippingInvoicePrintUrl: string|null
      * }>
      */
     public function paginateForIndex(
@@ -482,8 +487,26 @@ class SpkDiamondDocumentService
             ->paginate($perPage)
             ->withQueryString();
 
+        $spkDiamondRowIds = $paginator->getCollection()
+            ->map(static fn (SpkDiamond $document): int => (int) $document->row_id)
+            ->values()
+            ->all();
+
+        $shippingInvoiceBySpkDiamondId = $this->latestShippingInvoiceBySpkDiamondRowIds($spkDiamondRowIds);
+
+        $mountingIds = $paginator->getCollection()
+            ->map(fn (SpkDiamond $document): ?int => $this->resolveDiamondMountingId($document))
+            ->filter(static fn (?int $id): bool => $id !== null && $id > 0)
+            ->values()
+            ->all();
+
+        $diamondMountingDocNosById = $this->diamondMountingDocNosByIds($mountingIds);
+
         $paginator->setCollection(
-            $paginator->getCollection()->map(function (SpkDiamond $document): array {
+            $paginator->getCollection()->map(function (SpkDiamond $document) use (
+                $shippingInvoiceBySpkDiamondId,
+                $diamondMountingDocNosById,
+            ): array {
                 $spkNo = filled($document->spk_no)
                     ? (string) $document->spk_no
                     : ($document->production !== null && filled($document->production->spk_no)
@@ -493,6 +516,22 @@ class SpkDiamondDocumentService
                 $itemPresentation = SpkProductionListItemPresentation::forProduction(
                     $document->production,
                 );
+
+                $shippingInvoice = $shippingInvoiceBySpkDiamondId[(int) $document->row_id] ?? null;
+
+                $diamondMountingId = $this->resolveDiamondMountingId($document);
+                $diamondMountingDocNo = $diamondMountingId !== null
+                    ? ($diamondMountingDocNosById[$diamondMountingId] ?? null)
+                    : null;
+
+                $statusPayload = SpkDiamondStatus::payloadForDocument($document);
+
+                if ($diamondMountingId !== null && $diamondMountingId > 0) {
+                    $statusPayload = [
+                        'status' => SpkDiamondStatus::INSTALLED,
+                        'label' => 'Batu terpasang',
+                    ];
+                }
 
                 return [
                     'id' => (int) $document->row_id,
@@ -508,8 +547,12 @@ class SpkDiamondDocumentService
                     ),
                     'createdBy' => filled($document->created_by) ? (string) $document->created_by : null,
                     'createdDate' => $document->created_date?->format('Y-m-d H:i:s'),
-                    ...SpkDiamondStatus::payloadForDocument($document),
-                    'diamondMountingId' => $this->resolveDiamondMountingId($document),
+                    ...$statusPayload,
+                    'statusLabel' => $statusPayload['label'],
+                    'diamondMountingId' => $diamondMountingId,
+                    'diamondMountingDocNo' => filled($diamondMountingDocNo) ? (string) $diamondMountingDocNo : null,
+                    'shippingInvoiceDocNo' => $shippingInvoice['docNo'] ?? null,
+                    'shippingInvoicePrintUrl' => $shippingInvoice['printUrl'] ?? null,
                 ];
             }),
         );
@@ -768,6 +811,53 @@ class SpkDiamondDocumentService
      * @param  array<string, mixed>  $item
      * @param  array<int, string>  $microStoneNamesById
      */
+    /**
+     * @param  list<int>  $rowIds
+     * @return array<int, array{docNo: string, printUrl: string}>
+     */
+    private function latestShippingInvoiceBySpkDiamondRowIds(array $rowIds): array
+    {
+        if ($rowIds === [] || ! Schema::connection('third')->hasTable('serah_terima_spk_diamond')) {
+            return [];
+        }
+
+        $wanted = array_fill_keys(array_map(intval(...), $rowIds), true);
+
+        $receipts = SerahTerimaSpkDiamond::query()
+            ->where(function ($query) use ($rowIds): void {
+                foreach ($rowIds as $rowId) {
+                    $query->orWhereJsonContains('spk_diamond_row_ids', (int) $rowId);
+                }
+            })
+            ->orderByDesc('id')
+            ->get(['id', 'doc_no', 'spk_diamond_row_ids']);
+
+        $map = [];
+
+        foreach ($receipts as $receipt) {
+            $ids = $receipt->spk_diamond_row_ids;
+
+            if (! is_array($ids)) {
+                continue;
+            }
+
+            foreach ($ids as $spkDiamondRowId) {
+                $id = (int) $spkDiamondRowId;
+
+                if (! isset($wanted[$id]) || isset($map[$id])) {
+                    continue;
+                }
+
+                $map[$id] = [
+                    'docNo' => (string) $receipt->doc_no,
+                    'printUrl' => route('spk-diamond.print.receipt', $receipt),
+                ];
+            }
+        }
+
+        return $map;
+    }
+
     private function displayLabelForStoredItem(array $item, array $microStoneNamesById): string
     {
         $source = (string) ($item['source'] ?? '');
@@ -839,6 +929,31 @@ class SpkDiamondDocumentService
         $mountingId = (int) ($document->diamondmounting_id ?? 0);
 
         return $mountingId > 0 ? $mountingId : null;
+    }
+
+    /**
+     * @param  list<int>  $mountingIds
+     * @return array<int, string>
+     */
+    private function diamondMountingDocNosByIds(array $mountingIds): array
+    {
+        $mountingIds = array_values(array_unique(array_filter(
+            array_map(static fn (mixed $id): int => (int) $id, $mountingIds),
+            static fn (int $id): bool => $id > 0,
+        )));
+
+        if ($mountingIds === [] || ! Schema::connection('third')->hasTable('diamondmounting')) {
+            return [];
+        }
+
+        return DiamondMounting::query()
+            ->notDeleted()
+            ->whereIn('row_id', $mountingIds)
+            ->pluck('doc_no', 'row_id')
+            ->mapWithKeys(static fn (mixed $docNo, mixed $rowId): array => [
+                (int) $rowId => (string) $docNo,
+            ])
+            ->all();
     }
 
     /**

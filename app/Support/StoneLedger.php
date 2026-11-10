@@ -460,7 +460,7 @@ class StoneLedger
             ? self::ADDITION_TRANSACTION_TYPE_ID
             : self::DEDUCTION_TRANSACTION_TYPE_ID;
 
-        DB::connection('third')->table('trstone')->insert([
+        $attributes = [
             'period_id' => $periodId,
             'transtype_id' => $transactionTypeId,
             'ref_row_id' => 0,
@@ -478,7 +478,15 @@ class StoneLedger
             'modified_by' => $actor,
             'deleted_date' => null,
             'deleted_by' => null,
-        ]);
+        ];
+
+        $schema = Schema::connection('third');
+
+        if ($schema->hasTable('trstone') && $schema->hasColumn('trstone', 'location')) {
+            $attributes['location'] = DiamondDossierInventory::DEFAULT_LOCATION;
+        }
+
+        DB::connection('third')->table('trstone')->insert($attributes);
     }
 
     private function filteredQuery(

@@ -833,6 +833,76 @@ function stoneCanManageAllocation(stone: SpkStoneItem): boolean {
     return (stone.allocatedItems?.length ?? 0) > 0;
 }
 
+function parseAllocatedNumeric(value: string | number | null | undefined): number {
+    const parsed = Number(String(value ?? '').replace(',', '.'));
+
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+type SpkStoneAllocatedDisplayRow = {
+    key: string;
+    item: SpkStoneAllocatedItem;
+    revokeTargets: Array<{
+        stone: SpkStoneItem;
+        item: SpkStoneAllocatedItem;
+    }>;
+};
+
+function allocationDisplayMergeKey(item: SpkStoneAllocatedItem): string {
+    if (item.source === 'micro' && item.msStoneId !== null) {
+        return `micro:${item.msStoneId}`;
+    }
+
+    if (item.source === 'dossier' && item.diamondId !== null) {
+        return `dossier:${item.diamondId}`;
+    }
+
+    return `row:${item.id}`;
+}
+
+function mergeAllocatedItemsForDisplay(
+    stones: SpkStoneItem[],
+): SpkStoneAllocatedDisplayRow[] {
+    const merged = new Map<string, SpkStoneAllocatedDisplayRow>();
+
+    for (const stone of stones) {
+        for (const item of stone.allocatedItems ?? []) {
+            const key = allocationDisplayMergeKey(item);
+            const existing = merged.get(key);
+
+            if (existing === undefined) {
+                merged.set(key, {
+                    key,
+                    item: { ...item },
+                    revokeTargets: [{ stone, item }],
+                });
+
+                continue;
+            }
+
+            const totalPcs =
+                parseAllocatedNumeric(existing.item.reservedPcs) +
+                parseAllocatedNumeric(item.reservedPcs);
+
+            existing.item = {
+                ...existing.item,
+                reservedPcs: String(totalPcs),
+                reservedCrt:
+                    existing.item.reservedCrt !== null ||
+                    item.reservedCrt !== null
+                        ? String(
+                              parseAllocatedNumeric(existing.item.reservedCrt) +
+                                  parseAllocatedNumeric(item.reservedCrt),
+                          )
+                        : null,
+            };
+            existing.revokeTargets.push({ stone, item });
+        }
+    }
+
+    return [...merged.values()];
+}
+
 function sumStoneAllocatedTotals(stones: SpkStoneItem[]): {
     pcs: number;
     carat: number;
@@ -1312,13 +1382,20 @@ export function SpkStoneListCard({
             (stone) => (stone.allocatedItems?.length ?? 0) > 0,
         );
 
-        const revokeAllocationItem = (
-            stone: SpkStoneItem,
-            item: SpkStoneAllocatedItem,
+        const revokeAllocationTargets = (
+            targets: Array<{
+                stone: SpkStoneItem;
+                item: SpkStoneAllocatedItem;
+            }>,
+            index = 0,
         ): void => {
-            if (!window.confirm('Hapus alokasi batu ini dari SPK?')) {
+            if (index >= targets.length) {
+                setRevokingAllocationId(null);
+
                 return;
             }
+
+            const { stone, item } = targets[index];
 
             setRevokingAllocationId(item.id);
             router.post(
@@ -1330,11 +1407,15 @@ export function SpkStoneListCard({
                 {
                     preserveScroll: true,
                     onFinish: () => {
-                        setRevokingAllocationId(null);
+                        revokeAllocationTargets(targets, index + 1);
                     },
                 },
             );
         };
+
+        const mergedAllocatedRows = mergeAllocatedItemsForDisplay(
+            stonesWithAllocations,
+        );
 
         return (
             <div className="spkItemStoneSection spkItemStoneSection--allocationSpkTab">
@@ -1435,12 +1516,20 @@ export function SpkStoneListCard({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {stonesWithAllocations.flatMap((stone) => {
-                                        const items =
-                                            stone.allocatedItems ?? [];
+                                    {mergedAllocatedRows.map((row) => {
+                                        const { item, revokeTargets } = row;
+                                        const canRevoke = revokeTargets.some(
+                                            ({ stone }) =>
+                                                stoneCanManageAllocation(stone),
+                                        );
+                                        const isRevoking = revokeTargets.some(
+                                            ({ item: targetItem }) =>
+                                                revokingAllocationId ===
+                                                targetItem.id,
+                                        );
 
-                                        return items.map((item) => (
-                                            <tr key={item.id}>
+                                        return (
+                                            <tr key={row.key}>
                                                 <td>
                                                     {item.source === 'dossier'
                                                         ? 'Dossier'
@@ -1467,21 +1556,11 @@ export function SpkStoneListCard({
                                                         null &&
                                                     item.reservedPcs
                                                         ? formatDecimal3Id(
-                                                              Number(
-                                                                  String(
-                                                                      item.reservedCrt,
-                                                                  ).replace(
-                                                                      ',',
-                                                                      '.',
-                                                                  ),
+                                                              parseAllocatedNumeric(
+                                                                  item.reservedCrt,
                                                               ) /
-                                                                  Number(
-                                                                      String(
-                                                                          item.reservedPcs,
-                                                                      ).replace(
-                                                                          ',',
-                                                                          '.',
-                                                                      ),
+                                                                  parseAllocatedNumeric(
+                                                                      item.reservedPcs,
                                                                   ),
                                                           )
                                                         : '-'}
@@ -1495,22 +1574,30 @@ export function SpkStoneListCard({
                                                     )}
                                                 </td>
                                                 <td className="spkStoneTableActionCol">
-                                                    {stoneCanManageAllocation(
-                                                        stone,
-                                                    ) ? (
+                                                    {canRevoke ? (
                                                         <button
                                                             type="button"
                                                             className="spkChainIssuedRowActionBtn spkChainIssuedRowActionBtn--danger"
                                                             aria-label="Hapus alokasi batu"
                                                             title="Hapus alokasi batu"
-                                                            disabled={
-                                                                revokingAllocationId ===
-                                                                item.id
-                                                            }
+                                                            disabled={isRevoking}
                                                             onClick={() => {
-                                                                revokeAllocationItem(
-                                                                    stone,
-                                                                    item,
+                                                                const message =
+                                                                    revokeTargets.length >
+                                                                    1
+                                                                        ? 'Hapus semua alokasi batu ini dari SPK?'
+                                                                        : 'Hapus alokasi batu ini dari SPK?';
+
+                                                                if (
+                                                                    !window.confirm(
+                                                                        message,
+                                                                    )
+                                                                ) {
+                                                                    return;
+                                                                }
+
+                                                                revokeAllocationTargets(
+                                                                    revokeTargets,
                                                                 );
                                                             }}
                                                         >
@@ -1524,7 +1611,7 @@ export function SpkStoneListCard({
                                                     )}
                                                 </td>
                                             </tr>
-                                        ));
+                                        );
                                     })}
                                 </tbody>
                                 <tfoot>

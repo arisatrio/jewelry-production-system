@@ -1,12 +1,15 @@
 <?php
 
+use App\Models\DiamondMounting;
 use App\Models\MsStone;
 use App\Models\Production;
 use App\Models\SpkDiamond;
 use App\Models\User;
+use App\Support\SpkDiamondStatus;
 use App\Support\SpkStoneAllocationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 test('spk diamond index includes spk order type fields on documents', function () {
     if (! Schema::connection('third')->hasTable('spk_diamond')) {
@@ -97,6 +100,67 @@ test('spk diamond index resolves micro stone name from msstone master', function
     $user->delete();
 });
 
+test('spk diamond index shows batu terpasang and pasang batu doc no when mounting is linked', function () {
+    if (! Schema::connection('third')->hasTable('spk_diamond')) {
+        $this->markTestSkipped('Table spk_diamond is not available.');
+    }
+
+    if (! Schema::connection('third')->hasColumn('spk_diamond', 'diamondmounting_id')) {
+        $this->markTestSkipped('Column spk_diamond.diamondmounting_id is not available.');
+    }
+
+    if (! Schema::connection('third')->hasTable('diamondmounting')) {
+        $this->markTestSkipped('Table diamondmounting is not available.');
+    }
+
+    DB::connection('third')->beginTransaction();
+
+    $production = Production::factory()->create(['is_deleted' => 0]);
+
+    $mountingDocNo = 'PBT/INDEX/'.Str::upper(Str::random(4));
+
+    $mounting = DiamondMounting::query()->create([
+        'doc_no' => $mountingDocNo,
+        'trans_date' => now()->toDateString(),
+        'process_name' => 'Pasang Batu',
+        'spk_id' => $production->row_id,
+        'is_from_new_system' => 1,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'test',
+        'modified_date' => now(),
+        'modified_by' => 'test',
+    ]);
+
+    $document = SpkDiamond::query()->create([
+        'doc_no' => 'MKDM/MNT/'.Str::upper(Str::random(4)),
+        'tanggal' => '2026-11-05',
+        'spk_row_id' => $production->row_id,
+        'spk_no' => $production->spk_no,
+        'jumlah_baris' => 0,
+        'status' => SpkDiamondStatus::RECEIVED_BY_WORKSHOP,
+        'diamondmounting_id' => $mounting->row_id,
+        'items' => [],
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'test',
+    ]);
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('spk-diamond.index', ['search' => $document->doc_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('documents.data.0.status', SpkDiamondStatus::INSTALLED)
+            ->where('documents.data.0.statusLabel', 'Batu terpasang')
+            ->where('documents.data.0.diamondMountingDocNo', $mountingDocNo)
+            ->where('documents.data.0.diamondMountingId', (int) $mounting->row_id));
+
+    DB::connection('third')->rollBack();
+    $user->delete();
+});
+
 test('authenticated user can view spk diamond index', function () {
     if (! Schema::connection('third')->hasTable('spk_diamond')) {
         $this->markTestSkipped('Table spk_diamond is not available.');
@@ -112,6 +176,7 @@ test('authenticated user can view spk diamond index', function () {
             ->has('documents')
             ->has('filters')
             ->has('receiptEmployeeOptions')
+            ->has('shippingInvoiceReceiptCount')
             ->where('tableAvailable', true));
 });
 

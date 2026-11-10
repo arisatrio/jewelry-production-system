@@ -1,10 +1,12 @@
 import { useHttp } from '@inertiajs/react';
+import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import {
     Dialog,
     DialogContent,
@@ -15,6 +17,7 @@ import {
 import {
     destroy as destroySpkDiamondReceipt,
     index as spkDiamondReceiptHistory,
+    receive as receiveSpkDiamondReceiptDocuments,
 } from '@/routes/spk-diamond/print/receipt';
 
 type ReceiptHistoryRow = {
@@ -31,6 +34,7 @@ type ReceiptHistoryRow = {
     createdBy: string | null;
     createdAt: string | null;
     printUrl: string;
+    canReceiveDocuments: boolean;
 };
 
 type ReceiptHistoryMeta = {
@@ -50,39 +54,51 @@ type ReceiptHistoryResult = {
 type SpkDiamondReceiptHistoryDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onDocumentsReceived?: () => void;
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
-const DOC_PREVIEW_LIMIT = 3;
+const DOC_PREVIEW_LIMIT = 2;
 
 export function SpkDiamondReceiptHistoryDialog({
     open,
     onOpenChange,
+    onDocumentsReceived,
 }: SpkDiamondReceiptHistoryDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="spkAlertModal spkStatusListModal">
+            <DialogContent className="spkAlertModal spkStatusListModal spkDiamondReceiptHistoryModal">
                 <DialogHeader>
-                    <DialogTitle>Riwayat Tanda Terima</DialogTitle>
+                    <DialogTitle>Faktur Tanda Terima</DialogTitle>
                     <DialogDescription>
-                        Daftar form serah terima SPK Pasang Batu yang sudah
-                        dibuat. Klik baris untuk mencetak ulang.
+                        Daftar faktur tanda terima SPK Pasang Batu. Klik baris
+                        untuk mencetak ulang.
                     </DialogDescription>
                 </DialogHeader>
-                {open ? <SpkDiamondReceiptHistoryBody /> : null}
+                {open ? (
+                    <SpkDiamondReceiptHistoryBody
+                        onDocumentsReceived={onDocumentsReceived}
+                    />
+                ) : null}
             </DialogContent>
         </Dialog>
     );
 }
 
-function SpkDiamondReceiptHistoryBody() {
+function SpkDiamondReceiptHistoryBody({
+    onDocumentsReceived,
+}: {
+    onDocumentsReceived?: () => void;
+}) {
     const [page, setPage] = useState(1);
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
     const [result, setResult] = useState<ReceiptHistoryResult | null>(null);
     const [reloadToken, setReloadToken] = useState(0);
     const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [receivingId, setReceivingId] = useState<number | null>(null);
     const deleteRequest = useHttp({});
+    const receiveRequest = useHttp({});
     const requestKey = `${page}|${search}|${reloadToken}`;
     const loading = result?.requestKey !== requestKey;
     const rows = result?.rows ?? [];
@@ -189,6 +205,46 @@ function SpkDiamondReceiptHistoryBody() {
             .catch(() => undefined);
     };
 
+    const receiveDocuments = (row: ReceiptHistoryRow): void => {
+        if (
+            receivingId !== null ||
+            deletingId !== null ||
+            !row.canReceiveDocuments ||
+            !window.confirm(
+                `Terima ${row.jumlahSpk} dokumen pada faktur ${row.docNo}? Status SPK menjadi Diterima Workshop dan lokasi batu dossier/mikro diubah ke Workshop.`,
+            )
+        ) {
+            return;
+        }
+
+        setReceivingId(row.id);
+
+        void receiveRequest
+            .post(receiveSpkDiamondReceiptDocuments.url(row.id), {
+                onSuccess: (response) => {
+                    const message =
+                        typeof response?.message === 'string'
+                            ? response.message
+                            : 'Dokumen berhasil diterima.';
+                    toast.success(message);
+                    setReloadToken((current) => current + 1);
+                    onDocumentsReceived?.();
+                },
+                onHttpException: () => {
+                    toast.error(
+                        'Gagal menerima dokumen. Silakan coba lagi.',
+                    );
+                },
+                onNetworkError: () => {
+                    toast.error(
+                        'Koneksi terputus saat menerima dokumen. Silakan coba lagi.',
+                    );
+                },
+                onFinish: () => setReceivingId(null),
+            })
+            .catch(() => undefined);
+    };
+
     return (
         <>
             <div className="spkStatusListToolbar">
@@ -225,16 +281,27 @@ function SpkDiamondReceiptHistoryBody() {
                         Belum ada tanda terima.
                     </p>
                 ) : (
-                    <table className="spkAlertModalTable spkReceiptHistoryTable">
+                    <table className="spkAlertModalTable spkReceiptHistoryTable spkDiamondReceiptHistoryTable">
                         <thead>
                             <tr>
-                                <th>No Form</th>
-                                <th>Tanggal</th>
-                                <th>Dari → Untuk</th>
-                                <th>SPK Pasang Batu</th>
-                                <th>Penanda Tangan</th>
-                                <th>Dibuat Oleh</th>
-                                <th className="spkTableColCenter">Aksi</th>
+                                <th className="spkDiamondReceiptHistoryColDoc">
+                                    No Form
+                                </th>
+                                <th className="spkDiamondReceiptHistoryColDate">
+                                    Tanggal
+                                </th>
+                                <th className="spkDiamondReceiptHistoryColRoute">
+                                    Dari → Untuk
+                                </th>
+                                <th className="spkDiamondReceiptHistoryColSpk">
+                                    SPK Pasang Batu
+                                </th>
+                                <th className="spkDiamondReceiptHistoryColMeta">
+                                    Dibuat
+                                </th>
+                                <th className="spkTableColCenter spkDiamondReceiptHistoryColAction">
+                                    Aksi
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -248,7 +315,7 @@ function SpkDiamondReceiptHistoryBody() {
                                         className="spkAlertModalRow"
                                         onClick={() => openPrint(row)}
                                     >
-                                        <td className="whitespace-nowrap">
+                                        <td className="spkDiamondReceiptHistoryColDoc">
                                             <button
                                                 type="button"
                                                 className="spkAlertModalLink"
@@ -260,14 +327,14 @@ function SpkDiamondReceiptHistoryBody() {
                                                 {row.docNo}
                                             </button>
                                         </td>
-                                        <td className="whitespace-nowrap">
+                                        <td className="spkDiamondReceiptHistoryColDate tabular-nums">
                                             {row.tanggal}
                                         </td>
-                                        <td className="whitespace-nowrap">
+                                        <td className="spkDiamondReceiptHistoryColRoute">
                                             {row.dari ?? '—'} →{' '}
                                             {row.untuk ?? '—'}
                                         </td>
-                                        <td className="spkReceiptHistoryColWrap">
+                                        <td className="spkDiamondReceiptHistoryColSpk spkReceiptHistoryColWrap">
                                             <div className="flex flex-col">
                                                 <span className="spkAlertModalTableIdentifier">
                                                     {row.jumlahSpk} dokumen
@@ -285,20 +352,7 @@ function SpkDiamondReceiptHistoryBody() {
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="spkReceiptHistoryColWrap">
-                                            <div className="flex flex-col text-xs">
-                                                <span>
-                                                    {row.diserahkanOleh ?? '—'}
-                                                </span>
-                                                <span>
-                                                    {row.diketahuiOleh ?? '—'}
-                                                </span>
-                                                <span>
-                                                    {row.diterimaOleh ?? '—'}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td>
+                                        <td className="spkDiamondReceiptHistoryColMeta">
                                             <div className="flex flex-col">
                                                 <span>
                                                     {row.createdBy ?? '—'}
@@ -310,32 +364,66 @@ function SpkDiamondReceiptHistoryBody() {
                                                 ) : null}
                                             </div>
                                         </td>
-                                        <td className="spkTableColCenter">
-                                            <div className="flex items-center justify-center">
-                                                <Button
-                                                    design="Transparent"
-                                                    icon={printIcon}
-                                                    accessibleName={`Cetak ulang ${row.docNo}`}
-                                                    tooltip="Cetak ulang"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        openPrint(row);
-                                                    }}
-                                                />
-                                                <Button
-                                                    design="Transparent"
-                                                    icon={deleteIcon}
-                                                    className="spkReceiptHistoryDeleteBtn"
-                                                    accessibleName={`Hapus ${row.docNo}`}
-                                                    tooltip="Hapus"
-                                                    disabled={
-                                                        deletingId !== null
-                                                    }
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        deleteReceipt(row);
-                                                    }}
-                                                />
+                                        <td className="spkTableColCenter spkDiamondReceiptHistoryColAction">
+                                            <div className="spkDiamondReceiptHistoryActionRow">
+                                                {row.canReceiveDocuments ? (
+                                                    <button
+                                                        type="button"
+                                                        className="spkChainFulfillmentReceiveBtn spkDiamondReceiptHistoryReceiveBtn"
+                                                        disabled={
+                                                            receivingId !==
+                                                                null ||
+                                                            deletingId !== null
+                                                        }
+                                                        title="Terima dokumen SPK pada faktur ini"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            receiveDocuments(
+                                                                row,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Icon
+                                                            name={acceptIcon}
+                                                            mode="Decorative"
+                                                        />
+                                                        <span className="spkChainFulfillmentActionBtnLabel">
+                                                            {receivingId ===
+                                                            row.id
+                                                                ? 'Memproses…'
+                                                                : 'Terima Dokumen'}
+                                                        </span>
+                                                    </button>
+                                                ) : null}
+                                                <div className="spkDiamondReceiptHistoryIconActions">
+                                                    <Button
+                                                        design="Transparent"
+                                                        icon={printIcon}
+                                                        accessibleName={`Cetak ulang ${row.docNo}`}
+                                                        tooltip="Cetak ulang"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            openPrint(row);
+                                                        }}
+                                                    />
+                                                    <Button
+                                                        design="Transparent"
+                                                        icon={deleteIcon}
+                                                        className="spkReceiptHistoryDeleteBtn"
+                                                        accessibleName={`Hapus ${row.docNo}`}
+                                                        tooltip="Hapus"
+                                                        disabled={
+                                                            deletingId !==
+                                                                null ||
+                                                            receivingId !==
+                                                                null
+                                                        }
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            deleteReceipt(row);
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>

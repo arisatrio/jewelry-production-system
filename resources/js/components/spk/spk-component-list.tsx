@@ -48,6 +48,7 @@ type ComponentDraft = {
     category: string;
     item: string;
     color: string;
+    size: string;
 };
 
 const COMPONENT_CATEGORY_OPTIONS = ['Komponen', 'Stopper'] as const;
@@ -64,7 +65,72 @@ const emptyDraft = (): ComponentDraft => ({
     category: '',
     item: '',
     color: '',
+    size: '',
 });
+
+function componentSizeInputValue(value: string): string {
+    const trimmed = value.trim();
+
+    if (trimmed === '') {
+        return '';
+    }
+
+    const normalized = trimmed.replace(',', '.');
+
+    if (/^\d+(\.\d+)?$/.test(normalized)) {
+        return normalized;
+    }
+
+    const match = trimmed.match(/(\d+(?:[.,]\d+)?)/);
+
+    if (match === null) {
+        return '';
+    }
+
+    return match[1].replace(',', '.');
+}
+
+function formatComponentSizeDisplay(value: string): string {
+    const text = value.trim();
+
+    if (text === '') {
+        return '-';
+    }
+
+    const numeric = text.replace(',', '.');
+
+    if (/^\d+(\.\d+)?$/.test(numeric)) {
+        return `${numeric} cm`;
+    }
+
+    return text;
+}
+
+type ComponentSizeInputProps = {
+    value: string;
+    ariaLabel: string;
+    onChange: (value: string) => void;
+};
+
+function ComponentSizeInput({
+    value,
+    ariaLabel,
+    onChange,
+}: ComponentSizeInputProps) {
+    return (
+        <input
+            className="spkStoneRowInput"
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            value={componentSizeInputValue(value)}
+            placeholder="Ukuran (cm)"
+            aria-label={ariaLabel}
+            onChange={(event) => onChange(event.target.value)}
+        />
+    );
+}
 
 function selectOptionsWithLegacy(
     allowed: readonly string[],
@@ -274,7 +340,7 @@ export function SpkFormComponentListCard({
                 category: draft.category.trim(),
                 item: draft.item.trim(),
                 color: draft.color.trim(),
-                size: '',
+                size: draft.size.trim(),
             },
         ]);
         setDraft(emptyDraft());
@@ -285,7 +351,10 @@ export function SpkFormComponentListCard({
         onChange(components.filter((component) => component.id !== id));
     };
 
-    const updateComponent = (id: string, patch: Partial<ComponentDraft>) => {
+    const updateComponent = (
+        id: string,
+        patch: Partial<SpkFormComponentRow>,
+    ) => {
         onChange(
             components.map((component) =>
                 component.id === id ? { ...component, ...patch } : component,
@@ -379,6 +448,7 @@ export function SpkFormComponentListCard({
                             <th>Kategori</th>
                             <th>Jenis Item Komponen</th>
                             <th>Warna</th>
+                            <th>Ukuran (cm)</th>
                             <th className="spkStoneTableActionCol">Aksi</th>
                         </tr>
                     </thead>
@@ -418,6 +488,15 @@ export function SpkFormComponentListCard({
                                 />
                             </td>
                             <td>
+                                <ComponentSizeInput
+                                    value={draft.size}
+                                    ariaLabel="Ukuran (cm) komponen baru"
+                                    onChange={(next) =>
+                                        updateDraft('size', next)
+                                    }
+                                />
+                            </td>
+                            <td>
                                 <button
                                     type="button"
                                     className="spkStoneRowActionBtn"
@@ -431,7 +510,7 @@ export function SpkFormComponentListCard({
 
                         {components.length === 0 ? (
                             <tr>
-                                <td colSpan={4}>
+                                <td colSpan={5}>
                                     <div className="spkStoneEmpty">
                                         <Text>
                                             Belum ada komponen. Isi baris di atas
@@ -525,6 +604,27 @@ export function SpkFormComponentListCard({
                                                     {
                                                         errors[
                                                             `components.${index}.color`
+                                                        ]
+                                                    }
+                                                </Text>
+                                            ) : null}
+                                        </td>
+                                        <td>
+                                            <ComponentSizeInput
+                                                value={component.size}
+                                                ariaLabel={`Ukuran (cm) komponen ${index + 1}`}
+                                                onChange={(next) =>
+                                                    updateComponent(
+                                                        component.id,
+                                                        { size: next },
+                                                    )
+                                                }
+                                            />
+                                            {errors[`components.${index}.size`] ? (
+                                                <Text className="spkFioriError">
+                                                    {
+                                                        errors[
+                                                            `components.${index}.size`
                                                         ]
                                                     }
                                                 </Text>
@@ -1150,6 +1250,7 @@ export function SpkComponentListCard({
                                 <th>Kategori</th>
                                 <th>Jenis Item Komponen</th>
                                 <th>Warna</th>
+                                <th>Ukuran (cm)</th>
                                 {showWorkflow ? (
                                     <>
                                         <th className="spkChainStatusCol">
@@ -1169,6 +1270,11 @@ export function SpkComponentListCard({
                                         <td>{emptyDash(component.category)}</td>
                                         <td>{emptyDash(component.item)}</td>
                                         <td>{emptyDash(component.color)}</td>
+                                        <td>
+                                            {formatComponentSizeDisplay(
+                                                component.size,
+                                            )}
+                                        </td>
                                         {showWorkflow ? (
                                             <>
                                                 <td className="spkChainStatusCol">
@@ -1203,7 +1309,7 @@ export function SpkComponentListCard({
                                         <tr className="spkChainIssuedRow">
                                             <td
                                                 colSpan={
-                                                    showWorkflow ? 5 : 3
+                                                    showWorkflow ? 6 : 4
                                                 }
                                             >
                                                 {(() => {

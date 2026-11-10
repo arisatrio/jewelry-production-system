@@ -4,13 +4,17 @@ namespace App\Http\Requests;
 
 use App\Models\DiamondMounting;
 use App\Models\Production;
+use App\Models\SpkDiamond;
 use App\Support\DiamondDossierInventory;
+use App\Support\SpkDiamondPasangBatuImport;
+use App\Support\SpkDiamondStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class StoreDiamondMountingRequest extends FormRequest
 {
@@ -56,6 +60,9 @@ class StoreDiamondMountingRequest extends FormRequest
             'return_stones' => $this->normalizeStoneLines($this->input('return_stones', [])),
             'diamonds' => $this->normalizeDiamondLines($this->input('diamonds', [])),
             'mounted_stones' => $this->normalizeMountedLines($this->input('mounted_stones', [])),
+            'spk_diamond_id' => filled($this->input('spk_diamond_id')) && (int) $this->input('spk_diamond_id') > 0
+                ? (int) $this->input('spk_diamond_id')
+                : null,
         ]);
     }
 
@@ -102,6 +109,13 @@ class StoreDiamondMountingRequest extends FormRequest
             'mounted_stones.*.pcs' => ['nullable', 'numeric', 'min:0'],
             'mounted_stones.*.crt' => ['nullable', 'numeric', 'min:0'],
             'mounted_stones.*.size' => ['nullable', 'string', 'max:50'],
+            'spk_diamond_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(SpkDiamond::class, 'row_id')->where(
+                    fn ($query) => $query->where('is_deleted', 0),
+                ),
+            ],
         ];
     }
 
@@ -152,6 +166,7 @@ class StoreDiamondMountingRequest extends FormRequest
                 $this->validateStoneIds($validator, 'return_stones');
                 $this->validateDiamondIds($validator);
                 $this->validateShapeIds($validator, 'mounted_stones');
+                $this->validateSpkDiamondLink($validator);
             },
         ];
     }
@@ -352,9 +367,18 @@ class StoreDiamondMountingRequest extends FormRequest
         $mountingId = $mountingDocument instanceof DiamondMounting
             ? (int) $mountingDocument->row_id
             : null;
+        $spkProductionRowId = $this->integer('spk_id');
+
+        if ($spkProductionRowId <= 0 && $mountingDocument instanceof DiamondMounting) {
+            $spkProductionRowId = (int) ($mountingDocument->spk_id ?? 0);
+        }
 
         $selectableLookup = array_flip(
-            app(DiamondDossierInventory::class)->selectableIdsForMounting($diamondIds, $mountingId),
+            app(DiamondDossierInventory::class)->selectableIdsForMounting(
+                $diamondIds,
+                $mountingId,
+                $spkProductionRowId > 0 ? $spkProductionRowId : null,
+            ),
         );
 
         foreach ($lines as $index => $line) {
@@ -366,6 +390,55 @@ class StoreDiamondMountingRequest extends FormRequest
                     'Batu Dossier tidak tersedia atau sudah dipakai dokumen lain.',
                 );
             }
+        }
+    }
+
+    private function validateSpkDiamondLink(Validator $validator): void
+    {
+        $spkDiamondId = $this->integer('spk_diamond_id');
+
+        if ($spkDiamondId <= 0) {
+            return;
+        }
+
+        $document = SpkDiamond::query()
+            ->where('row_id', $spkDiamondId)
+            ->where('is_deleted', 0)
+            ->first();
+
+        if ($document === null) {
+            return;
+        }
+
+        $spkId = $this->integer('spk_id');
+
+        if ($spkId > 0 && (int) $document->spk_row_id !== $spkId) {
+            $validator->errors()->add(
+                'spk_diamond_id',
+                'SPK Diamond tidak sesuai dengan SPK produksi yang dipilih.',
+            );
+        }
+
+        if (SpkDiamondStatus::columnAvailable()) {
+            $status = SpkDiamondStatus::normalize($document->status);
+
+            if (! in_array($status, [SpkDiamondStatus::RECEIVED_BY_WORKSHOP, SpkDiamondStatus::INSTALLED], true)) {
+                $validator->errors()->add(
+                    'spk_diamond_id',
+                    'SPK Diamond harus berstatus Diterima Workshop.',
+                );
+            }
+        }
+
+        $mountingDocument = $this->route('pasangBatu');
+        $mountingId = $mountingDocument instanceof DiamondMounting
+            ? (int) $mountingDocument->row_id
+            : null;
+
+        try {
+            app(SpkDiamondPasangBatuImport::class)->assertEligibleForImport($document, $mountingId);
+        } catch (HttpException $exception) {
+            $validator->errors()->add('spk_diamond_id', $exception->getMessage());
         }
     }
 

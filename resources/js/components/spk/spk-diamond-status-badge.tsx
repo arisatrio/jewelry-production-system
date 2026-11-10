@@ -25,7 +25,7 @@ export function spkDiamondStatusBadgeClass(
 
 const STATUS_LABELS: Record<string, string> = {
     draft: 'Draft',
-    sent_to_workshop: 'Dikirim ke Workshop',
+    sent_to_workshop: 'Kirim ke Workshop',
     received_by_workshop: 'Diterima Workshop',
     installed: 'Terpasang',
 };

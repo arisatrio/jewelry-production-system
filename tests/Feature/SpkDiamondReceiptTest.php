@@ -5,6 +5,7 @@ use App\Models\Production;
 use App\Models\SerahTerimaSpkDiamond;
 use App\Models\SpkDiamond;
 use App\Models\User;
+use App\Support\SpkDiamondStatus;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -19,7 +20,8 @@ function deleteTestingSerahTerimaSpkDiamond(): void
         ->where(function ($query): void {
             $query->where('doc_no', 'like', 'WHOJ/PRD/TTB/2098/%')
                 ->orWhere('doc_no', 'like', 'WHOJ/PRD/TTB/2099/%')
-                ->orWhere('doc_no', 'like', 'WHOJ/PRD/TTB/TEST/%');
+                ->orWhere('doc_no', 'like', 'WHOJ/PRD/TTB/TEST/%')
+                ->orWhere('doc_no', 'like', 'FAKTUR/%');
         })
         ->forceDelete();
 }
@@ -103,12 +105,14 @@ test('spk diamond receipt store generates doc number and saves printed content',
         'diterima_oleh' => $receivedBy->nama_lengkap,
     ]);
 
-    $receipt = SerahTerimaSpkDiamond::query()->where('doc_no', 'WHOJ/PRD/TTB/2099/0001')->firstOrFail();
+    $expectedDocNo = 'FAKTUR/HO-WO/PBT/092099-0001';
+
+    $receipt = SerahTerimaSpkDiamond::query()->where('doc_no', $expectedDocNo)->firstOrFail();
 
     $response->assertCreated()
         ->assertExactJson([
             'id' => $receipt->id,
-            'docNo' => 'WHOJ/PRD/TTB/2099/0001',
+            'docNo' => $expectedDocNo,
             'printUrl' => route('spk-diamond.print.receipt', $receipt),
         ]);
 
@@ -119,11 +123,66 @@ test('spk diamond receipt store generates doc number and saves printed content',
         ->and($receipt->items[1]['lineCount'])->toBe(2)
         ->and($receipt->created_by)->toBe($user->name);
 
+    if (SpkDiamondStatus::columnAvailable()) {
+        $first->refresh();
+        $second->refresh();
+
+        expect(SpkDiamondStatus::normalize($first->status))->toBe(SpkDiamondStatus::SENT_TO_WORKSHOP)
+            ->and(SpkDiamondStatus::normalize($second->status))->toBe(SpkDiamondStatus::SENT_TO_WORKSHOP);
+    }
+
+    $this->actingAs($user)
+        ->get(route('spk-diamond.index', ['search' => $first->doc_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('documents.data.0.shippingInvoiceDocNo', $expectedDocNo)
+            ->where('documents.data.0.shippingInvoicePrintUrl', route('spk-diamond.print.receipt', $receipt)));
+
     $this->actingAs($user)
         ->get(route('spk-diamond.print.receipt', $receipt))
         ->assertOk()
         ->assertSee($first->doc_no, false)
         ->assertSee('Tanda Terima SPK Pasang Batu', false);
+
+    $history = $this->actingAs($user)
+        ->getJson(route('spk-diamond.print.receipt.index', ['search' => $expectedDocNo]))
+        ->assertOk()
+        ->json('data.0');
+
+    expect($history)->toMatchArray([
+        'docNo' => $expectedDocNo,
+        'canReceiveDocuments' => SpkDiamondStatus::columnAvailable(),
+    ]);
+
+    if (SpkDiamondStatus::columnAvailable()) {
+        $this->actingAs($user)
+            ->get(route('spk-diamond.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('shippingInvoiceReceiptCount', 1));
+
+        $this->actingAs($user)
+            ->postJson(route('spk-diamond.print.receipt.receive', $receipt))
+            ->assertOk()
+            ->assertJson([
+                'receivedCount' => 2,
+            ]);
+
+        $first->refresh();
+        $second->refresh();
+
+        expect(SpkDiamondStatus::normalize($first->status))->toBe(SpkDiamondStatus::RECEIVED_BY_WORKSHOP)
+            ->and(SpkDiamondStatus::normalize($second->status))->toBe(SpkDiamondStatus::RECEIVED_BY_WORKSHOP);
+
+        $this->actingAs($user)
+            ->getJson(route('spk-diamond.print.receipt.index', ['search' => $expectedDocNo]))
+            ->assertOk()
+            ->assertJsonPath('data.0.canReceiveDocuments', false);
+
+        $this->actingAs($user)
+            ->get(route('spk-diamond.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('shippingInvoiceReceiptCount', 0));
+    }
 
     collect([$first, $second, $deleted, $production, $secondProduction, $handedBy, $acknowledgedBy, $receivedBy, $user])->each->delete();
 });

@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import type { SpkStoneAllocatedItem } from '@/components/spk/types';
+import { formatDecimal3Id } from '@/components/spk/spk-stone-decimal-format';
 import { show as diamondDossierShow } from '@/routes/inventory/diamond-dossiers';
 import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
 
@@ -173,12 +174,55 @@ export function SpkDiamondDetailCertificateLink({
     return <SpkAllocatedCertificateLink certificate={certificate} />;
 }
 
+function spkDiamondDetailStoneDisplayLabel(row: SpkDiamondDetailStoneRow): string {
+    if (resolveSourceKey(row.source) === 'dossier') {
+        const shapeRaw = row.shape?.trim() ?? '';
+        const shape =
+            shapeRaw !== '' && shapeRaw !== '-' && shapeRaw !== '—'
+                ? shapeRaw
+                : '';
+
+        const crtRaw =
+            row.crtPerPcs?.trim() ||
+            row.reservedCrt?.trim() ||
+            '';
+        const crt =
+            crtRaw !== '' && crtRaw !== '-' && crtRaw !== '—'
+                ? formatDecimal3Id(crtRaw)
+                : '';
+
+        const certificateRaw = row.certificate?.trim() ?? '';
+        const certificate =
+            certificateRaw !== '' && certificateRaw !== '-' && certificateRaw !== '—'
+                ? certificateRaw
+                : '';
+
+        const main = [shape, crt].filter(Boolean).join(' ');
+
+        if (main !== '' && certificate !== '') {
+            return `${main} (${certificate})`;
+        }
+
+        if (main !== '') {
+            return main;
+        }
+
+        if (certificate !== '') {
+            return `(${certificate})`;
+        }
+    }
+
+    const label = row.label?.trim() ?? '';
+
+    return label !== '' ? label : '—';
+}
+
 export function SpkDiamondDetailStoneLabelLink({
     row,
 }: {
     row: SpkDiamondDetailStoneRow;
 }): ReactNode {
-    const text = row.label.trim() !== '' ? row.label.trim() : '—';
+    const text = spkDiamondDetailStoneDisplayLabel(row);
 
     if (text === '—' || text === '-') {
         return '-';

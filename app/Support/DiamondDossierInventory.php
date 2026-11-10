@@ -765,13 +765,16 @@ class DiamondDossierInventory
      * @param  list<int>  $diamondIds
      * @return list<int>
      */
-    public function selectableIdsForMounting(array $diamondIds, ?int $mountingId = null): array
-    {
+    public function selectableIdsForMounting(
+        array $diamondIds,
+        ?int $mountingId = null,
+        ?int $spkProductionRowId = null,
+    ): array {
         if ($diamondIds === []) {
             return [];
         }
 
-        return array_values($this->selectableForMountingQuery($mountingId)
+        return array_values($this->selectableForMountingQuery($mountingId, $spkProductionRowId)
             ->whereIn('diamond.row_id', $diamondIds)
             ->pluck('diamond.row_id')
             ->map(fn (mixed $id): int => (int) $id)
@@ -818,11 +821,20 @@ class DiamondDossierInventory
             return;
         }
 
+        $spkProductionRowId = (int) (DB::connection('third')
+            ->table('diamondmounting')
+            ->where('row_id', $mountingId)
+            ->value('spk_id') ?? 0);
+
         $linkedCount = DB::connection('third')
             ->table('trdiamond as diamond')
             ->whereIn('diamond.row_id', $newIds)
             ->where('diamond.is_deleted', 0)
-            ->where(fn (Builder $query) => $this->whereSelectable($query))
+            ->where(fn (Builder $query) => $this->applyMountingEligibleScope(
+                $query,
+                $mountingId,
+                $spkProductionRowId > 0 ? $spkProductionRowId : null,
+            ))
             ->update([
                 'diamond.diamondmounting_id' => $mountingId,
                 'diamond.is_used' => 1,
@@ -838,16 +850,33 @@ class DiamondDossierInventory
         }
     }
 
-    private function selectableForMountingQuery(?int $mountingId): Builder
+    private function selectableForMountingQuery(?int $mountingId, ?int $spkProductionRowId = null): Builder
     {
         return $this->filteredQuery('', null)
-            ->where(function (Builder $query) use ($mountingId): void {
-                $query->where(fn (Builder $availableQuery) => $this->whereSelectable($availableQuery));
+            ->where(fn (Builder $query) => $this->applyMountingEligibleScope(
+                $query,
+                $mountingId,
+                $spkProductionRowId,
+            ));
+    }
 
-                if ($mountingId !== null) {
-                    $query->orWhere('diamond.diamondmounting_id', $mountingId);
-                }
-            });
+    private function applyMountingEligibleScope(
+        Builder $query,
+        ?int $mountingId,
+        ?int $spkProductionRowId,
+    ): Builder {
+        return $query->where(function (Builder $inner) use ($mountingId, $spkProductionRowId): void {
+            $inner->where(fn (Builder $availableQuery) => $this->whereSelectable($availableQuery));
+
+            if ($mountingId !== null && $mountingId > 0) {
+                $inner->orWhere('diamond.diamondmounting_id', $mountingId);
+            }
+
+            if ($spkProductionRowId !== null && $spkProductionRowId > 0) {
+                $inner->orWhere(fn (Builder $reservedQuery) => app(SpkStoneAllocationService::class)
+                    ->whereReservedForProduction($reservedQuery, $spkProductionRowId));
+            }
+        });
     }
 
     /**

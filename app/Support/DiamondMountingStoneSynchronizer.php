@@ -162,7 +162,10 @@ class DiamondMountingStoneSynchronizer
             'setting' => $this->detailStoneLines([$mountingId], self::TRANSTYPE_SETTING)[$mountingId] ?? [],
             'return' => $this->detailStoneLines([$mountingId], self::TRANSTYPE_RETURN)[$mountingId] ?? [],
             'diamonds' => $this->detailDiamondLines([$mountingId])[$mountingId] ?? [],
-            'mounted' => $this->detailMountedLines([$mountingId])[$mountingId] ?? [],
+            'mounted' => $this->mergeMountedDetailWithSetting(
+                $this->detailMountedLines([$mountingId])[$mountingId] ?? [],
+                $this->detailStoneLines([$mountingId], self::TRANSTYPE_SETTING)[$mountingId] ?? [],
+            ),
         ];
     }
 
@@ -196,22 +199,30 @@ class DiamondMountingStoneSynchronizer
     {
         $spkId = filled($document->spk_id) ? (int) $document->spk_id : null;
 
+        $settingLines = $this->collapseStoneLinesByStoneId($payload['setting'] ?? []);
+
         $this->syncStoneLines(
             $document,
             $spkId,
             self::TRANSTYPE_SETTING,
-            $payload['setting'] ?? [],
+            $settingLines,
             $actor,
         );
         $this->syncStoneLines(
             $document,
             $spkId,
             self::TRANSTYPE_RETURN,
-            $payload['return'] ?? [],
+            $this->collapseStoneLinesByStoneId($payload['return'] ?? []),
             $actor,
         );
         $this->syncDiamondLines($document, $payload['diamonds'] ?? [], $actor);
-        $this->syncMountedLines($document, $payload['mounted'] ?? [], $actor);
+
+        $mountedLines = array_merge(
+            $this->mountedLinesFromSetting($settingLines),
+            $payload['mounted'] ?? [],
+        );
+
+        $this->syncMountedLines($document, $mountedLines, $actor);
     }
 
     /**
@@ -477,6 +488,189 @@ class DiamondMountingStoneSynchronizer
         }
 
         return $grouped;
+    }
+
+    /**
+     * @param  list<array{
+     *     kode?: string,
+     *     diamond_code?: string,
+     *     pcs?: int|float|string|null,
+     *     crt?: int|float|string|null
+     * }>  $mounted
+     * @param  list<array{
+     *     batu: string,
+     *     pcs: int|float|null,
+     *     crt: string|null,
+     *     notes: string|null
+     * }>  $setting
+     * @return list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>
+     */
+    private function mergeMountedDetailWithSetting(array $mounted, array $setting): array
+    {
+        $seen = [];
+
+        foreach ($mounted as $row) {
+            $seen[$this->mountedRowFingerprint($row)] = true;
+        }
+
+        foreach ($setting as $row) {
+            $converted = [
+                'kode' => (string) ($row['batu'] ?? 'Batu'),
+                'shape' => '—',
+                'pcs' => $row['pcs'] ?? null,
+                'crt' => $row['crt'] ?? null,
+                'size' => filled($row['notes'] ?? null) ? (string) $row['notes'] : '—',
+            ];
+
+            $fingerprint = $this->mountedRowFingerprint($converted);
+
+            if (isset($seen[$fingerprint])) {
+                continue;
+            }
+
+            $mounted[] = $converted;
+            $seen[$fingerprint] = true;
+        }
+
+        return $mounted;
+    }
+
+    /**
+     * @param  array{kode?: string, diamond_code?: string, pcs?: mixed, crt?: mixed}  $row
+     */
+    private function mountedRowFingerprint(array $row): string
+    {
+        $kode = strtolower(trim((string) ($row['kode'] ?? $row['diamond_code'] ?? '')));
+        $kode = preg_replace('/\s*\([^)]*\)\s*$/', '', $kode) ?? $kode;
+        $pcs = trim((string) ($row['pcs'] ?? ''));
+        $crt = trim((string) ($row['crt'] ?? ''));
+
+        return $kode.'|'.$pcs.'|'.$crt;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $settingLines
+     * @return list<array{diamond_code: string, shape_id: null, pcs: string|null, crt: string|null, size: string|null}>
+     */
+    private function mountedLinesFromSetting(array $settingLines): array
+    {
+        if ($settingLines === [] || ! Schema::connection('third')->hasTable('msstone')) {
+            return [];
+        }
+
+        $stoneIds = array_values(array_filter(
+            array_map(fn (array $line): int => (int) ($line['stone_id'] ?? 0), $settingLines),
+            fn (int $id): bool => $id > 0,
+        ));
+
+        if ($stoneIds === []) {
+            return [];
+        }
+
+        $names = DB::connection('third')
+            ->table('msstone')
+            ->whereIn('row_id', $stoneIds)
+            ->pluck('name', 'row_id');
+
+        $mounted = [];
+
+        foreach ($settingLines as $line) {
+            $stoneId = (int) ($line['stone_id'] ?? 0);
+
+            if ($stoneId <= 0) {
+                continue;
+            }
+
+            $label = trim((string) ($names[$stoneId] ?? ''));
+
+            if ($label === '') {
+                $label = 'Batu #'.$stoneId;
+            }
+
+            $notes = trim((string) ($line['notes'] ?? ''));
+
+            if ($notes !== '') {
+                $label = $label.' ('.$notes.')';
+            }
+
+            $mounted[] = [
+                'diamond_code' => $label,
+                'shape_id' => null,
+                'pcs' => filled($line['pcs'] ?? null)
+                    ? (string) $line['pcs']
+                    : null,
+                'crt' => filled($line['crt'] ?? null)
+                    ? (string) $line['crt']
+                    : null,
+                'size' => null,
+            ];
+        }
+
+        return $mounted;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $lines
+     * @return list<array<string, mixed>>
+     */
+    private function collapseStoneLinesByStoneId(array $lines): array
+    {
+        /** @var array<int, array{stone_id: int, pcs: float, crt: float, notes: list<string>}> $merged */
+        $merged = [];
+
+        foreach ($lines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $stoneId = (int) ($line['stone_id'] ?? 0);
+
+            if ($stoneId <= 0) {
+                continue;
+            }
+
+            $pcs = $this->toFloat($line['pcs'] ?? null) ?? 0.0;
+            $crt = $this->toFloat($line['crt'] ?? null) ?? 0.0;
+            $note = trim((string) ($line['notes'] ?? ''));
+
+            if (! isset($merged[$stoneId])) {
+                $merged[$stoneId] = [
+                    'stone_id' => $stoneId,
+                    'pcs' => $pcs,
+                    'crt' => $crt,
+                    'notes' => $note !== '' ? [$note] : [],
+                ];
+
+                continue;
+            }
+
+            $merged[$stoneId]['pcs'] += $pcs;
+            $merged[$stoneId]['crt'] += $crt;
+
+            if ($note !== '' && ! in_array($note, $merged[$stoneId]['notes'], true)) {
+                $merged[$stoneId]['notes'][] = $note;
+            }
+        }
+
+        ksort($merged);
+
+        return array_values(array_map(
+            function (array $line): array {
+                $notes = collect($line['notes'])
+                    ->filter(fn (string $note): bool => $note !== '')
+                    ->unique()
+                    ->values()
+                    ->implode(', ');
+
+                return [
+                    'stone_id' => $line['stone_id'],
+                    'pcs' => $line['pcs'] > 0 ? $this->formatNumber($line['pcs'], 0) : null,
+                    'crt' => $line['crt'] > 0 ? $this->formatNumber($line['crt'], 3) : null,
+                    'notes' => $notes !== '' ? $notes : null,
+                ];
+            },
+            $merged,
+        ));
     }
 
     /**

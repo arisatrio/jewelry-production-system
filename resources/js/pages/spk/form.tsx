@@ -226,6 +226,7 @@ type SkuOption = {
     jwcad3d: string;
     imageUrl: string | null;
     stones: SkuStoneOption[];
+    chains?: ChainRow[];
 };
 
 type ApprovalFooterColumn = {
@@ -1067,6 +1068,7 @@ export default function SpkFormPage({
         if (!sku) {
             setProductItemText(nextLabel ?? '');
             setFormStones([]);
+            setFormChains([]);
             setData({
                 ...data,
                 sku_id: '',
@@ -1089,6 +1091,9 @@ export default function SpkFormPage({
 
         setProductItemText(sku.label);
         setFormStones(mapSkuStonesToForm(sku.stones ?? []));
+        setFormChains(
+            mapProductionChainsToForm(sku.chains ?? []),
+        );
         setData({
             ...data,
             category_prefix_id: sku.categoryPrefixId || data.category_prefix_id,

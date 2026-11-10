@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import addIcon from '@ui5/webcomponents-icons/dist/add.js';
-import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import { Button } from '@ui5/webcomponents-react/Button';
-import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
-import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
-import { Input } from '@ui5/webcomponents-react/Input';
 import { Text } from '@ui5/webcomponents-react/Text';
+import {
+    SpkDiamondDetailCertificateLink,
+    SpkDiamondDetailStoneLabelLink,
+    type SpkDiamondDetailStoneRow,
+} from '@/components/spk/spk-stone-allocated-display-cells';
+import { formatDecimal3Id } from '@/components/spk/spk-stone-decimal-format';
 
 export type PasangBatuStoneOption = {
     value: string;
@@ -32,16 +32,21 @@ export type SettingStoneLine = {
 
 export type DiamondLine = {
     key: string;
+    batch_key: string;
     diamond_id: string;
 };
 
+export type PasangBatuMountedDisposition = 'pending' | 'terpasang' | 'return';
+
 export type MountedStoneLine = {
     key: string;
+    batch_key: string;
     diamond_code: string;
     shape_id: string;
     pcs: string;
     crt: string;
     size: string;
+    disposition: PasangBatuMountedDisposition;
 };
 
 type PasangBatuStoneEditorProps = {
@@ -59,11 +64,7 @@ type PasangBatuStoneEditorProps = {
     onMountedChange: (lines: MountedStoneLine[]) => void;
 };
 
-function fieldState(error?: string): 'None' | 'Negative' {
-    return error ? 'Negative' : 'None';
-}
-
-function newLineKey(prefix: string): string {
+export function newPasangBatuLineKey(prefix: string): string {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
         return `${prefix}-${crypto.randomUUID()}`;
     }
@@ -71,747 +72,224 @@ function newLineKey(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function resolveOptionLabel(
-    options: PasangBatuStoneOption[],
-    value: string,
-): string {
-    if (value.trim() === '') {
-        return '';
+function emptyDash(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+        return '—';
     }
 
-    return options.find((option) => option.value === value)?.label ?? '';
+    const text = String(value).trim();
+
+    return text !== '' ? text : '—';
 }
 
-function OptionComboBox({
-    accessibleName,
-    value,
-    options,
-    error,
-    placeholder,
-    onChange,
-}: {
-    accessibleName: string;
-    value: string;
-    options: PasangBatuStoneOption[];
-    error?: string;
-    placeholder: string;
-    onChange: (nextValue: string) => void;
-}) {
-    const selectedLabel = resolveOptionLabel(options, value);
-    const [text, setText] = useState(selectedLabel);
+function parseQuantity(value: string): number | null {
+    const trimmed = value.trim().replace(',', '.');
 
-    useEffect(() => {
-        setText(selectedLabel);
-    }, [selectedLabel, value]);
+    if (trimmed === '') {
+        return null;
+    }
 
-    const clearSelection = () => {
-        setText('');
-        onChange('');
-    };
+    const parsed = Number.parseFloat(trimmed);
 
-    const selectOption = (nextValue: string, label: string) => {
-        setText(label);
-        onChange(nextValue);
-    };
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function crtPerPcsFrom(pcs: string, crt: string): string | null {
+    const pcsValue = parseQuantity(pcs);
+    const crtValue = parseQuantity(crt);
+
+    if (pcsValue === null || pcsValue <= 0 || crtValue === null) {
+        return null;
+    }
+
+    return (crtValue / pcsValue).toFixed(3);
+}
+
+function formatTotalCarat(value: number): string {
+    return value.toLocaleString('id-ID', {
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3,
+    });
+}
+
+function resolveStoneLabel(
+    stoneOptions: PasangBatuStoneOption[],
+    stoneId: string,
+): string {
+    if (stoneId.trim() === '') {
+        return '—';
+    }
 
     return (
-        <ComboBox
-            accessibleName={accessibleName}
-            className="spkCoranMaterialComboBox"
-            placeholder={placeholder}
-            filter="Contains"
-            showClearIcon
-            noTypeahead
-            value={text}
-            valueState={fieldState(error)}
-            onInput={(event) => {
-                const nextText = event.target.value ?? '';
-                setText(nextText);
-
-                if (!nextText.trim()) {
-                    clearSelection();
-
-                    return;
-                }
-
-                if (selectedLabel && selectedLabel !== nextText) {
-                    onChange('');
-                }
-            }}
-            onSelectionChange={(event) => {
-                const item = event.detail.item;
-
-                if (!item?.value) {
-                    return;
-                }
-
-                selectOption(String(item.value), item.text ?? '');
-            }}
-            onChange={(event) => {
-                const typed = event.target.value?.trim() ?? '';
-
-                if (!typed) {
-                    clearSelection();
-
-                    return;
-                }
-
-                const matched = options.find(
-                    (option) =>
-                        option.label.toLowerCase() === typed.toLowerCase(),
-                );
-
-                if (matched) {
-                    selectOption(matched.value, matched.label);
-
-                    return;
-                }
-
-                setText(typed);
-                onChange('');
-            }}
-        >
-            {options.map((option) => (
-                <ComboBoxItem
-                    key={option.value}
-                    text={option.label}
-                    additionalText={
-                        option.stock !== undefined
-                            ? `Stok: ${Number(option.stock).toLocaleString('id-ID')} pcs`
-                            : option.description || undefined
-                    }
-                    value={option.value}
-                />
-            ))}
-        </ComboBox>
+        stoneOptions.find((option) => option.value === stoneId)?.label ??
+        `Batu #${stoneId}`
     );
 }
 
-function emptySettingLine(): SettingStoneLine {
+function resolveShapeLabel(
+    shapeOptions: PasangBatuStoneOption[],
+    shapeId: string,
+    fallback?: string,
+): string {
+    if (shapeId.trim() !== '') {
+        return (
+            shapeOptions.find((option) => option.value === shapeId)?.label ??
+            fallback ??
+            '—'
+        );
+    }
+
+    return fallback?.trim() !== '' ? (fallback ?? '—') : '—';
+}
+
+function resolveDiamondMeta(
+    diamondOptions: PasangBatuDiamondOption[],
+    diamondId: string,
+): PasangBatuDiamondOption | null {
+    if (diamondId.trim() === '') {
+        return null;
+    }
+
+    return diamondOptions.find((option) => option.value === diamondId) ?? null;
+}
+
+type MicroBatchRow = {
+    kind: 'micro';
+    line: SettingStoneLine;
+    disposition: 'terpasang' | 'return';
+};
+
+type DossierBatchRow = {
+    kind: 'dossier';
+    diamond: DiamondLine;
+    mounted: MountedStoneLine;
+};
+
+type BatchRow = MicroBatchRow | DossierBatchRow;
+
+function buildBatchRows(
+    settingStones: SettingStoneLine[],
+    returnStones: SettingStoneLine[],
+    diamonds: DiamondLine[],
+    mountedStones: MountedStoneLine[],
+): BatchRow[] {
+    const microRows: MicroBatchRow[] = [
+        ...settingStones.map(
+            (line): MicroBatchRow => ({
+                kind: 'micro',
+                line,
+                disposition: 'terpasang',
+            }),
+        ),
+        ...returnStones.map(
+            (line): MicroBatchRow => ({
+                kind: 'micro',
+                line,
+                disposition: 'return',
+            }),
+        ),
+    ];
+
+    const mountedByBatch = new Map(
+        mountedStones.map((line) => [line.batch_key, line]),
+    );
+
+    const dossierRows: DossierBatchRow[] = diamonds
+        .map((diamond) => {
+            const mounted = mountedByBatch.get(diamond.batch_key);
+
+            if (!mounted) {
+                return null;
+            }
+
+            return {
+                kind: 'dossier',
+                diamond,
+                mounted,
+            };
+        })
+        .filter((row): row is DossierBatchRow => row !== null);
+
+    return [...microRows, ...dossierRows];
+}
+
+function batchRowTotals(rows: BatchRow[]): { pcs: number; carat: number } {
+    let pcs = 0;
+    let carat = 0;
+
+    for (const row of rows) {
+        if (row.kind === 'micro') {
+            const linePcs = parseQuantity(row.line.pcs);
+            const lineCrt = parseQuantity(row.line.crt);
+
+            if (linePcs !== null && linePcs > 0) {
+                pcs += linePcs;
+            }
+
+            if (lineCrt !== null && lineCrt > 0) {
+                carat += lineCrt;
+            }
+
+            continue;
+        }
+
+        if (row.mounted.disposition !== 'terpasang') {
+            continue;
+        }
+
+        const pcsText =
+            row.mounted.pcs.trim() !== '' ? row.mounted.pcs.trim() : '1';
+        const crtText = row.mounted.crt.trim();
+        const linePcs = parseQuantity(pcsText);
+        const lineCrt = parseQuantity(crtText);
+
+        if (linePcs !== null && linePcs > 0) {
+            pcs += linePcs;
+        }
+
+        if (lineCrt !== null && lineCrt > 0) {
+            carat += lineCrt;
+        }
+    }
+
+    return { pcs, carat };
+}
+
+function toDossierDisplayRow(
+    row: DossierBatchRow,
+    diamondOptions: PasangBatuDiamondOption[],
+    shapeOptions: PasangBatuStoneOption[],
+): SpkDiamondDetailStoneRow {
+    const meta = resolveDiamondMeta(diamondOptions, row.diamond.diamond_id);
+    const shape =
+        meta?.shape ??
+        resolveShapeLabel(shapeOptions, row.mounted.shape_id, undefined);
+    const pcs =
+        row.mounted.pcs.trim() !== '' ? row.mounted.pcs.trim() : '1';
+    const crt =
+        row.mounted.crt.trim() !== ''
+            ? row.mounted.crt.trim()
+            : (meta?.crt?.trim() ?? '');
+    const certificate =
+        meta?.certificate?.trim() ||
+        row.mounted.diamond_code.trim() ||
+        null;
+
     return {
-        key: newLineKey('setting'),
-        stone_id: '',
-        pcs: '',
-        crt: '',
-        notes: '',
+        source: 'dossier',
+        sourceLabel: 'Dossier',
+        certificate,
+        shape: shape === '—' ? '-' : shape,
+        label: meta?.label ?? row.mounted.diamond_code,
+        diamondId:
+            row.diamond.diamond_id.trim() !== ''
+                ? Number(row.diamond.diamond_id)
+                : null,
+        msStoneId: null,
+        crtPerPcs: crtPerPcsFrom(pcs, crt),
+        reservedPcs: pcs,
+        reservedCrt: crt !== '' ? crt : null,
     };
-}
-
-function emptyDiamondLine(): DiamondLine {
-    return {
-        key: newLineKey('diamond'),
-        diamond_id: '',
-    };
-}
-
-function emptyMountedLine(): MountedStoneLine {
-    return {
-        key: newLineKey('mounted'),
-        diamond_code: '',
-        shape_id: '',
-        pcs: '',
-        crt: '',
-        size: '',
-    };
-}
-
-function updateSettingLine(
-    lines: SettingStoneLine[],
-    key: string,
-    patch: Partial<SettingStoneLine>,
-): SettingStoneLine[] {
-    return lines.map((line) =>
-        line.key === key ? { ...line, ...patch } : line,
-    );
-}
-
-function updateDiamondLine(
-    lines: DiamondLine[],
-    key: string,
-    patch: Partial<DiamondLine>,
-): DiamondLine[] {
-    return lines.map((line) =>
-        line.key === key ? { ...line, ...patch } : line,
-    );
-}
-
-function updateMountedLine(
-    lines: MountedStoneLine[],
-    key: string,
-    patch: Partial<MountedStoneLine>,
-): MountedStoneLine[] {
-    return lines.map((line) =>
-        line.key === key ? { ...line, ...patch } : line,
-    );
-}
-
-function SettingStonePanel({
-    title,
-    errorPrefix,
-    lines,
-    stoneOptions,
-    errors,
-    onChange,
-}: {
-    title: string;
-    errorPrefix: string;
-    lines: SettingStoneLine[];
-    stoneOptions: PasangBatuStoneOption[];
-    errors: Record<string, string>;
-    onChange: (lines: SettingStoneLine[]) => void;
-}) {
-    return (
-        <div className="spkStoneBatchPanel">
-            <div className="spkCoranMaterialEditorPanelHeader">
-                <div className="spkCoranDetailLabel">{title}</div>
-                <Button
-                    design="Emphasized"
-                    icon={addIcon}
-                    type="Button"
-                    accessibleName={`Tambah ${title}`}
-                    onClick={() => onChange([...lines, emptySettingLine()])}
-                >
-                    Tambah
-                </Button>
-            </div>
-
-            <table className="spkCoranMaterialEditorTable">
-                <thead>
-                    <tr>
-                        <th scope="col">Batu</th>
-                        <th scope="col">Pcs</th>
-                        <th scope="col">Crt</th>
-                        <th scope="col">Catatan</th>
-                        <th scope="col" className="spkTableActionCol">
-                            Aksi
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {lines.length === 0 ? (
-                        <tr>
-                            <td colSpan={5} className="spkCoranBreakdownEmpty">
-                                Tidak ada data
-                            </td>
-                        </tr>
-                    ) : (
-                        lines.map((line, index) => {
-                            const stoneError =
-                                errors[`${errorPrefix}.${index}.stone_id`];
-                            const pcsError =
-                                errors[`${errorPrefix}.${index}.pcs`];
-                            const crtError =
-                                errors[`${errorPrefix}.${index}.crt`];
-                            const notesError =
-                                errors[`${errorPrefix}.${index}.notes`];
-
-                            return (
-                                <tr key={line.key} className="spkCoranLineRow">
-                                    <td>
-                                        <div className="spkFioriFieldStack">
-                                            <OptionComboBox
-                                                accessibleName={`${title} batu`}
-                                                value={line.stone_id}
-                                                options={stoneOptions}
-                                                error={stoneError}
-                                                placeholder="Cari / pilih batu"
-                                                onChange={(stoneId) =>
-                                                    onChange(
-                                                        updateSettingLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                stone_id:
-                                                                    stoneId,
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {stoneError ? (
-                                                <Text className="spkFioriError">
-                                                    {stoneError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="spkFioriFieldStack">
-                                            <Input
-                                                type="Number"
-                                                accessibleName={`${title} pcs`}
-                                                value={line.pcs}
-                                                valueState={fieldState(
-                                                    pcsError,
-                                                )}
-                                                onInput={(event) =>
-                                                    onChange(
-                                                        updateSettingLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                pcs:
-                                                                    event.target
-                                                                        .value ??
-                                                                    '',
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {pcsError ? (
-                                                <Text className="spkFioriError">
-                                                    {pcsError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="spkFioriFieldStack">
-                                            <Input
-                                                type="Number"
-                                                accessibleName={`${title} crt`}
-                                                value={line.crt}
-                                                valueState={fieldState(
-                                                    crtError,
-                                                )}
-                                                onInput={(event) =>
-                                                    onChange(
-                                                        updateSettingLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                crt:
-                                                                    event.target
-                                                                        .value ??
-                                                                    '',
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {crtError ? (
-                                                <Text className="spkFioriError">
-                                                    {crtError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="spkFioriFieldStack">
-                                            <Input
-                                                accessibleName={`${title} catatan`}
-                                                value={line.notes}
-                                                valueState={fieldState(
-                                                    notesError,
-                                                )}
-                                                placeholder="Catatan"
-                                                onInput={(event) =>
-                                                    onChange(
-                                                        updateSettingLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                notes:
-                                                                    event.target
-                                                                        .value ??
-                                                                    '',
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {notesError ? (
-                                                <Text className="spkFioriError">
-                                                    {notesError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </td>
-                                    <td className="spkTableActionCol">
-                                        <Button
-                                            design="Transparent"
-                                            icon={deleteIcon}
-                                            type="Button"
-                                            accessibleName={`Hapus ${title}`}
-                                            onClick={() =>
-                                                onChange(
-                                                    lines.filter(
-                                                        (item) =>
-                                                            item.key !==
-                                                            line.key,
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                </tr>
-                            );
-                        })
-                    )}
-                </tbody>
-            </table>
-        </div>
-    );
-}
-
-function DiamondPanel({
-    lines,
-    diamondOptions,
-    errors,
-    onChange,
-}: {
-    lines: DiamondLine[];
-    diamondOptions: PasangBatuDiamondOption[];
-    errors: Record<string, string>;
-    onChange: (lines: DiamondLine[]) => void;
-}) {
-    const diamondOptionById = new Map(
-        diamondOptions.map((option) => [option.value, option]),
-    );
-
-    return (
-        <div className="spkStoneBatchPanel">
-            <div className="spkCoranMaterialEditorPanelHeader">
-                <div className="spkCoranDetailLabel">Diamond</div>
-                <Button
-                    design="Emphasized"
-                    icon={addIcon}
-                    type="Button"
-                    accessibleName="Tambah Diamond"
-                    onClick={() => onChange([...lines, emptyDiamondLine()])}
-                >
-                    Tambah
-                </Button>
-            </div>
-
-            <table className="spkCoranMaterialEditorTable">
-                <thead>
-                    <tr>
-                        <th scope="col">Kode</th>
-                        <th scope="col">Diamond</th>
-                        <th scope="col">Bentuk</th>
-                        <th scope="col">Sertifikat</th>
-                        <th scope="col">Crt</th>
-                        <th scope="col" className="spkTableActionCol">
-                            Aksi
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {lines.length === 0 ? (
-                        <tr>
-                            <td colSpan={6} className="spkCoranBreakdownEmpty">
-                                Tidak ada data
-                            </td>
-                        </tr>
-                    ) : (
-                        lines.map((line, index) => {
-                            const diamondError =
-                                errors[`diamonds.${index}.diamond_id`];
-                            const selectedDiamond = diamondOptionById.get(
-                                line.diamond_id,
-                            );
-                            const selectedInOtherLines = new Set(
-                                lines
-                                    .filter((item) => item.key !== line.key)
-                                    .map((item) => item.diamond_id),
-                            );
-                            const lineOptions = diamondOptions.filter(
-                                (option) =>
-                                    !selectedInOtherLines.has(option.value),
-                            );
-
-                            return (
-                                <tr key={line.key} className="spkCoranLineRow">
-                                    <td>
-                                        <div className="spkFioriFieldStack">
-                                            <OptionComboBox
-                                                accessibleName="Batu Dossier"
-                                                value={line.diamond_id}
-                                                options={lineOptions}
-                                                error={diamondError}
-                                                placeholder="Cari kode / bentuk / crt"
-                                                onChange={(diamondId) =>
-                                                    onChange(
-                                                        updateDiamondLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                diamond_id:
-                                                                    diamondId,
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {diamondError ? (
-                                                <Text className="spkFioriError">
-                                                    {diamondError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {selectedDiamond?.diamondType ?? '—'}
-                                    </td>
-                                    <td>{selectedDiamond?.shape ?? '—'}</td>
-                                    <td>
-                                        {selectedDiamond?.certificate ?? '—'}
-                                    </td>
-                                    <td>{selectedDiamond?.crt ?? '—'}</td>
-                                    <td className="spkTableActionCol">
-                                        <Button
-                                            design="Transparent"
-                                            icon={deleteIcon}
-                                            type="Button"
-                                            accessibleName="Hapus diamond"
-                                            onClick={() =>
-                                                onChange(
-                                                    lines.filter(
-                                                        (item) =>
-                                                            item.key !==
-                                                            line.key,
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                </tr>
-                            );
-                        })
-                    )}
-                </tbody>
-            </table>
-            {errors.diamonds ? (
-                <Text className="spkFioriError">{errors.diamonds}</Text>
-            ) : null}
-        </div>
-    );
-}
-
-function MountedStonePanel({
-    lines,
-    shapeOptions,
-    errors,
-    onChange,
-}: {
-    lines: MountedStoneLine[];
-    shapeOptions: PasangBatuStoneOption[];
-    errors: Record<string, string>;
-    onChange: (lines: MountedStoneLine[]) => void;
-}) {
-    return (
-        <div className="spkStoneBatchPanel">
-            <div className="spkCoranMaterialEditorPanelHeader">
-                <div className="spkCoranDetailLabel">Batu terpasang</div>
-                <Button
-                    design="Emphasized"
-                    icon={addIcon}
-                    type="Button"
-                    accessibleName="Tambah batu terpasang"
-                    onClick={() => onChange([...lines, emptyMountedLine()])}
-                >
-                    Tambah
-                </Button>
-            </div>
-
-            <table className="spkCoranMaterialEditorTable">
-                <thead>
-                    <tr>
-                        <th scope="col">Kode Diamond</th>
-                        <th scope="col">Shape</th>
-                        <th scope="col">Pcs</th>
-                        <th scope="col">Crt</th>
-                        <th scope="col">Size</th>
-                        <th scope="col" className="spkTableActionCol">
-                            Aksi
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {lines.length === 0 ? (
-                        <tr>
-                            <td colSpan={6} className="spkCoranBreakdownEmpty">
-                                Tidak ada data
-                            </td>
-                        </tr>
-                    ) : (
-                        lines.map((line, index) => {
-                            const shapeError =
-                                errors[`mounted_stones.${index}.shape_id`];
-                            const pcsError =
-                                errors[`mounted_stones.${index}.pcs`];
-                            const crtError =
-                                errors[`mounted_stones.${index}.crt`];
-
-                            return (
-                                <tr key={line.key} className="spkCoranLineRow">
-                                    <td>
-                                        <Input
-                                            accessibleName="Kode diamond terpasang"
-                                            value={line.diamond_code}
-                                            valueState={fieldState(
-                                                errors[
-                                                    `mounted_stones.${index}.diamond_code`
-                                                ],
-                                            )}
-                                            onInput={(event) =>
-                                                onChange(
-                                                    updateMountedLine(
-                                                        lines,
-                                                        line.key,
-                                                        {
-                                                            diamond_code:
-                                                                event.target
-                                                                    .value ??
-                                                                '',
-                                                        },
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                    <td>
-                                        <div className="spkFioriFieldStack">
-                                            <OptionComboBox
-                                                accessibleName="Shape batu terpasang"
-                                                value={line.shape_id}
-                                                options={shapeOptions}
-                                                error={shapeError}
-                                                placeholder="Cari / pilih shape"
-                                                onChange={(shapeId) =>
-                                                    onChange(
-                                                        updateMountedLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                shape_id:
-                                                                    shapeId,
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {shapeError ? (
-                                                <Text className="spkFioriError">
-                                                    {shapeError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="spkFioriFieldStack">
-                                            <Input
-                                                type="Number"
-                                                accessibleName="Pcs batu terpasang"
-                                                value={line.pcs}
-                                                valueState={fieldState(
-                                                    pcsError,
-                                                )}
-                                                onInput={(event) =>
-                                                    onChange(
-                                                        updateMountedLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                pcs:
-                                                                    event.target
-                                                                        .value ??
-                                                                    '',
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {pcsError ? (
-                                                <Text className="spkFioriError">
-                                                    {pcsError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="spkFioriFieldStack">
-                                            <Input
-                                                type="Number"
-                                                accessibleName="Crt batu terpasang"
-                                                value={line.crt}
-                                                valueState={fieldState(
-                                                    crtError,
-                                                )}
-                                                onInput={(event) =>
-                                                    onChange(
-                                                        updateMountedLine(
-                                                            lines,
-                                                            line.key,
-                                                            {
-                                                                crt:
-                                                                    event.target
-                                                                        .value ??
-                                                                    '',
-                                                            },
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            {crtError ? (
-                                                <Text className="spkFioriError">
-                                                    {crtError}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <Input
-                                            accessibleName="Size batu terpasang"
-                                            value={line.size}
-                                            valueState={fieldState(
-                                                errors[
-                                                    `mounted_stones.${index}.size`
-                                                ],
-                                            )}
-                                            onInput={(event) =>
-                                                onChange(
-                                                    updateMountedLine(
-                                                        lines,
-                                                        line.key,
-                                                        {
-                                                            size:
-                                                                event.target
-                                                                    .value ??
-                                                                '',
-                                                        },
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                    <td className="spkTableActionCol">
-                                        <Button
-                                            design="Transparent"
-                                            icon={deleteIcon}
-                                            type="Button"
-                                            accessibleName="Hapus batu terpasang"
-                                            onClick={() =>
-                                                onChange(
-                                                    lines.filter(
-                                                        (item) =>
-                                                            item.key !==
-                                                            line.key,
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                </tr>
-                            );
-                        })
-                    )}
-                </tbody>
-            </table>
-        </div>
-    );
 }
 
 export function PasangBatuStoneEditor({
@@ -828,44 +306,253 @@ export function PasangBatuStoneEditor({
     onDiamondsChange,
     onMountedChange,
 }: PasangBatuStoneEditorProps) {
+    const rows = buildBatchRows(
+        settingStones,
+        returnStones,
+        diamonds,
+        mountedStones,
+    );
+    const totals = batchRowTotals(rows);
+
+    const setMicroDisposition = (
+        line: SettingStoneLine,
+        from: 'terpasang' | 'return',
+        to: 'terpasang' | 'return',
+    ) => {
+        if (from === to) {
+            return;
+        }
+
+        if (from === 'terpasang') {
+            onSettingChange(
+                settingStones.filter((item) => item.key !== line.key),
+            );
+            onReturnChange([...returnStones, line]);
+
+            return;
+        }
+
+        onReturnChange(returnStones.filter((item) => item.key !== line.key));
+        onSettingChange([...settingStones, line]);
+    };
+
+    const setDossierDisposition = (
+        mounted: MountedStoneLine,
+        disposition: 'terpasang' | 'return',
+    ) => {
+        if (mounted.disposition === disposition) {
+            return;
+        }
+
+        onMountedChange(
+            mountedStones.map((item) =>
+                item.key === mounted.key ? { ...item, disposition } : item,
+            ),
+        );
+    };
+
+    const renderActionButtons = (
+        disposition: PasangBatuMountedDisposition | 'terpasang' | 'return',
+        onTerpasang: () => void,
+        onReturn: () => void,
+    ) => (
+        <div className="spkPasangBatuBatchActions">
+            <Button
+                design={
+                    disposition === 'terpasang' ? 'Emphasized' : 'Transparent'
+                }
+                type="Button"
+                onClick={onTerpasang}
+            >
+                Terpasang
+            </Button>
+            <Button
+                design={disposition === 'return' ? 'Attention' : 'Transparent'}
+                type="Button"
+                onClick={onReturn}
+            >
+                Return
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="spkFioriDetailBlock">
-            <div className="spkStoneCardHeader">
-                <div className="spkFioriDetailBlockTitle">
-                    Detail Batch Pasang Batu
-                </div>
+        <section className="spkShowSection spkBatuPanelSection spkPasangBatuBatchSection">
+            <div className="spkBatuPanelSectionHeader">
+                <h3 className="spkFioriDetailBlockTitle">Batu dialokasikan</h3>
+                <Text className="spkFioriDetailBlockMeta">
+                    {rows.length.toLocaleString('id-ID')} baris · klik{' '}
+                    <strong>Terpasang</strong> agar dossier masuk section Batu
+                    terpasang saat simpan
+                </Text>
             </div>
 
-            <div className="spkStoneBatchGrid">
-                <SettingStonePanel
-                    title="Setting Batu"
-                    errorPrefix="setting_stones"
-                    lines={settingStones}
-                    stoneOptions={stoneOptions}
-                    errors={errors}
-                    onChange={onSettingChange}
-                />
-                <SettingStonePanel
-                    title="Retur Batu"
-                    errorPrefix="return_stones"
-                    lines={returnStones}
-                    stoneOptions={stoneOptions}
-                    errors={errors}
-                    onChange={onReturnChange}
-                />
-                <DiamondPanel
-                    lines={diamonds}
-                    diamondOptions={diamondOptions}
-                    errors={errors}
-                    onChange={onDiamondsChange}
-                />
-                <MountedStonePanel
-                    lines={mountedStones}
-                    shapeOptions={shapeOptions}
-                    errors={errors}
-                    onChange={onMountedChange}
-                />
+            <div className="spkStoneTableWrap">
+                <table className="spkStoneTable spkStoneAllocatedFlatTable spkStoneTable--withStatus">
+                    <thead>
+                        <tr>
+                            <th>Tipe</th>
+                            <th>No. sertifikat</th>
+                            <th>Bentuk</th>
+                            <th>Nama/Kode batu</th>
+                            <th>CRT per butir</th>
+                            <th>Jumlah butir (pcs)</th>
+                            <th>Total CRT</th>
+                            <th className="spkStoneTableActionCol">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.length === 0 ? (
+                            <tr>
+                                <td colSpan={8}>
+                                    <div className="spkStoneEmpty">
+                                        <Text>
+                                            Tidak ada baris batu. Pilih SPK
+                                            Diamond untuk mengisi daftar.
+                                        </Text>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : (
+                            rows.map((row) => {
+                                if (row.kind === 'micro') {
+                                    const crtPerPcs = crtPerPcsFrom(
+                                        row.line.pcs,
+                                        row.line.crt,
+                                    );
+                                    const microLabel = resolveStoneLabel(
+                                        stoneOptions,
+                                        row.line.stone_id,
+                                    );
+                                    const labelWithNotes =
+                                        row.line.notes.trim() !== ''
+                                            ? `${microLabel} (${row.line.notes})`
+                                            : microLabel;
+
+                                    return (
+                                        <tr key={`micro-${row.line.key}`}>
+                                            <td>Mikro</td>
+                                            <td>—</td>
+                                            <td>—</td>
+                                            <td>{emptyDash(labelWithNotes)}</td>
+                                            <td className="tabular-nums">
+                                                {crtPerPcs !== null
+                                                    ? formatDecimal3Id(
+                                                          crtPerPcs,
+                                                      )
+                                                    : '-'}
+                                            </td>
+                                            <td className="tabular-nums">
+                                                {emptyDash(row.line.pcs)}
+                                            </td>
+                                            <td className="tabular-nums">
+                                                {formatDecimal3Id(
+                                                    row.line.crt,
+                                                )}
+                                            </td>
+                                            <td className="spkStoneTableActionCol">
+                                                {renderActionButtons(
+                                                    row.disposition,
+                                                    () =>
+                                                        setMicroDisposition(
+                                                            row.line,
+                                                            row.disposition,
+                                                            'terpasang',
+                                                        ),
+                                                    () =>
+                                                        setMicroDisposition(
+                                                            row.line,
+                                                            row.disposition,
+                                                            'return',
+                                                        ),
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+
+                                const detailRow = toDossierDisplayRow(
+                                    row,
+                                    diamondOptions,
+                                    shapeOptions,
+                                );
+
+                                return (
+                                    <tr key={`dossier-${row.diamond.key}`}>
+                                        <td>{detailRow.sourceLabel}</td>
+                                        <td>
+                                            <SpkDiamondDetailCertificateLink
+                                                certificate={
+                                                    detailRow.certificate
+                                                }
+                                            />
+                                        </td>
+                                        <td>{emptyDash(detailRow.shape)}</td>
+                                        <td>
+                                            <SpkDiamondDetailStoneLabelLink
+                                                row={detailRow}
+                                            />
+                                        </td>
+                                        <td className="tabular-nums">
+                                            {detailRow.crtPerPcs !== null
+                                                ? formatDecimal3Id(
+                                                      detailRow.crtPerPcs,
+                                                  )
+                                                : '-'}
+                                        </td>
+                                        <td className="tabular-nums">
+                                            {emptyDash(detailRow.reservedPcs)}
+                                        </td>
+                                        <td className="tabular-nums">
+                                            {formatDecimal3Id(
+                                                detailRow.reservedCrt,
+                                            )}
+                                        </td>
+                                        <td className="spkStoneTableActionCol">
+                                            {renderActionButtons(
+                                                row.mounted.disposition,
+                                                () =>
+                                                    setDossierDisposition(
+                                                        row.mounted,
+                                                        'terpasang',
+                                                    ),
+                                                () =>
+                                                    setDossierDisposition(
+                                                        row.mounted,
+                                                        'return',
+                                                    ),
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                    {rows.length > 0 ? (
+                        <tfoot>
+                            <tr className="spkStoneTableTotal spkStoneTableTotal--allocated">
+                                <td colSpan={5}>Total batu dialokasikan</td>
+                                <td className="spkStoneTableTotalValue">
+                                    {totals.pcs.toLocaleString('id-ID')}
+                                </td>
+                                <td className="spkStoneTableTotalValue">
+                                    {formatTotalCarat(totals.carat)}
+                                </td>
+                                <td />
+                            </tr>
+                        </tfoot>
+                    ) : null}
+                </table>
             </div>
-        </div>
+
+            {errors.setting_stones ||
+            errors.return_stones ||
+            errors.diamonds ||
+            errors.mounted_stones ? (
+                <Text className="spkFioriError">
+                    Periksa kembali data batu sebelum menyimpan.
+                </Text>
+            ) : null}
+        </section>
     );
 }

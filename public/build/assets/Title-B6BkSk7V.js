@@ -1,1 +1,0 @@
-import{ua as e}from"./app-C63SaYNK.js";var t=e(`ui5-title`,[`level`,`size`,`wrappingType`],[],[],[]);t.displayName=`Title`;export{t};

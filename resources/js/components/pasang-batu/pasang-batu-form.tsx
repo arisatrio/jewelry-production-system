@@ -15,9 +15,14 @@ import { Select } from '@ui5/webcomponents-react/Select';
 import { Text } from '@ui5/webcomponents-react/Text';
 import { TextArea } from '@ui5/webcomponents-react/TextArea';
 import {
+    PasangBatuSelectSpkDiamondDialog,
+    type PasangBatuSelectedSpkDiamond,
+} from '@/components/pasang-batu/pasang-batu-select-spk-diamond-dialog';
+import {
     PasangBatuSelectSpkDialog,
     type PasangBatuSelectedSpk,
 } from '@/components/pasang-batu/pasang-batu-select-spk-dialog';
+import { importMethod as importPasangBatuSpkDiamond } from '@/routes/pasang-batu/select/spk-diamonds';
 import {
     PasangBatuStoneEditor,
     type DiamondLine,
@@ -26,6 +31,7 @@ import {
     type PasangBatuStoneOption,
     type SettingStoneLine,
 } from '@/components/pasang-batu/pasang-batu-stone-editor';
+import { buildPasangBatuStoneSubmitPayload } from '@/components/pasang-batu/pasang-batu-stone-submit';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 
@@ -55,7 +61,9 @@ type PasangBatuFormValues = {
     weight_frame: string;
     weight_diamond: string;
     weight_finish_goods: string;
-    spk: PasangBatuSpkForm | null;
+    spk_diamond_id: string;
+    spk_diamond_doc_no: string;
+    spk: PasangBatuSpkForm;
     setting_stones: SettingStoneLine[];
     return_stones: SettingStoneLine[];
     diamonds: DiamondLine[];
@@ -75,25 +83,10 @@ type PasangBatuFormProps = {
     shapeOptions: PasangBatuStoneOption[];
     diamondOptions: PasangBatuDiamondOption[];
     initialValues: PasangBatuFormValues;
+    allowMountingId?: number | null;
+    /** Create: SPK produksi hanya dari impor SPK Diamond (tanpa dialog Pilih SPK). */
+    allowManualSpkSelection?: boolean;
 };
-
-function normalizeNullableNumber(value: string): string | null {
-    const trimmed = value.trim().replace(',', '.');
-
-    return trimmed !== '' ? trimmed : null;
-}
-
-function normalizeOptionalId(value: string): number | null {
-    const trimmed = value.trim();
-
-    if (trimmed === '') {
-        return null;
-    }
-
-    const parsed = Number(trimmed);
-
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
 
 function fieldState(error?: string): 'None' | 'Negative' {
     return error ? 'Negative' : 'None';
@@ -133,7 +126,15 @@ function computeShrink(
     return (frame + diamond - finish).toFixed(2);
 }
 
-function emptySpk(): PasangBatuSpkForm {
+function newLineKey(prefix: string): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+        return `${prefix}-${crypto.randomUUID()}`;
+    }
+
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export function emptyPasangBatuSpk(): PasangBatuSpkForm {
     return {
         spk_id: '',
         spk_no: '',
@@ -147,11 +148,7 @@ function emptySpk(): PasangBatuSpkForm {
     };
 }
 
-function selectedSpkItemSummary(spk: PasangBatuSpkForm | null): string {
-    if (spk === null) {
-        return '—';
-    }
-
+function selectedSpkItemSummary(spk: PasangBatuSpkForm): string {
     const typeProduct = [spk.type_code, spk.product_item_name]
         .map((value) => value.trim())
         .filter(Boolean)
@@ -175,12 +172,25 @@ export function PasangBatuForm({
     shapeOptions,
     diamondOptions,
     initialValues,
+    allowMountingId = null,
+    allowManualSpkSelection = true,
 }: PasangBatuFormProps) {
     const { data, setData, post, put, processing, errors, transform } =
         useForm<PasangBatuFormValues>(initialValues);
     const [spkDialogOpen, setSpkDialogOpen] = useState(false);
-    const hasSelectedSpk =
-        data.spk !== null && data.spk.spk_id.trim() !== '';
+    const [spkDiamondDialogOpen, setSpkDiamondDialogOpen] = useState(false);
+    const [importingSpkDiamond, setImportingSpkDiamond] = useState(false);
+    const [spkDiamondImportError, setSpkDiamondImportError] = useState<
+        string | null
+    >(null);
+    const hasSelectedSpk = data.spk.spk_id.trim() !== '';
+    const hasSelectedSpkDiamond = data.spk_diamond_id.trim() !== '';
+    const showSpkChangeActions =
+        allowManualSpkSelection &&
+        (hasSelectedSpk || hasSelectedSpkDiamond);
+    const showSpkDetails =
+        hasSelectedSpk ||
+        (hasSelectedSpkDiamond && data.spk.spk_no.trim() !== '');
     const shrinkPreview = computeShrink(
         data.weight_frame,
         data.weight_diamond,
@@ -197,6 +207,171 @@ export function PasangBatuForm({
         });
     };
 
+    const handleSelectedSpkDiamond = (
+        selected: PasangBatuSelectedSpkDiamond,
+    ) => {
+        setSpkDiamondImportError(null);
+        setImportingSpkDiamond(true);
+
+        void fetch(
+            importPasangBatuSpkDiamond.url(selected.rowId, {
+                query:
+                    allowMountingId !== null && allowMountingId > 0
+                        ? { allowMountingId }
+                        : undefined,
+            }),
+            {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            },
+        )
+            .then(async (response) => {
+                if (!response.ok) {
+                    const payload = (await response.json().catch(() => null)) as
+                        | { message?: string }
+                        | null;
+
+                    throw new Error(
+                        payload?.message ??
+                            'Gagal mengimpor detail batu dari SPK Diamond.',
+                    );
+                }
+
+                const payload = (await response.json()) as {
+                    data: {
+                        spkDiamondId: number;
+                        spkDiamondDocNo: string;
+                        weightDiamond: string | null;
+                        spk: {
+                            rowId: number;
+                            spkNo: string | null;
+                            lastWeight: string | null;
+                            spkType: string | null;
+                            orderTypeLabel: string | null;
+                            skuCode: string | null;
+                            typeCode: string | null;
+                            productItemName: string | null;
+                            itemDescription: string | null;
+                            satuan: string;
+                        };
+                        settingStones: Array<{
+                            stoneId: number;
+                            pcs: string;
+                            crt: string;
+                            notes: string;
+                        }>;
+                        diamonds: Array<{ diamondId: number }>;
+                        mountedStones: Array<{
+                            diamondCode: string;
+                            shapeId: number | null;
+                            pcs: string;
+                            crt: string;
+                            size: string;
+                        }>;
+                    };
+                };
+
+                const imported = payload.data;
+                const nextSpk = {
+                    spk_id: String(imported.spk.rowId),
+                    spk_no: imported.spk.spkNo ?? '',
+                    spk_type: imported.spk.spkType ?? '',
+                    order_type_label: imported.spk.orderTypeLabel ?? '',
+                    type_code: imported.spk.typeCode ?? '',
+                    product_item_name: imported.spk.productItemName ?? '',
+                    sku_code: imported.spk.skuCode ?? '',
+                    item_description: imported.spk.itemDescription ?? '',
+                    satuan: imported.spk.satuan ?? '',
+                };
+
+                setData({
+                    ...data,
+                    spk_diamond_id: String(imported.spkDiamondId),
+                    spk_diamond_doc_no: imported.spkDiamondDocNo,
+                    spk: nextSpk,
+                    weight_frame: imported.spk.lastWeight?.trim() ?? '',
+                    weight_diamond: imported.weightDiamond?.trim() ?? '',
+                    setting_stones: imported.settingStones.map((line) => ({
+                        key: newLineKey('setting'),
+                        stone_id: String(line.stoneId),
+                        pcs: line.pcs ?? '',
+                        crt: line.crt ?? '',
+                        notes: line.notes ?? '',
+                    })),
+                    return_stones: [],
+                    ...(() => {
+                        const dossierCount = Math.max(
+                            imported.diamonds.length,
+                            imported.mountedStones.length,
+                        );
+                        const diamonds: DiamondLine[] = [];
+                        const mounted_stones: MountedStoneLine[] = [];
+
+                        for (let index = 0; index < dossierCount; index += 1) {
+                            const batchKey = newLineKey('batch');
+                            const diamond = imported.diamonds[index];
+                            const mounted = imported.mountedStones[index];
+
+                            if (diamond) {
+                                diamonds.push({
+                                    key: newLineKey('diamond'),
+                                    batch_key: batchKey,
+                                    diamond_id: String(diamond.diamondId),
+                                });
+                            }
+
+                            if (mounted) {
+                                mounted_stones.push({
+                                    key: newLineKey('mounted'),
+                                    batch_key: batchKey,
+                                    diamond_code: mounted.diamondCode ?? '',
+                                    shape_id:
+                                        mounted.shapeId !== null &&
+                                        mounted.shapeId > 0
+                                            ? String(mounted.shapeId)
+                                            : '',
+                                    pcs: mounted.pcs ?? '',
+                                    crt: mounted.crt ?? '',
+                                    size: mounted.size ?? '',
+                                    disposition: 'pending',
+                                });
+                            }
+                        }
+
+                        return { diamonds, mounted_stones };
+                    })(),
+                });
+                setData('spk', nextSpk);
+            })
+            .catch((error: unknown) => {
+                setSpkDiamondImportError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Gagal mengimpor SPK Diamond.',
+                );
+            })
+            .finally(() => setImportingSpkDiamond(false));
+    };
+
+    const clearSpkDiamondImport = () => {
+        setSpkDiamondImportError(null);
+        setData({
+            ...data,
+            spk_diamond_id: '',
+            spk_diamond_doc_no: '',
+            spk: emptyPasangBatuSpk(),
+            weight_frame: '',
+            weight_diamond: '',
+            setting_stones: [],
+            return_stones: [],
+            diamonds: [],
+            mounted_stones: [],
+        });
+    };
+
     const submit = (event: FormEvent) => {
         event.preventDefault();
 
@@ -205,6 +380,10 @@ export function PasangBatuForm({
             spk_id:
                 formData.spk?.spk_id && formData.spk.spk_id.trim() !== ''
                     ? Number(formData.spk.spk_id)
+                    : null,
+            spk_diamond_id:
+                formData.spk_diamond_id.trim() !== ''
+                    ? Number(formData.spk_diamond_id)
                     : null,
             craftsman_id:
                 formData.craftsman_id.trim() !== ''
@@ -225,49 +404,12 @@ export function PasangBatuForm({
             weight_finish_goods: normalizeWeightForSubmit(
                 formData.weight_finish_goods,
             ),
-            setting_stones: formData.setting_stones
-                .filter((line) => line.stone_id.trim() !== '')
-                .map((line) => ({
-                    stone_id: Number(line.stone_id),
-                    pcs: normalizeNullableNumber(line.pcs),
-                    crt: normalizeNullableNumber(line.crt),
-                    notes:
-                        line.notes.trim() !== '' ? line.notes.trim() : null,
-                })),
-            return_stones: formData.return_stones
-                .filter((line) => line.stone_id.trim() !== '')
-                .map((line) => ({
-                    stone_id: Number(line.stone_id),
-                    pcs: normalizeNullableNumber(line.pcs),
-                    crt: normalizeNullableNumber(line.crt),
-                    notes:
-                        line.notes.trim() !== '' ? line.notes.trim() : null,
-                })),
-            diamonds: formData.diamonds
-                .filter((line) => line.diamond_id.trim() !== '')
-                .map((line) => ({
-                    diamond_id: Number(line.diamond_id),
-                })),
-            mounted_stones: formData.mounted_stones
-                .filter(
-                    (line) =>
-                        line.diamond_code.trim() !== '' ||
-                        line.shape_id.trim() !== '' ||
-                        line.pcs.trim() !== '' ||
-                        line.crt.trim() !== '' ||
-                        line.size.trim() !== '',
-                )
-                .map((line) => ({
-                    diamond_code:
-                        line.diamond_code.trim() !== ''
-                            ? line.diamond_code.trim()
-                            : null,
-                    shape_id: normalizeOptionalId(line.shape_id),
-                    pcs: normalizeNullableNumber(line.pcs),
-                    crt: normalizeNullableNumber(line.crt),
-                    size:
-                        line.size.trim() !== '' ? line.size.trim() : null,
-                })),
+            ...buildPasangBatuStoneSubmitPayload({
+                setting_stones: formData.setting_stones,
+                return_stones: formData.return_stones,
+                diamonds: formData.diamonds,
+                mounted_stones: formData.mounted_stones,
+            }),
         }));
 
         const options = {
@@ -338,19 +480,165 @@ export function PasangBatuForm({
                                 >
                                     <FormItem
                                         labelContent={
-                                            <Label showColon required>
-                                                No. SPK
+                                            <Label
+                                                showColon
+                                                required={
+                                                    !allowManualSpkSelection
+                                                }
+                                            >
+                                                No. SPK Diamond
                                             </Label>
                                         }
                                     >
                                         <div className="spkFioriFieldStack">
                                             <div className="spkCreateSelectorRow">
                                                 <div className="spkCreateSelectorValue">
-                                                    {hasSelectedSpk ? (
+                                                    {hasSelectedSpkDiamond ? (
+                                                        <strong>
+                                                            {data.spk_diamond_doc_no ||
+                                                                '—'}
+                                                        </strong>
+                                                    ) : (
+                                                        <span>
+                                                            Belum ada SPK
+                                                            Diamond dipilih
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <Button
+                                                    design="Emphasized"
+                                                    type="Button"
+                                                    disabled={
+                                                        processing ||
+                                                        importingSpkDiamond
+                                                    }
+                                                    onClick={() =>
+                                                        setSpkDiamondDialogOpen(
+                                                            true,
+                                                        )
+                                                    }
+                                                >
+                                                    {importingSpkDiamond
+                                                        ? 'Memuat...'
+                                                        : hasSelectedSpkDiamond
+                                                          ? 'Ganti'
+                                                          : 'Pilih'}
+                                                </Button>
+                                                {hasSelectedSpkDiamond ? (
+                                                    <Button
+                                                        design="Transparent"
+                                                        type="Button"
+                                                        disabled={
+                                                            processing ||
+                                                            importingSpkDiamond
+                                                        }
+                                                        onClick={
+                                                            clearSpkDiamondImport
+                                                        }
+                                                    >
+                                                        Hapus
+                                                    </Button>
+                                                ) : null}
+                                            </div>
+                                            {spkDiamondImportError ? (
+                                                <Text className="spkFioriError">
+                                                    {spkDiamondImportError}
+                                                </Text>
+                                            ) : null}
+                                            {'spk_diamond_id' in errors &&
+                                            errors.spk_diamond_id ? (
+                                                <Text className="spkFioriError">
+                                                    {String(
+                                                        errors.spk_diamond_id,
+                                                    )}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </FormItem>
+
+                                    <FormItem
+                                        labelContent={
+                                            <Label
+                                                showColon
+                                                required={allowManualSpkSelection}
+                                            >
+                                                No. SPK
+                                            </Label>
+                                        }
+                                    >
+                                        <div className="spkFioriFieldStack">
+                                            {allowManualSpkSelection ? (
+                                                <div className="spkCreateSelectorRow">
+                                                    <div className="spkCreateSelectorValue">
+                                                        {showSpkDetails ? (
+                                                            <>
+                                                                <strong>
+                                                                    {data.spk
+                                                                        .spk_no ||
+                                                                        '—'}
+                                                                </strong>
+                                                                <span>
+                                                                    {selectedSpkItemSummary(
+                                                                        data.spk,
+                                                                    )}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span>
+                                                                Belum ada SPK
+                                                                dipilih
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <Button
+                                                        design="Emphasized"
+                                                        type="Button"
+                                                        disabled={processing}
+                                                        onClick={() =>
+                                                            setSpkDialogOpen(
+                                                                true,
+                                                            )
+                                                        }
+                                                    >
+                                                        {showSpkChangeActions
+                                                            ? 'Ganti'
+                                                            : 'Pilih'}
+                                                    </Button>
+                                                    {showSpkChangeActions ? (
+                                                        <Button
+                                                            design="Transparent"
+                                                            type="Button"
+                                                            disabled={
+                                                                processing
+                                                            }
+                                                            onClick={() => {
+                                                                if (
+                                                                    hasSelectedSpkDiamond
+                                                                ) {
+                                                                    clearSpkDiamondImport();
+
+                                                                    return;
+                                                                }
+
+                                                                setData({
+                                                                    ...data,
+                                                                    spk: emptyPasangBatuSpk(),
+                                                                    weight_frame:
+                                                                        '',
+                                                                });
+                                                            }}
+                                                        >
+                                                            Hapus
+                                                        </Button>
+                                                    ) : null}
+                                                </div>
+                                            ) : (
+                                                <div className="spkCreateSelectorValue">
+                                                    {showSpkDetails ? (
                                                         <>
                                                             <strong>
                                                                 {data.spk
-                                                                    ?.spk_no ||
+                                                                    .spk_no ||
                                                                     '—'}
                                                             </strong>
                                                             <span>
@@ -360,42 +648,14 @@ export function PasangBatuForm({
                                                             </span>
                                                         </>
                                                     ) : (
-                                                        <span>
-                                                            Belum ada SPK
-                                                            dipilih
+                                                        <span className="text-muted-foreground">
+                                                            Terisi otomatis
+                                                            setelah memilih
+                                                            SPK Diamond
                                                         </span>
                                                     )}
                                                 </div>
-                                                <Button
-                                                    design="Emphasized"
-                                                    type="Button"
-                                                    disabled={processing}
-                                                    onClick={() =>
-                                                        setSpkDialogOpen(true)
-                                                    }
-                                                >
-                                                    {hasSelectedSpk
-                                                        ? 'Ganti'
-                                                        : 'Pilih'}
-                                                </Button>
-                                                {hasSelectedSpk ? (
-                                                    <Button
-                                                        design="Transparent"
-                                                        type="Button"
-                                                        disabled={processing}
-                                                        onClick={() =>
-                                                            setData({
-                                                                ...data,
-                                                                spk: emptySpk(),
-                                                                weight_frame:
-                                                                    '',
-                                                            })
-                                                        }
-                                                    >
-                                                        Hapus
-                                                    </Button>
-                                                ) : null}
-                                            </div>
+                                            )}
                                             {'spk_id' in errors &&
                                             errors.spk_id ? (
                                                 <Text className="spkFioriError">
@@ -405,7 +665,7 @@ export function PasangBatuForm({
                                         </div>
                                     </FormItem>
 
-                                    {hasSelectedSpk ? (
+                                    {showSpkDetails ? (
                                         <>
                                             <FormItem
                                                 labelContent={
@@ -416,7 +676,7 @@ export function PasangBatuForm({
                                             >
                                                 <SpkOrderTypeColumn
                                                     spkType={
-                                                        data.spk?.spk_type ||
+                                                        data.spk.spk_type ||
                                                         null
                                                     }
                                                     orderTypeLabel={
@@ -436,11 +696,11 @@ export function PasangBatuForm({
                                             >
                                                 <SpkItemSkuColumn
                                                     skuCode={
-                                                        data.spk?.sku_code ||
+                                                        data.spk.sku_code ||
                                                         null
                                                     }
                                                     typeCode={
-                                                        data.spk?.type_code ||
+                                                        data.spk.type_code ||
                                                         null
                                                     }
                                                     productItemName={
@@ -465,7 +725,7 @@ export function PasangBatuForm({
                                             >
                                                 <Input
                                                     value={
-                                                        data.spk?.satuan || ''
+                                                        data.spk.satuan || ''
                                                     }
                                                     readonly
                                                 />
@@ -809,15 +1069,24 @@ export function PasangBatuForm({
                 </div>
             </div>
 
-            <PasangBatuSelectSpkDialog
-                open={spkDialogOpen}
-                onOpenChange={setSpkDialogOpen}
-                excludeSpkIds={
-                    data.spk?.spk_id
-                        ? [Number(data.spk.spk_id)].filter((id) => id > 0)
-                        : []
-                }
-                onSelected={handleSelectedSpk}
+            {allowManualSpkSelection ? (
+                <PasangBatuSelectSpkDialog
+                    open={spkDialogOpen}
+                    onOpenChange={setSpkDialogOpen}
+                    excludeSpkIds={
+                        data.spk.spk_id
+                            ? [Number(data.spk.spk_id)].filter((id) => id > 0)
+                            : []
+                    }
+                    onSelected={handleSelectedSpk}
+                />
+            ) : null}
+
+            <PasangBatuSelectSpkDiamondDialog
+                open={spkDiamondDialogOpen}
+                onOpenChange={setSpkDiamondDialogOpen}
+                allowMountingId={allowMountingId}
+                onSelected={handleSelectedSpkDiamond}
             />
         </>
     );

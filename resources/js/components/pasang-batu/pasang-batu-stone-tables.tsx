@@ -29,7 +29,7 @@ export type PasangBatuStones = {
     }>;
 };
 
-function displayCell(value: string | number | null | undefined): string {
+export function displayCell(value: string | number | null | undefined): string {
     if (value === null || value === undefined) {
         return '—';
     }

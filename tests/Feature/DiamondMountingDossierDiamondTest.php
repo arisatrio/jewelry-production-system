@@ -2,6 +2,8 @@
 
 use App\Models\DiamondMounting;
 use App\Models\Production;
+use App\Models\SpkStone;
+use App\Support\SpkStoneAllocationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -144,6 +146,49 @@ test('pasang batu update releases removed dossier diamonds and links new ones', 
         ->and((int) $firstDiamond->is_deleted)->toBe(0)
         ->and((int) $secondDiamond->diamondmounting_id)->toBe((int) $document->row_id)
         ->and((int) $secondDiamond->is_used)->toBe(1);
+});
+
+test('pasang batu accepts dossier diamonds reserved for the same spk', function () {
+    if (! Schema::connection('third')->hasTable('spkstone_allocation')) {
+        $this->markTestSkipped('Table spkstone_allocation is not available.');
+    }
+
+    $production = createMountingProductionForTest();
+    $diamondId = createMountingDossierDiamondForTest();
+
+    $lineId = (int) (SpkStone::factory()->create([
+        'row_id' => $production->row_id,
+    ])->line_id ?? 0);
+
+    expect($lineId)->toBeGreaterThan(0);
+
+    DB::connection('third')->table('spkstone_allocation')->insert([
+        'line_id' => $lineId,
+        'source' => SpkStoneAllocationService::SOURCE_DOSSIER,
+        'diamond_id' => $diamondId,
+        'msstone_id' => null,
+        'period_id' => null,
+        'reserved_pcs' => 1,
+        'reserved_crt' => '0.500',
+        'status' => SpkStoneAllocationService::STATUS_RESERVED,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'tester',
+        'modified_date' => now(),
+        'modified_by' => 'tester',
+        'deleted_date' => null,
+        'deleted_by' => null,
+    ]);
+
+    $this->post(route('pasang-batu.store'), mountingPayloadForTest($production, [$diamondId]))
+        ->assertSessionHasNoErrors();
+
+    $document = DiamondMounting::query()
+        ->notDeleted()
+        ->where('spk_id', $production->row_id)
+        ->firstOrFail();
+
+    expect((int) dossierDiamondRow($diamondId)->diamondmounting_id)->toBe((int) $document->row_id);
 });
 
 test('pasang batu rejects dossier diamonds already used by another document', function () {

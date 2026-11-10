@@ -32,7 +32,7 @@ class SpkDiamondStatus
     {
         return match (self::normalize($status)) {
             self::DRAFT => 'Draft',
-            self::SENT_TO_WORKSHOP => 'Dikirim ke Workshop',
+            self::SENT_TO_WORKSHOP => 'Kirim ke Workshop',
             self::RECEIVED_BY_WORKSHOP => 'Diterima Workshop',
             self::INSTALLED => 'Terpasang',
             default => 'Draft',

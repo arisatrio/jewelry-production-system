@@ -6,10 +6,11 @@ import { router } from '@inertiajs/react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
+import type { PasangBatuStones } from '@/components/pasang-batu/pasang-batu-stone-tables';
 import {
-    PasangBatuStoneTables,
-    type PasangBatuStones,
-} from '@/components/pasang-batu/pasang-batu-stone-tables';
+    PasangBatuDetailBatuSection,
+    type PasangBatuBatuDetail,
+} from '@/components/pasang-batu/pasang-batu-detail-batu-section';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 import {
@@ -48,6 +49,7 @@ type PasangBatuDetailItem = {
     shrink: string | null;
     shrinkPercent: string | null;
     stones: PasangBatuStones;
+    batuDetail: PasangBatuBatuDetail;
     spk: PasangBatuSpk | null;
 };
 
@@ -600,8 +602,10 @@ export function PasangBatuDetail({
                                     <h3 className="spkShowSectionTitle">
                                         Detail Batu
                                     </h3>
-                                    <PasangBatuStoneTables
-                                        stones={diamondMountingItem.stones}
+                                    <PasangBatuDetailBatuSection
+                                        batuDetail={
+                                            diamondMountingItem.batuDetail
+                                        }
                                     />
                                 </section>
 

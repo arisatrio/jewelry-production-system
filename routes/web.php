@@ -95,6 +95,9 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('spk-diamond/print/receipt/{serahTerimaSpkDiamond}', [SpkDiamondController::class, 'destroyReceipt'])
         ->whereNumber('serahTerimaSpkDiamond')
         ->name('spk-diamond.print.receipt.destroy');
+    Route::post('spk-diamond/print/receipt/{serahTerimaSpkDiamond}/receive', [SpkDiamondController::class, 'receiveReceiptDocuments'])
+        ->whereNumber('serahTerimaSpkDiamond')
+        ->name('spk-diamond.print.receipt.receive');
     Route::get('spk', [ProductionController::class, 'index'])->name('spk.index');
     Route::get('spk/create-guide', [ProductionController::class, 'createGuide'])
         ->name('spk.create.guide');
@@ -346,6 +349,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('pasang-batu/select/spks', [DiamondMountingController::class, 'searchSpks'])
         ->name('pasang-batu.select.spks');
+    Route::get('pasang-batu/select/spk-diamonds', [DiamondMountingController::class, 'searchSpkDiamonds'])
+        ->name('pasang-batu.select.spk-diamonds');
+    Route::get('pasang-batu/select/spk-diamonds/{spkDiamond}', [DiamondMountingController::class, 'importSpkDiamond'])
+        ->whereNumber('spkDiamond')
+        ->name('pasang-batu.select.spk-diamonds.import');
     Route::get('pasang-batu/create', [DiamondMountingController::class, 'create'])->name('pasang-batu.create');
     Route::post('pasang-batu', [DiamondMountingController::class, 'store'])->name('pasang-batu.store');
     Route::post('pasang-batu/bulk-status', [DiamondMountingController::class, 'bulkUpdateStatus'])

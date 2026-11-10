@@ -1,12 +1,52 @@
 <?php
 
+use App\Models\MsChain;
 use App\Models\MsShape;
 use App\Models\SkuMaster;
 use App\Models\SkuMasterDiamond;
 use App\Models\SkuPrefixCategory;
 use App\Models\SpkStone;
 use App\Support\SpkService;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+
+test('spk create options include chain rows from sku chain_id', function () {
+    if (! Schema::connection('second')->hasColumn('sku_master', 'chain_id')) {
+        $this->markTestSkipped('sku_master.chain_id is not available.');
+    }
+
+    if (! Schema::connection('third')->hasTable('mschain')) {
+        $this->markTestSkipped('mschain table is not available.');
+    }
+
+    $master = MsChain::factory()->create([
+        'chain_category' => 'Bracelet Chain',
+        'item' => 'Cable Chain',
+        'length' => '40',
+    ]);
+
+    $sku = SkuMaster::factory()->create([
+        'sku_code' => 'TST-SPK-CHAIN-'.Str::upper(Str::random(6)),
+        'chain_id' => $master->row_id,
+    ]);
+
+    $this->get(route('spk.create', ['sku' => $sku->sku_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('chains', 1)
+            ->where('chains.0.chainId', (string) $master->row_id)
+            ->where('chains.0.category', 'Bracelet Chain')
+            ->where('options.skus', function ($skus) use ($sku, $master) {
+                $match = collect($skus)->firstWhere('value', (string) $sku->id);
+
+                return $match !== null
+                    && ($match['chains'][0]['chainId'] ?? '') === (string) $master->row_id;
+            })
+        );
+
+    $sku->delete();
+    $master->delete();
+});
 
 test('spk create options include gold weight and sku diamonds', function () {
     $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()

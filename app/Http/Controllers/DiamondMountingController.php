@@ -7,12 +7,16 @@ use App\Http\Requests\StoreDiamondMountingRequest;
 use App\Http\Requests\UpdateDiamondMountingRequest;
 use App\Models\DiamondMounting;
 use App\Models\Production;
+use App\Models\SpkDiamond;
+use App\Models\SpkStone;
 use App\Support\DiamondMountingApprovalService;
 use App\Support\DiamondMountingDocNumberGenerator;
 use App\Support\DiamondMountingSpkEligibility;
 use App\Support\DiamondMountingStoneSynchronizer;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkApprovalRoles;
+use App\Support\SpkDiamondDocumentService;
+use App\Support\SpkDiamondPasangBatuImport;
 use App\Support\SpkItemImageUrl;
 use App\Support\SpkOrderReference;
 use App\Support\SpkQtyUnit;
@@ -379,10 +383,45 @@ class DiamondMountingController extends Controller
         ]);
     }
 
+    public function searchSpkDiamonds(Request $request, SpkDiamondPasangBatuImport $spkDiamondImport): JsonResponse
+    {
+        $search = $request->string('search')->trim()->toString();
+        $limit = max(1, min($request->integer('limit', 25), 50));
+        $excludeInput = $request->input('exclude', []);
+        $exclude = collect(is_array($excludeInput) ? $excludeInput : explode(',', (string) $excludeInput))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->values()
+            ->all();
+
+        $allowMountingId = $request->integer('allowMountingId');
+        $allowLinkedId = $allowMountingId > 0 ? $allowMountingId : null;
+
+        return response()->json([
+            'status' => true,
+            'data' => $spkDiamondImport->search($search, $limit, $exclude, $allowLinkedId),
+        ]);
+    }
+
+    public function importSpkDiamond(
+        Request $request,
+        SpkDiamond $spkDiamond,
+        SpkDiamondPasangBatuImport $spkDiamondImport,
+    ): JsonResponse {
+        $allowMountingId = $request->integer('allowMountingId');
+        $allowLinkedMountingId = $allowMountingId > 0 ? $allowMountingId : null;
+
+        return response()->json([
+            'status' => true,
+            'data' => $spkDiamondImport->importFormPayload($spkDiamond, $allowLinkedMountingId),
+        ]);
+    }
+
     public function store(
         StoreDiamondMountingRequest $request,
         DiamondMountingDocNumberGenerator $docNumberGenerator,
         DiamondMountingStoneSynchronizer $stoneSynchronizer,
+        SpkDiamondPasangBatuImport $spkDiamondImport,
     ): RedirectResponse {
         $validated = $request->validated();
         $stonePayload = $request->stonePayload();
@@ -394,6 +433,7 @@ class DiamondMountingController extends Controller
             $actor,
             $docNumberGenerator,
             $stoneSynchronizer,
+            $spkDiamondImport,
         ): DiamondMounting {
             $sendDate = $validated['send_craftsman_date'] ?? null;
             $receivedDate = $validated['received_craftsman_date'] ?? null;
@@ -446,6 +486,13 @@ class DiamondMountingController extends Controller
             $stoneSynchronizer->sync($document->refresh(), $stonePayload, $actor);
             $this->recalculateWeights($document->refresh());
 
+            $spkDiamondImport->syncMountingLink(
+                null,
+                $validated['spk_diamond_id'] ?? null,
+                (int) $document->row_id,
+                $actor,
+            );
+
             return $document->refresh();
         });
 
@@ -462,6 +509,7 @@ class DiamondMountingController extends Controller
         DiamondMounting $pasangBatu,
         DiamondMountingApprovalService $approvalService,
         DiamondMountingStoneSynchronizer $stoneSynchronizer,
+        SpkDiamondPasangBatuImport $spkDiamondImport,
     ): Response {
         abort_if($pasangBatu->is_deleted === 1, 404);
 
@@ -473,7 +521,7 @@ class DiamondMountingController extends Controller
         ]);
 
         return Inertia::render('pasang-batu/show', [
-            'diamondMountingItem' => $this->toDetailItem($pasangBatu, $stoneSynchronizer),
+            'diamondMountingItem' => $this->toDetailItem($pasangBatu, $stoneSynchronizer, $spkDiamondImport),
             'workflowStatus' => $approvalService->map($pasangBatu),
             'approvalHistory' => $approvalService->history($pasangBatu),
             'approvalFooter' => $approvalService->footerColumns(
@@ -489,6 +537,7 @@ class DiamondMountingController extends Controller
         DiamondMounting $pasangBatu,
         DiamondMountingApprovalService $approvalService,
         DiamondMountingStoneSynchronizer $stoneSynchronizer,
+        SpkDiamondPasangBatuImport $spkDiamondImport,
     ): Response {
         abort_if($pasangBatu->is_deleted === 1, 404);
         abort_unless(
@@ -538,6 +587,7 @@ class DiamondMountingController extends Controller
                     'spkNo' => $production->spk_no,
                     ...$this->productionSpkInfoFields($production),
                 ],
+                'spkDiamond' => $spkDiamondImport->linkedSummaryForMounting($pasangBatu),
             ],
             'approval' => $approvalService->abilitiesFor($pasangBatu, $request->user()),
         ]);
@@ -623,6 +673,7 @@ class DiamondMountingController extends Controller
         DiamondMounting $pasangBatu,
         DiamondMountingApprovalService $approvalService,
         DiamondMountingStoneSynchronizer $stoneSynchronizer,
+        SpkDiamondPasangBatuImport $spkDiamondImport,
     ): RedirectResponse {
         abort_if($pasangBatu->is_deleted === 1, 404);
         abort_unless(
@@ -634,6 +685,7 @@ class DiamondMountingController extends Controller
         $validated = $request->validated();
         $stonePayload = $request->stonePayload();
         $actor = $this->actorName($request);
+        $previousSpkDiamondId = $spkDiamondImport->linkedSummaryForMounting($pasangBatu)['id'] ?? null;
 
         DB::connection('third')->transaction(function () use (
             $pasangBatu,
@@ -641,6 +693,8 @@ class DiamondMountingController extends Controller
             $stonePayload,
             $actor,
             $stoneSynchronizer,
+            $spkDiamondImport,
+            $previousSpkDiamondId,
         ): void {
             $sendDate = $validated['send_craftsman_date'] ?? null;
             $receivedDate = $validated['received_craftsman_date'] ?? null;
@@ -678,6 +732,13 @@ class DiamondMountingController extends Controller
 
             $stoneSynchronizer->sync($pasangBatu->refresh(), $stonePayload, $actor);
             $this->recalculateWeights($pasangBatu->refresh());
+
+            $spkDiamondImport->syncMountingLink(
+                $previousSpkDiamondId,
+                $validated['spk_diamond_id'] ?? null,
+                (int) $pasangBatu->row_id,
+                $actor,
+            );
         });
 
         Inertia::flash('toast', [
@@ -1033,6 +1094,7 @@ class DiamondMountingController extends Controller
     private function toDetailItem(
         DiamondMounting $document,
         DiamondMountingStoneSynchronizer $stoneSynchronizer,
+        SpkDiamondPasangBatuImport $spkDiamondImport,
     ): array {
         $baseWeight = $this->startWeight($document);
         $shrink = $this->shrinkValue($document);
@@ -1044,6 +1106,12 @@ class DiamondMountingController extends Controller
 
         $production = $document->production;
         $stones = $stoneSynchronizer->detailPayloadFor($document);
+        $batuDetail = $this->buildBatuDetailPanels(
+            $document,
+            $production,
+            $stones,
+            $spkDiamondImport,
+        );
 
         return [
             'id' => (int) $document->row_id,
@@ -1065,6 +1133,7 @@ class DiamondMountingController extends Controller
             'shrink' => $this->formatDecimal($shrink),
             'shrinkPercent' => $shrinkPercent,
             'stones' => $stones,
+            'batuDetail' => $batuDetail,
             'spk' => $production === null && ! filled($document->spk_id)
                 ? null
                 : [
@@ -1252,6 +1321,168 @@ class DiamondMountingController extends Controller
             'typeCode' => $typeCode !== '' ? $typeCode : null,
             'productItemName' => $productItemName !== '' ? $productItemName : null,
             'itemDescription' => $itemDescription !== '' ? $itemDescription : null,
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     setting: list<mixed>,
+     *     return: list<mixed>,
+     *     diamonds: list<mixed>,
+     *     mounted: list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>
+     * }  $stones
+     * @return array{
+     *     spkRequirements: list<array{positionName: string, shapeName: string, size: string, caratPerPcs: string, pcs: int, totalCarat: string}>,
+     *     spkRequirementsTotals: array{pcs: int, carat: float},
+     *     spkDiamond: array{id: int, docNo: string, showUrl: string, items: list<array<string, mixed>>, totals: array{pcs: int, carat: float}}|null,
+     *     mounted: list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>,
+     *     mountedTotals: array{pcs: int, carat: float}
+     * }
+     */
+    private function buildBatuDetailPanels(
+        DiamondMounting $document,
+        ?Production $production,
+        array $stones,
+        SpkDiamondPasangBatuImport $spkDiamondImport,
+    ): array {
+        $spkRequirements = $this->spkStoneRequirementsForDetail($production);
+        $requirementTotals = $this->sumRequirementTotals($spkRequirements);
+        $mounted = $stones['mounted'] ?? [];
+        $mountedTotals = $this->sumMountedTotals($mounted);
+
+        $linked = $spkDiamondImport->linkedSummaryForMounting($document);
+        $spkDiamond = null;
+
+        if (is_array($linked) && ($linked['id'] ?? 0) > 0) {
+            $spkDiamondDocument = SpkDiamond::query()
+                ->where('row_id', (int) $linked['id'])
+                ->where('is_deleted', 0)
+                ->first();
+
+            if ($spkDiamondDocument !== null) {
+                $payload = app(SpkDiamondDocumentService::class)->detailPayload($spkDiamondDocument);
+
+                $spkDiamond = [
+                    'id' => (int) $payload['id'],
+                    'docNo' => (string) $payload['docNo'],
+                    'showUrl' => route('spk-diamond.show', $spkDiamondDocument),
+                    'items' => $payload['items'],
+                    'totals' => [
+                        'pcs' => (int) ($payload['totals']['pcs'] ?? 0),
+                        'carat' => (float) ($payload['totals']['carat'] ?? 0),
+                    ],
+                ];
+            }
+        }
+
+        return [
+            'spkRequirements' => $spkRequirements,
+            'spkRequirementsTotals' => $requirementTotals,
+            'spkDiamond' => $spkDiamond,
+            'mounted' => $mounted,
+            'mountedTotals' => $mountedTotals,
+        ];
+    }
+
+    /**
+     * @return list<array{positionName: string, shapeName: string, size: string, caratPerPcs: string, pcs: int, totalCarat: string}>
+     */
+    private function spkStoneRequirementsForDetail(?Production $production): array
+    {
+        if ($production === null) {
+            return [];
+        }
+
+        return SpkStone::query()
+            ->notDeleted()
+            ->where('row_id', (int) $production->row_id)
+            ->with(['shape', 'position'])
+            ->orderBy('line_id')
+            ->get()
+            ->map(function (SpkStone $stone): array {
+                $pcs = max(0, (int) ($stone->pcs ?? 0));
+                $totalCarat = (float) ($stone->carat ?? 0);
+                $caratPerPcs = $pcs > 0 ? round($totalCarat / $pcs, 3) : 0.0;
+                $shapeName = trim((string) ($stone->shape?->name ?? ''));
+
+                if ($shapeName === '' && filled($stone->shape?->code ?? null)) {
+                    $shapeName = (string) $stone->shape->code;
+                }
+
+                if ($shapeName === '') {
+                    $shapeName = '—';
+                }
+
+                return [
+                    'positionName' => filled($stone->position?->nama ?? null)
+                        ? (string) $stone->position->nama
+                        : '—',
+                    'shapeName' => $shapeName,
+                    'size' => filled($stone->size ?? null) ? (string) $stone->size : '—',
+                    'caratPerPcs' => number_format($caratPerPcs, 3, '.', ''),
+                    'pcs' => $pcs,
+                    'totalCarat' => number_format($totalCarat, 3, '.', ''),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<array{pcs: int, totalCarat: string}>  $rows
+     * @return array{pcs: int, carat: float}
+     */
+    private function sumRequirementTotals(array $rows): array
+    {
+        $pcs = 0;
+        $carat = 0.0;
+
+        foreach ($rows as $row) {
+            $pcs += (int) ($row['pcs'] ?? 0);
+
+            $crt = (float) str_replace(',', '.', (string) ($row['totalCarat'] ?? '0'));
+
+            if (is_finite($crt)) {
+                $carat += $crt;
+            }
+        }
+
+        return [
+            'pcs' => $pcs,
+            'carat' => round($carat, 3),
+        ];
+    }
+
+    /**
+     * @param  list<array{pcs: int|float|string|null, crt: string|null}>  $rows
+     * @return array{pcs: int, carat: float}
+     */
+    private function sumMountedTotals(array $rows): array
+    {
+        $pcs = 0;
+        $carat = 0.0;
+
+        foreach ($rows as $row) {
+            $linePcs = (int) round((float) str_replace(',', '.', (string) ($row['pcs'] ?? '0')));
+
+            if ($linePcs > 0) {
+                $pcs += $linePcs;
+            }
+
+            $crtText = $row['crt'] ?? null;
+
+            if (is_string($crtText) && trim($crtText) !== '') {
+                $crt = (float) str_replace(',', '.', $crtText);
+
+                if (is_finite($crt)) {
+                    $carat += $crt;
+                }
+            }
+        }
+
+        return [
+            'pcs' => $pcs,
+            'carat' => round($carat, 3),
         ];
     }
 

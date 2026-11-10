@@ -8,12 +8,18 @@ use Carbon\CarbonInterface;
 class SerahTerimaSpkDiamondDocNumberGenerator
 {
     /**
-     * Generate next serah terima SPK Pasang Batu doc number in format WHOJ/PRD/TTB/YYYY/0001.
+     * Format: FAKTUR/{dari}-{untuk}/PBT/{MMYYYY}-{running per bulan}.
      */
-    public function generate(?CarbonInterface $at = null): string
-    {
-        $year = ($at ?? now())->format('Y');
-        $prefix = "WHOJ/PRD/TTB/{$year}/";
+    public function generate(
+        ?CarbonInterface $at = null,
+        ?string $fromLocation = null,
+        ?string $toLocation = null,
+    ): string {
+        $date = $at ?? now();
+        $period = $date->format('mY');
+        $fromCode = $this->locationCode($fromLocation);
+        $toCode = $this->locationCode($toLocation);
+        $prefix = "FAKTUR/{$fromCode}-{$toCode}/PBT/{$period}-";
 
         $latest = SerahTerimaSpkDiamond::query()
             ->withTrashed()
@@ -24,10 +30,22 @@ class SerahTerimaSpkDiamondDocNumberGenerator
 
         $next = 1;
 
-        if (is_string($latest) && preg_match('/\/(\d+)$/', $latest, $matches) === 1) {
+        if (is_string($latest) && preg_match('/-(\d+)$/', $latest, $matches) === 1) {
             $next = (int) $matches[1] + 1;
         }
 
         return sprintf('%s%04d', $prefix, $next);
+    }
+
+    private function locationCode(?string $location): string
+    {
+        $normalized = trim((string) $location);
+
+        return match ($normalized) {
+            'Head Office' => 'HO',
+            'Workshop' => 'WO',
+            'Store' => 'ST',
+            default => 'XX',
+        };
     }
 }

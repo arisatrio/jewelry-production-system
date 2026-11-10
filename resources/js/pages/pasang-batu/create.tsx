@@ -1,5 +1,8 @@
 import { Head } from '@inertiajs/react';
-import { PasangBatuForm } from '@/components/pasang-batu/pasang-batu-form';
+import {
+    PasangBatuForm,
+    emptyPasangBatuSpk,
+} from '@/components/pasang-batu/pasang-batu-form';
 import type {
     PasangBatuDiamondOption,
     PasangBatuStoneOption,
@@ -49,7 +52,7 @@ type PasangBatuCreateProps = {
             crt: string;
             size: string;
         }>;
-        spk: null;
+        spkDiamond?: null;
     };
 };
 
@@ -84,6 +87,7 @@ export default function PasangBatuCreate({
                 stoneOptions={stoneOptions}
                 shapeOptions={shapeOptions}
                 diamondOptions={diamondOptions}
+                allowManualSpkSelection={false}
                 initialValues={{
                     process_name: form.processName ?? 'Pasang Batu',
                     craftsman_id:
@@ -96,7 +100,9 @@ export default function PasangBatuCreate({
                     weight_frame: form.weightFrame ?? '',
                     weight_diamond: form.weightDiamond ?? '',
                     weight_finish_goods: form.weightFinishGoods ?? '',
-                    spk: null,
+                    spk_diamond_id: '',
+                    spk_diamond_doc_no: '',
+                    spk: emptyPasangBatuSpk(),
                     setting_stones: (form.settingStones ?? []).map(
                         (line, index) => ({
                             key: lineKey('setting', index),
@@ -115,24 +121,63 @@ export default function PasangBatuCreate({
                             notes: line.notes ?? '',
                         }),
                     ),
-                    diamonds: (form.diamonds ?? []).map((line, index) => ({
-                        key: lineKey('diamond', index),
-                        diamond_id: String(line.diamondId),
-                    })),
-                    mounted_stones: (form.mountedStones ?? []).map(
-                        (line, index) => ({
-                            key: lineKey('mounted', index),
-                            diamond_code: line.diamondCode ?? '',
-                            shape_id:
-                                line.shapeId !== null &&
-                                line.shapeId !== undefined
-                                    ? String(line.shapeId)
-                                    : '',
-                            pcs: line.pcs ?? '',
-                            crt: line.crt ?? '',
-                            size: line.size ?? '',
-                        }),
-                    ),
+                    ...(() => {
+                        const diamondRows = form.diamonds ?? [];
+                        const mountedRows = form.mountedStones ?? [];
+                        const count = Math.max(
+                            diamondRows.length,
+                            mountedRows.length,
+                        );
+
+                        const diamonds: Array<{
+                            key: string;
+                            batch_key: string;
+                            diamond_id: string;
+                        }> = [];
+                        const mounted_stones: Array<{
+                            key: string;
+                            batch_key: string;
+                            diamond_code: string;
+                            shape_id: string;
+                            pcs: string;
+                            crt: string;
+                            size: string;
+                            disposition: 'terpasang';
+                        }> = [];
+
+                        for (let index = 0; index < count; index += 1) {
+                            const batchKey = lineKey('batch', index);
+                            const diamond = diamondRows[index];
+                            const mounted = mountedRows[index];
+
+                            if (diamond) {
+                                diamonds.push({
+                                    key: lineKey('diamond', index),
+                                    batch_key: batchKey,
+                                    diamond_id: String(diamond.diamondId),
+                                });
+                            }
+
+                            if (mounted) {
+                                mounted_stones.push({
+                                    key: lineKey('mounted', index),
+                                    batch_key: batchKey,
+                                    diamond_code: mounted.diamondCode ?? '',
+                                    shape_id:
+                                        mounted.shapeId !== null &&
+                                        mounted.shapeId !== undefined
+                                            ? String(mounted.shapeId)
+                                            : '',
+                                    pcs: mounted.pcs ?? '',
+                                    crt: mounted.crt ?? '',
+                                    size: mounted.size ?? '',
+                                    disposition: 'terpasang',
+                                });
+                            }
+                        }
+
+                        return { diamonds, mounted_stones };
+                    })(),
                 }}
             />
         </>

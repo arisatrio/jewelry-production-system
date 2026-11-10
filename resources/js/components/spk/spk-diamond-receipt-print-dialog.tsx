@@ -1,10 +1,11 @@
-import { useHttp } from '@inertiajs/react';
+import { router, useHttp } from '@inertiajs/react';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
 import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
 import { Option } from '@ui5/webcomponents-react/Option';
 import { Select } from '@ui5/webcomponents-react/Select';
 import type { FormEvent } from 'react';
+import { toast } from 'sonner';
 import {
     Dialog,
     DialogContent,
@@ -37,6 +38,7 @@ type SpkDiamondReceiptPrintDialogProps = {
     onOpenChange: (open: boolean) => void;
     selectedIds: number[];
     employeeOptions: string[];
+    onSent?: () => void;
 };
 
 type ReceiptNameField = 'diserahkan_oleh' | 'diketahui_oleh' | 'diterima_oleh';
@@ -84,6 +86,7 @@ export function SpkDiamondReceiptPrintDialog({
     onOpenChange,
     selectedIds,
     employeeOptions,
+    onSent,
 }: SpkDiamondReceiptPrintDialogProps) {
     const receiptForm = useHttp<ReceiptFormValues, ReceiptStoreResponse>(
         emptyReceiptForm(),
@@ -108,30 +111,10 @@ export function SpkDiamondReceiptPrintDialog({
             isKnownEmployee(values[field.name]),
         );
 
-    const saveAndOpenReceipt = (): void => {
+    const submitReceipt = (): void => {
         if (!canSubmit) {
             return;
         }
-
-        const receiptWindow = window.open('', '_blank');
-
-        if (!receiptWindow) {
-            window.alert(
-                'Gagal membuka tanda terima. Izinkan pop-up untuk situs ini, lalu coba lagi.',
-            );
-
-            return;
-        }
-
-        receiptWindow.document.title = 'Menyiapkan tanda terima...';
-        receiptWindow.document.body.textContent =
-            'Menyiapkan tanda terima...';
-
-        const closeReceiptWindow = (): void => {
-            if (!receiptWindow.closed) {
-                receiptWindow.close();
-            }
-        };
 
         receiptForm.clearErrors();
         receiptForm.transform((data) => ({
@@ -146,20 +129,23 @@ export function SpkDiamondReceiptPrintDialog({
         void receiptForm
             .post(storeSpkDiamondReceipt.url(), {
                 onSuccess: (response) => {
-                    receiptWindow.location.href = response.printUrl;
+                    toast.success(
+                        `Faktur ${response.docNo} berhasil dikirim. Status SPK Pasang Batu diperbarui menjadi Kirim ke Workshop.`,
+                    );
                     onOpenChange(false);
+                    onSent?.();
+                    router.reload({
+                        only: ['documents', 'shippingInvoiceReceiptCount'],
+                    });
                 },
-                onError: closeReceiptWindow,
                 onHttpException: () => {
-                    closeReceiptWindow();
-                    window.alert(
-                        'Gagal menyimpan tanda terima. Silakan coba lagi.',
+                    toast.error(
+                        'Gagal mengirim faktur tanda terima. Silakan coba lagi.',
                     );
                 },
                 onNetworkError: () => {
-                    closeReceiptWindow();
-                    window.alert(
-                        'Koneksi terputus saat menyimpan tanda terima. Silakan coba lagi.',
+                    toast.error(
+                        'Koneksi terputus saat mengirim faktur. Silakan coba lagi.',
                     );
                 },
             })
@@ -173,14 +159,15 @@ export function SpkDiamondReceiptPrintDialog({
                     className="grid gap-4"
                     onSubmit={(event: FormEvent<HTMLFormElement>) => {
                         event.preventDefault();
-                        saveAndOpenReceipt();
+                        submitReceipt();
                     }}
                 >
                     <DialogHeader>
-                        <DialogTitle>Print Tanda Terima</DialogTitle>
+                        <DialogTitle>Buat Faktur Tanda Terima</DialogTitle>
                         <DialogDescription>
-                            {selectedIds.length} SPK Pasang Batu terpilih. Nomor
-                            form serah terima dibuat otomatis saat dicetak.
+                            {selectedIds.length} SPK Pasang Batu terpilih.
+                            Nomor faktur tanda terima dibuat otomatis. Setelah
+                            dikirim, status berubah menjadi Kirim ke Workshop.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -318,11 +305,9 @@ export function SpkDiamondReceiptPrintDialog({
                         <Button
                             design="Emphasized"
                             disabled={!canSubmit}
-                            onClick={saveAndOpenReceipt}
+                            onClick={submitReceipt}
                         >
-                            {receiptForm.processing
-                                ? 'Menyimpan...'
-                                : 'Preview Print'}
+                            {receiptForm.processing ? 'Mengirim...' : 'Kirim'}
                         </Button>
                     </DialogFooter>
                 </form>

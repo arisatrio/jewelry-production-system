@@ -48,6 +48,9 @@ type SpkDiamondListRow = {
     status: string;
     statusLabel?: string | null;
     diamondMountingId: number | null;
+    diamondMountingDocNo?: string | null;
+    shippingInvoiceDocNo: string | null;
+    shippingInvoicePrintUrl: string | null;
     allocatedStones: SpkDiamondDetailStoneRow[];
 };
 
@@ -81,6 +84,7 @@ type SpkDiamondIndexProps = {
         direction: FilterOption[];
     };
     receiptEmployeeOptions: string[];
+    shippingInvoiceReceiptCount?: number;
 };
 
 const DEFAULT_PER_PAGE = 50;
@@ -98,6 +102,7 @@ export default function SpkDiamondIndex({
     filters,
     filterOptions,
     receiptEmployeeOptions,
+    shippingInvoiceReceiptCount,
 }: SpkDiamondIndexProps) {
     const [searchQuery, setSearchQuery] = useState(filters.search);
     const [entriesMenuOpen, setEntriesMenuOpen] = useState(false);
@@ -116,6 +121,11 @@ export default function SpkDiamondIndex({
     const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
     const [receiptHistoryDialogOpen, setReceiptHistoryDialogOpen] =
         useState(false);
+
+    const shippingInvoiceReceiptCountLabel =
+        typeof shippingInvoiceReceiptCount === 'number'
+            ? shippingInvoiceReceiptCount.toLocaleString('id-ID')
+            : '0';
 
     const visit = (query: Record<string, string | number | null | undefined>) => {
         router.get(
@@ -751,37 +761,23 @@ export default function SpkDiamondIndex({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                            <span
-                                className="spkTableHeaderDivider--finishing"
-                                aria-hidden="true"
-                            />
-                            <Button
-                                design="Default"
-                                icon={documentIcon}
-                                accessibleName="Riwayat Tanda Terima"
-                                tooltip="Riwayat Tanda Terima"
-                                className="spkTableHeaderExportBtn--finishing"
-                                onClick={() =>
-                                    setReceiptHistoryDialogOpen(true)
-                                }
-                            />
                             <button
                                 type="button"
                                 className="spkReceiptPrintBtn"
                                 aria-label={
                                     selectedIds.length > 0
-                                        ? `Print Tanda Terima (${selectedIds.length} SPK Pasang Batu)`
-                                        : 'Print Tanda Terima'
+                                        ? `Buat Faktur Pengiriman (${selectedIds.length} SPK Pasang Batu)`
+                                        : 'Buat Faktur Pengiriman'
                                 }
                                 title={
                                     selectedIds.length > 0
-                                        ? `Print Tanda Terima (${selectedIds.length} SPK Pasang Batu)`
-                                        : 'Print Tanda Terima'
+                                        ? `Buat Faktur Pengiriman (${selectedIds.length} SPK Pasang Batu)`
+                                        : 'Pilih baris SPK Pasang Batu terlebih dahulu'
                                 }
                                 onClick={openReceiptPrintDialog}
                             >
                                 <Icon name={printIcon} mode="Decorative" />
-                                <span>Tanda Terima</span>
+                                <span>Buat Faktur Pengiriman</span>
                                 {selectedIds.length > 0 ? (
                                     <span
                                         className="spkReceiptPrintCount"
@@ -793,6 +789,39 @@ export default function SpkDiamondIndex({
                             </button>
                         </div>
                     </div>
+
+                    {tableAvailable ? (
+                        <div className="spkStoreStockRequestBar">
+                            <Button
+                                className="spkStoreStockRequestBtn"
+                                design="Default"
+                                icon={documentIcon}
+                                accessibleName={
+                                    typeof shippingInvoiceReceiptCount ===
+                                        'number' &&
+                                    shippingInvoiceReceiptCount > 0
+                                        ? `Faktur Tanda Terima: ${shippingInvoiceReceiptCountLabel} faktur`
+                                        : 'Faktur Tanda Terima'
+                                }
+                                tooltip="Daftar faktur tanda terima SPK Pasang Batu"
+                                onClick={() =>
+                                    setReceiptHistoryDialogOpen(true)
+                                }
+                            >
+                                Faktur Tanda Terima
+                                {typeof shippingInvoiceReceiptCount ===
+                                    'number' &&
+                                shippingInvoiceReceiptCount > 0 ? (
+                                    <span
+                                        className="spkStoreStockRequestCount"
+                                        aria-hidden="true"
+                                    >
+                                        {shippingInvoiceReceiptCountLabel}
+                                    </span>
+                                ) : null}
+                            </Button>
+                        </div>
+                    ) : null}
 
                     {!tableAvailable ? (
                         <MessageStrip design="Information" hideCloseButton>
@@ -902,17 +931,10 @@ export default function SpkDiamondIndex({
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="spkTableColCenter"
+                                        className="spkTableColCenter spkTableColCreatedMeta"
                                     >
                                         Tanggal
                                     </th>
-                                    <th
-                                        rowSpan={2}
-                                        className="spkTableColCenter"
-                                    >
-                                        No Pasang Batu
-                                    </th>
-                                    <th rowSpan={2}>No. SPK</th>
                                     <th rowSpan={2}>Item</th>
                                     <th
                                         colSpan={
@@ -924,15 +946,21 @@ export default function SpkDiamondIndex({
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="spkTableColCenter spkTableColCreatedMeta"
-                                    >
-                                        Dibuat
-                                    </th>
-                                    <th
-                                        rowSpan={2}
                                         className="spkTableColStatus spkTableColCenter"
                                     >
                                         Status
+                                    </th>
+                                    <th
+                                        rowSpan={2}
+                                        className="spkTableColCenter spkTableColSpkDiamondShippingInvoice"
+                                    >
+                                        No Faktur Pengiriman
+                                    </th>
+                                    <th
+                                        rowSpan={2}
+                                        className="spkTableColCenter"
+                                    >
+                                        No Pasang Batu
                                     </th>
                                 </tr>
                                 <tr className="spkTableSubHeaderRow--stoneDetail">
@@ -956,7 +984,7 @@ export default function SpkDiamondIndex({
                             <tbody>
                                 {documents.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={13}>
+                                        <td colSpan={12}>
                                             Tidak ada data SPK Pasang Batu.
                                         </td>
                                     </tr>
@@ -1024,10 +1052,16 @@ export default function SpkDiamondIndex({
                 onOpenChange={setReceiptDialogOpen}
                 selectedIds={selectedIds}
                 employeeOptions={receiptEmployeeOptions}
+                onSent={() => setSelectedIds([])}
             />
             <SpkDiamondReceiptHistoryDialog
                 open={receiptHistoryDialogOpen}
                 onOpenChange={setReceiptHistoryDialogOpen}
+                onDocumentsReceived={() =>
+                    router.reload({
+                        only: ['documents', 'shippingInvoiceReceiptCount'],
+                    })
+                }
             />
         </>
     );

@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { PasangBatuDetail } from '@/components/pasang-batu/pasang-batu-detail';
 import type { PasangBatuStones } from '@/components/pasang-batu/pasang-batu-stone-tables';
+import type { PasangBatuBatuDetail } from '@/components/pasang-batu/pasang-batu-detail-batu-section';
 import {
     complete,
     edit,
@@ -65,6 +66,7 @@ type PasangBatuShowProps = {
         shrink: string | null;
         shrinkPercent: string | null;
         stones: PasangBatuStones;
+        batuDetail: PasangBatuBatuDetail;
         spk: {
             spkId: number | null;
             spkNo: string | null;

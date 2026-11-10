@@ -8,11 +8,9 @@ import type { ReactNode } from 'react';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 import { SpkDiamondStatusBadge } from '@/components/spk/spk-diamond-status-badge';
-import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import {
-    displayListDate,
-    SpkTableCreatedByCell,
     SpkTableDescriptionCell,
+    SpkTableDocumentDateCell,
 } from '@/components/spk/spk-list-cells';
 import { Checkbox } from '@/components/ui/checkbox';
 import { show as spkDiamondShow } from '@/routes/spk-diamond';
@@ -98,10 +96,13 @@ export type SpkDiamondIndexDocumentRow = {
     itemDescription: string | null;
     skuAssigned: boolean;
     diamondMountingId: number | null;
+    diamondMountingDocNo?: string | null;
     createdBy: string | null;
     createdDate: string | null;
     status: string;
     statusLabel?: string | null;
+    shippingInvoiceDocNo: string | null;
+    shippingInvoicePrintUrl: string | null;
     allocatedStones: SpkDiamondDetailStoneRow[];
 };
 
@@ -148,8 +149,68 @@ export function SpkDiamondIndexDocumentRows({
                     {emptyDash(row.docNo)}
                 </Link>
             </td>
-            <td rowSpan={rowSpan} className="spkTableColCenter">
-                {displayListDate(row.tanggal)}
+            <td
+                rowSpan={rowSpan}
+                className="spkTableColCenter spkTableColCreatedMeta"
+            >
+                <SpkTableDocumentDateCell
+                    date={row.tanggal}
+                    createdBy={row.createdBy}
+                />
+            </td>
+            <td rowSpan={rowSpan} className="spkDiamondIndexItemCol">
+                <div className="spkDiamondIndexItemStack">
+                    <div className="spkDiamondIndexSpkOrderCell">
+                        {row.spkNo ? (
+                            <SpkItemNoLink spkNo={row.spkNo} />
+                        ) : (
+                            <span>—</span>
+                        )}
+                        <span
+                            className="spkDiamondIndexSpkOrderSep"
+                            aria-hidden
+                        >
+                            |
+                        </span>
+                        <SpkOrderTypeColumn
+                            spkType={row.spkType ?? null}
+                            showOrderLabel={false}
+                        />
+                    </div>
+                    <SpkTableDescriptionCell row={row} />
+                </div>
+            </td>
+        </>
+    );
+
+    const trailingCells = (
+        <>
+            <td
+                rowSpan={rowSpan}
+                className="spkTableColStatus spkTableColCenter"
+            >
+                <SpkDiamondStatusBadge
+                    status={row.status}
+                    label={row.statusLabel}
+                />
+            </td>
+            <td
+                rowSpan={rowSpan}
+                className="spkTableColCenter spkTableColSpkDiamondShippingInvoice"
+            >
+                {row.shippingInvoiceDocNo &&
+                row.shippingInvoicePrintUrl ? (
+                    <a
+                        href={row.shippingInvoicePrintUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="spkProduksiLink spkTableColSpkDiamondShippingInvoiceLink"
+                    >
+                        {row.shippingInvoiceDocNo}
+                    </a>
+                ) : (
+                    '—'
+                )}
             </td>
             <td
                 rowSpan={rowSpan}
@@ -161,55 +222,12 @@ export function SpkDiamondIndexDocumentRows({
                         href={pasangBatuShow.url(row.diamondMountingId)}
                         className="spkProduksiLink"
                     >
-                        {row.diamondMountingId.toLocaleString('id-ID')}
+                        {row.diamondMountingDocNo?.trim() ||
+                            String(row.diamondMountingId)}
                     </Link>
                 ) : (
                     '—'
                 )}
-            </td>
-            <td rowSpan={rowSpan}>
-                <div className="flex min-w-0 flex-col items-start gap-1">
-                    <SpkItemNoLink
-                        spkNo={row.spkNo}
-                        orderReference={row.orderReference}
-                    />
-                    <SpkOrderTypeColumn
-                        spkType={row.spkType ?? null}
-                        orderTypeLabel={row.orderTypeLabel ?? null}
-                    />
-                </div>
-            </td>
-            <td rowSpan={rowSpan}>
-                <div className="flex items-start gap-3">
-                    <SpkItemThumbnail
-                        imageUrl={row.spkImageUrl}
-                        spkNo={row.spkNo ?? row.docNo}
-                    />
-                    <SpkTableDescriptionCell row={row} />
-                </div>
-            </td>
-        </>
-    );
-
-    const trailingCells = (
-        <>
-            <td
-                rowSpan={rowSpan}
-                className="spkTableColCenter spkTableColCreatedMeta"
-            >
-                <SpkTableCreatedByCell
-                    createdBy={row.createdBy}
-                    createdDate={row.createdDate}
-                />
-            </td>
-            <td
-                rowSpan={rowSpan}
-                className="spkTableColStatus spkTableColCenter"
-            >
-                <SpkDiamondStatusBadge
-                    status={row.status}
-                    label={row.statusLabel}
-                />
             </td>
         </>
     );

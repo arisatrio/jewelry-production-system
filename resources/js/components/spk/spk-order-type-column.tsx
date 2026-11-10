@@ -1,6 +1,8 @@
 type SpkOrderTypeColumnProps = {
     spkType: string | null;
-    orderTypeLabel: string | null;
+    orderTypeLabel?: string | null;
+    /** Tampilkan label pesanan/customer (default: true). */
+    showOrderLabel?: boolean;
 };
 
 function displayValue(value: string | null | undefined): string {
@@ -33,7 +35,8 @@ function tipeProduksiBadgeClass(tipe: string): string {
 
 export function SpkOrderTypeColumn({
     spkType,
-    orderTypeLabel,
+    orderTypeLabel = null,
+    showOrderLabel = true,
 }: SpkOrderTypeColumnProps) {
     const typeLabel = displayValue(spkType);
 
@@ -44,7 +47,9 @@ export function SpkOrderTypeColumn({
             >
                 {typeLabel}
             </span>
-            <span>{displayValue(orderTypeLabel)}</span>
+            {showOrderLabel ? (
+                <span>{displayValue(orderTypeLabel)}</span>
+            ) : null}
         </div>
     );
 }

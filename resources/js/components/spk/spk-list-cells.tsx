@@ -59,6 +59,33 @@ export function displayListDate(value: string | null | undefined): string {
     return trimmed !== '' && trimmed !== '-' ? trimmed : '—';
 }
 
+/** Tanggal dokumen di atas, pembuat di bawah (index SPK Pasang Batu). */
+export function SpkTableDocumentDateCell({
+    date,
+    createdBy,
+}: {
+    date: string | null | undefined;
+    createdBy: string | null | undefined;
+}) {
+    const creator = createdBy?.trim() ?? '';
+    const dateText = displayListDate(date);
+
+    if (dateText === '—' && creator === '') {
+        return <span>—</span>;
+    }
+
+    return (
+        <div className="flex flex-col items-center gap-0.5 text-center">
+            <span className="tabular-nums">{dateText}</span>
+            {creator !== '' ? (
+                <span className="text-muted-foreground text-xs leading-snug">
+                    {creator}
+                </span>
+            ) : null}
+        </div>
+    );
+}
+
 export function SpkTableCreatedByCell({
     createdBy,
     createdDate,
