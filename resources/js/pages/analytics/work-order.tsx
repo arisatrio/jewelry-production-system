@@ -111,6 +111,7 @@ export type DashboardAnalytics = {
         forecastQty: number;
         planningDoneSpk: number;
         planningPendingSpk: number;
+        planningTargetSpk: number;
         todayTargetSpk: number;
         todayTargetDoneSpk: number;
         todayTargetPendingSpk: number;
@@ -255,8 +256,7 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         useState<DashboardSortDirection>('asc');
     const [listStatusTab, setListStatusTab] =
         useState<DashboardStatusTab>('inProgress');
-    const monthTargetSpk =
-        summary.planningDoneSpk + summary.planningPendingSpk;
+    const monthTargetSpk = summary.planningTargetSpk;
     const weekTargetSpk = weekTarget?.targetSpk ?? 0;
     const weekTargetDoneSpk = weekTarget?.targetDoneSpk ?? 0;
     const weekTargetLabel = weekTarget?.label ?? 'Minggu ini';
@@ -404,6 +404,15 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         0,
     );
 
+    const productionTypesChartTotal = analytics.productionTypes.reduce(
+        (sum, row) => sum + row.count,
+        0,
+    );
+    const itemDistributionChartTotal = analytics.itemDistribution.reduce(
+        (sum, row) => sum + row.count,
+        0,
+    );
+
     const chartCards: Array<{
         key: DashboardChartKey;
         label: string;
@@ -413,20 +422,14 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         {
             key: 'productionTypes',
             label: 'Tipe Produksi',
-            hint: `Dibuat atau estimasi selesai ${period.label}`,
-            count: analytics.productionTypes.reduce(
-                (sum, row) => sum + row.count,
-                0,
-            ),
+            hint: `Produksi selesai ${period.label} · ${productionTypesChartTotal.toLocaleString('id-ID')} SPK`,
+            count: productionTypesChartTotal,
         },
         {
             key: 'itemDistribution',
             label: 'Item Produksi',
-            hint: `Dibuat atau estimasi selesai ${period.label}`,
-            count: analytics.itemDistribution.reduce(
-                (sum, row) => sum + row.count,
-                0,
-            ),
+            hint: `Produksi selesai ${period.label} · ${itemDistributionChartTotal.toLocaleString('id-ID')} SPK`,
+            count: itemDistributionChartTotal,
         },
         {
             key: 'bottleneck',
@@ -693,6 +696,60 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
 
                         <div className="dashChartBoard">
                             <div className="dashTopChartRow">
+                                <article className="dashPanel dashCreatedDailyPanel">
+                                    <header className="dashPanelHeader">
+                                        <div className="dashPanelHeaderText">
+                                            <h2 className="dashPanelTitle">
+                                                Permintaan SPK per Hari
+                                            </h2>
+                                            <p className="dashPanelMeta">
+                                                Dibuat {period.label} ·{' '}
+                                                {createdDaily.total.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                SPK
+                                            </p>
+                                        </div>
+                                    </header>
+                                    <CreatedDailyBarChart
+                                        days={createdDaily.days}
+                                    />
+                                </article>
+
+                                <article className="dashPanel dashPiePanel is-compact">
+                                    <header className="dashPanelHeader is-with-action">
+                                        <div className="dashPanelHeaderText">
+                                            <h2 className="dashPanelTitle">
+                                                Item Produksi
+                                            </h2>
+                                            <p className="dashPanelMeta">
+                                                {
+                                                    chartCards.find(
+                                                        (card) =>
+                                                            card.key ===
+                                                            'itemDistribution',
+                                                    )?.hint
+                                                }
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="dashKpiFileBtn dashPanelDetailBtn"
+                                            aria-label="Lihat daftar Item Produksi"
+                                            title="Lihat daftar SPK"
+                                            onClick={() =>
+                                                setOpenList('itemDistribution')
+                                            }
+                                        >
+                                            <Eye aria-hidden="true" />
+                                        </button>
+                                    </header>
+                                    <DistributionPieChart
+                                        items={analytics.itemDistribution}
+                                        legendMetric="spk"
+                                    />
+                                </article>
+
                                 <article className="dashPanel dashPiePanel is-compact">
                                     <header className="dashPanelHeader is-with-action">
                                         <div className="dashPanelHeaderText">
@@ -700,8 +757,13 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                                 Tipe Produksi
                                             </h2>
                                             <p className="dashPanelMeta">
-                                                Dibuat atau estimasi selesai{' '}
-                                                {period.label}
+                                                {
+                                                    chartCards.find(
+                                                        (card) =>
+                                                            card.key ===
+                                                            'productionTypes',
+                                                    )?.hint
+                                                }
                                             </p>
                                         </div>
                                         <button
@@ -721,57 +783,6 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
                                         legendMetric="spk"
                                     />
                                 </article>
-
-                                    <article className="dashPanel dashPiePanel is-compact">
-                                        <header className="dashPanelHeader is-with-action">
-                                            <div className="dashPanelHeaderText">
-                                                <h2 className="dashPanelTitle">
-                                                    Item Produksi
-                                                </h2>
-                                                <p className="dashPanelMeta">
-                                                    Dibuat atau estimasi
-                                                    selesai {period.label}
-                                                </p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className="dashKpiFileBtn dashPanelDetailBtn"
-                                                aria-label="Lihat daftar Item Produksi"
-                                                title="Lihat daftar SPK"
-                                                onClick={() =>
-                                                    setOpenList(
-                                                        'itemDistribution',
-                                                    )
-                                                }
-                                            >
-                                                <Eye aria-hidden="true" />
-                                            </button>
-                                        </header>
-                                        <DistributionPieChart
-                                            items={analytics.itemDistribution}
-                                            legendMetric="spk"
-                                        />
-                                    </article>
-
-                                    <article className="dashPanel dashCreatedDailyPanel">
-                                        <header className="dashPanelHeader">
-                                            <div className="dashPanelHeaderText">
-                                                <h2 className="dashPanelTitle">
-                                                    Permintaan SPK per Hari
-                                                </h2>
-                                                <p className="dashPanelMeta">
-                                                    Dibuat {period.label} ·{' '}
-                                                    {createdDaily.total.toLocaleString(
-                                                        'id-ID',
-                                                    )}{' '}
-                                                    SPK
-                                                </p>
-                                            </div>
-                                        </header>
-                                        <CreatedDailyBarChart
-                                            days={createdDaily.days}
-                                        />
-                                    </article>
                             </div>
 
                             <div className="dashLowerChartRow">

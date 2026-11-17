@@ -560,6 +560,7 @@ class SpkDashboardAnalytics
                 'forecastQty' => $forecast['qtyTotal'],
                 'planningDoneSpk' => $planningDaily['doneTotal'],
                 'planningPendingSpk' => $planningDaily['pendingTotal'],
+                'planningTargetSpk' => $planningDaily['targetTotal'],
                 'todayTargetSpk' => $today['targetSpk'],
                 'todayTargetDoneSpk' => $today['targetDoneSpk'],
                 'todayTargetPendingSpk' => $today['targetPendingSpk'],
@@ -835,7 +836,7 @@ class SpkDashboardAnalytics
         }
 
         if (Schema::connection('third')->hasColumn('spk', 'estimated_delivery_time')) {
-            $doneExpr = $this->doneExpression();
+            [$doneCase, $pendingCase] = $this->productionCompletedCaseExpressions();
             $target = $this->monthScopedSpkBase()
                 ->whereNotNull('estimated_delivery_time')
                 ->whereBetween('estimated_delivery_time', [
@@ -844,8 +845,8 @@ class SpkDashboardAnalytics
                 ])
                 ->selectRaw("
                     COUNT(*) as total_count,
-                    SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
-                    SUM(CASE WHEN ({$doneExpr}) THEN 0 ELSE 1 END) as pending_count,
+                    SUM({$doneCase}) as done_count,
+                    SUM({$pendingCase}) as pending_count,
                     SUM(COALESCE(qty, 1)) as qty_total
                 ")
                 ->first();
@@ -922,7 +923,7 @@ class SpkDashboardAnalytics
             return $empty;
         }
 
-        $doneExpr = $this->doneExpression();
+        [$doneCase, $pendingCase] = $this->productionCompletedCaseExpressions();
         $target = $this->spkBase()
             ->whereNotNull('estimated_delivery_time')
             ->whereBetween('estimated_delivery_time', [
@@ -931,8 +932,8 @@ class SpkDashboardAnalytics
             ])
             ->selectRaw("
                 COUNT(*) as total_count,
-                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
-                SUM(CASE WHEN ({$doneExpr}) THEN 0 ELSE 1 END) as pending_count
+                SUM({$doneCase}) as done_count,
+                SUM({$pendingCase}) as pending_count
             ")
             ->first();
 
@@ -2170,13 +2171,13 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Planning produksi harian (berdasarkan estimated delivery di bulan terpilih,
-     * dalam scope dibuat ATAU estimasi delivery di periode):
-     * bandingkan SPK yang sudah selesai vs belum selesai.
+     * Planning produksi harian: target = estimasi selesai per hari di bulan terpilih,
+     * realisasi = SPK selesai produksi di bulan (tanggal dokumen terminal).
      *
      * @return array{
      *     doneTotal: int,
      *     pendingTotal: int,
+     *     targetTotal: int,
      *     days: list<array{date: string, label: string, done: int, pending: int}>
      * }
      */
@@ -2191,21 +2192,31 @@ class SpkDashboardAnalytics
             return [
                 'doneTotal' => 0,
                 'pendingTotal' => 0,
+                'targetTotal' => 0,
                 'days' => $emptyDays,
             ];
         }
 
-        $doneExpr = $this->doneExpression();
-        $rows = $this->monthScopedSpkBase()
+        $targetBase = $this->monthScopedSpkBase()
             ->whereNotNull('estimated_delivery_time')
             ->whereBetween('estimated_delivery_time', [
                 $this->periodStart->toDateTimeString(),
                 $this->periodEnd->toDateTimeString(),
-            ])
+            ]);
+
+        $targetTotal = (clone $targetBase)->count();
+        $completedExpr = $this->productionCompletedInPeriodExpression();
+        $pendingTotal = $completedExpr === '0'
+            ? $targetTotal
+            : (clone $targetBase)->whereRaw("NOT ({$completedExpr})")->count();
+        $doneTotal = $this->monthProductionCompletedSpkBase()->count();
+
+        [$doneCase, $pendingCase] = $this->productionCompletedCaseExpressions();
+        $rows = (clone $targetBase)
             ->selectRaw("
                 DATE(estimated_delivery_time) as planning_date,
-                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
-                SUM(CASE WHEN ({$doneExpr}) THEN 0 ELSE 1 END) as pending_count
+                SUM({$doneCase}) as done_count,
+                SUM({$pendingCase}) as pending_count
             ")
             ->groupByRaw('DATE(estimated_delivery_time)')
             ->orderBy('planning_date')
@@ -2213,27 +2224,22 @@ class SpkDashboardAnalytics
             ->keyBy(fn (object $row): string => (string) $row->planning_date);
 
         $days = [];
-        $doneTotal = 0;
-        $pendingTotal = 0;
 
         foreach ($emptyDays as $day) {
             $row = $rows->get($day['date']);
-            $done = (int) ($row->done_count ?? 0);
-            $pending = (int) ($row->pending_count ?? 0);
-            $doneTotal += $done;
-            $pendingTotal += $pending;
 
             $days[] = [
                 'date' => $day['date'],
                 'label' => $day['label'],
-                'done' => $done,
-                'pending' => $pending,
+                'done' => (int) ($row->done_count ?? 0),
+                'pending' => (int) ($row->pending_count ?? 0),
             ];
         }
 
         return [
             'doneTotal' => $doneTotal,
             'pendingTotal' => $pendingTotal,
+            'targetTotal' => $targetTotal,
             'days' => $days,
         ];
     }
@@ -2390,13 +2396,13 @@ class SpkDashboardAnalytics
         }
 
         $groupExpr = $this->tipeItemPrefixIdGroupExpression();
-        $doneExpr = $this->doneExpression();
+        [$doneCase] = $this->productionCompletedCaseExpressions();
 
         $rows = $base
             ->selectRaw("
                 {$groupExpr} as prefix_group,
                 COUNT(*) as estimasi_count,
-                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as realisasi_count
+                SUM({$doneCase}) as realisasi_count
             ")
             ->groupByRaw($groupExpr)
             ->orderByDesc('estimasi_count')
@@ -2486,7 +2492,7 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Distribusi SPK per Tipe Item (scope: dibuat ATAU estimasi delivery di periode).
+     * Distribusi SPK per Tipe Item (scope: produksi selesai di bulan terpilih).
      * Tanpa category_prefix_id digabung sebagai "Custom".
      *
      * @return list<array{label: string, count: int, qty: int, percent: string}>
@@ -2498,7 +2504,7 @@ class SpkDashboardAnalytics
         }
 
         if ($this->spkHasCategoryPrefixColumn()) {
-            return $this->aggregateTipeItemDistribution($this->monthScopedSpkBase(), $limit);
+            return $this->aggregateTipeItemDistribution($this->monthProductionCompletedSpkBase(), $limit);
         }
 
         return [];
@@ -2699,10 +2705,10 @@ class SpkDashboardAnalytics
         }
 
         $query = match ($key) {
-            'productionTypes' => $this->monthScopedSpkBase()
+            'productionTypes' => $this->monthProductionCompletedSpkBase()
                 ->whereNotNull('spk_type')
                 ->where('spk_type', '!=', ''),
-            'itemDistribution' => $this->monthScopedSpkBase(),
+            'itemDistribution' => $this->monthProductionCompletedSpkBase(),
             'forecast' => Schema::connection('third')->hasColumn('spk', 'estimated_delivery_time')
                 ? $this->planningBaseQuery()
                 : $this->spkBase()->whereRaw('0'),
@@ -3073,8 +3079,7 @@ class SpkDashboardAnalytics
 
     /**
      * Distribusi tipe produksi untuk periode:
-     * SPK dibuat di bulan terpilih ATAU estimasi delivery di bulan terpilih
-     * (tanpa double-count jika keduanya masuk periode).
+     * SPK dengan produksi terminal selesai di bulan terpilih.
      *
      * @return list<array{label: string, count: int, qty: int, percent: string}>
      */
@@ -3090,7 +3095,7 @@ class SpkDashboardAnalytics
             return [];
         }
 
-        $rows = $this->monthScopedSpkBase()
+        $rows = $this->monthProductionCompletedSpkBase()
             ->whereNotNull($column)
             ->where($column, '!=', '')
             ->selectRaw("TRIM(`{$column}`) as label, COUNT(*) as aggregate_count, SUM(COALESCE(qty, 1)) as aggregate_qty")
@@ -4358,6 +4363,215 @@ class SpkDashboardAnalytics
         $this->applyMonthScopeFilter($query);
 
         return $query;
+    }
+
+    /**
+     * SPK yang produksi terminal-nya selesai di bulan terpilih (tanggal dokumen proses).
+     */
+    private function monthProductionCompletedSpkBase(): Builder
+    {
+        $expression = $this->productionCompletedInPeriodExpression();
+
+        if ($expression === '0') {
+            return $this->spkBase()->whereRaw('0 = 1');
+        }
+
+        return $this->spkBase()->whereRaw("({$expression})");
+    }
+
+    /**
+     * OR dari penyelesaian terminal (Rangka / Barang Jadi) dengan tanggal proses di periode.
+     */
+    private function productionCompletedInPeriodExpression(): string
+    {
+        $parts = [];
+        $refTypes = collect(SpkService::REFERENCE_TYPES)
+            ->map(fn (string $type): string => "'{$type}'")
+            ->implode(', ');
+
+        if (Schema::connection('third')->hasTable('polishfinishedgood')) {
+            $chromeStatuses = collect(self::POLES_CHROME_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $deleted = Schema::connection('third')->hasColumn('polishfinishedgood', 'is_deleted')
+                ? 'AND COALESCE(pfg_completed.is_deleted, 0) = 0'
+                : '';
+
+            $dateFilter = $this->processDateInPeriodSql('polishfinishedgood', 'pfg_completed');
+
+            $parts[] = "EXISTS (
+                SELECT 1
+                FROM polishfinishedgood pfg_completed
+                WHERE pfg_completed.spk_id = spk.row_id
+                  AND pfg_completed.status IN ({$chromeStatuses})
+                  {$deleted}
+                  AND {$dateFilter}
+            )";
+
+            $refStatuses = collect(self::POLES_BARANG_JADI_REF_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $parts[] = "EXISTS (
+                SELECT 1
+                FROM polishfinishedgood pfg_completed
+                WHERE pfg_completed.spk_id = spk.row_id
+                  AND pfg_completed.status IN ({$refStatuses})
+                  AND spk.spk_type IN ({$refTypes})
+                  {$deleted}
+                  AND {$dateFilter}
+            )";
+        }
+
+        if (Schema::connection('third')->hasTable('finishinghandmade')) {
+            $refStatuses = collect(self::FINISHING_REF_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $deleted = Schema::connection('third')->hasColumn('finishinghandmade', 'is_deleted')
+                ? 'AND COALESCE(fhm_completed.is_deleted, 0) = 0'
+                : '';
+
+            $dateFilter = $this->processDateInPeriodSql('finishinghandmade', 'fhm_completed');
+
+            $parts[] = "EXISTS (
+                SELECT 1
+                FROM finishinghandmade fhm_completed
+                WHERE fhm_completed.spk_id = spk.row_id
+                  AND fhm_completed.status IN ({$refStatuses})
+                  AND spk.spk_type IN ({$refTypes})
+                  {$deleted}
+                  AND {$dateFilter}
+            )";
+        }
+
+        if (
+            Schema::connection('third')->hasTable('diamondmounting')
+            && Schema::connection('third')->hasTable('polishframe')
+        ) {
+            $pasangBatuStatuses = collect(self::PASANG_BATU_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $rangkaStatuses = collect(self::POLES_RANGKA_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $dmDeleted = Schema::connection('third')->hasColumn('diamondmounting', 'is_deleted')
+                ? 'AND COALESCE(dm_completed.is_deleted, 0) = 0'
+                : '';
+
+            $pfDeleted = Schema::connection('third')->hasColumn('polishframe', 'is_deleted')
+                ? 'AND COALESCE(pf_for_dm.is_deleted, 0) = 0'
+                : '';
+
+            $dateFilter = $this->processDateInPeriodSql('diamondmounting', 'dm_completed');
+
+            $parts[] = "EXISTS (
+                SELECT 1
+                FROM diamondmounting dm_completed
+                INNER JOIN polishframe pf_for_dm
+                    ON pf_for_dm.spk_id = spk.row_id
+                    AND pf_for_dm.status IN ({$rangkaStatuses})
+                    {$pfDeleted}
+                WHERE dm_completed.spk_id = spk.row_id
+                  AND dm_completed.status IN ({$pasangBatuStatuses})
+                  {$dmDeleted}
+                  AND {$dateFilter}
+            )";
+        }
+
+        if (Schema::connection('third')->hasTable('polishframe')) {
+            $rangkaStatuses = collect(self::POLES_RANGKA_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $deleted = Schema::connection('third')->hasColumn('polishframe', 'is_deleted')
+                ? 'AND COALESCE(pf_completed.is_deleted, 0) = 0'
+                : '';
+
+            $dateFilter = $this->processDateInPeriodSql('polishframe', 'pf_completed');
+            $withoutLaterProcesses = $this->withoutPasangBatuOrPolesChromeExpression('spk.row_id');
+
+            $parts[] = "(
+                EXISTS (
+                    SELECT 1
+                    FROM polishframe pf_completed
+                    WHERE pf_completed.spk_id = spk.row_id
+                      AND pf_completed.status IN ({$rangkaStatuses})
+                      {$deleted}
+                      AND {$dateFilter}
+                )
+                AND {$withoutLaterProcesses}
+            )";
+        }
+
+        $parts = array_values(array_filter($parts, fn (string $part): bool => $part !== ''));
+
+        if ($parts === []) {
+            return '0';
+        }
+
+        return '('.implode(' OR ', $parts).')';
+    }
+
+    private function processRecordDateExpression(string $table, string $alias): string
+    {
+        $candidates = [
+            'received_craftsman_date',
+            'send_craftsman_date',
+            'date_to',
+            'trans_date',
+            'modified_date',
+            'created_date',
+        ];
+
+        $columns = array_values(array_filter(
+            $candidates,
+            fn (string $column): bool => Schema::connection('third')->hasColumn($table, $column),
+        ));
+
+        if ($columns === []) {
+            return 'NULL';
+        }
+
+        if (count($columns) === 1) {
+            return "{$alias}.{$columns[0]}";
+        }
+
+        $parts = array_map(
+            fn (string $column): string => "{$alias}.{$column}",
+            $columns,
+        );
+
+        return 'COALESCE('.implode(', ', $parts).')';
+    }
+
+    private function processDateInPeriodSql(string $table, string $alias): string
+    {
+        $dateExpression = $this->processRecordDateExpression($table, $alias);
+        $start = $this->periodStart->toDateTimeString();
+        $end = $this->periodEnd->toDateTimeString();
+
+        return "({$dateExpression} IS NOT NULL AND {$dateExpression} >= '{$start}' AND {$dateExpression} <= '{$end}')";
+    }
+
+    /**
+     * @return array{0: string, 1: string} done case, pending case SQL fragments for SUM()
+     */
+    private function productionCompletedCaseExpressions(): array
+    {
+        $completedExpr = $this->productionCompletedInPeriodExpression();
+
+        if ($completedExpr === '0') {
+            return ['0', '1'];
+        }
+
+        return [
+            "CASE WHEN ({$completedExpr}) THEN 1 ELSE 0 END",
+            "CASE WHEN ({$completedExpr}) THEN 0 ELSE 1 END",
+        ];
     }
 
     private function applyProcessPeriodFilter(Builder $query, string $table, string $preferredDateColumn): void

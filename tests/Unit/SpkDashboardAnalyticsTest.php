@@ -150,7 +150,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             'qty',
             'percent',
         ])
-        ->and(collect($report['productionTypes'])->sum('count'))->toBeGreaterThanOrEqual($report['summary']['totalSpk'])
+        ->and(collect($report['productionTypes'])->sum('count'))->toBeLessThanOrEqual($report['summary']['totalSpk'])
         ->and($report['inProgressByProcess'])->toBeArray()
         ->and(collect($report['inProgressByProcess'])->sum('count'))->toBeInt()
         ->and($report['itemDistribution'][0] ?? null)->toHaveKeys([
@@ -163,10 +163,11 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         ->and(
             collect($report['planningDaily']['days'])->sum('done')
             + collect($report['planningDaily']['days'])->sum('pending'),
-        )->toBe(
-            $report['planningDaily']['doneTotal']
-            + $report['planningDaily']['pendingTotal'],
+        )->toBe($report['planningDaily']['targetTotal'])
+        ->and($report['summary']['planningDoneSpk'])->toBe(
+            collect($report['productionTypes'])->sum('count'),
         )
+        ->and($report['summary']['planningTargetSpk'])->toBe($report['planningDaily']['targetTotal'])
         ->and($report['statusLists'])->toHaveKeys(['draft', 'confirmed', 'inProgress', 'overdue', 'doneRangka', 'doneBarangJadi'])
         ->and($report['backlogYear'])->toBe((int) now()->year)
         ->and($report['summary']['overdueSpk'])->toBeInt()
@@ -209,6 +210,59 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         ->and($report['forecast']['byItemType'])->not->toBeEmpty()
         ->and($report['forecast']['byItemType'][0])->toHaveKeys(['item', 'total', 'values'])
         ->and($report['forecast']['byItemType'][0]['values'])->toHaveKeys(['Estimasi', 'Realisasi']);
+});
+
+test('production type and item charts scope to terminal completion in selected month', function () {
+    $month = Carbon::parse('2026-07-01');
+    $completionAt = $month->copy()->addDays(12)->startOfDay();
+
+    $before = (new SpkDashboardAnalytics($month))->summarize();
+    $stockBefore = (int) (collect($before['productionTypes'])->firstWhere('label', 'Stock')['count'] ?? 0);
+
+    $completed = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'last_process' => 'Poles Chrome',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+        'created_date' => $month->copy()->subMonths(2),
+        'estimated_delivery_time' => $month->copy()->addDays(3),
+    ]);
+
+    $estimatedOnly = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'last_process' => 'Coran',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+        'created_date' => $month->copy()->addDays(2),
+        'estimated_delivery_time' => $month->copy()->addDays(20),
+    ]);
+
+    $chromeId = DB::connection('third')->table('polishfinishedgood')->insertGetId([
+        'doc_no' => 'TEST-CHART-DONE-'.$completed->row_id,
+        'process_name' => 'Poles Chrome',
+        'spk_id' => $completed->row_id,
+        'status' => 'PFGDONE',
+        'created_date' => $completionAt,
+        'is_deleted' => 0,
+        'created_by' => 'system',
+    ], 'row_id');
+
+    try {
+        $after = (new SpkDashboardAnalytics($month))->summarize();
+        $stockAfter = (int) (collect($after['productionTypes'])->firstWhere('label', 'Stock')['count'] ?? 0);
+
+        expect($stockAfter)->toBe($stockBefore + 1)
+            ->and(collect($after['chartLists']['productionTypes'])->pluck('spkNo'))
+            ->toContain((string) $completed->spk_no)
+            ->and(collect($after['chartLists']['productionTypes'])->pluck('spkNo'))
+            ->not->toContain((string) $estimatedOnly->spk_no);
+    } finally {
+        DB::connection('third')->table('polishfinishedgood')->where('row_id', $chromeId)->delete();
+        $completed->delete();
+        $estimatedOnly->delete();
+    }
 });
 
 test('item distribution groups missing category prefix as custom', function () {
