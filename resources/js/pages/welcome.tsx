@@ -79,7 +79,7 @@ export type DashboardTodayKey =
     | 'weekTarget'
     | 'needsAttention'
     | 'monthTarget'
-    | 'monthOverdue';
+    | 'todayCompleted';
 
 export type DashboardChartKey =
     | 'productionTypes'
@@ -131,6 +131,7 @@ export type DashboardAnalytics = {
         weekTargetPendingSpk: number;
         weekTargetLabel: string;
         needsAttentionSpk: number;
+        todayCompletedSpk: number;
         monthOverdueSpk: number;
     };
     today: {
@@ -142,6 +143,7 @@ export type DashboardAnalytics = {
         targetQty: number;
         createdSpk: number;
         inProcessSpk: number;
+        completedTodaySpk: number;
         overdueSpk: number;
         needsAttentionSpk: number;
     };
@@ -381,6 +383,13 @@ export default function Welcome({ analytics, filters, navigation }: WelcomeProps
             count: today.inProcessSpk,
         },
         {
+            key: 'todayCompleted',
+            label: 'SPK Selesai Hari Ini',
+            hint: `Produksi selesai · ${today.label}`,
+            count: today.completedTodaySpk,
+            className: 'is-done',
+        },
+        {
             key: 'todayTarget',
             label: 'Target SPK Hari Ini',
             hint: `${today.label} · ${today.targetDoneSpk.toLocaleString('id-ID')} selesai dari ${today.targetSpk.toLocaleString('id-ID')}${today.targetQty > 0 ? ` · qty ${today.targetQty.toLocaleString('id-ID')}` : ''}`,
@@ -400,13 +409,6 @@ export default function Welcome({ analytics, filters, navigation }: WelcomeProps
             hint: `${period.label} · ${summary.planningDoneSpk.toLocaleString('id-ID')} selesai dari ${monthTargetSpk.toLocaleString('id-ID')}`,
             count: monthTargetSpk,
             completionPercent: monthTargetCompletionPercent,
-        },
-        {
-            key: 'monthOverdue',
-            label: 'SPK Overdue Bulan Ini',
-            hint: `Lewat estimasi · ${period.label}`,
-            count: today.overdueSpk,
-            className: 'is-overdue',
         },
     ];
 
@@ -490,7 +492,6 @@ export default function Welcome({ analytics, filters, navigation }: WelcomeProps
     const openListPeriodLabel =
         openList !== null &&
         openList in todayLists &&
-        openList !== 'monthOverdue' &&
         openList !== 'monthTarget' &&
         openList !== 'weekTarget' &&
         openList !== 'needsAttention'

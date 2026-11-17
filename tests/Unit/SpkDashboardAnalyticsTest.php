@@ -57,6 +57,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             'weekTargetPendingSpk',
             'weekTargetLabel',
             'needsAttentionSpk',
+            'todayCompletedSpk',
             'monthOverdueSpk',
         ])
         ->and($report['today'])->toHaveKeys([
@@ -68,6 +69,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             'targetQty',
             'createdSpk',
             'inProcessSpk',
+            'completedTodaySpk',
             'overdueSpk',
             'needsAttentionSpk',
         ])
@@ -89,7 +91,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
             'monthTarget',
             'todayInProcess',
             'todayCreated',
-            'monthOverdue',
+            'todayCompleted',
         ])
         ->and($report['chartLists'])->toHaveKeys([
             'productionTypes',
@@ -106,7 +108,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         ->and($report['todayLists']['needsAttention'])->toBeArray()
         ->and($report['todayLists']['todayInProcess'])->toBeArray()
         ->and($report['todayLists']['todayCreated'])->toBeArray()
-        ->and($report['todayLists']['monthOverdue'])->toBeArray()
+        ->and($report['todayLists']['todayCompleted'])->toBeArray()
         ->and(
             ($report['todayLists']['todayTarget'][0] ?? null) === null
                 || array_key_exists('status', $report['todayLists']['todayTarget'][0])
@@ -118,9 +120,11 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         ->and($report['summary']['needsAttentionSpk'])->toBe($report['today']['needsAttentionSpk'])
         ->and($report['summary']['todayCreatedSpk'])->toBe($report['today']['createdSpk'])
         ->and($report['summary']['todayInProcessSpk'])->toBe($report['today']['inProcessSpk'])
-        ->and($report['summary']['monthOverdueSpk'])->toBe($report['today']['overdueSpk'])
+        ->and($report['summary']['todayCompletedSpk'])->toBe($report['today']['completedTodaySpk'])
+        ->and($report['summary']['monthOverdueSpk'])->toBe($report['summary']['overdueSpk'])
         ->and($report['today']['createdSpk'])->toBeInt()
         ->and($report['today']['inProcessSpk'])->toBeInt()
+        ->and($report['today']['completedTodaySpk'])->toBeInt()
         ->and($report['today']['overdueSpk'])->toBeInt()
         ->and($report['today']['needsAttentionSpk'])->toBeInt()
         ->and($report['summary']['goldRequirement'])->toMatch('/^\d+\.\d{2,3}$/')

@@ -571,7 +571,8 @@ class SpkDashboardAnalytics
                 'weekTargetPendingSpk' => $weekTarget['targetPendingSpk'],
                 'weekTargetLabel' => $weekTarget['label'],
                 'needsAttentionSpk' => $needsAttentionSpk,
-                'monthOverdueSpk' => $today['overdueSpk'],
+                'todayCompletedSpk' => $today['completedTodaySpk'],
+                'monthOverdueSpk' => $spkStats['overdue'],
             ],
             'today' => $today,
             'weekTarget' => $weekTarget,
@@ -803,6 +804,7 @@ class SpkDashboardAnalytics
      *     targetQty: int,
      *     createdSpk: int,
      *     inProcessSpk: int,
+     *     completedTodaySpk: int,
      *     overdueSpk: int
      * }
      */
@@ -818,6 +820,7 @@ class SpkDashboardAnalytics
         $targetQty = 0;
         $createdSpk = 0;
         $inProcessSpk = 0;
+        $completedTodaySpk = 0;
         $overdueSpk = 0;
 
         if (! Schema::connection('third')->hasTable('spk')) {
@@ -830,9 +833,17 @@ class SpkDashboardAnalytics
                 'targetQty' => 0,
                 'createdSpk' => 0,
                 'inProcessSpk' => 0,
+                'completedTodaySpk' => 0,
                 'overdueSpk' => 0,
                 'needsAttentionSpk' => 0,
             ];
+        }
+
+        $completedTodayExpression = $this->productionCompletedBetweenExpression($dayStart, $dayEnd);
+        if ($completedTodayExpression !== '0') {
+            $completedTodaySpk = $this->spkBase()
+                ->whereRaw("({$completedTodayExpression})")
+                ->count();
         }
 
         if (Schema::connection('third')->hasColumn('spk', 'estimated_delivery_time')) {
@@ -885,6 +896,7 @@ class SpkDashboardAnalytics
             'targetQty' => $targetQty,
             'createdSpk' => $createdSpk,
             'inProcessSpk' => $inProcessSpk,
+            'completedTodaySpk' => $completedTodaySpk,
             'overdueSpk' => $overdueSpk,
             'needsAttentionSpk' => $needsAttentionSpk,
         ];
@@ -1286,7 +1298,7 @@ class SpkDashboardAnalytics
      *     weekTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     needsAttention: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
      *     monthTarget: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>,
-     *     monthOverdue: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
+     *     todayCompleted: list<array{spkNo: string, type: string, customer: string, item: string, orderDate: string|null, estimatedDelivery: string|null, status: string, lastProcess: string|null, lastProcessDate: string|null}>
      * }
      */
     private function resolveTodayLists(): array
@@ -1298,7 +1310,7 @@ class SpkDashboardAnalytics
             'weekTarget' => [],
             'needsAttention' => [],
             'monthTarget' => [],
-            'monthOverdue' => [],
+            'todayCompleted' => [],
         ];
 
         if (! Schema::connection('third')->hasTable('spk')) {
@@ -1308,11 +1320,11 @@ class SpkDashboardAnalytics
         return [
             'todayCreated' => $this->todayListFor('todayCreated'),
             'todayInProcess' => $this->todayListFor('todayInProcess'),
+            'todayCompleted' => $this->todayListFor('todayCompleted'),
             'todayTarget' => $this->todayListFor('todayTarget'),
             'weekTarget' => $this->todayListFor('weekTarget'),
             'needsAttention' => $this->todayListFor('needsAttention'),
             'monthTarget' => $this->todayListFor('monthTarget'),
-            'monthOverdue' => $this->todayListFor('monthOverdue'),
         ];
     }
 
@@ -1370,7 +1382,11 @@ class SpkDashboardAnalytics
                         $dayEnd->toDateTimeString(),
                     ])
                 : $query->whereRaw('0'),
-            'monthOverdue' => $this->applyOverdueFilter($query),
+            'todayCompleted' => $this->applyProductionCompletedBetweenFilter(
+                $this->spkBase(),
+                $dayStart,
+                $dayEnd,
+            ),
             default => $this->applyTodayInProcessFilter($query, $dayStart, $dayEnd),
         };
 
@@ -4373,10 +4389,32 @@ class SpkDashboardAnalytics
         return $this->spkBase()->whereRaw("({$expression})");
     }
 
+    private function applyProductionCompletedBetweenFilter(
+        Builder $query,
+        CarbonInterface $start,
+        CarbonInterface $end,
+    ): Builder {
+        $expression = $this->productionCompletedBetweenExpression($start, $end);
+
+        if ($expression === '0') {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->whereRaw("({$expression})");
+    }
+
     /**
-     * OR dari penyelesaian terminal (Rangka / Barang Jadi) dengan tanggal proses di periode.
+     * OR dari penyelesaian terminal (Rangka / Barang Jadi) dengan tanggal proses di bulan terpilih.
      */
     private function productionCompletedInPeriodExpression(): string
+    {
+        return $this->productionCompletedBetweenExpression($this->periodStart, $this->periodEnd);
+    }
+
+    /**
+     * OR dari penyelesaian terminal dengan tanggal dokumen proses di rentang tertentu.
+     */
+    private function productionCompletedBetweenExpression(CarbonInterface $start, CarbonInterface $end): string
     {
         $parts = [];
         $refTypes = collect(SpkService::REFERENCE_TYPES)
@@ -4392,7 +4430,7 @@ class SpkDashboardAnalytics
                 ? 'AND COALESCE(pfg_completed.is_deleted, 0) = 0'
                 : '';
 
-            $dateFilter = $this->processDateInPeriodSql('polishfinishedgood', 'pfg_completed');
+            $dateFilter = $this->processDateBetweenSql('polishfinishedgood', 'pfg_completed', $start, $end);
 
             $parts[] = "EXISTS (
                 SELECT 1
@@ -4427,7 +4465,7 @@ class SpkDashboardAnalytics
                 ? 'AND COALESCE(fhm_completed.is_deleted, 0) = 0'
                 : '';
 
-            $dateFilter = $this->processDateInPeriodSql('finishinghandmade', 'fhm_completed');
+            $dateFilter = $this->processDateBetweenSql('finishinghandmade', 'fhm_completed', $start, $end);
 
             $parts[] = "EXISTS (
                 SELECT 1
@@ -4460,7 +4498,7 @@ class SpkDashboardAnalytics
                 ? 'AND COALESCE(pf_for_dm.is_deleted, 0) = 0'
                 : '';
 
-            $dateFilter = $this->processDateInPeriodSql('diamondmounting', 'dm_completed');
+            $dateFilter = $this->processDateBetweenSql('diamondmounting', 'dm_completed', $start, $end);
 
             $parts[] = "EXISTS (
                 SELECT 1
@@ -4485,7 +4523,7 @@ class SpkDashboardAnalytics
                 ? 'AND COALESCE(pf_completed.is_deleted, 0) = 0'
                 : '';
 
-            $dateFilter = $this->processDateInPeriodSql('polishframe', 'pf_completed');
+            $dateFilter = $this->processDateBetweenSql('polishframe', 'pf_completed', $start, $end);
             $withoutLaterProcesses = $this->withoutPasangBatuOrPolesChromeExpression('spk.row_id');
 
             $parts[] = "(
@@ -4542,13 +4580,17 @@ class SpkDashboardAnalytics
         return 'COALESCE('.implode(', ', $parts).')';
     }
 
-    private function processDateInPeriodSql(string $table, string $alias): string
-    {
+    private function processDateBetweenSql(
+        string $table,
+        string $alias,
+        CarbonInterface $start,
+        CarbonInterface $end,
+    ): string {
         $dateExpression = $this->processRecordDateExpression($table, $alias);
-        $start = $this->periodStart->toDateTimeString();
-        $end = $this->periodEnd->toDateTimeString();
+        $startValue = $start->toDateTimeString();
+        $endValue = $end->toDateTimeString();
 
-        return "({$dateExpression} IS NOT NULL AND {$dateExpression} >= '{$start}' AND {$dateExpression} <= '{$end}')";
+        return "({$dateExpression} IS NOT NULL AND {$dateExpression} >= '{$startValue}' AND {$dateExpression} <= '{$endValue}')";
     }
 
     /**
