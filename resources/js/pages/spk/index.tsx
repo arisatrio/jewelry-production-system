@@ -273,7 +273,7 @@ export default function SpkIndex({
     const showStoneStatusColumn = !isFakturBarangJadiIndex;
     const showFakturIssuedColumn = isFakturBarangJadiIndex;
     const tableColSpan =
-        10 + (showStoneStatusColumn ? 1 : 0) + (showFakturIssuedColumn ? 1 : 0);
+        8 + (showStoneStatusColumn ? 1 : 0) + (showFakturIssuedColumn ? 1 : 0);
 
     const isRowSelectableForFaktur = (row: SpkIndexRow): boolean =>
         !isFakturBarangJadiIndex || row.fakturBarangJadiIssued !== true;
@@ -1852,8 +1852,6 @@ export default function SpkIndex({
                                             Status Batu
                                         </th>
                                     ) : null}
-                                    <th className="spkTableColCenter">Location</th>
-                                    <th className="spkTableColCenter">PLU</th>
                                     {showFakturIssuedColumn ? (
                                         <th className="spkTableColCenter">
                                             Status Faktur
@@ -2121,12 +2119,6 @@ export default function SpkIndex({
                                                         />
                                                     </td>
                                                 ) : null}
-                                                <td className="spkTableColCenter">
-                                                    {row.location?.trim() || '—'}
-                                                </td>
-                                                <td className="spkTableColCenter">
-                                                    {row.plu?.trim() || '—'}
-                                                </td>
                                                 {showFakturIssuedColumn ? (
                                                     <td className="spkTableColCenter">
                                                         <FakturBarangJadiStatusBadge
