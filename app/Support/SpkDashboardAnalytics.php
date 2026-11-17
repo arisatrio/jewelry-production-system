@@ -3872,7 +3872,6 @@ class SpkDashboardAnalytics
         /** @var list<array{table: string, label: string, shrink_column: string, date_column: string}> $sources */
         $sources = config('spk_processes.shrink_sources', []);
         $byProcess = [];
-        $reparationType = SpkService::REPARATION_TYPE;
 
         foreach ($sources as $source) {
             $table = $source['table'];
@@ -3890,11 +3889,6 @@ class SpkDashboardAnalytics
             }
 
             $qualifiedCraftsmanColumn = "{$table}.{$craftsmanColumn}";
-            $hasSpkId = Schema::connection('third')->hasColumn($table, 'spk_id');
-            $canClassifyReparasi = $hasSpkId
-                && Schema::connection('third')->hasTable('spk')
-                && Schema::connection('third')->hasColumn('spk', 'spk_type');
-
             $query = DB::connection('third')->table($table)
                 ->whereNotNull($qualifiedCraftsmanColumn)
                 ->where($qualifiedCraftsmanColumn, '>', 0);
@@ -3903,18 +3897,10 @@ class SpkDashboardAnalytics
                 $query->where("{$table}.is_deleted", 0);
             }
 
-            if ($canClassifyReparasi) {
-                $query->leftJoin('spk', 'spk.row_id', '=', "{$table}.spk_id");
-            }
-
             $this->applyCraftsmanPerformanceProcessPeriodFilter($query, $table, $source['date_column']);
 
-            $reparasiCountSql = $canClassifyReparasi
-                ? "SUM(CASE WHEN spk.spk_type = '{$reparationType}' THEN 1 ELSE 0 END)"
-                : '0';
-            $nonReparasiCountSql = $canClassifyReparasi
-                ? "SUM(CASE WHEN spk.spk_type IS NULL OR spk.spk_type != '{$reparationType}' THEN 1 ELSE 0 END)"
-                : 'COUNT(*)';
+            $reparasiCountSql = '0';
+            $nonReparasiCountSql = 'COUNT(*)';
 
             if ($source['shrink_column'] === 'computed_mounting') {
                 $stats = $query
@@ -4304,9 +4290,43 @@ class SpkDashboardAnalytics
         ];
     }
 
+    /**
+     * SPK yang masuk semua metrik dashboard (Reparasi dikecualikan).
+     */
+    private function dashboardSpkIdentityQuery(): Builder
+    {
+        $query = DB::connection('third')->table('spk')->where('is_deleted', 0);
+
+        if (Schema::connection('third')->hasColumn('spk', 'spk_type')) {
+            $query->where(function (Builder $builder): void {
+                $builder->whereNull('spk_type')
+                    ->orWhere('spk_type', '!=', SpkService::REPARATION_TYPE);
+            });
+        }
+
+        return $query;
+    }
+
     private function spkBase(): Builder
     {
-        return DB::connection('third')->table('spk')->where('is_deleted', 0);
+        return $this->dashboardSpkIdentityQuery();
+    }
+
+    private function applyExcludesReparationSpkJobFilter(Builder $query, string $table): void
+    {
+        if (
+            ! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn($table, 'spk_id')
+            || ! Schema::connection('third')->hasColumn('spk', 'spk_type')
+        ) {
+            return;
+        }
+
+        $query->where(function (Builder $builder): void {
+            $builder->whereNull('spk_id')
+                ->orWhere('spk_id', '<=', 0)
+                ->orWhereIn('spk_id', $this->dashboardSpkIdentityQuery()->select('row_id'));
+        });
     }
 
     /**
@@ -4656,10 +4676,13 @@ class SpkDashboardAnalytics
                 $query->whereIn('spk_id', $this->monthScopedSpkBase()->select('row_id'));
             }
 
+            $this->applyExcludesReparationSpkJobFilter($query, $table);
+
             return;
         }
 
         $this->applyPeriodFilter($query, $dateColumn);
+        $this->applyExcludesReparationSpkJobFilter($query, $table);
     }
 
     private function formatPeriodLabel(): string

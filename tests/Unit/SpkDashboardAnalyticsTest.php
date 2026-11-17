@@ -930,3 +930,25 @@ test('spk dashboard analytics counts created spk per day in the selected month',
     $production->delete();
     $deleted->delete();
 });
+
+test('dashboard metrics exclude reparasi spk', function () {
+    $before = (new SpkDashboardAnalytics)->summarize();
+
+    $reparasi = Production::factory()->create([
+        'spk_type' => 'Reparasi',
+        'status' => 'SPKDONE',
+        'is_inprocess' => 0,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'estimated_delivery_time' => now(),
+    ]);
+
+    $after = (new SpkDashboardAnalytics)->summarize();
+
+    expect($after['summary']['totalSpk'])->toBe($before['summary']['totalSpk'])
+        ->and($after['summary']['todayCreatedSpk'])->toBe($before['summary']['todayCreatedSpk'])
+        ->and(collect($after['todayLists']['todayCreated'])->pluck('spkNo'))->not->toContain($reparasi->spk_no)
+        ->and(collect($after['statusLists']['confirmed'])->pluck('spkNo'))->not->toContain($reparasi->spk_no);
+
+    $reparasi->delete();
+});
