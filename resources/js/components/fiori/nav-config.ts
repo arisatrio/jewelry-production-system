@@ -6,7 +6,7 @@ import {
     skuOutput,
     workOrder,
 } from '@/routes/analytics';
-import { index as coranIndex } from '@/routes/coran';
+import { index as coranIndex, report as coranReport } from '@/routes/coran';
 import {
     index as finishingIndex,
     report as finishingReport,
@@ -40,6 +40,7 @@ import {
     report as polesRangkaReport,
 } from '@/routes/poles-rangka';
 import { index as resinIndex } from '@/routes/resin';
+import { index as fakturBarangJadiIndex } from '@/routes/faktur-barang-jadi';
 import { index as spkIndex } from '@/routes/spk';
 
 export type ShellNavItem = {
@@ -69,6 +70,7 @@ export const defaultAnalyticsSubmenus: ShellNavItem[] = [
     { text: 'Material & Yield', href: materialYield.url() },
     { text: 'Performance Pengrajin', href: craftsmanPerformance.url() },
     { text: 'Output SKU', href: skuOutput.url() },
+    { text: 'Laporan Coran', href: coranReport.url() },
     { text: 'Laporan Finishing', href: finishingReport.url() },
     { text: 'Laporan Poles Rangka', href: polesRangkaReport.url() },
     { text: 'Laporan Poles Chrome', href: polesChromeReport.url() },
@@ -130,6 +132,15 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
             {
                 text: 'Stok Rangka',
                 href: frameStocksIndex.url(),
+            },
+        ],
+    },
+    {
+        text: 'Barang Jadi',
+        items: [
+            {
+                text: 'Faktur Barang Jadi',
+                href: fakturBarangJadiIndex.url(),
             },
         ],
     },

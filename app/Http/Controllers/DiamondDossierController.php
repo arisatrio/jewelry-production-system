@@ -38,6 +38,7 @@ class DiamondDossierController extends Controller
             'supplier',
             'sort',
             'direction',
+            'duplicate_certificate',
         ]), [
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in([
@@ -51,6 +52,7 @@ class DiamondDossierController extends Controller
             'supplier' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', Rule::in(DiamondDossierInventory::indexSorts())],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+            'duplicate_certificate' => ['nullable', 'boolean'],
         ])->validate();
 
         $search = trim((string) ($filters['search'] ?? ''));
@@ -74,6 +76,7 @@ class DiamondDossierController extends Controller
         $direction = DiamondDossierInventory::resolveIndexDirection(
             (string) ($filters['direction'] ?? 'desc'),
         );
+        $duplicateCertificateOnly = $request->boolean('duplicate_certificate');
 
         return Inertia::render('inventory/batu-dossier/index', [
             'diamonds' => $inventory->paginate(
@@ -85,6 +88,7 @@ class DiamondDossierController extends Controller
                 $supplier,
                 $sort,
                 $direction,
+                $duplicateCertificateOnly,
             ),
             'summary' => $inventory->summary(
                 $search,
@@ -92,13 +96,16 @@ class DiamondDossierController extends Controller
                 $diamondType,
                 $shapeId,
                 $supplier,
+                $duplicateCertificateOnly,
             ),
             'statusSummaries' => $inventory->statusSummaries(
                 $search,
                 $diamondType,
                 $shapeId,
                 $supplier,
+                $duplicateCertificateOnly,
             ),
+            'duplicateCertificateAlert' => $inventory->duplicateCertificateAlert(),
             'filters' => [
                 'search' => $search,
                 'status' => $status,
@@ -108,6 +115,7 @@ class DiamondDossierController extends Controller
                 'supplier' => $supplier,
                 'sort' => $sort,
                 'direction' => $direction,
+                'duplicate_certificate' => $duplicateCertificateOnly,
             ],
             'filterOptions' => [
                 'sort' => DiamondDossierInventory::indexSortOptions(),
@@ -358,9 +366,13 @@ class DiamondDossierController extends Controller
             && $allocationService->tableAvailable()
             && $allocationService->diamondIsReserved($diamond);
 
+        $deleteBlockReason = $inventory->deletableBlockReason($diamond);
+
         return Inertia::render('inventory/batu-dossier/show', [
             'diamond' => $detail,
             'canEdit' => $canEdit,
+            'canDelete' => $deleteBlockReason === null,
+            'deleteBlockReason' => $deleteBlockReason,
             'canRevokeAllocation' => $canRevokeAllocation,
             'shapeOptions' => $inventory->shapeOptions(),
             'diamondTypeOptions' => DiamondDossierInventory::diamondTypeOptions(),
@@ -415,6 +427,21 @@ class DiamondDossierController extends Controller
         ]);
 
         return back();
+    }
+
+    public function destroy(
+        Request $request,
+        int $diamond,
+        DiamondDossierInventory $inventory,
+    ): RedirectResponse {
+        $inventory->softDeleteMany([$diamond], $this->actorName($request));
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Batu dossier berhasil dihapus.',
+        ]);
+
+        return to_route('inventory.diamond-dossiers.index');
     }
 
     private function actorName(Request $request): string

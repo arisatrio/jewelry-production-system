@@ -7,6 +7,7 @@ use App\Http\Controllers\DiamondCrtMatrixController;
 use App\Http\Controllers\DiamondDossierController;
 use App\Http\Controllers\DiamondDossierTransactionController;
 use App\Http\Controllers\DiamondMountingController;
+use App\Http\Controllers\FakturBarangJadiController;
 use App\Http\Controllers\FinishingController;
 use App\Http\Controllers\FinishingShrinkAllowanceController;
 use App\Http\Controllers\GoldMaterialTransactionController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\StokRangkaController;
 use App\Http\Controllers\StoneTransactionController;
 use App\Http\Controllers\TrxChainController;
 use App\Http\Controllers\TrxComponentController;
+use App\Models\SerahTerimaFakturBarangJadi;
 use App\Models\SpkComponent;
 use App\Models\SpkDiamond;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +48,10 @@ Route::bind('spkComponent', function (string $value): SpkComponent {
     return SpkComponent::query()
         ->where('line_id', (int) $value)
         ->firstOrFail();
+});
+
+Route::bind('serahTerimaFakturBarangJadi', function (string $value): SerahTerimaFakturBarangJadi {
+    return SerahTerimaFakturBarangJadi::query()->findOrFail((int) $value);
 });
 
 Route::bind('spkDiamond', function (string $value): SpkDiamond {
@@ -81,6 +87,24 @@ Route::middleware(['auth'])->group(function () {
     Route::get('analytics/sku-output', [SkuOutputDashboardController::class, 'index'])
         ->name('analytics.sku-output');
     Route::get('reparasi', [ProductionController::class, 'reparasiIndex'])->name('reparasi.index');
+    Route::get('faktur-barang-jadi', [ProductionController::class, 'fakturBarangJadiIndex'])
+        ->name('faktur-barang-jadi.index');
+    Route::get('faktur-barang-jadi/print/receipt', [FakturBarangJadiController::class, 'receiptHistory'])
+        ->name('faktur-barang-jadi.print.receipt.index');
+    Route::post('faktur-barang-jadi/print/receipt', [FakturBarangJadiController::class, 'storeReceipt'])
+        ->name('faktur-barang-jadi.print.receipt.store');
+    Route::get('faktur-barang-jadi/print/receipt/{serahTerimaFakturBarangJadi}', [FakturBarangJadiController::class, 'printReceipt'])
+        ->whereNumber('serahTerimaFakturBarangJadi')
+        ->name('faktur-barang-jadi.print.receipt');
+    Route::delete('faktur-barang-jadi/print/receipt/{serahTerimaFakturBarangJadi}', [FakturBarangJadiController::class, 'destroyReceipt'])
+        ->whereNumber('serahTerimaFakturBarangJadi')
+        ->name('faktur-barang-jadi.print.receipt.destroy');
+    Route::post('faktur-barang-jadi/print/receipt/{serahTerimaFakturBarangJadi}/send', [FakturBarangJadiController::class, 'sendReceipt'])
+        ->whereNumber('serahTerimaFakturBarangJadi')
+        ->name('faktur-barang-jadi.print.receipt.send');
+    Route::post('faktur-barang-jadi/print/receipt/{serahTerimaFakturBarangJadi}/receive', [FakturBarangJadiController::class, 'receiveReceipt'])
+        ->whereNumber('serahTerimaFakturBarangJadi')
+        ->name('faktur-barang-jadi.print.receipt.receive');
     Route::get('spk-diamond', [SpkDiamondController::class, 'index'])->name('spk-diamond.index');
     Route::get('spk-diamond/{spkDiamond}', [SpkDiamondController::class, 'show'])
         ->whereNumber('spkDiamond')
@@ -286,6 +310,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('coran.spks');
     Route::post('coran/bulk-status', [CoranController::class, 'bulkUpdateStatus'])
         ->name('coran.bulk-status');
+    Route::get('coran/report', [CoranController::class, 'report'])->name('coran.report');
     Route::get('coran', [CoranController::class, 'index'])->name('coran.index');
     Route::get('coran/{coran}', [CoranController::class, 'show'])
         ->whereNumber('coran')
@@ -478,6 +503,9 @@ Route::middleware(['auth'])->group(function () {
             ->whereNumber('diamond');
         Route::post('batu-dossier/bulk-destroy', [DiamondDossierController::class, 'destroyMany'])
             ->name('diamond-dossiers.bulk-destroy');
+        Route::delete('batu-dossier/{diamond}', [DiamondDossierController::class, 'destroy'])
+            ->name('diamond-dossiers.destroy')
+            ->whereNumber('diamond');
         Route::get('batu-dossier/{diamond}', [DiamondDossierController::class, 'show'])
             ->name('diamond-dossiers.show')
             ->whereNumber('diamond');

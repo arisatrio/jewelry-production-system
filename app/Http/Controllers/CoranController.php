@@ -13,6 +13,7 @@ use App\Support\CoranApprovalService;
 use App\Support\CoranDocNumberGenerator;
 use App\Support\CoranMaterialBreakdown;
 use App\Support\CoranMaterialGoldSynchronizer;
+use App\Support\CoranReportAnalytics;
 use App\Support\CoranSpkEligibility;
 use App\Support\ProductionOrderTypeLabel;
 use App\Support\SpkApprovalRoles;
@@ -34,6 +35,34 @@ class CoranController extends Controller
     private const ALL_STATUS_FILTER = 'all';
 
     private const COMPLETED_STATUS_FILTER = 'done';
+
+    /**
+     * Display coran analytics report (PPIC-approved and completed documents).
+     */
+    public function report(Request $request, CoranReportAnalytics $analytics): Response
+    {
+        $craftsmanId = $this->resolveReportCraftsmanId($request->input('craftsman'));
+        $dateFrom = $this->resolveIndexDate($request->string('date_from')->toString())
+            ?? now()->startOfMonth()->format('Y-m-d');
+        $dateTo = $this->resolveIndexDate($request->string('date_to')->toString())
+            ?? now()->format('Y-m-d');
+
+        if ($dateTo < $dateFrom) {
+            $dateTo = $dateFrom;
+        }
+
+        $payload = $analytics->build($craftsmanId, $dateFrom, $dateTo);
+
+        return Inertia::render('coran/report', [
+            'filters' => [
+                'craftsman' => $craftsmanId !== null ? (string) $craftsmanId : '',
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+            'craftsmanOptions' => $analytics->craftsmanOptions(),
+            ...$payload,
+        ]);
+    }
 
     /**
      * Display a listing of coran documents.
@@ -866,6 +895,13 @@ class CoranController extends Controller
         ])->sum(fn (mixed $value): float => (float) ($value ?? 0));
 
         $totalSpkWeight = (float) ($coran->weight ?? 0);
+
+        if (abs($totalSpkWeight) < 0.0005) {
+            $totalSpkWeight = (float) $coran->details()
+                ->notDeleted()
+                ->sum('weight');
+        }
+
         $shrink = round($totalSubmit - $totalResult - $totalSpkWeight, 2);
 
         $coran->forceFill([
@@ -1664,5 +1700,16 @@ class CoranController extends Controller
                 ->tap(fn (Builder $builder) => $spkEligibility->applyCompletedScope($builder))
                 ->count(),
         ];
+    }
+
+    private function resolveReportCraftsmanId(mixed $craftsman): ?int
+    {
+        if (! filled($craftsman)) {
+            return null;
+        }
+
+        $id = (int) $craftsman;
+
+        return $id > 0 ? $id : null;
     }
 }

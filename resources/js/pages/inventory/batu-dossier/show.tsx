@@ -10,7 +10,11 @@ import type {
     DossierFormValues,
     DossierShapeOption,
 } from '@/pages/inventory/batu-dossier/dossier-form-fields';
-import { index as diamondDossiersIndex, revokeAllocation as revokeDiamondAllocation } from '@/routes/inventory/diamond-dossiers';
+import {
+    destroy as destroyDiamondDossier,
+    index as diamondDossiersIndex,
+    revokeAllocation as revokeDiamondAllocation,
+} from '@/routes/inventory/diamond-dossiers';
 import { show as pasangBatuShow } from '@/routes/pasang-batu';
 import { show as spkShow } from '@/routes/spk';
 
@@ -41,6 +45,8 @@ type DossierDiamondDetail = {
 type PageProps = {
     diamond: DossierDiamondDetail;
     canEdit: boolean;
+    canDelete: boolean;
+    deleteBlockReason: string | null;
     canRevokeAllocation: boolean;
     shapeOptions: DossierShapeOption[];
     diamondTypeOptions: DossierShapeOption[];
@@ -321,12 +327,15 @@ function OdooFormField({
 export default function DiamondDossierShow({
     diamond,
     canEdit,
+    canDelete,
+    deleteBlockReason,
     canRevokeAllocation,
     shapeOptions,
     diamondTypeOptions,
     form,
 }: PageProps) {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [revokingAllocation, setRevokingAllocation] = useState(false);
     const [mainSection, setMainSection] = useState<MainSection>('produksi');
     const title = recordTitle(diamond);
@@ -340,6 +349,29 @@ export default function DiamondDossierShow({
     ]
         .filter(Boolean)
         .join(' · ');
+
+    const handleDelete = (): void => {
+        if (deleting || !canDelete) {
+            return;
+        }
+
+        const label = diamond.code ?? String(diamond.id);
+        const confirmed = window.confirm(
+            `Hapus batu dossier ${label}? Data akan di-soft delete.`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setDeleting(true);
+
+        router.delete(destroyDiamondDossier.url(diamond.id), {
+            onFinish: () => {
+                setDeleting(false);
+            },
+        });
+    };
 
     const handleRevokeAllocation = (): void => {
         if (revokingAllocation) {
@@ -419,6 +451,24 @@ export default function DiamondDossierShow({
                                     <button
                                         type="button"
                                         className="spkHeaderActionBtn spkHeaderActionBtn--danger"
+                                        aria-label="Hapus"
+                                        title={
+                                            canDelete
+                                                ? 'Hapus batu dossier'
+                                                : (deleteBlockReason ??
+                                                  'Batu tidak dapat dihapus')
+                                        }
+                                        disabled={!canDelete || deleting}
+                                        onClick={handleDelete}
+                                    >
+                                        <Icon
+                                            name={deleteIcon}
+                                            mode="Decorative"
+                                        />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="spkHeaderActionBtn"
                                         aria-label="Tutup"
                                         title="Kembali ke stok"
                                         onClick={() =>

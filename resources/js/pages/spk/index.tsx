@@ -38,6 +38,9 @@ import {
     targetDaysLeftHint,
     tipeProduksiBadgeClass,
 } from '@/components/spk/spk-list-cells';
+import { FakturBarangJadiReceiptHistoryDialog } from '@/components/spk/faktur-barang-jadi-receipt-history-dialog';
+import { FakturBarangJadiReceiptPrintDialog } from '@/components/spk/faktur-barang-jadi-receipt-print-dialog';
+import { FakturBarangJadiStatusBadge } from '@/components/spk/faktur-barang-jadi-status-badge';
 import { SpkReceiptHistoryDialog } from '@/components/spk/spk-receipt-history-dialog';
 import { SpkReceiptPrintDialog } from '@/components/spk/spk-receipt-print-dialog';
 import {
@@ -57,6 +60,7 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { index as fakturBarangJadiIndex } from '@/routes/faktur-barang-jadi';
 import { index as reparasiIndex } from '@/routes/reparasi';
 import {
     bulkStatus,
@@ -79,13 +83,27 @@ type FilterOption = {
 };
 
 type StatusCountKey =
-    'draft' | 'pendingManager' | 'confirmed' | 'inProgress' | 'done';
+    | 'draft'
+    | 'pendingManager'
+    | 'confirmed'
+    | 'inProgress'
+    | 'done'
+    | 'doneRangka'
+    | 'doneBarangJadi'
+    | 'belumDibuatFaktur';
 
-type StatusAlertKey = 'draft' | 'pendingManager' | 'inProgress' | 'done';
+type StatusAlertKey =
+    | 'draft'
+    | 'pendingManager'
+    | 'inProgress'
+    | 'done'
+    | 'doneRangka'
+    | 'doneBarangJadi'
+    | 'belumDibuatFaktur';
 
 type BulkAction = 'submit' | 'approve' | 'manager_approve' | 'delete';
 
-type SpkIndexContext = 'spk' | 'reparasi';
+type SpkIndexContext = 'spk' | 'reparasi' | 'fakturBarangJadi';
 
 type SpkIndexProps = {
     indexContext?: SpkIndexContext;
@@ -118,6 +136,7 @@ type SpkIndexProps = {
         target_from: string | null;
         target_to: string | null;
         per_page: number;
+        faktur_belum?: boolean;
     };
     filterOptions: {
         target_period: FilterOption[];
@@ -134,6 +153,8 @@ type SpkIndexProps = {
         canManagerApprove: boolean;
         canDelete: boolean;
     };
+    fakturBarangJadiTableAvailable?: boolean | null;
+    fakturBarangJadiReceiptCount?: number | null;
 };
 
 const DEFAULT_PER_PAGE = 50;
@@ -161,6 +182,28 @@ const STATUS_ALERTS = [
     {
         key: 'done',
         hint: 'SPK sudah selesai produksi (Rangka / Barang Jadi)',
+        design: 'Positive',
+    },
+] as const satisfies ReadonlyArray<{
+    key: StatusAlertKey;
+    hint: string;
+    design: 'Information' | 'Critical' | 'Positive';
+}>;
+
+const FAKTUR_STATUS_ALERTS = [
+    {
+        key: 'belumDibuatFaktur',
+        hint: 'SPK selesai yang belum masuk faktur barang jadi',
+        design: 'Information',
+    },
+    {
+        key: 'doneRangka',
+        hint: 'SPK selesai di tahap Poles Rangka (tanpa Pasang Batu / Poles Chrome)',
+        design: 'Positive',
+    },
+    {
+        key: 'doneBarangJadi',
+        hint: 'SPK selesai barang jadi',
         design: 'Positive',
     },
 ] as const satisfies ReadonlyArray<{
@@ -202,9 +245,38 @@ export default function SpkIndex({
     storeStockRequestCount,
     storeOrderRequestCount,
     bulkActions,
+    fakturBarangJadiTableAvailable,
+    fakturBarangJadiReceiptCount,
 }: SpkIndexProps) {
     const isReparasiIndex = indexContext === 'reparasi';
-    const listIndexRoute = isReparasiIndex ? reparasiIndex : spkIndex;
+    const isFakturBarangJadiIndex = indexContext === 'fakturBarangJadi';
+    const listIndexRoute = isReparasiIndex
+        ? reparasiIndex
+        : isFakturBarangJadiIndex
+          ? fakturBarangJadiIndex
+          : spkIndex;
+    const statusAlerts = isFakturBarangJadiIndex
+        ? FAKTUR_STATUS_ALERTS
+        : STATUS_ALERTS;
+    const hideSpkManagementToolbar =
+        isReparasiIndex || isFakturBarangJadiIndex;
+    const pageTitle = isReparasiIndex
+        ? 'Reparasi'
+        : isFakturBarangJadiIndex
+          ? 'Faktur Barang Jadi'
+          : 'SPK';
+    const pageSubtitle = isReparasiIndex
+        ? 'Data surat perintah kerja reparasi'
+        : isFakturBarangJadiIndex
+          ? 'Daftar SPK selesai (DONE Rangka & DONE Barang Jadi)'
+          : 'Data surat perintah kerja produksi';
+    const showStoneStatusColumn = !isFakturBarangJadiIndex;
+    const showFakturIssuedColumn = isFakturBarangJadiIndex;
+    const tableColSpan =
+        10 + (showStoneStatusColumn ? 1 : 0) + (showFakturIssuedColumn ? 1 : 0);
+
+    const isRowSelectableForFaktur = (row: SpkIndexRow): boolean =>
+        !isFakturBarangJadiIndex || row.fakturBarangJadiIssued !== true;
     const [searchQuery, setSearchQuery] = useState(filters.search);
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
     const [rowActionProcessing, setRowActionProcessing] = useState(false);
@@ -216,6 +288,13 @@ export default function SpkIndex({
     const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
     const [receiptHistoryDialogOpen, setReceiptHistoryDialogOpen] =
         useState(false);
+    const [fakturReceiptDialogOpen, setFakturReceiptDialogOpen] = useState(false);
+    const [fakturReceiptHistoryDialogOpen, setFakturReceiptHistoryDialogOpen] =
+        useState(false);
+    const fakturReceiptCountLabel =
+        typeof fakturBarangJadiReceiptCount === 'number'
+            ? fakturBarangJadiReceiptCount.toLocaleString('id-ID')
+            : '–';
     const [storeStockRequestDialogOpen, setStoreStockRequestDialogOpen] =
         useState(false);
     const storeStockRequestCountLabel =
@@ -253,6 +332,7 @@ export default function SpkIndex({
         target_from?: string | null;
         target_to?: string | null;
         per_page?: number;
+        faktur_belum?: boolean;
         page?: number;
     }) => {
         const nextSearch = params.search ?? searchQuery;
@@ -277,6 +357,10 @@ export default function SpkIndex({
                 : filters.target_to;
         const isCustomTarget = nextTargetPeriod === TARGET_PERIOD_CUSTOM;
         const nextPerPage = params.per_page ?? filters.per_page;
+        const nextFakturBelum =
+            params.faktur_belum !== undefined
+                ? params.faktur_belum
+                : (filters.faktur_belum ?? false);
 
         return {
             search: nextSearch || undefined,
@@ -291,6 +375,7 @@ export default function SpkIndex({
             target_to: (isCustomTarget && nextTargetTo) || undefined,
             per_page:
                 nextPerPage !== DEFAULT_PER_PAGE ? nextPerPage : undefined,
+            faktur_belum: nextFakturBelum ? true : undefined,
             page: params.page ?? 1,
         };
     };
@@ -405,13 +490,26 @@ export default function SpkIndex({
         () => productions.data.map((row) => row.rowId),
         [productions.data],
     );
+    const selectablePageIds = useMemo(
+        () =>
+            productions.data
+                .filter((row) => isRowSelectableForFaktur(row))
+                .map((row) => row.rowId),
+        [productions.data, isFakturBarangJadiIndex],
+    );
+    const bulkSelectIds = isFakturBarangJadiIndex
+        ? selectablePageIds
+        : pageIds;
     const allPageSelected =
-        pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
-    const somePageSelected = pageIds.some((id) => selectedIds.includes(id));
+        bulkSelectIds.length > 0 &&
+        bulkSelectIds.every((id) => selectedIds.includes(id));
+    const somePageSelected = bulkSelectIds.some((id) =>
+        selectedIds.includes(id),
+    );
 
     const toggleSelectAll = (checked: boolean | 'indeterminate') => {
         if (checked === true) {
-            setSelectedIds(pageIds);
+            setSelectedIds(bulkSelectIds);
 
             return;
         }
@@ -423,6 +521,12 @@ export default function SpkIndex({
         id: number,
         checked: boolean | 'indeterminate',
     ) => {
+        const row = productions.data.find((item) => item.rowId === id);
+
+        if (row !== undefined && !isRowSelectableForFaktur(row)) {
+            return;
+        }
+
         setSelectedIds((current) => {
             if (checked === true) {
                 return current.includes(id) ? current : [...current, id];
@@ -439,6 +543,15 @@ export default function SpkIndex({
         }
 
         setReceiptDialogOpen(true);
+    };
+
+    const openFakturReceiptPrintDialog = (): void => {
+        if (selectedIds.length === 0) {
+            window.alert('Pilih SPK selesai terlebih dahulu.');
+            return;
+        }
+
+        setFakturReceiptDialogOpen(true);
     };
 
     const runBulkStatus = (action: BulkAction) => {
@@ -472,14 +585,32 @@ export default function SpkIndex({
         );
     };
 
-    const statusAlertFilterValue = (key: StatusAlertKey): string =>
-        key === 'done' ? DONE_STATUS_FILTER : statusLabels[key];
+    const statusAlertFilterValue = (key: StatusAlertKey): string => {
+        if (key === 'done') {
+            return DONE_STATUS_FILTER;
+        }
 
-    const statusListAlert = STATUS_ALERTS.find(
+        if (key === 'belumDibuatFaktur') {
+            return 'Belum Dibuat Faktur';
+        }
+
+        return statusLabels[key];
+    };
+
+    const statusListAlert = statusAlerts.find(
         (alert) => alert.key === statusListDialog?.key,
     );
 
     const openStatusList = (key: StatusAlertKey) => {
+        if (isFakturBarangJadiIndex && key === 'belumDibuatFaktur') {
+            visitIndex({
+                faktur_belum: !(filters.faktur_belum ?? false),
+                page: 1,
+            });
+
+            return;
+        }
+
         setStatusListDialog((current) => ({
             key,
             requestId: (current?.requestId ?? 0) + 1,
@@ -678,19 +809,17 @@ export default function SpkIndex({
 
     return (
         <>
-            <Head title={isReparasiIndex ? 'Reparasi' : 'SPK'} />
+            <Head title={pageTitle} />
             <div className="spkTableShell">
                 <div className="spkTableCard">
                     <div className="spkTableToolbar spkTableHeaderBar--finishing spkTableHeaderBar--spk">
                         <div className="spkTableToolbarLeft">
                             <div className="spkTableTitleBlock spkTableTitleBlock--finishing">
                                 <h2 className="spkTableHeaderTitle--finishing">
-                                    {isReparasiIndex ? 'Reparasi' : 'SPK'}
+                                    {pageTitle}
                                 </h2>
                                 <p className="spkTableHeaderSubtitle--finishing text-muted-foreground">
-                                    {isReparasiIndex
-                                        ? 'Data surat perintah kerja reparasi'
-                                        : 'Data surat perintah kerja produksi'}
+                                    {pageSubtitle}
                                 </p>
                             </div>
                         </div>
@@ -700,22 +829,41 @@ export default function SpkIndex({
                                 role="group"
                                 aria-label="Ringkasan status SPK"
                             >
-                                {STATUS_ALERTS.map((alert) => {
+                                {statusAlerts.map((alert) => {
                                     const count = statusCounts[alert.key] ?? 0;
                                     const filterValue = statusAlertFilterValue(
                                         alert.key,
                                     );
+                                    const isBelumFakturFilter =
+                                        alert.key === 'belumDibuatFaktur' &&
+                                        (filters.faktur_belum ?? false);
 
                                     return (
                                         <button
                                             key={alert.key}
                                             type="button"
-                                            className="spkTableStatusAlertBtn--finishing"
+                                            className={[
+                                                'spkTableStatusAlertBtn--finishing',
+                                                isBelumFakturFilter
+                                                    ? 'is-active'
+                                                    : '',
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' ')}
                                             onClick={() =>
                                                 openStatusList(alert.key)
                                             }
-                                            aria-haspopup="dialog"
-                                            aria-label={`${count.toLocaleString('id-ID')} ${alert.hint}. Klik untuk melihat daftar.`}
+                                            aria-haspopup={
+                                                alert.key === 'belumDibuatFaktur'
+                                                    ? undefined
+                                                    : 'dialog'
+                                            }
+                                            aria-pressed={
+                                                alert.key === 'belumDibuatFaktur'
+                                                    ? isBelumFakturFilter
+                                                    : undefined
+                                            }
+                                            aria-label={`${count.toLocaleString('id-ID')} ${alert.hint}. Klik untuk ${alert.key === 'belumDibuatFaktur' ? 'filter tabel' : 'melihat daftar'}.`}
                                             title={alert.hint}
                                         >
                                             <MessageStrip
@@ -1279,7 +1427,45 @@ export default function SpkIndex({
                                 accessibleName="Ekspor"
                                 className="spkTableHeaderExportBtn--finishing"
                             />
-                            {!isReparasiIndex ? (
+                            {isFakturBarangJadiIndex &&
+                            fakturBarangJadiTableAvailable !== false ? (
+                                <>
+                                    <span
+                                        className="spkTableHeaderDivider--finishing"
+                                        aria-hidden="true"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="spkReceiptPrintBtn"
+                                        aria-label={
+                                            selectedIds.length > 0
+                                                ? `Buat Faktur Barang Jadi (${selectedIds.length} SPK)`
+                                                : 'Buat Faktur Barang Jadi'
+                                        }
+                                        title={
+                                            selectedIds.length > 0
+                                                ? `Buat Faktur Barang Jadi (${selectedIds.length} SPK)`
+                                                : 'Pilih SPK selesai terlebih dahulu'
+                                        }
+                                        onClick={openFakturReceiptPrintDialog}
+                                    >
+                                        <Icon
+                                            name={printIcon}
+                                            mode="Decorative"
+                                        />
+                                        <span>Buat Faktur Barang Jadi</span>
+                                        {selectedIds.length > 0 ? (
+                                            <span
+                                                className="spkReceiptPrintCount"
+                                                aria-hidden="true"
+                                            >
+                                                {selectedIds.length}
+                                            </span>
+                                        ) : null}
+                                    </button>
+                                </>
+                            ) : null}
+                            {!hideSpkManagementToolbar ? (
                                 <>
                                     <Button
                                         design="Default"
@@ -1358,7 +1544,49 @@ export default function SpkIndex({
                         </div>
                     </div>
 
-                    {!isReparasiIndex ? (
+                    {isFakturBarangJadiIndex &&
+                    fakturBarangJadiTableAvailable !== false ? (
+                        <div className="spkStoreStockRequestBar">
+                            <Button
+                                className="spkStoreStockRequestBtn"
+                                design="Default"
+                                icon={documentIcon}
+                                accessibleName={
+                                    typeof fakturBarangJadiReceiptCount ===
+                                        'number' &&
+                                    fakturBarangJadiReceiptCount > 0
+                                        ? `Riwayat Faktur: ${fakturReceiptCountLabel} faktur`
+                                        : 'Riwayat Faktur Barang Jadi'
+                                }
+                                tooltip="Daftar faktur barang jadi"
+                                onClick={() =>
+                                    setFakturReceiptHistoryDialogOpen(true)
+                                }
+                            >
+                                Riwayat Faktur Barang Jadi
+                                {typeof fakturBarangJadiReceiptCount ===
+                                    'number' &&
+                                fakturBarangJadiReceiptCount > 0 ? (
+                                    <span
+                                        className="spkStoreStockRequestCount"
+                                        aria-hidden="true"
+                                    >
+                                        {fakturReceiptCountLabel}
+                                    </span>
+                                ) : null}
+                            </Button>
+                        </div>
+                    ) : null}
+
+                    {isFakturBarangJadiIndex &&
+                    fakturBarangJadiTableAvailable === false ? (
+                        <MessageStrip design="Information" hideCloseButton>
+                            Penyimpanan faktur barang jadi belum tersedia di
+                            database.
+                        </MessageStrip>
+                    ) : null}
+
+                    {!hideSpkManagementToolbar ? (
                         <div className="spkStoreStockRequestBar">
                             <Button
                                 className="spkStoreStockRequestBtn"
@@ -1477,6 +1705,17 @@ export default function SpkIndex({
                                 onRemove: () =>
                                     visitIndex({ status: [], page: 1 }),
                             },
+                            isFakturBarangJadiIndex &&
+                                filters.faktur_belum && {
+                                    key: 'faktur_belum',
+                                    label: 'Faktur',
+                                    value: 'Belum dibuat',
+                                    onRemove: () =>
+                                        visitIndex({
+                                            faktur_belum: false,
+                                            page: 1,
+                                        }),
+                                },
                         ]}
                         sort={
                             hasCustomSort && {
@@ -1501,6 +1740,7 @@ export default function SpkIndex({
                                 target_period: '',
                                 target_from: null,
                                 target_to: null,
+                                faktur_belum: false,
                                 sort: 'id',
                                 direction: 'desc',
                                 page: 1,
@@ -1592,7 +1832,7 @@ export default function SpkIndex({
                                             }
                                             onCheckedChange={toggleSelectAll}
                                             aria-label="Pilih semua baris"
-                                            disabled={pageIds.length === 0}
+                                            disabled={bulkSelectIds.length === 0}
                                         />
                                     </th>
                                     <th className="spkTableColDoc--spk">ID</th>
@@ -1607,9 +1847,18 @@ export default function SpkIndex({
                                     <th className="spkTableColCenter">
                                         Proses Terakhir
                                     </th>
-                                    <th className="spkTableColCenter spkTableColMaterialStatus">
-                                        Status Batu
-                                    </th>
+                                    {showStoneStatusColumn ? (
+                                        <th className="spkTableColCenter spkTableColMaterialStatus">
+                                            Status Batu
+                                        </th>
+                                    ) : null}
+                                    <th className="spkTableColCenter">Location</th>
+                                    <th className="spkTableColCenter">PLU</th>
+                                    {showFakturIssuedColumn ? (
+                                        <th className="spkTableColCenter">
+                                            Status Faktur
+                                        </th>
+                                    ) : null}
                                     <th className="spkTableColStatus spkTableColCenter">
                                         Status
                                     </th>
@@ -1618,7 +1867,9 @@ export default function SpkIndex({
                             <tbody>
                                 {productions.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9}>Tidak ada data SPK.</td>
+                                        <td colSpan={tableColSpan}>
+                                            Tidak ada data SPK.
+                                        </td>
                                     </tr>
                                 ) : (
                                     productions.data.map((row) => {
@@ -1665,6 +1916,21 @@ export default function SpkIndex({
                                             bulkActions.canApprove
                                                 ? 'approve'
                                                 : 'submit';
+                                        const fakturStatus =
+                                            row.fakturBarangJadiStatus ?? null;
+                                        const fakturRowClass =
+                                            showFakturIssuedColumn
+                                                ? (fakturStatus === 'received'
+                                                      ? 'is-faktur-barang-jadi-received'
+                                                      : fakturStatus === 'sent'
+                                                        ? 'is-faktur-barang-jadi-sent'
+                                                        : fakturStatus ===
+                                                            'created'
+                                                          ? 'is-faktur-barang-jadi-created'
+                                                          : 'is-faktur-barang-jadi-pending')
+                                                : '';
+                                        const rowSelectable =
+                                            isRowSelectableForFaktur(row);
 
                                         return (
                                             <tr
@@ -1681,6 +1947,7 @@ export default function SpkIndex({
                                                         )
                                                             ? 'is-incomplete'
                                                             : '',
+                                                        fakturRowClass,
                                                     ]
                                                         .filter(Boolean)
                                                         .join(' ') || undefined
@@ -1700,6 +1967,7 @@ export default function SpkIndex({
                                                             )
                                                         }
                                                         aria-label={`Pilih ${row.produksiNo}`}
+                                                        disabled={!rowSelectable}
                                                     />
                                                 </td>
                                                 <td className="spkTableColDoc spkTableColDoc--spk">
@@ -1844,13 +2112,28 @@ export default function SpkIndex({
                                                         row={row}
                                                     />
                                                 </td>
-                                                <td className="spkTableColCenter spkTableColMaterialStatus">
-                                                    <SpkTableStoneStatusCell
-                                                        stoneIndexStatus={
-                                                            row.stoneIndexStatus
-                                                        }
-                                                    />
+                                                {showStoneStatusColumn ? (
+                                                    <td className="spkTableColCenter spkTableColMaterialStatus">
+                                                        <SpkTableStoneStatusCell
+                                                            stoneIndexStatus={
+                                                                row.stoneIndexStatus
+                                                            }
+                                                        />
+                                                    </td>
+                                                ) : null}
+                                                <td className="spkTableColCenter">
+                                                    {row.location?.trim() || '—'}
                                                 </td>
+                                                <td className="spkTableColCenter">
+                                                    {row.plu?.trim() || '—'}
+                                                </td>
+                                                {showFakturIssuedColumn ? (
+                                                    <td className="spkTableColCenter">
+                                                        <FakturBarangJadiStatusBadge
+                                                            status={fakturStatus}
+                                                        />
+                                                    </td>
+                                                ) : null}
                                                 <td className="spkTableColStatus spkTableColCenter">
                                                     <SpkTableStatusCell
                                                         row={row}
@@ -1867,7 +2150,7 @@ export default function SpkIndex({
                     <div className="spkTableFooter">
                         <div className="spkTableTotal">
                             Total {productions.total.toLocaleString('id-ID')}{' '}
-                            {isReparasiIndex ? 'Reparasi' : 'SPK'}
+                            {pageTitle}
                         </div>
                         <div className="spkPagination">
                             <button
@@ -1915,7 +2198,9 @@ export default function SpkIndex({
                         ? statusList.url(statusListAlert.key, {
                               query: isReparasiIndex
                                   ? { scope: 'reparasi' }
-                                  : undefined,
+                                  : isFakturBarangJadiIndex
+                                    ? { scope: 'faktur-barang-jadi' }
+                                    : undefined,
                           })
                         : null
                 }
@@ -1949,6 +2234,26 @@ export default function SpkIndex({
                 open={storeStockRequestDialogOpen}
                 onOpenChange={setStoreStockRequestDialogOpen}
             />
+
+            {isFakturBarangJadiIndex ? (
+                <>
+                    <FakturBarangJadiReceiptPrintDialog
+                        open={fakturReceiptDialogOpen}
+                        onOpenChange={setFakturReceiptDialogOpen}
+                        selectedIds={selectedIds}
+                        employeeOptions={receiptEmployeeOptions}
+                        onSaved={() => {
+                            setSelectedIds([]);
+                            visitIndex({ page: productions.current_page });
+                        }}
+                    />
+                    <FakturBarangJadiReceiptHistoryDialog
+                        open={fakturReceiptHistoryDialogOpen}
+                        onOpenChange={setFakturReceiptHistoryDialogOpen}
+                        employeeOptions={receiptEmployeeOptions}
+                    />
+                </>
+            ) : null}
         </>
     );
 }

@@ -30,6 +30,7 @@ use App\Models\SpkStone;
 use App\Policies\ProductionPolicy;
 use App\Support\CoranSpkEligibility;
 use App\Support\DiamondMountingSpkEligibility;
+use App\Support\FakturBarangJadiReceiptService;
 use App\Support\FinishingSpkEligibility;
 use App\Support\GoldColorOptions;
 use App\Support\JewelCadSpkEligibility;
@@ -143,9 +144,17 @@ class ProductionController extends Controller
     }
 
     /**
+     * Daftar SPK selesai (DONE Rangka dan DONE Barang Jadi) untuk faktur barang jadi.
+     */
+    public function fakturBarangJadiIndex(Request $request): Response
+    {
+        return $this->renderSpkIndex($request, reparasiOnly: false, fakturBarangJadiOnly: true);
+    }
+
+    /**
      * Display a listing of SPK productions.
      */
-    private function renderSpkIndex(Request $request, bool $reparasiOnly): Response
+    private function renderSpkIndex(Request $request, bool $reparasiOnly, bool $fakturBarangJadiOnly = false): Response
     {
         $allowedTypes = $reparasiOnly
             ? [SpkService::REPARATION_TYPE]
@@ -156,8 +165,17 @@ class ProductionController extends Controller
         if ($reparasiOnly) {
             $typeFilters = $typeFilters === [] ? [SpkService::REPARATION_TYPE] : $typeFilters;
         }
-        $statusLabels = array_values(SpkDashboardAnalytics::BACKLOG_STATUS_LABELS);
-        array_splice($statusLabels, 4, 0, ['Done']);
+
+        if ($fakturBarangJadiOnly) {
+            $statusLabels = [
+                SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[SpkDashboardAnalytics::KEY_DONE_RANGKA],
+                SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[SpkDashboardAnalytics::KEY_DONE_BARANG_JADI],
+            ];
+        } else {
+            $statusLabels = array_values(SpkDashboardAnalytics::BACKLOG_STATUS_LABELS);
+            array_splice($statusLabels, 4, 0, ['Done']);
+        }
+
         $statusFilters = $this->resolveIndexMultiFilter($request->input('status'), $statusLabels);
         $sort = $request->string('sort')->toString();
         $sort = array_key_exists($sort, self::INDEX_SORT_COLUMNS) ? $sort : 'id';
@@ -184,7 +202,9 @@ class ProductionController extends Controller
         $perPage = $request->integer('per_page', 50);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
         $typeCounts = $this->activeTypeCounts($reparasiOnly);
-        $statusCounts = $this->activeStatusCounts($reparasiOnly);
+        $statusCounts = $fakturBarangJadiOnly
+            ? $this->fakturBarangJadiStatusCounts()
+            : $this->activeStatusCounts($reparasiOnly);
 
         if ($dateFrom !== null && $dateTo !== null && $dateTo < $dateFrom) {
             $dateTo = $dateFrom;
@@ -194,10 +214,31 @@ class ProductionController extends Controller
             $targetTo = $targetFrom;
         }
 
+        $fakturAnalytics = $fakturBarangJadiOnly ? new SpkDashboardAnalytics : null;
+        $fakturBarangJadiWorkflowMaps = $fakturBarangJadiOnly
+            ? app(FakturBarangJadiReceiptService::class)->spkRowFakturWorkflowMaps()
+            : null;
+        $fakturBarangJadiIssuedIds = $fakturBarangJadiWorkflowMaps['issued'] ?? null;
+        $fakturBarangJadiStatusByRowId = $fakturBarangJadiWorkflowMaps['statuses'] ?? null;
+        $fakturBelumOnly = $fakturBarangJadiOnly && $request->boolean('faktur_belum');
+
         $productions = Production::query()
             ->with(['sku', 'categoryPrefix'])
             ->notDeleted()
             ->tap(fn (Builder $query) => $this->applyIndexTypeScope($query, $reparasiOnly))
+            ->when($fakturAnalytics !== null, function (Builder $query) use ($fakturAnalytics): void {
+                $fakturAnalytics->constrainToCompletedProduction($query);
+            })
+            ->when(
+                $fakturBelumOnly && $fakturBarangJadiIssuedIds !== null,
+                function (Builder $query) use ($fakturBarangJadiIssuedIds): void {
+                    $issuedIds = array_keys($fakturBarangJadiIssuedIds);
+
+                    if ($issuedIds !== []) {
+                        $query->whereIntegerNotInRaw('row_id', $issuedIds);
+                    }
+                },
+            )
             ->when($dateFrom !== null, function ($query) use ($dateFrom): void {
                 $query->whereDate('created_date', '>=', $dateFrom);
             })
@@ -251,6 +292,14 @@ class ProductionController extends Controller
                         ->orWhere('description', 'like', "%{$search}%")
                         ->orWhere('status', 'like', "%{$search}%")
                         ->orWhere('last_process', 'like', "%{$search}%")
+                        ->when(
+                            Schema::connection('third')->hasColumn('spk', 'location'),
+                            fn ($query) => $query->orWhere('location', 'like', "%{$search}%"),
+                        )
+                        ->when(
+                            Schema::connection('third')->hasColumn('spk', 'plu'),
+                            fn ($query) => $query->orWhere('plu', 'like', "%{$search}%"),
+                        )
                         ->when($matchingSkuIds !== [], function ($query) use ($matchingSkuIds): void {
                             $query->orWhereIn('sku_id', $matchingSkuIds);
                         });
@@ -267,13 +316,29 @@ class ProductionController extends Controller
             ->withQueryString();
 
         $productions = $productions->through(
-            $this->indexRowMapper($productions->getCollection()),
+            $this->indexRowMapper(
+                $productions->getCollection(),
+                $fakturBarangJadiIssuedIds,
+                $fakturBarangJadiStatusByRowId,
+            ),
         );
 
         $user = $request->user();
 
-        return Inertia::render($reparasiOnly ? 'reparasi/index' : 'spk/index', [
-            'indexContext' => $reparasiOnly ? 'reparasi' : 'spk',
+        $indexContext = match (true) {
+            $reparasiOnly => 'reparasi',
+            $fakturBarangJadiOnly => 'fakturBarangJadi',
+            default => 'spk',
+        };
+
+        $inertiaPage = match ($indexContext) {
+            'reparasi' => 'reparasi/index',
+            'fakturBarangJadi' => 'faktur-barang-jadi/index',
+            default => 'spk/index',
+        };
+
+        return Inertia::render($inertiaPage, [
+            'indexContext' => $indexContext,
             'productions' => $productions,
             'types' => $allowedTypes,
             'typeCounts' => $typeCounts,
@@ -292,6 +357,7 @@ class ProductionController extends Controller
                 'target_from' => $targetPeriod === 'custom' ? $targetFrom : null,
                 'target_to' => $targetPeriod === 'custom' ? $targetTo : null,
                 'per_page' => $perPage,
+                'faktur_belum' => $fakturBelumOnly,
             ],
             'filterOptions' => [
                 'target_period' => collect(self::TARGET_PERIOD_LABELS)
@@ -320,14 +386,31 @@ class ProductionController extends Controller
                 ],
             ],
             'receiptEmployeeOptions' => Inertia::once(fn (): array => $this->receiptEmployeeOptions()),
-            'storeStockRequestCount' => Inertia::defer(fn (): ?int => app(StoreStockRequestRepository::class)->pendingSpkCount()),
-            'storeOrderRequestCount' => Inertia::defer(fn (): int => app(StoreOrderRequestRepository::class)->pendingSpkCount()),
-            'bulkActions' => [
-                'canSubmit' => SpkApprovalRoles::canSubmit($user),
-                'canApprove' => SpkApprovalRoles::canApprove($user),
-                'canManagerApprove' => SpkApprovalRoles::canManagerApprove($user),
-                'canDelete' => SpkApprovalRoles::canEditDraft($user),
-            ],
+            'storeStockRequestCount' => $fakturBarangJadiOnly
+                ? null
+                : Inertia::defer(fn (): ?int => app(StoreStockRequestRepository::class)->pendingSpkCount()),
+            'storeOrderRequestCount' => $fakturBarangJadiOnly
+                ? null
+                : Inertia::defer(fn (): int => app(StoreOrderRequestRepository::class)->pendingSpkCount()),
+            'bulkActions' => $fakturBarangJadiOnly
+                ? [
+                    'canSubmit' => false,
+                    'canApprove' => false,
+                    'canManagerApprove' => false,
+                    'canDelete' => false,
+                ]
+                : [
+                    'canSubmit' => SpkApprovalRoles::canSubmit($user),
+                    'canApprove' => SpkApprovalRoles::canApprove($user),
+                    'canManagerApprove' => SpkApprovalRoles::canManagerApprove($user),
+                    'canDelete' => SpkApprovalRoles::canEditDraft($user),
+                ],
+            'fakturBarangJadiTableAvailable' => $fakturBarangJadiOnly
+                ? app(FakturBarangJadiReceiptService::class)->tableAvailable()
+                : null,
+            'fakturBarangJadiReceiptCount' => $fakturBarangJadiOnly
+                ? app(FakturBarangJadiReceiptService::class)->openReceiptCount()
+                : null,
         ]);
     }
 
@@ -529,11 +612,16 @@ class ProductionController extends Controller
             abort(404);
         }
 
-        $reparasiOnly = $request->string('scope')->toString() === 'reparasi';
+        $scope = $request->string('scope')->toString();
+        $reparasiOnly = $scope === 'reparasi';
+        $fakturBarangJadiOnly = $scope === 'faktur-barang-jadi';
 
         $query = Production::query()
             ->notDeleted()
-            ->tap(fn (Builder $builder) => $this->applyIndexTypeScope($builder, $reparasiOnly));
+            ->tap(fn (Builder $builder) => $this->applyIndexTypeScope($builder, $reparasiOnly))
+            ->when($fakturBarangJadiOnly, function (Builder $builder): void {
+                (new SpkDashboardAnalytics)->constrainToCompletedProduction($builder);
+            });
 
         $this->applyBacklogStatusFilter($query, $statusKey);
 
@@ -819,6 +907,39 @@ class ProductionController extends Controller
 
             if (isset($counts[$key])) {
                 $counts[$key]++;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @return array{doneRangka: int, doneBarangJadi: int, belumDibuatFaktur: int}
+     */
+    private function fakturBarangJadiStatusCounts(): array
+    {
+        $analytics = new SpkDashboardAnalytics;
+        $issuedIds = app(FakturBarangJadiReceiptService::class)->spkRowIdsOnOpenReceipts();
+        $rowIds = Production::query()
+            ->notDeleted()
+            ->tap(fn (Builder $query) => $this->applyIndexTypeScope($query, reparasiOnly: false))
+            ->tap(fn (Builder $query) => $analytics->constrainToCompletedProduction($query))
+            ->pluck('row_id')
+            ->all();
+
+        $counts = [
+            'doneRangka' => 0,
+            'doneBarangJadi' => 0,
+            'belumDibuatFaktur' => 0,
+        ];
+
+        foreach (SpkDashboardAnalytics::completedProductionKinds($rowIds) as $rowId => $kind) {
+            if (isset($counts[$kind])) {
+                $counts[$kind]++;
+            }
+
+            if (! isset($issuedIds[(int) $rowId])) {
+                $counts['belumDibuatFaktur']++;
             }
         }
 
@@ -2949,7 +3070,20 @@ class ProductionController extends Controller
             'status' => SpkDashboardAnalytics::backlogStatusLabel($production, $completed),
             'prosesTerakhir' => $production->last_process ?? '',
             'prosesTerakhirDate' => $lastProcessDate ?? '',
+            'location' => $this->listLocation($production),
+            'plu' => filled($production->plu) ? trim((string) $production->plu) : null,
         ];
+    }
+
+    private function listLocation(Production $production): string
+    {
+        $location = $production->getAttribute('location');
+
+        if (is_string($location) && trim($location) !== '') {
+            return trim($location);
+        }
+
+        return Production::DEFAULT_LOCATION;
     }
 
     /**
@@ -2958,8 +3092,15 @@ class ProductionController extends Controller
      * @param  Collection<int, Production>  $pageProductions
      * @return Closure(Production): array<string, mixed>
      */
-    private function indexRowMapper(Collection $pageProductions): Closure
-    {
+    /**
+     * @param  array<int, true>|null  $fakturBarangJadiIssuedIds
+     * @param  array<int, string>|null  $fakturBarangJadiStatusByRowId
+     */
+    private function indexRowMapper(
+        Collection $pageProductions,
+        ?array $fakturBarangJadiIssuedIds = null,
+        ?array $fakturBarangJadiStatusByRowId = null,
+    ): Closure {
         $doneKinds = SpkDashboardAnalytics::completedProductionKinds(
             $pageProductions->pluck('row_id')->all(),
         );
@@ -2980,7 +3121,7 @@ class ProductionController extends Controller
             $pageProductions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
         ));
 
-        return function (Production $production) use ($doneKinds, $lastProcessDates, $requestOrders, $latestReceipts, $materialStatuses): array {
+        return function (Production $production) use ($doneKinds, $lastProcessDates, $requestOrders, $latestReceipts, $materialStatuses, $fakturBarangJadiIssuedIds, $fakturBarangJadiStatusByRowId): array {
             $row = $this->toIndexRow(
                 $production,
                 $doneKinds[(int) $production->row_id] ?? false,
@@ -3001,6 +3142,12 @@ class ProductionController extends Controller
             ];
             $row['stoneIndexStatus'] = $material['stoneIndexStatus'];
             $row['componentStatus'] = $material['componentStatus'];
+
+            if ($fakturBarangJadiIssuedIds !== null) {
+                $rowId = (int) $production->row_id;
+                $row['fakturBarangJadiIssued'] = isset($fakturBarangJadiIssuedIds[$rowId]);
+                $row['fakturBarangJadiStatus'] = $fakturBarangJadiStatusByRowId[$rowId] ?? null;
+            }
 
             return $this->applyLastProcessBadgeFields($row, $production);
         };

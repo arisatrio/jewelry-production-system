@@ -14,6 +14,8 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $row_id
  * @property string|null $spk_no
+ * @property string|null $location
+ * @property string|null $plu
  * @property string|null $spk_type
  * @property string|null $request_order_no
  * @property string|null $request_stock_no
@@ -64,6 +66,8 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'spk_no',
+    'location',
+    'plu',
     'spk_type',
     'request_order_no',
     'request_stock_no',
@@ -114,6 +118,8 @@ use Illuminate\Support\Carbon;
 ])]
 class Production extends Model
 {
+    public const DEFAULT_LOCATION = 'Workshop';
+
     /** @use HasFactory<ProductionFactory> */
     use HasFactory;
 

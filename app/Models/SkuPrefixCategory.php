@@ -74,6 +74,26 @@ class SkuPrefixCategory extends Model
     }
 
     /**
+     * Label untuk chart dashboard (tanpa singkatan prefix).
+     */
+    public function chartLabel(): string
+    {
+        $category = trim((string) $this->category);
+
+        if ($category !== '') {
+            return strtoupper($category);
+        }
+
+        $prefix = trim((string) $this->prefix);
+
+        if ($prefix !== '') {
+            return strtoupper($prefix);
+        }
+
+        return '-';
+    }
+
+    /**
      * @return HasMany<SkuMaster, $this>
      */
     public function skus(): HasMany

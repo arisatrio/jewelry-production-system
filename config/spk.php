@@ -60,6 +60,12 @@ return [
 
     'spk_diamond_receipt_issue_date' => '05/11/2026',
 
+    'faktur_barang_jadi_receipt_document_no' => 'WHOJ-PRD-FRM-010',
+
+    'faktur_barang_jadi_receipt_revision' => '00',
+
+    'faktur_barang_jadi_receipt_issue_date' => '12/11/2026',
+
     'chain_receipt_document_no' => 'WHOJ-PRD-FRM-003',
 
     'chain_receipt_revision' => '00',

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Production;
+use App\Models\SkuPrefixCategory;
 use App\Support\SpkDashboardAnalytics;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -210,7 +211,7 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         ->and($report['forecast']['byItemType'][0]['values'])->toHaveKeys(['Estimasi', 'Realisasi']);
 });
 
-test('item distribution groups null item_id as custom', function () {
+test('item distribution groups missing category prefix as custom', function () {
     $report = (new SpkDashboardAnalytics(Carbon::parse('2026-02-01')))->summarize();
 
     $customItem = collect($report['itemDistribution'])->firstWhere('label', 'Custom');
@@ -218,6 +219,31 @@ test('item distribution groups null item_id as custom', function () {
     expect($customItem)->not->toBeNull()
         ->and($customItem['count'])->toBeGreaterThan(0)
         ->and($customItem['qty'])->toBeGreaterThan(0);
+});
+
+test('item distribution clusters by category prefix not item name', function () {
+    $month = now()->startOfMonth();
+    $category = SkuPrefixCategory::query()->firstOrFail();
+    $distinctItemName = 'DISTINCT-ITEM-NAME-'.uniqid();
+
+    $matching = Production::factory()->create([
+        'category_prefix_id' => $category->id,
+        'item_name' => $distinctItemName,
+        'created_date' => $month,
+        'estimated_delivery_time' => $month->copy()->addDays(5),
+        'is_deleted' => 0,
+    ]);
+
+    $report = (new SpkDashboardAnalytics($month))->summarize();
+
+    expect(collect($report['itemDistribution'])->contains(
+        fn (array $row): bool => $row['label'] === $category->chartLabel(),
+    ))->toBeTrue()
+        ->and(collect($report['itemDistribution'])->contains(
+            fn (array $row): bool => $row['label'] === $distinctItemName,
+        ))->toBeFalse();
+
+    $matching->delete();
 });
 
 test('spk dashboard analytics for current month returns structured payload', function () {
@@ -237,6 +263,12 @@ test('spk dashboard analytics for current month returns structured payload', fun
 test('dashboard target and realization use terminal production status as done', function () {
     $before = (new SpkDashboardAnalytics)->summarize();
     $item = (string) $before['forecast']['byItemType'][0]['item'];
+    $categoryPrefixId = $item === 'Custom'
+        ? null
+        : SkuPrefixCategory::query()
+            ->get()
+            ->first(fn (SkuPrefixCategory $category): bool => $category->chartLabel() === $item)
+            ?->id;
     $beforeItem = $before['forecast']['byItemType'][0]['values'];
     $beforeToday = collect($before['planningDaily']['days'])->firstWhere('date', now()->toDateString());
 
@@ -246,7 +278,8 @@ test('dashboard target and realization use terminal production status as done', 
         'last_process' => null,
         'is_inprocess' => 0,
         'is_deleted' => 0,
-        'item_name' => $item,
+        'category_prefix_id' => $categoryPrefixId,
+        'item_name' => 'Unrelated item name for cluster test',
         'created_date' => now(),
         'estimated_delivery_time' => now(),
     ]);
@@ -256,7 +289,8 @@ test('dashboard target and realization use terminal production status as done', 
         'last_process' => 'Poles Chrome',
         'is_inprocess' => 1,
         'is_deleted' => 0,
-        'item_name' => $item,
+        'category_prefix_id' => $categoryPrefixId,
+        'item_name' => 'Unrelated item name for cluster test',
         'created_date' => now(),
         'estimated_delivery_time' => now(),
     ]);

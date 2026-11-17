@@ -76,6 +76,54 @@ function createDossierDiamondForTest(array $overrides = []): int
         ]);
 }
 
+test('diamond dossier index shows duplicate certificate alert', function () {
+    $inventory = app(DiamondDossierInventory::class);
+    $before = $inventory->duplicateCertificateAlert();
+
+    $certificate = 'DUP-ALERT-'.Str::upper(Str::random(6));
+
+    createDossierDiamondForTest(['certificate' => $certificate, 'crt' => '0.400']);
+    createDossierDiamondForTest(['certificate' => $certificate, 'crt' => '0.900']);
+
+    $nonDossierCertificate = 'SAFIR-DUP-'.Str::upper(Str::random(6));
+    createDossierDiamondForTest([
+        'diamond_type' => 'Safir',
+        'certificate' => $nonDossierCertificate,
+        'crt' => '0.300',
+    ]);
+    createDossierDiamondForTest([
+        'diamond_type' => 'Safir',
+        'certificate' => $nonDossierCertificate,
+        'crt' => '0.600',
+    ]);
+
+    $this->get(route('inventory.diamond-dossiers.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('duplicateCertificateAlert.active', true)
+            ->where(
+                'duplicateCertificateAlert.duplicateCertificateCount',
+                $before['duplicateCertificateCount'] + 1,
+            )
+            ->where(
+                'duplicateCertificateAlert.duplicateStoneCount',
+                $before['duplicateStoneCount'] + 2,
+            )
+        );
+
+    $this->get(route('inventory.diamond-dossiers.index', [
+        'search' => $certificate,
+        'duplicate_certificate' => 1,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.duplicate_certificate', true)
+            ->has('diamonds.data', 2)
+            ->where('diamonds.data.0.hasDuplicateCertificate', true)
+            ->where('diamonds.data.1.hasDuplicateCertificate', true)
+        );
+});
+
 test('diamond dossier index lists active diamonds with summary', function () {
     $certificate = 'CERT-'.Str::upper(Str::random(8));
 
@@ -228,6 +276,7 @@ test('diamond dossier show displays detail', function () {
             ->where('diamond.certificate', 'CERT-SHOW')
             ->where('diamond.status', 'available')
             ->where('canEdit', true)
+            ->where('canDelete', true)
             ->where('canRevokeAllocation', false)
             ->has('shapeOptions')
             ->has('form')
@@ -239,7 +288,20 @@ test('diamond dossier show marks used diamonds as not editable', function () {
 
     $this->get(route('inventory.diamond-dossiers.show', $diamondId))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('canEdit', false));
+        ->assertInertia(fn ($page) => $page
+            ->where('canEdit', false)
+            ->where('canDelete', false)
+        );
+});
+
+test('diamond dossier destroy soft deletes and redirects to index', function () {
+    $diamondId = createDossierDiamondForTest();
+
+    $this->delete(route('inventory.diamond-dossiers.destroy', $diamondId))
+        ->assertRedirect(route('inventory.diamond-dossiers.index'));
+
+    expect(DB::connection('third')->table('trdiamond')->where('row_id', $diamondId)->value('is_deleted'))
+        ->toBe(1);
 });
 
 test('diamond dossier show returns not found for missing diamond', function () {

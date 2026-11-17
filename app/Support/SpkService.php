@@ -1049,6 +1049,9 @@ class SpkService
 
             return Production::query()->create([
                 ...$attributes,
+                'location' => filled($attributes['location'] ?? null)
+                    ? trim((string) $attributes['location'])
+                    : Production::DEFAULT_LOCATION,
                 'spk_no' => $this->generateNumber($now),
                 'order_date' => $now->toDateString(),
                 'status' => '',

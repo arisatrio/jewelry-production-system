@@ -29,6 +29,8 @@ export type SpkRow = {
     prosesTerakhirDate: string;
     prosesTerakhirDisplay?: string | null;
     prosesTerakhirCompleted?: boolean | null;
+    location?: string | null;
+    plu?: string | null;
 };
 
 export type SpkIndexRow = SpkRow & {
@@ -46,6 +48,8 @@ export type SpkIndexRow = SpkRow & {
     createdBy: string | null;
     componentStatus: string | null;
     stoneIndexStatus: SpkStoneIndexStatus | null;
+    fakturBarangJadiIssued?: boolean;
+    fakturBarangJadiStatus?: 'created' | 'sent' | 'received' | null;
 };
 
 export type SpkStoneIndexAllocationStatus =

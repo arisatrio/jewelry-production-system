@@ -1966,6 +1966,22 @@ class SpkDashboardAnalytics
     }
 
     /**
+     * Batasi query ke SPK dengan status DONE (Rangka) atau DONE (Barang Jadi).
+     */
+    public function constrainToCompletedProduction(\Illuminate\Contracts\Database\Query\Builder $query): void
+    {
+        $expression = $this->doneExpression();
+
+        if ($expression === '0') {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query->whereRaw($expression);
+    }
+
+    /**
      * @return array{inProgress: string, confirmed: string, unsentDraft: string, managerApproved: string}
      */
     private function statusExpressions(): array
@@ -2209,7 +2225,7 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Planning estimasi vs realisasi produksi (cluster per kategori item).
+     * Planning estimasi vs realisasi produksi (cluster per Tipe Item / category_prefix_id).
      * Scope: hanya SPK dengan estimated delivery di bulan terpilih.
      * Estimasi = total SPK, Realisasi = SPK dengan proses produksi terminal.
      *
@@ -2249,7 +2265,7 @@ class SpkDashboardAnalytics
         return [
             'spkCount' => $spkCount,
             'qtyTotal' => $qtyTotal,
-            'byItem' => $this->forecastDistribution((clone $base), 'item_name', 12),
+            'byItem' => $this->aggregateTipeItemDistribution(clone $base, 12),
             'byType' => $this->forecastDistribution((clone $base), 'spk_type', 10),
             'types' => $clustered['types'],
             'byItemType' => $clustered['rows'],
@@ -2266,40 +2282,41 @@ class SpkDashboardAnalytics
      */
     private function planningItemMatrix(Builder $base, int $itemLimit): array
     {
-        if (! Schema::connection('third')->hasColumn('spk', 'item_name')) {
+        if (! $this->spkHasCategoryPrefixColumn()) {
             return [
                 'types' => [],
                 'rows' => [],
             ];
         }
 
-        $itemExpr = "CASE
-            WHEN item_name IS NULL OR TRIM(item_name) = '' THEN 'Custom'
-            ELSE TRIM(item_name)
-        END";
+        $groupExpr = $this->tipeItemPrefixIdGroupExpression();
         $doneExpr = $this->doneExpression();
 
         $rows = $base
             ->selectRaw("
-                {$itemExpr} as item_label,
+                {$groupExpr} as prefix_group,
                 COUNT(*) as estimasi_count,
                 SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as realisasi_count
             ")
-            ->groupByRaw($itemExpr)
+            ->groupByRaw($groupExpr)
             ->orderByDesc('estimasi_count')
             ->limit($itemLimit)
             ->get();
 
         $types = ['Estimasi', 'Realisasi'];
 
-        $normalized = $rows->map(function (object $row) use ($types): array {
-            $item = trim((string) $row->item_label);
+        $prefixIds = $rows
+            ->map(fn (object $row): int => (int) $row->prefix_group)
+            ->unique()
+            ->values()
+            ->all();
+        $labels = $this->resolveTipeItemLabels($prefixIds);
+
+        $normalized = $rows->map(function (object $row) use ($types, $labels): array {
+            $prefixGroup = (int) $row->prefix_group;
             $estimasi = (int) $row->estimasi_count;
             $realisasi = (int) $row->realisasi_count;
-
-            if ($item === '') {
-                $item = 'Custom';
-            }
+            $item = $labels[$prefixGroup] ?? ($prefixGroup > 0 ? "Tipe Item #{$prefixGroup}" : 'Custom');
 
             return [
                 'item' => $item,
@@ -2333,7 +2350,7 @@ class SpkDashboardAnalytics
      */
     private function forecastDistribution(Builder $base, string $column, int $limit): array
     {
-        $allowed = ['spk_type', 'item_name'];
+        $allowed = ['spk_type'];
 
         if (
             ! in_array($column, $allowed, true)
@@ -2369,48 +2386,64 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Distribusi hasil item (scope: dibuat ATAU estimasi delivery di periode).
-     * item_id / item_name kosong digabung sebagai "Custom".
+     * Distribusi SPK per Tipe Item (scope: dibuat ATAU estimasi delivery di periode).
+     * Tanpa category_prefix_id digabung sebagai "Custom".
      *
      * @return list<array{label: string, count: int, qty: int, percent: string}>
      */
     private function resolveItemDistribution(int $limit): array
     {
-        if (
-            ! Schema::connection('third')->hasTable('spk')
-            || ! Schema::connection('third')->hasColumn('spk', 'item_name')
-        ) {
+        if (! Schema::connection('third')->hasTable('spk')) {
             return [];
         }
 
-        $hasItemId = Schema::connection('third')->hasColumn('spk', 'item_id');
+        if ($this->spkHasCategoryPrefixColumn()) {
+            return $this->aggregateTipeItemDistribution($this->monthScopedSpkBase(), $limit);
+        }
 
-        $labelExpression = $hasItemId
-            ? "CASE
-                WHEN item_id IS NULL AND (item_name IS NULL OR TRIM(item_name) = '') THEN 'Custom'
-                WHEN item_name IS NULL OR TRIM(item_name) = '' THEN CONCAT('Item #', item_id)
-                ELSE TRIM(item_name)
-            END"
-            : "CASE
-                WHEN item_name IS NULL OR TRIM(item_name) = '' THEN 'Custom'
-                ELSE TRIM(item_name)
-            END";
+        return [];
+    }
 
-        $rows = $this->monthScopedSpkBase()
-            ->selectRaw("{$labelExpression} as label, COUNT(*) as aggregate_count, SUM(COALESCE(qty, 1)) as aggregate_qty")
-            ->groupByRaw($labelExpression)
-            ->orderByDesc('aggregate_count')
+    /**
+     * Distribusi SPK per Tipe Item (category_prefix_id → sku_prefix_categories).
+     *
+     * @return list<array{label: string, count: int, qty: int, percent: string}>
+     */
+    private function aggregateTipeItemDistribution(Builder $base, int $limit, string $orderColumn = 'aggregate_count'): array
+    {
+        if (! $this->spkHasCategoryPrefixColumn()) {
+            return [];
+        }
+
+        $groupExpr = $this->tipeItemPrefixIdGroupExpression();
+        $orderSql = $orderColumn === 'qty_total' ? 'aggregate_qty' : 'aggregate_count';
+
+        $rows = (clone $base)
+            ->selectRaw("{$groupExpr} as prefix_group, COUNT(*) as aggregate_count, SUM(COALESCE(qty, 1)) as aggregate_qty")
+            ->groupByRaw($groupExpr)
+            ->orderByDesc($orderSql)
             ->limit($limit)
             ->get();
 
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $prefixIds = $rows
+            ->map(fn (object $row): int => (int) $row->prefix_group)
+            ->unique()
+            ->values()
+            ->all();
+        $labels = $this->resolveTipeItemLabels($prefixIds);
         $total = (int) $rows->sum('aggregate_count');
 
-        return $rows->map(function (object $row) use ($total): array {
+        return $rows->map(function (object $row) use ($labels, $total): array {
+            $prefixGroup = (int) $row->prefix_group;
             $count = (int) $row->aggregate_count;
-            $label = trim((string) $row->label);
+            $label = $labels[$prefixGroup] ?? ($prefixGroup > 0 ? "Tipe Item #{$prefixGroup}" : 'Custom');
 
             return [
-                'label' => $label !== '' ? $label : 'Custom',
+                'label' => $label,
                 'count' => $count,
                 'qty' => (int) round((float) $row->aggregate_qty),
                 'percent' => $total > 0
@@ -2418,6 +2451,63 @@ class SpkDashboardAnalytics
                     : '0.0',
             ];
         })->values()->all();
+    }
+
+    private function spkHasCategoryPrefixColumn(): bool
+    {
+        return Schema::connection('third')->hasTable('spk')
+            && Schema::connection('third')->hasColumn('spk', 'category_prefix_id');
+    }
+
+    private function tipeItemPrefixIdGroupExpression(): string
+    {
+        return 'CASE
+            WHEN category_prefix_id IS NULL OR category_prefix_id <= 0 THEN 0
+            ELSE category_prefix_id
+        END';
+    }
+
+    /**
+     * @param  list<int>  $prefixIds
+     * @return array<int, string>
+     */
+    private function resolveTipeItemLabels(array $prefixIds): array
+    {
+        /** @var array<int, string> $labels */
+        $labels = [];
+
+        foreach ($prefixIds as $prefixId) {
+            $id = (int) $prefixId;
+
+            if ($id <= 0) {
+                $labels[$id] = 'Custom';
+            }
+        }
+
+        $realIds = array_values(array_filter(
+            $prefixIds,
+            fn (int $id): bool => $id > 0,
+        ));
+
+        if ($realIds === []) {
+            return $labels;
+        }
+
+        $categories = SkuPrefixCategory::query()
+            ->whereIn('id', $realIds)
+            ->get(['id', 'category', 'prefix']);
+
+        foreach ($categories as $category) {
+            $labels[(int) $category->id] = $category->chartLabel();
+        }
+
+        foreach ($realIds as $id) {
+            if (! array_key_exists($id, $labels)) {
+                $labels[$id] = "Tipe Item #{$id}";
+            }
+        }
+
+        return $labels;
     }
 
     /**
@@ -2890,7 +2980,7 @@ class SpkDashboardAnalytics
      */
     private function resolveDistribution(string $column, int $limit): array
     {
-        $allowed = ['spk_type', 'item_name'];
+        $allowed = ['spk_type'];
 
         if (
             ! in_array($column, $allowed, true)
@@ -3822,39 +3912,45 @@ class SpkDashboardAnalytics
      */
     private function resolveItemOutputRows(int $limit): array
     {
-        if (
-            ! Schema::connection('third')->hasTable('spk')
-            || ! Schema::connection('third')->hasColumn('spk', 'item_name')
-        ) {
+        if (! $this->spkHasCategoryPrefixColumn()) {
             return [];
         }
 
         $doneExpr = $this->doneExpression();
-        $itemExpr = "CASE
-            WHEN item_name IS NULL OR TRIM(item_name) = '' THEN 'Custom'
-            ELSE TRIM(item_name)
-        END";
+        $groupExpr = $this->tipeItemPrefixIdGroupExpression();
 
         $rows = $this->monthScopedSpkBase()
             ->selectRaw("
-                {$itemExpr} as item_label,
+                {$groupExpr} as prefix_group,
                 COUNT(*) as spk_count,
                 SUM(COALESCE(qty, 1)) as qty_total,
                 SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_spk,
                 SUM(CASE WHEN ({$doneExpr}) THEN COALESCE(qty, 1) ELSE 0 END) as done_qty
             ")
-            ->groupByRaw($itemExpr)
+            ->groupByRaw($groupExpr)
             ->orderByDesc('qty_total')
             ->limit($limit)
             ->get();
 
-        return $rows->map(function (object $row): array {
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $prefixIds = $rows
+            ->map(fn (object $row): int => (int) $row->prefix_group)
+            ->unique()
+            ->values()
+            ->all();
+        $labels = $this->resolveTipeItemLabels($prefixIds);
+
+        return $rows->map(function (object $row) use ($labels): array {
             $spkCount = (int) $row->spk_count;
             $doneSpk = (int) $row->done_spk;
-            $item = trim((string) $row->item_label);
+            $prefixGroup = (int) $row->prefix_group;
+            $item = $labels[$prefixGroup] ?? ($prefixGroup > 0 ? "Tipe Item #{$prefixGroup}" : 'Custom');
 
             return [
-                'item' => $item !== '' ? $item : 'Custom',
+                'item' => $item,
                 'spkCount' => $spkCount,
                 'qty' => (int) round((float) $row->qty_total),
                 'doneSpk' => $doneSpk,

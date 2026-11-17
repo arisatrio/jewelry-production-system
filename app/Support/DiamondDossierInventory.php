@@ -192,6 +192,73 @@ class DiamondDossierInventory
     }
 
     /**
+     * @return array{
+     *     active: bool,
+     *     duplicateCertificateCount: int,
+     *     duplicateStoneCount: int,
+     *     duplicateCertificateNumbers: list<string>,
+     *     topCertificates: list<array{certificate: string, stoneCount: int}>
+     * }
+     */
+    public function duplicateCertificateAlert(): array
+    {
+        $empty = [
+            'active' => false,
+            'duplicateCertificateCount' => 0,
+            'duplicateStoneCount' => 0,
+            'duplicateCertificateNumbers' => [],
+            'topCertificates' => [],
+        ];
+
+        if (
+            ! Schema::connection('third')->hasTable('trdiamond')
+            || ! Schema::connection('third')->hasColumn('trdiamond', 'certificate')
+        ) {
+            return $empty;
+        }
+
+        $groups = DB::connection('third')
+            ->table('trdiamond')
+            ->where('is_deleted', 0)
+            ->where('diamond_type', 'Dossier')
+            ->whereNotNull('certificate')
+            ->whereRaw("TRIM(certificate) <> ''")
+            ->selectRaw('TRIM(certificate) as certificate_no, COUNT(*) as stone_count')
+            ->groupByRaw('TRIM(certificate)')
+            ->having('stone_count', '>', 1)
+            ->orderByDesc('stone_count')
+            ->orderBy('certificate_no')
+            ->get();
+
+        if ($groups->isEmpty()) {
+            return $empty;
+        }
+
+        /** @var list<string> $certificateNumbers */
+        $certificateNumbers = $groups
+            ->pluck('certificate_no')
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'active' => true,
+            'duplicateCertificateCount' => $groups->count(),
+            'duplicateStoneCount' => (int) $groups->sum('stone_count'),
+            'duplicateCertificateNumbers' => $certificateNumbers,
+            'topCertificates' => $groups
+                ->take(5)
+                ->map(fn (object $row): array => [
+                    'certificate' => trim((string) $row->certificate_no),
+                    'stoneCount' => (int) $row->stone_count,
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     public static function indexSorts(): array
@@ -255,14 +322,39 @@ class DiamondDossierInventory
         ?string $supplier = null,
         string $sort = 'entry_date',
         string $direction = 'desc',
+        bool $duplicateCertificateOnly = false,
     ): LengthAwarePaginator {
-        $query = $this->filteredQuery($search, $status, $diamondType, $shapeId, $supplier);
+        $query = $this->filteredQuery(
+            $search,
+            $status,
+            $diamondType,
+            $shapeId,
+            $supplier,
+            $duplicateCertificateOnly,
+        );
         $this->applyIndexSort($query, $sort, $direction);
+
+        $duplicateAlert = $this->duplicateCertificateAlert();
+
+        /** @var array<string, true> $duplicateCertificates */
+        $duplicateCertificates = array_fill_keys(
+            $duplicateAlert['duplicateCertificateNumbers'],
+            true,
+        );
 
         return $query
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (object $diamond): array => $this->toRow($diamond));
+            ->through(function (object $diamond) use ($duplicateCertificates): array {
+                $row = $this->toRow($diamond);
+                $certificate = trim((string) ($row['certificate'] ?? ''));
+
+                $row['hasDuplicateCertificate'] = $certificate !== ''
+                    && ($row['diamondType'] ?? '') === 'Dossier'
+                    && isset($duplicateCertificates[$certificate]);
+
+                return $row;
+            });
     }
 
     private function applyIndexSort(Builder $query, string $sort, string $direction): void
@@ -299,8 +391,16 @@ class DiamondDossierInventory
         ?string $diamondType = null,
         ?int $shapeId = null,
         ?string $supplier = null,
+        bool $duplicateCertificateOnly = false,
     ): array {
-        $summary = $this->filteredQuery($search, $status, $diamondType, $shapeId, $supplier)
+        $summary = $this->filteredQuery(
+            $search,
+            $status,
+            $diamondType,
+            $shapeId,
+            $supplier,
+            $duplicateCertificateOnly,
+        )
             ->cloneWithout(['columns', 'orders'])
             ->selectRaw('COUNT(*) as diamond_count, SUM(COALESCE(diamond.crt, 0)) as total_crt')
             ->first();
@@ -323,6 +423,7 @@ class DiamondDossierInventory
         ?string $diamondType = null,
         ?int $shapeId = null,
         ?string $supplier = null,
+        bool $duplicateCertificateOnly = false,
     ): array {
         return [
             'available' => $this->statusSummaryMetrics(
@@ -332,6 +433,7 @@ class DiamondDossierInventory
                 $diamondType,
                 $shapeId,
                 $supplier,
+                $duplicateCertificateOnly,
             ),
             'reserved' => $this->statusSummaryMetrics(
                 $search,
@@ -340,6 +442,7 @@ class DiamondDossierInventory
                 $diamondType,
                 $shapeId,
                 $supplier,
+                $duplicateCertificateOnly,
             ),
             'used' => $this->statusSummaryMetrics(
                 $search,
@@ -348,6 +451,7 @@ class DiamondDossierInventory
                 $diamondType,
                 $shapeId,
                 $supplier,
+                $duplicateCertificateOnly,
             ),
         ];
     }
@@ -362,8 +466,16 @@ class DiamondDossierInventory
         ?string $diamondType = null,
         ?int $shapeId = null,
         ?string $supplier = null,
+        bool $duplicateCertificateOnly = false,
     ): array {
-        $totals = $this->summary($search, $status, $diamondType, $shapeId, $supplier);
+        $totals = $this->summary(
+            $search,
+            $status,
+            $diamondType,
+            $shapeId,
+            $supplier,
+            $duplicateCertificateOnly,
+        );
 
         $metrics = [
             'pcs' => $totals['count'],
@@ -377,6 +489,7 @@ class DiamondDossierInventory
                 $diamondType,
                 $shapeId,
                 $supplier,
+                $duplicateCertificateOnly,
             );
         }
 
@@ -389,9 +502,17 @@ class DiamondDossierInventory
         ?string $diamondType = null,
         ?int $shapeId = null,
         ?string $supplier = null,
+        bool $duplicateCertificateOnly = false,
     ): int {
         if ($status === self::STATUS_USED) {
-            return (int) ($this->filteredQuery($search, $status, $diamondType, $shapeId, $supplier)
+            return (int) ($this->filteredQuery(
+                $search,
+                $status,
+                $diamondType,
+                $shapeId,
+                $supplier,
+                $duplicateCertificateOnly,
+            )
                 ->cloneWithout(['columns', 'orders'])
                 ->whereNotNull('production.spk_no')
                 ->where('production.spk_no', '!=', '')
@@ -401,7 +522,14 @@ class DiamondDossierInventory
 
         if ($status === self::STATUS_RESERVED
             && app(SpkStoneAllocationService::class)->tableAvailable()) {
-            return (int) ($this->filteredQuery($search, $status, $diamondType, $shapeId, $supplier)
+            return (int) ($this->filteredQuery(
+                $search,
+                $status,
+                $diamondType,
+                $shapeId,
+                $supplier,
+                $duplicateCertificateOnly,
+            )
                 ->cloneWithout(['columns', 'orders'])
                 ->whereNotNull('reserved_production.spk_no')
                 ->where('reserved_production.spk_no', '!=', '')
@@ -1072,6 +1200,7 @@ class DiamondDossierInventory
         ?string $diamondType = null,
         ?int $shapeId = null,
         ?string $supplier = null,
+        bool $duplicateCertificateOnly = false,
     ): Builder {
         $query = DB::connection('third')
             ->table('trdiamond as diamond')
@@ -1114,6 +1243,9 @@ class DiamondDossierInventory
                 ->where('diamond.shape_id', $shapeId))
             ->when(filled($supplier), fn (Builder $builder): Builder => $builder
                 ->where('diamond.supplier', $supplier))
+            ->when($duplicateCertificateOnly, function (Builder $builder): void {
+                $this->applyDuplicateCertificateScope($builder);
+            })
             ->when($search !== '', function (Builder $builder) use ($search): void {
                 $like = '%'.$search.'%';
 
@@ -1165,6 +1297,21 @@ class DiamondDossierInventory
         }
 
         return $query->select($select);
+    }
+
+    private function applyDuplicateCertificateScope(Builder $query): void
+    {
+        $certificateNumbers = $this->duplicateCertificateAlert()['duplicateCertificateNumbers'];
+
+        if ($certificateNumbers === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query
+            ->where('diamond.diamond_type', 'Dossier')
+            ->whereIn(DB::raw('TRIM(diamond.certificate)'), $certificateNumbers);
     }
 
     /**

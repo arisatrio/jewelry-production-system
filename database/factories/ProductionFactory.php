@@ -25,6 +25,8 @@ class ProductionFactory extends Factory
                 $orderDate->format('Y'),
                 fake()->unique()->numberBetween(1, 99999),
             ),
+            'location' => Production::DEFAULT_LOCATION,
+            'plu' => fake()->optional(0.25)->numerify('######'),
             'spk_type' => fake()->randomElement(['Stock', 'Pesanan', 'Refund']),
             'request_order_no' => null,
             'request_stock_no' => null,

@@ -144,7 +144,9 @@ test('process report pages are listed under analytics submenu', function () {
         $analytics,
     );
 
-    expect($analytics[1] ?? '')->toContain('Laporan Finishing')
+    expect($analytics[1] ?? '')->toContain('Laporan Coran')
+        ->and($analytics[1] ?? '')->toContain('coranReport.url()')
+        ->and($analytics[1] ?? '')->toContain('Laporan Finishing')
         ->and($analytics[1] ?? '')->toContain('finishingReport.url()')
         ->and($analytics[1] ?? '')->toContain('Laporan Poles Rangka')
         ->and($analytics[1] ?? '')->toContain('polesRangkaReport.url()')

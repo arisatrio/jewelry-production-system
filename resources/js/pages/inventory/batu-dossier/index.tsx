@@ -8,6 +8,7 @@ import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import sortIcon from '@ui5/webcomponents-icons/dist/sort.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
+import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
     ActiveFilterSummary,
@@ -57,6 +58,15 @@ type DossierDiamond = {
     createdDate: string | null;
     modifiedBy: string | null;
     modifiedDate: string | null;
+    hasDuplicateCertificate?: boolean;
+};
+
+type DuplicateCertificateAlert = {
+    active: boolean;
+    duplicateCertificateCount: number;
+    duplicateStoneCount: number;
+    duplicateCertificateNumbers: string[];
+    topCertificates: Array<{ certificate: string; stoneCount: number }>;
 };
 
 type DiamondsPaginator = {
@@ -96,7 +106,9 @@ type PageProps = {
         supplier: string | null;
         sort: string;
         direction: string;
+        duplicate_certificate: boolean;
     };
+    duplicateCertificateAlert: DuplicateCertificateAlert;
     filterOptions: {
         sort: DossierShapeOption[];
         direction: DossierShapeOption[];
@@ -313,6 +325,7 @@ function formatSummaryCrt(value: string): string {
 export default function DiamondDossierIndex({
     diamonds,
     statusSummaries,
+    duplicateCertificateAlert,
     filters,
     filterOptions,
     shapeOptions,
@@ -432,9 +445,14 @@ export default function DiamondDossierIndex({
         supplier?: string | null;
         sort?: string;
         direction?: string;
+        duplicate_certificate?: boolean;
     }) => {
         const nextSort = params.sort ?? filters.sort;
         const nextDirection = params.direction ?? filters.direction;
+        const nextDuplicateCertificate =
+            params.duplicate_certificate !== undefined
+                ? params.duplicate_certificate
+                : filters.duplicate_certificate;
 
         router.get(
             index.url({
@@ -465,6 +483,9 @@ export default function DiamondDossierIndex({
                             : undefined,
                     per_page: params.per_page ?? filters.per_page,
                     page: params.page ?? 1,
+                    duplicate_certificate: nextDuplicateCertificate
+                        ? true
+                        : undefined,
                 },
             }),
             {},
@@ -513,11 +534,14 @@ export default function DiamondDossierIndex({
     const hasActiveDiamondTypeFilter = filters.diamond_type !== null;
     const hasActiveShapeFilter = filters.shape_id !== null;
     const hasActiveSupplierFilter = filters.supplier !== null;
+    const hasActiveDuplicateCertificateFilter =
+        filters.duplicate_certificate;
     const hasActiveTableFilters =
         hasActiveStatusFilter
         || hasActiveDiamondTypeFilter
         || hasActiveShapeFilter
-        || hasActiveSupplierFilter;
+        || hasActiveSupplierFilter
+        || hasActiveDuplicateCertificateFilter;
 
     const hasFilterDraftChanges =
         statusDraft !== (filters.status ?? '')
@@ -631,6 +655,7 @@ export default function DiamondDossierIndex({
             supplier: null,
             sort: DEFAULT_SORT,
             direction: DEFAULT_SORT_DIRECTION,
+            duplicate_certificate: false,
         });
     };
 
@@ -1391,6 +1416,43 @@ export default function DiamondDossierIndex({
                         </button>
                     </div>
 
+                    {duplicateCertificateAlert.active ? (
+                        <div
+                            className="spkDossierDuplicateCertificateAlert"
+                            role="alert"
+                        >
+                            <MessageStrip design="Critical" hideCloseButton>
+                                <div className="spkDossierDuplicateCertificateAlertBody">
+                                    <p>
+                                        Ditemukan{' '}
+                                        <strong>
+                                            {formatSummaryPcs(
+                                                duplicateCertificateAlert.duplicateCertificateCount,
+                                            )}
+                                        </strong>{' '}
+                                        nomor sertifikat duplikat pada batu
+                                        tipe <strong>Dossier</strong>.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        className="spkDossierDuplicateCertificateAlertAction"
+                                        onClick={() =>
+                                            visit({
+                                                duplicate_certificate:
+                                                    !filters.duplicate_certificate,
+                                                page: 1,
+                                            })
+                                        }
+                                    >
+                                        {filters.duplicate_certificate
+                                            ? 'Tampilkan semua batu'
+                                            : 'Tampilkan batu sertifikat dobel saja'}
+                                    </button>
+                                </div>
+                            </MessageStrip>
+                        </div>
+                    ) : null}
+
                     <ActiveFilterSummary
                         sort={
                             hasCustomSort && {
@@ -1454,6 +1516,17 @@ export default function DiamondDossierIndex({
                                 value: filters.supplier ?? '—',
                                 onRemove: () => {
                                     visit({ supplier: null, page: 1 });
+                                },
+                            },
+                            hasActiveDuplicateCertificateFilter && {
+                                key: 'duplicate_certificate',
+                                label: 'Sertifikat',
+                                value: 'Nomor dobel',
+                                onRemove: () => {
+                                    visit({
+                                        duplicate_certificate: false,
+                                        page: 1,
+                                    });
                                 },
                             },
                         ]}
@@ -1552,9 +1625,18 @@ export default function DiamondDossierIndex({
                                         <tr
                                             key={diamond.id}
                                             className={
-                                                selectedIds.includes(diamond.id)
-                                                    ? 'is-selected'
-                                                    : undefined
+                                                [
+                                                    selectedIds.includes(
+                                                        diamond.id,
+                                                    )
+                                                        ? 'is-selected'
+                                                        : '',
+                                                    diamond.hasDuplicateCertificate
+                                                        ? 'is-dossier-duplicate-certificate'
+                                                        : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ') || undefined
                                             }
                                         >
                                             <td className="spkTableColCheck--finishing">
