@@ -163,11 +163,13 @@ test('spk dashboard analytics scopes to month and includes forecast', function (
         ->and(
             collect($report['planningDaily']['days'])->sum('done')
             + collect($report['planningDaily']['days'])->sum('pending'),
-        )->toBe($report['planningDaily']['targetTotal'])
-        ->and($report['summary']['planningDoneSpk'])->toBe(
-            collect($report['productionTypes'])->sum('count'),
+        )->toBe(
+            $report['planningDaily']['doneTotal']
+            + $report['planningDaily']['pendingTotal'],
         )
-        ->and($report['summary']['planningTargetSpk'])->toBe($report['planningDaily']['targetTotal'])
+        ->and($report['summary']['planningTargetSpk'])->toBe(
+            $report['summary']['planningDoneSpk'] + $report['summary']['planningPendingSpk'],
+        )
         ->and($report['statusLists'])->toHaveKeys(['draft', 'confirmed', 'inProgress', 'overdue', 'doneRangka', 'doneBarangJadi'])
         ->and($report['backlogYear'])->toBe((int) now()->year)
         ->and($report['summary']['overdueSpk'])->toBeInt()

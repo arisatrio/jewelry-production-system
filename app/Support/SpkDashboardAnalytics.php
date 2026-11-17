@@ -560,7 +560,7 @@ class SpkDashboardAnalytics
                 'forecastQty' => $forecast['qtyTotal'],
                 'planningDoneSpk' => $planningDaily['doneTotal'],
                 'planningPendingSpk' => $planningDaily['pendingTotal'],
-                'planningTargetSpk' => $planningDaily['targetTotal'],
+                'planningTargetSpk' => $planningDaily['doneTotal'] + $planningDaily['pendingTotal'],
                 'todayTargetSpk' => $today['targetSpk'],
                 'todayTargetDoneSpk' => $today['targetDoneSpk'],
                 'todayTargetPendingSpk' => $today['targetPendingSpk'],
@@ -836,7 +836,7 @@ class SpkDashboardAnalytics
         }
 
         if (Schema::connection('third')->hasColumn('spk', 'estimated_delivery_time')) {
-            [$doneCase, $pendingCase] = $this->productionCompletedCaseExpressions();
+            [$doneCase, $pendingCase] = $this->terminalProductionStatusCaseExpressions();
             $target = $this->monthScopedSpkBase()
                 ->whereNotNull('estimated_delivery_time')
                 ->whereBetween('estimated_delivery_time', [
@@ -923,7 +923,7 @@ class SpkDashboardAnalytics
             return $empty;
         }
 
-        [$doneCase, $pendingCase] = $this->productionCompletedCaseExpressions();
+        [$doneCase, $pendingCase] = $this->terminalProductionStatusCaseExpressions();
         $target = $this->spkBase()
             ->whereNotNull('estimated_delivery_time')
             ->whereBetween('estimated_delivery_time', [
@@ -2171,13 +2171,12 @@ class SpkDashboardAnalytics
     }
 
     /**
-     * Planning produksi harian: target = estimasi selesai per hari di bulan terpilih,
-     * realisasi = SPK selesai produksi di bulan (tanggal dokumen terminal).
+     * Planning produksi harian (estimasi selesai di bulan terpilih):
+     * selesai = status produksi terminal (done), belum = masih dalam target estimasi.
      *
      * @return array{
      *     doneTotal: int,
      *     pendingTotal: int,
-     *     targetTotal: int,
      *     days: list<array{date: string, label: string, done: int, pending: int}>
      * }
      */
@@ -2192,31 +2191,21 @@ class SpkDashboardAnalytics
             return [
                 'doneTotal' => 0,
                 'pendingTotal' => 0,
-                'targetTotal' => 0,
                 'days' => $emptyDays,
             ];
         }
 
-        $targetBase = $this->monthScopedSpkBase()
+        $doneExpr = $this->doneExpression();
+        $rows = $this->monthScopedSpkBase()
             ->whereNotNull('estimated_delivery_time')
             ->whereBetween('estimated_delivery_time', [
                 $this->periodStart->toDateTimeString(),
                 $this->periodEnd->toDateTimeString(),
-            ]);
-
-        $targetTotal = (clone $targetBase)->count();
-        $completedExpr = $this->productionCompletedInPeriodExpression();
-        $pendingTotal = $completedExpr === '0'
-            ? $targetTotal
-            : (clone $targetBase)->whereRaw("NOT ({$completedExpr})")->count();
-        $doneTotal = $this->monthProductionCompletedSpkBase()->count();
-
-        [$doneCase, $pendingCase] = $this->productionCompletedCaseExpressions();
-        $rows = (clone $targetBase)
+            ])
             ->selectRaw("
                 DATE(estimated_delivery_time) as planning_date,
-                SUM({$doneCase}) as done_count,
-                SUM({$pendingCase}) as pending_count
+                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as done_count,
+                SUM(CASE WHEN ({$doneExpr}) THEN 0 ELSE 1 END) as pending_count
             ")
             ->groupByRaw('DATE(estimated_delivery_time)')
             ->orderBy('planning_date')
@@ -2224,22 +2213,27 @@ class SpkDashboardAnalytics
             ->keyBy(fn (object $row): string => (string) $row->planning_date);
 
         $days = [];
+        $doneTotal = 0;
+        $pendingTotal = 0;
 
         foreach ($emptyDays as $day) {
             $row = $rows->get($day['date']);
+            $done = (int) ($row->done_count ?? 0);
+            $pending = (int) ($row->pending_count ?? 0);
+            $doneTotal += $done;
+            $pendingTotal += $pending;
 
             $days[] = [
                 'date' => $day['date'],
                 'label' => $day['label'],
-                'done' => (int) ($row->done_count ?? 0),
-                'pending' => (int) ($row->pending_count ?? 0),
+                'done' => $done,
+                'pending' => $pending,
             ];
         }
 
         return [
             'doneTotal' => $doneTotal,
             'pendingTotal' => $pendingTotal,
-            'targetTotal' => $targetTotal,
             'days' => $days,
         ];
     }
@@ -2396,13 +2390,13 @@ class SpkDashboardAnalytics
         }
 
         $groupExpr = $this->tipeItemPrefixIdGroupExpression();
-        [$doneCase] = $this->productionCompletedCaseExpressions();
+        $doneExpr = $this->doneExpression();
 
         $rows = $base
             ->selectRaw("
                 {$groupExpr} as prefix_group,
                 COUNT(*) as estimasi_count,
-                SUM({$doneCase}) as realisasi_count
+                SUM(CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END) as realisasi_count
             ")
             ->groupByRaw($groupExpr)
             ->orderByDesc('estimasi_count')
@@ -4560,17 +4554,17 @@ class SpkDashboardAnalytics
     /**
      * @return array{0: string, 1: string} done case, pending case SQL fragments for SUM()
      */
-    private function productionCompletedCaseExpressions(): array
+    private function terminalProductionStatusCaseExpressions(): array
     {
-        $completedExpr = $this->productionCompletedInPeriodExpression();
+        $doneExpr = $this->doneExpression();
 
-        if ($completedExpr === '0') {
+        if ($doneExpr === '0') {
             return ['0', '1'];
         }
 
         return [
-            "CASE WHEN ({$completedExpr}) THEN 1 ELSE 0 END",
-            "CASE WHEN ({$completedExpr}) THEN 0 ELSE 1 END",
+            "CASE WHEN ({$doneExpr}) THEN 1 ELSE 0 END",
+            "CASE WHEN ({$doneExpr}) THEN 0 ELSE 1 END",
         ];
     }
 

@@ -256,7 +256,9 @@ export default function WorkOrderDashboard({ analytics, navigation }: WorkOrderD
         useState<DashboardSortDirection>('asc');
     const [listStatusTab, setListStatusTab] =
         useState<DashboardStatusTab>('inProgress');
-    const monthTargetSpk = summary.planningTargetSpk;
+    const monthTargetSpk =
+        summary.planningTargetSpk ??
+        summary.planningDoneSpk + summary.planningPendingSpk;
     const weekTargetSpk = weekTarget?.targetSpk ?? 0;
     const weekTargetDoneSpk = weekTarget?.targetDoneSpk ?? 0;
     const weekTargetLabel = weekTarget?.label ?? 'Minggu ini';
