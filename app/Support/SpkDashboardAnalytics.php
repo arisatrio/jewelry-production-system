@@ -67,6 +67,15 @@ class SpkDashboardAnalytics
     public const POLES_RANGKA_DONE_STATUSES = ['PRKDONE', 'PRK040'];
 
     /**
+     * Pasang Batu (diamondmounting) statuses that mean DONE BARANG JADI
+     * when combined with completed Poles Rangka:
+     * DMTDONE = Pasang Batu completed.
+     *
+     * @var list<string>
+     */
+    public const PASANG_BATU_DONE_STATUSES = ['DMTDONE'];
+
+    /**
      * Tabel proses yang menandai SPK punya Pasang Batu atau Poles Chrome
      * (bukan kandidat DONE RANGKA).
      *
@@ -177,6 +186,7 @@ class SpkDashboardAnalytics
             ...self::completedPolesChromeSpkIds($spkIds),
             ...self::completedReferencePolesBarangJadiSpkIds($spkIds),
             ...self::completedReferenceFinishingSpkIds($spkIds),
+            ...self::completedPasangBatuTrackBarangJadiSpkIds($spkIds),
         ]);
         $rangkaIds = array_flip(self::completedTerminalPolesRangkaSpkIds($spkIds));
 
@@ -237,6 +247,47 @@ class SpkDashboardAnalytics
             $rangkaIds,
             fn (int $id): bool => ! isset($withLaterProcesses[$id]),
         ));
+    }
+
+    /**
+     * DONE BARANG JADI: Poles Rangka selesai dan SPK sudah masuk jalur barang jadi
+     * (proses terakhir Pasang Batu atau dokumen Pasang Batu selesai).
+     *
+     * @param  list<int|string|null>  $spkIds
+     * @return list<int>
+     */
+    public static function completedPasangBatuTrackBarangJadiSpkIds(array $spkIds): array
+    {
+        $rangkaIds = self::completedPolesRangkaSpkIds($spkIds);
+
+        if ($rangkaIds === []) {
+            return [];
+        }
+
+        $pasangBatuDoneIds = array_flip(
+            self::completedSpkIdsFromTable('diamondmounting', self::PASANG_BATU_DONE_STATUSES, $rangkaIds),
+        );
+
+        if (! Schema::connection('third')->hasTable('spk')
+            || ! Schema::connection('third')->hasColumn('spk', 'last_process')) {
+            return array_values(array_filter(
+                $rangkaIds,
+                fn (int $id): bool => isset($pasangBatuDoneIds[$id]),
+            ));
+        }
+
+        $lastProcessPasangBatuIds = DB::connection('third')
+            ->table('spk')
+            ->whereIn('row_id', $rangkaIds)
+            ->whereRaw("UPPER(TRIM(COALESCE(last_process, ''))) = 'PASANG BATU'")
+            ->pluck('row_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        return array_values(array_unique([
+            ...array_filter($rangkaIds, fn (int $id): bool => isset($pasangBatuDoneIds[$id])),
+            ...$lastProcessPasangBatuIds,
+        ]));
     }
 
     /**
@@ -1815,7 +1866,8 @@ class SpkDashboardAnalytics
 
     /**
      * DONE BARANG JADI: Poles Chrome (PFGDONE/PFG040),
-     * or RPFDONE / RFHDONE for Exchange/Refund/Reparasi.
+     * RPFDONE / RFHDONE for Exchange/Refund/Reparasi,
+     * or Poles Rangka selesai dengan proses terakhir / Pasang Batu selesai (DMTDONE).
      */
     private function doneBarangJadiExpression(): string
     {
@@ -1871,6 +1923,54 @@ class SpkDashboardAnalytics
                   AND fhm.status IN ({$refStatuses})
                   AND spk.spk_type IN ({$refTypes})
                   {$deleted}
+            )";
+        }
+
+        if (
+            Schema::connection('third')->hasTable('polishframe')
+            && Schema::connection('third')->hasColumn('spk', 'last_process')
+        ) {
+            $rangkaStatuses = collect(self::POLES_RANGKA_DONE_STATUSES)
+                ->map(fn (string $status): string => "'{$status}'")
+                ->implode(', ');
+
+            $pfDeleted = Schema::connection('third')->hasColumn('polishframe', 'is_deleted')
+                ? 'AND COALESCE(pf_track.is_deleted, 0) = 0'
+                : '';
+
+            $pasangBatuParts = [
+                "UPPER(TRIM(COALESCE(spk.last_process, ''))) = 'PASANG BATU'",
+            ];
+
+            if (Schema::connection('third')->hasTable('diamondmounting')) {
+                $pasangBatuStatuses = collect(self::PASANG_BATU_DONE_STATUSES)
+                    ->map(fn (string $status): string => "'{$status}'")
+                    ->implode(', ');
+
+                $dmDeleted = Schema::connection('third')->hasColumn('diamondmounting', 'is_deleted')
+                    ? 'AND COALESCE(dm_track.is_deleted, 0) = 0'
+                    : '';
+
+                $pasangBatuParts[] = "EXISTS (
+                    SELECT 1
+                    FROM diamondmounting dm_track
+                    WHERE dm_track.spk_id = spk.row_id
+                      AND dm_track.status IN ({$pasangBatuStatuses})
+                      {$dmDeleted}
+                )";
+            }
+
+            $pasangBatuCondition = '('.implode(' OR ', $pasangBatuParts).')';
+
+            $expressions[] = "(
+                EXISTS (
+                    SELECT 1
+                    FROM polishframe pf_track
+                    WHERE pf_track.spk_id = spk.row_id
+                      AND pf_track.status IN ({$rangkaStatuses})
+                      {$pfDeleted}
+                )
+                AND {$pasangBatuCondition}
             )";
         }
 

@@ -800,6 +800,45 @@ test('done rangka is not returned when polishframe done but pasang batu or poles
     'poles chrome' => ['polishfinishedgood', 'TEST-PFG-LATER-'],
 ]);
 
+test('done barang jadi when poles rangka done and last process is pasang batu', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'last_process' => 'Pasang Batu',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $rangkaId = DB::connection('third')->table('polishframe')->insertGetId([
+        'doc_no' => 'TEST-PRK-PB-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => 'PRKDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $mountingId = DB::connection('third')->table('diamondmounting')->insertGetId([
+        'doc_no' => 'TEST-DM-PB-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => 'OPEN',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    expect(SpkDashboardAnalytics::completedProductionKind((int) $production->row_id))
+        ->toBe(SpkDashboardAnalytics::KEY_DONE_BARANG_JADI)
+        ->and(SpkDashboardAnalytics::backlogStatusKey($production))
+        ->toBe(SpkDashboardAnalytics::KEY_DONE_BARANG_JADI)
+        ->and(SpkDashboardAnalytics::backlogStatusLabel($production))
+        ->toBe('DONE (Barang Jadi)');
+
+    DB::connection('third')->table('diamondmounting')->where('row_id', $mountingId)->delete();
+    DB::connection('third')->table('polishframe')->where('row_id', $rangkaId)->delete();
+    $production->delete();
+});
+
 test('spk dashboard analytics counts created spk per day in the selected month', function () {
     $month = Carbon::parse('2026-10-01');
     $before = (new SpkDashboardAnalytics($month))->summarize()['createdDaily'];

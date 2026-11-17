@@ -1173,6 +1173,47 @@ test('spk index keeps in progress when poles rangka done but pasang batu or pole
     $production->delete();
 });
 
+test('spk index marks done barang jadi when poles rangka done and last process is pasang batu', function () {
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Pasang Batu',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    $rangkaId = DB::connection('third')->table('polishframe')->insertGetId([
+        'doc_no' => 'TEST-PRK-PB-IDX-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => 'PRKDONE',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $mountingId = DB::connection('third')->table('diamondmounting')->insertGetId([
+        'doc_no' => 'TEST-DM-PB-IDX-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => 'OPEN',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    $this->get(route('spk.index', ['search' => $production->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->where('productions.data.0.status', 'DONE (Barang Jadi)')
+            ->where('productions.data.0.prosesTerakhir', 'Pasang Batu')
+        );
+
+    DB::connection('third')->table('diamondmounting')->where('row_id', $mountingId)->delete();
+    DB::connection('third')->table('polishframe')->where('row_id', $rangkaId)->delete();
+    $production->delete();
+});
+
 test('spk index marks status done when reference type poles barang jadi is rpfdone', function (string $spkType) {
     $production = Production::factory()->create([
         'spk_type' => $spkType,
