@@ -1,0 +1,1 @@
+import{ba as e}from"./app-CwXRpO-t.js";import"./Text-DRMl01E1.js";var t=e(`ui5-text`,[`emptyIndicatorMode`,`maxLines`],[],[],[]);t.displayName=`Text`;export{t};
