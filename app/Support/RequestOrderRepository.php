@@ -6,23 +6,31 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use stdClass;
 
 class RequestOrderRepository
 {
+    /** @var list<string> */
+    private const EXCLUDED_SELECTOR_TYPE_ORDERS = ['REPARASI'];
+
     /**
      * Search request orders for the SPK create selector.
      *
      * Uses the same joins as legacy vw_request_orderlist because the view
      * may be unavailable when the MySQL definer account is missing.
      *
-     * @return Collection<int, array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null}>
+     * @return Collection<int, array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, skuCode: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null, notes: string|null, skuId: int|null, categoryPrefixId: int|null}>
      */
     public function search(string $search = '', int $limit = 25): Collection
     {
         $limit = max(1, min($limit, 50));
 
         $query = $this->baseQuery()
+            ->where(function (Builder $builder): void {
+                $builder->whereNull('ro.type_order')
+                    ->orWhereNotIn('ro.type_order', self::EXCLUDED_SELECTOR_TYPE_ORDERS);
+            })
             ->orderByDesc('ro.row_id')
             ->limit($limit);
 
@@ -43,7 +51,7 @@ class RequestOrderRepository
     /**
      * Find a single request order by document number.
      *
-     * @return array{rowId: int, docNo: string, customer: string|null, item: string|null, sales: string|null, itemId: int|null, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null}|null
+     * @return array{rowId: int, docNo: string, customer: string|null, item: string|null, sales: string|null, itemId: int|null, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null, notes: string|null, skuId: int|null, categoryPrefixId: int|null}|null
      */
     public function findByDocNo(string $docNo): ?array
     {
@@ -71,7 +79,20 @@ class RequestOrderRepository
             ),
             'transDate' => $this->orderDate($row->trans_date ?? null),
             'estimatedDate' => $this->orderDate($row->estimated_date ?? null),
+            'notes' => filled($row->notes ?? null) ? (string) $row->notes : null,
+            ...$this->selectorSkuFields($row),
         ];
+    }
+
+    public function catatanForSpkFromRequestOrder(?string $notes): ?string
+    {
+        $notes = trim((string) $notes);
+
+        if ($notes === '') {
+            return null;
+        }
+
+        return mb_substr('Catatan Request Order: '.$notes, 0, 4000);
     }
 
     /**
@@ -284,29 +305,70 @@ class RequestOrderRepository
      */
     private function baseQuery()
     {
-        return DB::connection('second')
+        $query = DB::connection('second')
             ->table('request_order as ro')
             ->leftJoin('customer as c', 'c.row_id', '=', 'ro.customer_id')
             ->leftJoin('item as i', 'i.row_id', '=', 'ro.item_id')
             ->leftJoin('sysuser as su', 'su.row_id', '=', 'ro.sales_id')
-            ->where('ro.is_deleted', 0)
-            ->select([
-                'ro.row_id',
-                'ro.doc_no',
-                'ro.item_id',
-                'ro.ref_sku',
-                'ro.is_fully_paid',
-                'ro.trans_date',
-                'ro.estimated_date',
-                'ro.type_order',
-                'c.name as customer_name',
-                'su.name as sales_name',
-                DB::raw('COALESCE(i.name, ro.nama_item) as item_name'),
-            ]);
+            ->where('ro.is_deleted', 0);
+
+        $select = [
+            'ro.row_id',
+            'ro.doc_no',
+            'ro.item_id',
+            'ro.ref_sku',
+            'ro.is_fully_paid',
+            'ro.trans_date',
+            'ro.estimated_date',
+            'ro.type_order',
+            'ro.notes',
+            'ro.name',
+            'c.name as customer_name',
+            'su.name as sales_name',
+            DB::raw('COALESCE(i.name, ro.nama_item) as item_name'),
+        ];
+
+        if (Schema::connection('second')->hasColumn('request_order', 'sku_id')) {
+            $query->leftJoin('sku_master as sm', 'sm.id', '=', 'ro.sku_id');
+            $select[] = 'ro.sku_id';
+            $select[] = 'sm.category_prefix_id as sku_category_prefix_id';
+            $select[] = 'sm.sku_code as sku_code';
+        }
+
+        return $query->select($select);
     }
 
     /**
-     * @return array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null}
+     * @return array{skuId: int|null, categoryPrefixId: int|null}
+     */
+    private function selectorSkuFields(stdClass $row): array
+    {
+        $skuId = isset($row->sku_id) ? (int) $row->sku_id : 0;
+        $categoryPrefixId = isset($row->sku_category_prefix_id)
+            ? (int) $row->sku_category_prefix_id
+            : 0;
+
+        return [
+            'skuId' => $skuId > 0 ? $skuId : null,
+            'categoryPrefixId' => $categoryPrefixId > 0 ? $categoryPrefixId : null,
+        ];
+    }
+
+    private function selectorSkuCode(stdClass $row): ?string
+    {
+        if (filled($row->sku_code ?? null)) {
+            return trim((string) $row->sku_code);
+        }
+
+        if (filled($row->ref_sku ?? null)) {
+            return trim((string) $row->ref_sku);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, skuCode: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null, notes: string|null, skuId: int|null, categoryPrefixId: int|null}
      */
     private function toSelectorItem(stdClass $row): array
     {
@@ -314,9 +376,10 @@ class RequestOrderRepository
             'rowId' => (int) $row->row_id,
             'docNo' => (string) $row->doc_no,
             'customer' => filled($row->customer_name) ? (string) $row->customer_name : '—',
-            'item' => filled($row->item_name) ? (string) $row->item_name : '—',
+            'item' => filled($row->name ?? null) ? trim((string) $row->name) : '—',
             'sales' => filled($row->sales_name) ? (string) $row->sales_name : '—',
             'refSku' => filled($row->ref_sku) ? (string) $row->ref_sku : null,
+            'skuCode' => $this->selectorSkuCode($row),
             'paymentStatusLabel' => $this->paymentStatusLabel($row->is_fully_paid),
             'displayLabel' => $this->pesananDisplayLabel(
                 (string) $row->doc_no,
@@ -325,6 +388,8 @@ class RequestOrderRepository
             ),
             'transDate' => $this->orderDate($row->trans_date ?? null),
             'estimatedDate' => $this->orderDate($row->estimated_date ?? null),
+            'notes' => filled($row->notes ?? null) ? (string) $row->notes : null,
+            ...$this->selectorSkuFields($row),
         ];
     }
 

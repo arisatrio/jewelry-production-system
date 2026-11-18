@@ -6,15 +6,17 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import type { ReactNode } from 'react';
 
 type SelectorColumn = {
     key: string;
     label: string;
+    cellClassName?: string;
 };
 
 type SelectorRow = {
     id: string;
-    [key: string]: string;
+    [key: string]: string | ReactNode;
 };
 
 type SpkCreateSelectorDialogProps = {
@@ -96,7 +98,10 @@ export function SpkCreateSelectorDialog({
                                         }}
                                     >
                                         {columns.map((column) => (
-                                            <td key={`${row.id}-${column.key}`}>
+                                            <td
+                                                key={`${row.id}-${column.key}`}
+                                                className={column.cellClassName}
+                                            >
                                                 {row[column.key] ?? '—'}
                                             </td>
                                         ))}

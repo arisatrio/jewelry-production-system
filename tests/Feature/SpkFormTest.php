@@ -6,6 +6,7 @@ use App\Models\SkuPrefixCategory;
 use App\Support\SpkApprovalService;
 use App\Support\SpkService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 test('spk form page is accessible', function () {
@@ -310,6 +311,9 @@ test('spk form includes the request order sales name', function () {
             'is_submitted' => 0,
             'is_deleted' => 0,
             'is_fully_paid' => 1,
+            'name' => 'Cincin Emas Pesanan',
+            'nama_item' => 'Legacy nama item',
+            'notes' => 'Ukuran 16',
             'created_date' => now(),
             'created_by' => 'system',
         ]);
@@ -333,7 +337,9 @@ test('spk form includes the request order sales name', function () {
             ->assertOk()
             ->assertJsonPath('data.0.sales', $salesName)
             ->assertJsonPath('data.0.docNo', $docNo)
-            ->assertJsonPath('data.0.transDate', '2026-08-01');
+            ->assertJsonPath('data.0.transDate', '2026-08-01')
+            ->assertJsonPath('data.0.notes', 'Ukuran 16')
+            ->assertJsonPath('data.0.item', 'Cincin Emas Pesanan');
     } finally {
         $production?->delete();
 
@@ -344,6 +350,105 @@ test('spk form includes the request order sales name', function () {
         if ($salesId !== null) {
             DB::connection('second')->table('sysuser')->where('row_id', $salesId)->delete();
         }
+    }
+});
+
+test('request order selector excludes reparasi type orders', function () {
+    $prefix = 'DP-TEST-'.Str::upper(Str::random(6));
+    $customDocNo = $prefix.'-CUSTOM';
+    $reparasiDocNo = $prefix.'-REP';
+
+    $customId = null;
+    $reparasiId = null;
+
+    try {
+        $customId = DB::connection('second')->table('request_order')->insertGetId([
+            'company_id' => 1,
+            'doc_no' => $customDocNo,
+            'trans_date' => '2026-08-01',
+            'type_order' => 'CUSTOM',
+            'online_offline' => 'OFFLINE',
+            'is_sales_saved' => 0,
+            'is_submitted' => 0,
+            'is_deleted' => 0,
+            'created_date' => now(),
+            'created_by' => 'system',
+        ]);
+        $reparasiId = DB::connection('second')->table('request_order')->insertGetId([
+            'company_id' => 1,
+            'doc_no' => $reparasiDocNo,
+            'trans_date' => '2026-08-01',
+            'type_order' => 'REPARASI',
+            'online_offline' => 'OFFLINE',
+            'is_sales_saved' => 0,
+            'is_submitted' => 0,
+            'is_deleted' => 0,
+            'created_date' => now(),
+            'created_by' => 'system',
+        ]);
+
+        $response = $this->getJson(route('spk.select.request-orders', ['search' => $prefix]));
+        $docNos = collect($response->json('data'))->pluck('docNo')->all();
+
+        expect($docNos)->toContain($customDocNo)
+            ->and($docNos)->not->toContain($reparasiDocNo);
+    } finally {
+        if ($customId !== null) {
+            DB::connection('second')->table('request_order')->where('row_id', $customId)->delete();
+        }
+
+        if ($reparasiId !== null) {
+            DB::connection('second')->table('request_order')->where('row_id', $reparasiId)->delete();
+        }
+    }
+});
+
+test('request order selector exposes sku for spk create prefill', function () {
+    if (! Schema::connection('second')->hasColumn('request_order', 'sku_id')) {
+        test()->markTestSkipped('request_order.sku_id is not available.');
+    }
+
+    $category = SkuPrefixCategory::query()->active()->orderBy('id')->first()
+        ?? SkuPrefixCategory::query()->create([
+            'category' => 'TEST '.fake()->unique()->lexify('????'),
+            'prefix' => strtoupper(fake()->unique()->lexify('???')),
+            'usage_count' => 0,
+            'is_active' => 1,
+        ]);
+    $sku = SkuMaster::factory()->create([
+        'category_prefix_id' => $category->id,
+        'is_active' => 1,
+    ]);
+    $docNo = 'DP-TEST-'.Str::upper(Str::random(8));
+    $orderId = null;
+
+    try {
+        $orderId = DB::connection('second')->table('request_order')->insertGetId([
+            'company_id' => 1,
+            'doc_no' => $docNo,
+            'sku_id' => $sku->id,
+            'trans_date' => '2026-08-01',
+            'type_order' => 'CUSTOM',
+            'online_offline' => 'OFFLINE',
+            'is_sales_saved' => 0,
+            'is_submitted' => 0,
+            'is_deleted' => 0,
+            'is_fully_paid' => 1,
+            'created_date' => now(),
+            'created_by' => 'system',
+        ]);
+
+        $this->getJson(route('spk.select.request-orders', ['search' => $docNo]))
+            ->assertOk()
+            ->assertJsonPath('data.0.skuId', $sku->id)
+            ->assertJsonPath('data.0.categoryPrefixId', $category->id)
+            ->assertJsonPath('data.0.skuCode', $sku->sku_code);
+    } finally {
+        if ($orderId !== null) {
+            DB::connection('second')->table('request_order')->where('row_id', $orderId)->delete();
+        }
+
+        $sku->delete();
     }
 });
 

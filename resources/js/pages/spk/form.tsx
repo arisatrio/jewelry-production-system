@@ -118,6 +118,10 @@ type RequestOrderOption = {
     displayLabel?: string;
     transDate?: string | null;
     estimatedDate?: string | null;
+    notes?: string | null;
+    skuId?: number | null;
+    categoryPrefixId?: number | null;
+    skuCode?: string | null;
 };
 
 type RequestOrderLabelState = {
@@ -137,6 +141,18 @@ function pesananFieldLabel(sales: string | null | undefined): string {
     }
 
     return `Pesanan (Sales: ${name})`;
+}
+
+function requestOrderNotesToFormCatatan(
+    notes: string | null | undefined,
+): string | null {
+    const trimmed = notes?.trim() ?? '';
+
+    if (trimmed === '') {
+        return null;
+    }
+
+    return `Catatan Request Order: ${trimmed}`;
 }
 
 function formatRequestOrderLabel(
@@ -1060,7 +1076,13 @@ export default function SpkFormPage({
         });
     };
 
-    const handleSkuChange = (nextSkuId: string, nextLabel?: string) => {
+    const handleSkuChange = (
+        nextSkuId: string,
+        nextLabel?: string,
+        baseData?: typeof data,
+    ) => {
+        const formData = baseData ?? data;
+
         setSelectedSkuId(nextSkuId);
 
         const sku = skuOptions.find((item) => item.value === nextSkuId);
@@ -1070,7 +1092,7 @@ export default function SpkFormPage({
             setFormStones([]);
             setFormChains([]);
             setData({
-                ...data,
+                ...formData,
                 sku_id: '',
                 description: '',
                 gold_weight: '0',
@@ -1095,14 +1117,14 @@ export default function SpkFormPage({
             mapProductionChainsToForm(sku.chains ?? []),
         );
         setData({
-            ...data,
-            category_prefix_id: sku.categoryPrefixId || data.category_prefix_id,
+            ...formData,
+            category_prefix_id: sku.categoryPrefixId || formData.category_prefix_id,
             sku_id: nextSkuId,
             description:
                 sku.description.trim() !== ''
                     ? sku.description
                     : sku.label,
-            gold_color: sku.goldColor || data.gold_color,
+            gold_color: sku.goldColor || formData.gold_color,
             gold_weight: sku.goldWeight || '0',
             jwcad_3d: sku.jwcad3d || '',
         });
@@ -2561,22 +2583,49 @@ export default function SpkFormPage({
                     { key: 'docNo', label: 'No. Pesanan' },
                     { key: 'customer', label: 'Customer' },
                     { key: 'paymentStatus', label: 'Status' },
-                    { key: 'item', label: 'Item' },
+                    {
+                        key: 'item',
+                        label: 'Item',
+                        cellClassName: 'spkCreateDialogTableItemCell',
+                    },
                 ]}
-                rows={requestOrders.map((row) => ({
-                    id: String(row.rowId),
-                    docNo: row.docNo,
-                    customer: row.customer,
-                    paymentStatus: row.paymentStatusLabel ?? '-',
-                    item: row.item,
-                }))}
+                rows={requestOrders.map((row) => {
+                    const skuCode = row.skuCode?.trim() ?? '';
+
+                    return {
+                        id: String(row.rowId),
+                        docNo: row.docNo,
+                        customer: row.customer,
+                        paymentStatus: row.paymentStatusLabel ?? '-',
+                        item:
+                            skuCode === '' ? (
+                                row.item
+                            ) : (
+                                <span className="spkCreateSelectorItemCell">
+                                    <span>{row.item}</span>
+                                    <span className="spkCreateSelectorItemSku">
+                                        {skuCode}
+                                    </span>
+                                </span>
+                            ),
+                    };
+                })}
                 onSelect={(id) => {
                     const selected = requestOrders.find(
                         (row) => String(row.rowId) === id,
                     );
 
                     if (selected) {
-                        setData({
+                        const requestOrderCatatan =
+                            requestOrderNotesToFormCatatan(selected.notes);
+
+                        setSelectedSkuId('');
+                        setProductItemText('');
+                        setItemTypeText('');
+                        setFormStones([]);
+                        setFormChains([]);
+
+                        const nextData = {
                             ...data,
                             request_order_no: selected.docNo,
                             order_date:
@@ -2584,7 +2633,62 @@ export default function SpkFormPage({
                             estimated_delivery_time:
                                 selected.estimatedDate?.trim() ||
                                 data.estimated_delivery_time,
-                        });
+                            category_prefix_id: '',
+                            sku_id: '',
+                            description: '',
+                            gold_weight: '0',
+                            gold_color: '',
+                            jwcad_3d: '',
+                            ...(requestOrderCatatan !== null
+                                ? { notes: requestOrderCatatan }
+                                : {}),
+                        };
+
+                        const requestOrderSkuId =
+                            selected.skuId !== null &&
+                            selected.skuId !== undefined &&
+                            selected.skuId > 0
+                                ? String(selected.skuId)
+                                : null;
+
+                        if (
+                            requestOrderSkuId !== null &&
+                            skuOptions.some(
+                                (item) => item.value === requestOrderSkuId,
+                            )
+                        ) {
+                            handleSkuChange(
+                                requestOrderSkuId,
+                                undefined,
+                                nextData,
+                            );
+                        } else if (requestOrderSkuId !== null) {
+                            setSelectedSkuId(requestOrderSkuId);
+                            const categoryPrefixId =
+                                selected.categoryPrefixId !== null &&
+                                selected.categoryPrefixId !== undefined &&
+                                selected.categoryPrefixId > 0
+                                    ? String(selected.categoryPrefixId)
+                                    : '';
+                            const category = categoryOptions.find(
+                                (option) => option.value === categoryPrefixId,
+                            );
+                            if (category) {
+                                setItemTypeText(category.label);
+                            }
+                            setData({
+                                ...nextData,
+                                sku_id: requestOrderSkuId,
+                                ...(categoryPrefixId !== ''
+                                    ? {
+                                          category_prefix_id: categoryPrefixId,
+                                      }
+                                    : {}),
+                            });
+                        } else {
+                            setData(nextData);
+                        }
+
                         setRequestOrderLabel({
                             docNo: selected.docNo,
                             customer: selected.customer,

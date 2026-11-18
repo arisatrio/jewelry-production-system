@@ -8867,6 +8867,22 @@ button.spkItemImagePreview--clickable:focus-visible {
     background: #dcfce7;
 }
 
+.spkCreateDialogTable td.spkCreateDialogTableItemCell {
+    white-space: normal;
+    min-width: 10rem;
+}
+
+.spkCreateSelectorItemCell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.spkCreateSelectorItemSku {
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
 .spkEditPage {
     display: flex;
     flex-direction: column;

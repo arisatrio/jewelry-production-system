@@ -270,13 +270,29 @@ class SpkService
             throw new InvalidArgumentException('Request order tidak ditemukan.');
         }
 
-        return [
+        $attributes = [
             'spk_type' => 'Pesanan',
             'request_order_no' => $order['docNo'],
             'customer_name' => $order['customer'],
             'item_name' => $order['item'],
             'item_id' => $order['itemId'],
         ];
+
+        if (filled($order['skuId'] ?? null)) {
+            $attributes['sku_id'] = (int) $order['skuId'];
+        }
+
+        if (filled($order['categoryPrefixId'] ?? null)) {
+            $attributes['category_prefix_id'] = (int) $order['categoryPrefixId'];
+        }
+
+        $notes = $this->requestOrders->catatanForSpkFromRequestOrder($order['notes'] ?? null);
+
+        if ($notes !== null) {
+            $attributes['notes'] = $notes;
+        }
+
+        return $attributes;
     }
 
     /**

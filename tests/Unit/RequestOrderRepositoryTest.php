@@ -7,6 +7,17 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
+test('request order repository formats spk catatan from request order notes', function () {
+    $repository = app(RequestOrderRepository::class);
+
+    expect($repository->catatanForSpkFromRequestOrder('Size 12'))
+        ->toBe('Catatan Request Order: Size 12')
+        ->and($repository->catatanForSpkFromRequestOrder('  '))
+        ->toBeNull()
+        ->and($repository->catatanForSpkFromRequestOrder(null))
+        ->toBeNull();
+});
+
 test('request order repository formats pesanan label with payment status', function () {
     $repository = app(RequestOrderRepository::class);
 
