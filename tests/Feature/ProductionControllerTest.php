@@ -2,6 +2,7 @@
 
 use App\Models\Employee;
 use App\Models\Production;
+use App\Models\SerahTerimaFakturBarangJadi;
 use App\Models\SerahTerimaSpk;
 use App\Models\SkuMaster;
 use App\Models\SkuPrefixCategory;
@@ -1390,8 +1391,9 @@ test('spk index includes last process date from the process table', function () 
     $production->delete();
 });
 
-test('spk show page formats last weight with two decimal places', function () {
+test('spk show page formats emas and finished goods weight with two decimal places', function () {
     $production = Production::factory()->create([
+        'gold_weight' => 4.5,
         'last_weight' => 3.2,
         'is_deleted' => 0,
     ]);
@@ -1400,6 +1402,8 @@ test('spk show page formats last weight with two decimal places', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('spk/show')
+            ->where('production.emasWeight', '3.20')
+            ->where('production.finishedGoodsWeight', '3.20')
             ->where('production.lastWeight', '3.20')
         );
 
@@ -1451,6 +1455,8 @@ test('spk show page displays production detail', function () {
             ->component('spk/show')
             ->where('production.id', (string) $production->row_id)
             ->where('production.produksiNo', $production->spk_no)
+            ->has('production.plu')
+            ->has('production.fakturBarangJadiDelivery')
             ->has('production.customer')
             ->has('production.item')
             ->has('production.status')
@@ -1491,6 +1497,45 @@ test('spk show page displays the request stock number when the spk came from a s
             ->where('production.requestStockNo', 'RS-0000033')
         );
 
+    $production->delete();
+});
+
+test('spk show page exposes tanggal pengiriman from latest faktur barang jadi', function () {
+    if (! Schema::connection('third')->hasTable('serah_terima_faktur_barang_jadi')) {
+        $this->markTestSkipped('Table serah_terima_faktur_barang_jadi is not available.');
+    }
+
+    $production = Production::factory()->create([
+        'is_deleted' => 0,
+    ]);
+
+    $tanggal = '2026-09-18';
+    $docNo = 'FAKTUR/TEST-SHOW/'.$production->row_id;
+
+    $receipt = SerahTerimaFakturBarangJadi::query()->create([
+        'doc_no' => $docNo,
+        'tanggal' => $tanggal,
+        'dari' => 'Workshop',
+        'untuk' => 'Store',
+        'jumlah_spk' => 1,
+        'spk_row_ids' => [(int) $production->row_id],
+        'items' => [],
+        'created_by' => 'system',
+    ]);
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/show')
+            ->where('production.fakturBarangJadiDelivery.tanggal', '18-Sep-2026')
+            ->where('production.fakturBarangJadiDelivery.docNo', $docNo)
+            ->where(
+                'production.fakturBarangJadiDelivery.printUrl',
+                route('faktur-barang-jadi.print.receipt', $receipt, absolute: true),
+            )
+        );
+
+    $receipt->delete();
     $production->delete();
 });
 

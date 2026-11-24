@@ -35,6 +35,7 @@ import {
     SpkInformasiProduksiPanel,
 } from '@/components/spk/spk-informasi-produksi-panel';
 import { SpkBatuPanel } from '@/components/spk/spk-batu-panel';
+import { SpkMountedStonesPanel } from '@/components/spk/spk-mounted-stones-panel';
 import type { SpkApprovalFooterColumn } from '@/components/spk/spk-informasi-produksi-panel';
 import { SpkProcessPanel } from '@/components/spk/spk-process-panel';
 import { SpkProductionControlReportSection } from '@/components/spk/spk-production-control-report';
@@ -56,6 +57,7 @@ import type {
     SpkComponentReceiptSummary,
     SpkDiamondSummary,
     SpkDiamondDocumentRow,
+    SpkMountedStonesDetail,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -113,6 +115,7 @@ type SpkDetailLayoutProps = {
     componentReceipt?: SpkComponentReceiptSummary | null;
     spkDiamond?: SpkDiamondSummary | null;
     spkDiamondDocuments?: SpkDiamondDocumentRow[];
+    mountedStonesDetail?: SpkMountedStonesDetail;
     children?: ReactNode;
 };
 
@@ -146,6 +149,11 @@ export function SpkDetailLayout({
     componentReceipt = null,
     spkDiamond = null,
     spkDiamondDocuments = [],
+    mountedStonesDetail = {
+        pasangBatu: null,
+        mounted: [],
+        mountedTotals: { pcs: 0, carat: 0 },
+    },
     children,
 }: SpkDetailLayoutProps) {
     const [mainSection, setMainSection] = useState<MainSectionTab>(() =>
@@ -173,6 +181,7 @@ export function SpkDetailLayout({
     const mainSectionTabs: Array<{ id: MainSectionTab; label: string }> = [
         { id: 'informasi-produksi', label: 'Detail Item' },
         { id: 'batu', label: 'Alokasi & SPK Batu' },
+        { id: 'batu-terpasang', label: 'Batu terpasang' },
         { id: 'proses-produksi', label: 'Proses Produksi' },
         ...mainProcesses.map((process) => ({
             id: process.key,
@@ -185,6 +194,7 @@ export function SpkDetailLayout({
         mainProcesses.find((process) => process.key === mainSection) ?? null;
     const isInformasiProduksi = mainSection === 'informasi-produksi';
     const isBatuSection = mainSection === 'batu';
+    const isBatuTerpasangSection = mainSection === 'batu-terpasang';
 
     const goTo = (url: string | null): void => {
         if (!url) {
@@ -534,6 +544,12 @@ export function SpkDetailLayout({
                             stones={stones}
                             spkDiamond={spkDiamond}
                             spkDiamondDocuments={spkDiamondDocuments}
+                        />
+                    ) : null}
+
+                    {isBatuTerpasangSection ? (
+                        <SpkMountedStonesPanel
+                            mountedStonesDetail={mountedStonesDetail}
                         />
                     ) : null}
 

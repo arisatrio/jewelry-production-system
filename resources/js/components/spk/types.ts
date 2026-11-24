@@ -44,6 +44,7 @@ export type SpkIndexRow = SpkRow & {
     typeCode: string | null;
     productItemName: string | null;
     spkImageUrl: string | null;
+    fotoBrjImageUrl?: string | null;
     targetDaysLeft: number | null;
     createdBy: string | null;
     componentStatus: string | null;
@@ -109,6 +110,8 @@ export type SpkDetail = SpkRow & {
     frameId: string;
     fileName: string;
     lastWeight: string | number;
+    emasWeight: string | number;
+    finishedGoodsWeight: string | number;
     receivedByProductionDate?: string;
     createdDate: string;
     createdBy: string;
@@ -116,6 +119,13 @@ export type SpkDetail = SpkRow & {
     modifiedBy: string;
     workflowStatus: SpkWorkflowStatus;
     stoneIndexStatus?: SpkStoneIndexStatus | null;
+    fakturBarangJadiDelivery?: SpkFakturBarangJadiDelivery | null;
+};
+
+export type SpkFakturBarangJadiDelivery = {
+    tanggal: string;
+    docNo: string;
+    printUrl: string;
 };
 
 export type SpkItemDetail = {
@@ -161,7 +171,8 @@ export type SpkStoneAllocationStatus =
     | 'not_allocated'
     | 'ordering'
     | 'shipping'
-    | 'allocated';
+    | 'allocated'
+    | 'installed';
 
 export type SpkStoneFulfillmentAction = 'mark_ordering';
 
@@ -249,6 +260,28 @@ export type SpkDiamondDocumentRow = {
     spkProduksiNo: string | null;
     createdBy: string | null;
     createdDate: string | null;
+};
+
+export type SpkMountedStoneRow = {
+    kode: string;
+    shape: string;
+    pcs: number | string | null;
+    crt: string | null;
+    size: string;
+};
+
+export type SpkMountedStonesDetail = {
+    pasangBatu: {
+        id: number;
+        docNo: string;
+        showUrl: string;
+        statusLabel: string;
+    } | null;
+    mounted: SpkMountedStoneRow[];
+    mountedTotals: {
+        pcs: number;
+        carat: number;
+    };
 };
 
 export type SpkChainItem = {
@@ -424,6 +457,7 @@ export type SpkShrinkReport = {
     startWeight: string | null;
     endWeight: string | null;
     finishedGoodsWithStone: string | null;
+    stoneWeight: string | null;
     goldIssued: string | null;
     goldReturned: string | null;
     goldUsed: string | null;

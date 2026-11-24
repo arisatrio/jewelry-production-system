@@ -240,6 +240,21 @@ test('spk process mapper resolves craftsman name from craftman_id for diamond mo
         ->and($row['tanggal'])->toBe('28-Jan-2026')
         ->and($row['spk_no'])->toBe('2025/PRD/02901')
         ->and($row['mounting_shrink'])->toBe(0.08)
+        ->and($row)->toHaveKey('weight_diamond');
+
+    if (
+        filled($row['total_weigth_frame_diamond'] ?? null)
+        && filled($row['weight_frame'] ?? null)
+    ) {
+        expect($row['weight_diamond'])->toBe(
+            round(
+                (float) $row['total_weigth_frame_diamond'] - (float) $row['weight_frame'],
+                3,
+            ),
+        );
+    }
+
+    expect($row)
         ->and($row['stone_setting'])->toHaveCount(2)
         ->and($row['stone_setting'][0]['batu'])->toBe('Round B01 1.00 MM')
         ->and($row['stone_return'])->toBe([])

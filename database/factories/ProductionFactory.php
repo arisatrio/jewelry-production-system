@@ -55,6 +55,7 @@ class ProductionFactory extends Factory
             'last_weight' => null,
             'frame_id' => null,
             'file_name' => null,
+            'foto_brj' => null,
             'last_process' => fake()->optional()->randomElement(['Pasang Batu', 'Finishing', 'Coran']),
             'is_coran' => 0,
             'is_finishinghandmade' => 0,

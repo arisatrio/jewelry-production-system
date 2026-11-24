@@ -8,6 +8,8 @@ use App\Support\CoranSpkEligibility;
 use App\Support\ResinSpkEligibility;
 use App\Support\SpkApprovalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -86,6 +88,38 @@ test('coran sync last weight updates spk last weight from hasil coran', function
 
     expect((float) $updated->last_weight)->toBe(3.25)
         ->and($updated->modified_by)->toBe('Operator Coran');
+});
+
+test('coran sync last weight skips when downstream process exists', function () {
+    if (! Schema::connection('third')->hasTable('finishinghandmade')) {
+        $this->markTestSkipped('Table finishinghandmade is not available.');
+    }
+
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/CLWD'.Str::upper(Str::random(4)),
+        'last_weight' => 5.60,
+    ]);
+
+    DB::connection('third')->table('finishinghandmade')->insert([
+        'spk_id' => $production->row_id,
+        'finish_weight' => '5.81',
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+        'modified_date' => now(),
+        'modified_by' => 'system',
+    ]);
+
+    try {
+        $updated = app(CoranSpkEligibility::class)->syncLastWeight($production, '6.63', 'Operator Coran');
+
+        expect((float) $updated->last_weight)->toBe(5.60);
+    } finally {
+        DB::connection('third')->table('finishinghandmade')
+            ->where('spk_id', $production->row_id)
+            ->delete();
+        $production->delete();
+    }
 });
 
 test('coran sync last weight skips empty weight', function () {

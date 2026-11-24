@@ -60,10 +60,12 @@ use App\Support\SpkDiamondDocumentService;
 use App\Support\SpkGoldReport;
 use App\Support\SpkIndexMaterialStatus;
 use App\Support\SpkItemImageUrl;
+use App\Support\SpkMountedStonesDetail;
 use App\Support\SpkOrderPriorityResolver;
 use App\Support\SpkOrderReference;
 use App\Support\SpkProcessMapper;
 use App\Support\SpkProductionControlReport;
+use App\Support\SpkProductionWeightDisplay;
 use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
 use App\Support\SpkShrinkSummary;
@@ -141,14 +143,6 @@ class ProductionController extends Controller
     public function reparasiIndex(Request $request): Response
     {
         return $this->renderSpkIndex($request, reparasiOnly: true);
-    }
-
-    /**
-     * Daftar SPK selesai (DONE Rangka dan DONE Barang Jadi) untuk faktur barang jadi.
-     */
-    public function fakturBarangJadiIndex(Request $request): Response
-    {
-        return $this->renderSpkIndex($request, reparasiOnly: false, fakturBarangJadiOnly: true);
     }
 
     /**
@@ -315,11 +309,18 @@ class ProductionController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        $fakturDetailsByRowId = $fakturBarangJadiOnly
+            ? app(FakturBarangJadiReceiptService::class)->latestFakturDetailsBySpkRowIds(array_values(
+                $productions->getCollection()->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+            ))
+            : null;
+
         $productions = $productions->through(
             $this->indexRowMapper(
                 $productions->getCollection(),
                 $fakturBarangJadiIssuedIds,
                 $fakturBarangJadiStatusByRowId,
+                $fakturDetailsByRowId,
             ),
         );
 
@@ -333,7 +334,7 @@ class ProductionController extends Controller
 
         $inertiaPage = match ($indexContext) {
             'reparasi' => 'reparasi/index',
-            'fakturBarangJadi' => 'faktur-barang-jadi/index',
+            'fakturBarangJadi' => 'faktur-barang-jadi/create',
             default => 'spk/index',
         };
 
@@ -407,6 +408,9 @@ class ProductionController extends Controller
                 ],
             'fakturBarangJadiTableAvailable' => $fakturBarangJadiOnly
                 ? app(FakturBarangJadiReceiptService::class)->tableAvailable()
+                : null,
+            'fakturBarangJadiFotoBrjAvailable' => $fakturBarangJadiOnly
+                ? Schema::connection('third')->hasColumn('spk', 'foto_brj')
                 : null,
             'fakturBarangJadiReceiptCount' => $fakturBarangJadiOnly
                 ? app(FakturBarangJadiReceiptService::class)->openReceiptCount()
@@ -2152,6 +2156,8 @@ class ProductionController extends Controller
                 ->latestSummaryForProduction($production),
             'spkDiamondDocuments' => app(SpkDiamondDocumentService::class)
                 ->documentsForProduction($production),
+            'mountedStonesDetail' => app(SpkMountedStonesDetail::class)
+                ->forProduction($production),
         ]);
     }
 
@@ -3087,6 +3093,24 @@ class ProductionController extends Controller
     }
 
     /**
+     * Lokasi untuk index/detail: ikuti tujuan faktur (Untuk) bila SPK sudah punya faktur aktif.
+     *
+     * @param  array{untuk: string|null, dari: string|null, docNo: string, tanggal: string, receiptId: int, workflowStatus: string, workflowStatusLabel: string}|null  $fakturDetail
+     */
+    private function indexDisplayLocation(Production $production, ?array $fakturDetail = null): string
+    {
+        $spkLocation = $this->listLocation($production);
+
+        if ($fakturDetail === null) {
+            return $spkLocation;
+        }
+
+        $untuk = trim((string) ($fakturDetail['untuk'] ?? ''));
+
+        return $untuk !== '' ? $untuk : $spkLocation;
+    }
+
+    /**
      * Mapper baris index untuk satu halaman SPK; data proses & request order dimuat sekali per halaman.
      *
      * @param  Collection<int, Production>  $pageProductions
@@ -3095,11 +3119,13 @@ class ProductionController extends Controller
     /**
      * @param  array<int, true>|null  $fakturBarangJadiIssuedIds
      * @param  array<int, string>|null  $fakturBarangJadiStatusByRowId
+     * @param  array<int, array{untuk: string|null, dari: string|null, docNo: string, tanggal: string, receiptId: int, workflowStatus: string, workflowStatusLabel: string}>|null  $fakturDetailsByRowId
      */
     private function indexRowMapper(
         Collection $pageProductions,
         ?array $fakturBarangJadiIssuedIds = null,
         ?array $fakturBarangJadiStatusByRowId = null,
+        ?array $fakturDetailsByRowId = null,
     ): Closure {
         $doneKinds = SpkDashboardAnalytics::completedProductionKinds(
             $pageProductions->pluck('row_id')->all(),
@@ -3121,7 +3147,7 @@ class ProductionController extends Controller
             $pageProductions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
         ));
 
-        return function (Production $production) use ($doneKinds, $lastProcessDates, $requestOrders, $latestReceipts, $materialStatuses, $fakturBarangJadiIssuedIds, $fakturBarangJadiStatusByRowId): array {
+        return function (Production $production) use ($doneKinds, $lastProcessDates, $requestOrders, $latestReceipts, $materialStatuses, $fakturBarangJadiIssuedIds, $fakturBarangJadiStatusByRowId, $fakturDetailsByRowId): array {
             $row = $this->toIndexRow(
                 $production,
                 $doneKinds[(int) $production->row_id] ?? false,
@@ -3147,6 +3173,8 @@ class ProductionController extends Controller
                 $rowId = (int) $production->row_id;
                 $row['fakturBarangJadiIssued'] = isset($fakturBarangJadiIssuedIds[$rowId]);
                 $row['fakturBarangJadiStatus'] = $fakturBarangJadiStatusByRowId[$rowId] ?? null;
+                $faktur = $fakturDetailsByRowId[$rowId] ?? null;
+                $row['location'] = $this->indexDisplayLocation($production, $faktur);
             }
 
             return $this->applyLastProcessBadgeFields($row, $production);
@@ -3263,6 +3291,7 @@ class ProductionController extends Controller
             'typeCode' => $typeCode !== '' ? $typeCode : null,
             'productItemName' => $productItemName !== '' ? $productItemName : null,
             'spkImageUrl' => SpkItemImageUrl::fromFileName($production->file_name),
+            'fotoBrjImageUrl' => SpkItemImageUrl::fromFotoBrj($production->foto_brj),
             'createdBy' => filled($production->created_by) ? (string) $production->created_by : null,
             'targetDaysLeft' => $production->estimated_delivery_time !== null
                 ? (int) now()->startOfDay()->diffInDays(
@@ -3340,6 +3369,7 @@ class ProductionController extends Controller
             'lastWeight' => filled($production->last_weight)
                 ? number_format((float) $production->last_weight, 2, '.', '')
                 : '-',
+            ...app(SpkProductionWeightDisplay::class)->formattedForProduction($production),
             'receivedByProductionDate' => app(SpkApprovalService::class)
                 ->managerApprovedAt($production),
             'createdDate' => $production->created_date?->format('d-M-Y H:i') ?? '-',
@@ -3362,6 +3392,24 @@ class ProductionController extends Controller
             'componentStatus' => null,
         ];
         $detail['stoneIndexStatus'] = $material['stoneIndexStatus'];
+
+        $faktur = app(FakturBarangJadiReceiptService::class)
+            ->latestFakturDetailsBySpkRowIds([(int) $production->row_id])[(int) $production->row_id] ?? null;
+
+        if ($faktur !== null) {
+            $detail['location'] = $this->indexDisplayLocation($production, $faktur);
+            $detail['fakturBarangJadiDelivery'] = [
+                'tanggal' => $faktur['tanggal'],
+                'docNo' => $faktur['docNo'],
+                'printUrl' => route(
+                    'faktur-barang-jadi.print.receipt',
+                    $faktur['receiptId'],
+                    absolute: true,
+                ),
+            ];
+        } else {
+            $detail['fakturBarangJadiDelivery'] = null;
+        }
 
         return $this->applyLastProcessBadgeFields($detail, $production);
     }

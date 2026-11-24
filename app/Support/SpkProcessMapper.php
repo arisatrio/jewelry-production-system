@@ -1153,6 +1153,18 @@ class SpkProcessMapper
                 $mountingShrink = round($framePlusStone - $finishWeight, 2);
             }
 
+            $frameWeight = isset($record['weight_frame'])
+                && $record['weight_frame'] !== null
+                && $record['weight_frame'] !== ''
+                ? (float) $record['weight_frame']
+                : null;
+
+            $weightDiamond = $record['weight_diamond'] ?? null;
+
+            if ($framePlusStone !== null && $frameWeight !== null) {
+                $weightDiamond = round($framePlusStone - $frameWeight, 3);
+            }
+
             $tanggal = null;
 
             if (filled($record['trans_date'] ?? null)) {
@@ -1163,6 +1175,7 @@ class SpkProcessMapper
                 ...$record,
                 'tanggal' => $tanggal,
                 'spk_no' => $spkNo,
+                'weight_diamond' => $weightDiamond,
                 'mounting_shrink' => $mountingShrink,
                 'stone_setting' => $settingByRef[$mountingId] ?? [],
                 'stone_return' => $returnByRef[$mountingId] ?? [],

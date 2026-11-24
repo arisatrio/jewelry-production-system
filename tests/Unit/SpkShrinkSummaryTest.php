@@ -25,6 +25,7 @@ test('spk shrink summary builds ordered rows for a complete production', functio
         'startWeight',
         'endWeight',
         'finishedGoodsWithStone',
+        'stoneWeight',
         'goldIssued',
         'goldReturned',
         'goldUsed',
@@ -62,6 +63,7 @@ test('spk shrink summary builds ordered rows for a complete production', functio
             ->and($report['startWeight'])->toBe('1.41')
             ->and($report['endWeight'])->toBe('2.23')
             ->and($report['finishedGoodsWithStone'])->toBe('2.32')
+            ->and($report['stoneWeight'])->toBe('0.09')
             ->and($report['goldIssued'])->toBe('1.79')
             ->and($report['goldReturned'])->toBe('0.51')
             ->and($report['goldUsed'])->toBe('1.28')

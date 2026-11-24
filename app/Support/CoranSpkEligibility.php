@@ -54,6 +54,13 @@ class CoranSpkEligibility
             return $production;
         }
 
+        if (! app(SpkProcessWeightSyncGuard::class)->shouldSyncLastWeight(
+            (int) $production->row_id,
+            'coran',
+        )) {
+            return $production;
+        }
+
         $production->update([
             'last_weight' => number_format((float) $weight, 2, '.', ''),
             'modified_date' => now(),

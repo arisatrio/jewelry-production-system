@@ -38,7 +38,7 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
         },
         {
             key: 'start',
-            label: 'Berat Awal Proses',
+            label: 'Berat Awal Proses (Berat Coran)',
             value: report.startWeight,
             percent: null,
         },
@@ -46,6 +46,12 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
             key: 'end',
             label: 'Berat Akhir Proses',
             value: report.endWeight,
+            percent: null,
+        },
+        {
+            key: 'stone',
+            label: 'Berat Batu',
+            value: report.stoneWeight,
             percent: null,
         },
         {
@@ -79,7 +85,10 @@ export function SpkShrinkReportTable({ report }: SpkShrinkReportTableProps) {
                 </div>
             </div>
 
-            <div className="spkShrinkSummaryGrid" aria-label="Ringkasan berat">
+            <div
+                className="spkShrinkSummaryGrid spkShrinkSummaryGrid--fiveCols"
+                aria-label="Ringkasan berat"
+            >
                 {summaryMetrics.map((metric) => (
                     <div
                         key={metric.key}

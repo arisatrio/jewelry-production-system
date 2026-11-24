@@ -18,6 +18,8 @@ class SpkStoneFulfillment
 
     public const ALLOCATED = 'allocated';
 
+    public const INSTALLED = 'installed';
+
     public const ACTION_MARK_ORDERING = 'mark_ordering';
 
     /**
@@ -31,6 +33,7 @@ class SpkStoneFulfillment
             self::ORDERED,
             self::SHIPPING,
             self::ALLOCATED,
+            self::INSTALLED,
         ];
     }
 
@@ -54,6 +57,7 @@ class SpkStoneFulfillment
             self::ORDERED => 'Selesai',
             self::SHIPPING => 'Sedang Dikirim Supplier',
             self::ALLOCATED => 'Sudah Dialokasikan',
+            self::INSTALLED => 'Terpasang',
             default => '—',
         };
     }

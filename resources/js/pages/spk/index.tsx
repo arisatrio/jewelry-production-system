@@ -24,6 +24,7 @@ import {
     FilterMultiSelect,
     haveSameFilterValues,
 } from '@/components/filter-multi-select';
+import { SpkFotoBrjCell } from '@/components/spk/spk-foto-brj-cell';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
 import {
     SpkPaymentStatusBadge,
@@ -33,12 +34,12 @@ import {
     SpkTableStoneStatusCell,
     SpkTableStatusCell,
     displayListDate,
+    displaySpkLocation,
     isListRowIncomplete,
     isPendingManagerApproval,
     targetDaysLeftHint,
     tipeProduksiBadgeClass,
 } from '@/components/spk/spk-list-cells';
-import { FakturBarangJadiReceiptHistoryDialog } from '@/components/spk/faktur-barang-jadi-receipt-history-dialog';
 import { FakturBarangJadiReceiptPrintDialog } from '@/components/spk/faktur-barang-jadi-receipt-print-dialog';
 import { FakturBarangJadiStatusBadge } from '@/components/spk/faktur-barang-jadi-status-badge';
 import { SpkReceiptHistoryDialog } from '@/components/spk/spk-receipt-history-dialog';
@@ -60,7 +61,10 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { index as fakturBarangJadiIndex } from '@/routes/faktur-barang-jadi';
+import {
+    create as fakturBarangJadiCreate,
+    index as fakturBarangJadiIndex,
+} from '@/routes/faktur-barang-jadi';
 import { index as reparasiIndex } from '@/routes/reparasi';
 import {
     bulkStatus,
@@ -154,6 +158,7 @@ type SpkIndexProps = {
         canDelete: boolean;
     };
     fakturBarangJadiTableAvailable?: boolean | null;
+    fakturBarangJadiFotoBrjAvailable?: boolean | null;
     fakturBarangJadiReceiptCount?: number | null;
 };
 
@@ -212,6 +217,9 @@ const FAKTUR_STATUS_ALERTS = [
     design: 'Information' | 'Critical' | 'Positive';
 }>;
 
+const FAKTUR_BARANG_JADI_INDEX_INFO =
+    'Hanya SPK produksi selesai — DONE (Rangka) atau DONE (Barang Jadi). Reparasi dan SPK yang belum selesai tidak ditampilkan.';
+
 const BULK_ACTION_CONFIRM: Record<BulkAction, string> = {
     submit: 'Kirim {count} SPK terpilih ke Manager?',
     approve: 'Kirim {count} SPK terpilih ke Produksi?',
@@ -246,6 +254,7 @@ export default function SpkIndex({
     storeOrderRequestCount,
     bulkActions,
     fakturBarangJadiTableAvailable,
+    fakturBarangJadiFotoBrjAvailable,
     fakturBarangJadiReceiptCount,
 }: SpkIndexProps) {
     const isReparasiIndex = indexContext === 'reparasi';
@@ -253,7 +262,7 @@ export default function SpkIndex({
     const listIndexRoute = isReparasiIndex
         ? reparasiIndex
         : isFakturBarangJadiIndex
-          ? fakturBarangJadiIndex
+          ? fakturBarangJadiCreate
           : spkIndex;
     const statusAlerts = isFakturBarangJadiIndex
         ? FAKTUR_STATUS_ALERTS
@@ -263,17 +272,25 @@ export default function SpkIndex({
     const pageTitle = isReparasiIndex
         ? 'Reparasi'
         : isFakturBarangJadiIndex
-          ? 'Faktur Barang Jadi'
+          ? 'Buat Faktur Barang Jadi'
           : 'SPK';
     const pageSubtitle = isReparasiIndex
         ? 'Data surat perintah kerja reparasi'
         : isFakturBarangJadiIndex
-          ? 'Daftar SPK selesai (DONE Rangka & DONE Barang Jadi)'
+          ? 'Pilih SPK selesai (DONE Rangka & DONE Barang Jadi), lalu simpan sebagai faktur'
           : 'Data surat perintah kerja produksi';
+    const showSpkScheduleColumns = !isFakturBarangJadiIndex;
     const showStoneStatusColumn = !isFakturBarangJadiIndex;
     const showFakturIssuedColumn = isFakturBarangJadiIndex;
+    const showLocationColumn = isFakturBarangJadiIndex;
+    const showFotoBrjColumn = isFakturBarangJadiIndex;
     const tableColSpan =
-        8 + (showStoneStatusColumn ? 1 : 0) + (showFakturIssuedColumn ? 1 : 0);
+        5 +
+        (showSpkScheduleColumns ? 3 : 0) +
+        (showStoneStatusColumn ? 1 : 0) +
+        (showLocationColumn ? 1 : 0) +
+        (showFakturIssuedColumn ? 1 : 0) +
+        (showFotoBrjColumn ? 1 : 0);
 
     const isRowSelectableForFaktur = (row: SpkIndexRow): boolean =>
         !isFakturBarangJadiIndex || row.fakturBarangJadiIssued !== true;
@@ -289,12 +306,6 @@ export default function SpkIndex({
     const [receiptHistoryDialogOpen, setReceiptHistoryDialogOpen] =
         useState(false);
     const [fakturReceiptDialogOpen, setFakturReceiptDialogOpen] = useState(false);
-    const [fakturReceiptHistoryDialogOpen, setFakturReceiptHistoryDialogOpen] =
-        useState(false);
-    const fakturReceiptCountLabel =
-        typeof fakturBarangJadiReceiptCount === 'number'
-            ? fakturBarangJadiReceiptCount.toLocaleString('id-ID')
-            : '–';
     const [storeStockRequestDialogOpen, setStoreStockRequestDialogOpen] =
         useState(false);
     const storeStockRequestCountLabel =
@@ -1417,16 +1428,20 @@ export default function SpkIndex({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                            <span
-                                className="spkTableHeaderDivider--finishing"
-                                aria-hidden="true"
-                            />
-                            <Button
-                                design="Default"
-                                icon={excelAttachmentIcon}
-                                accessibleName="Ekspor"
-                                className="spkTableHeaderExportBtn--finishing"
-                            />
+                            {!isFakturBarangJadiIndex ? (
+                                <>
+                                    <span
+                                        className="spkTableHeaderDivider--finishing"
+                                        aria-hidden="true"
+                                    />
+                                    <Button
+                                        design="Default"
+                                        icon={excelAttachmentIcon}
+                                        accessibleName="Ekspor"
+                                        className="spkTableHeaderExportBtn--finishing"
+                                    />
+                                </>
+                            ) : null}
                             {isFakturBarangJadiIndex &&
                             fakturBarangJadiTableAvailable !== false ? (
                                 <>
@@ -1462,6 +1477,23 @@ export default function SpkIndex({
                                                 {selectedIds.length}
                                             </span>
                                         ) : null}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="spkReceiptPrintBtn"
+                                        aria-label="Kembali ke daftar faktur"
+                                        title="Daftar faktur barang jadi"
+                                        onClick={() =>
+                                            router.visit(
+                                                fakturBarangJadiIndex.url(),
+                                            )
+                                        }
+                                    >
+                                        <Icon
+                                            name={documentIcon}
+                                            mode="Decorative"
+                                        />
+                                        <span>Daftar Faktur</span>
                                     </button>
                                 </>
                             ) : null}
@@ -1545,45 +1577,19 @@ export default function SpkIndex({
                     </div>
 
                     {isFakturBarangJadiIndex &&
-                    fakturBarangJadiTableAvailable !== false ? (
-                        <div className="spkStoreStockRequestBar">
-                            <Button
-                                className="spkStoreStockRequestBtn"
-                                design="Default"
-                                icon={documentIcon}
-                                accessibleName={
-                                    typeof fakturBarangJadiReceiptCount ===
-                                        'number' &&
-                                    fakturBarangJadiReceiptCount > 0
-                                        ? `Riwayat Faktur: ${fakturReceiptCountLabel} faktur`
-                                        : 'Riwayat Faktur Barang Jadi'
-                                }
-                                tooltip="Daftar faktur barang jadi"
-                                onClick={() =>
-                                    setFakturReceiptHistoryDialogOpen(true)
-                                }
-                            >
-                                Riwayat Faktur Barang Jadi
-                                {typeof fakturBarangJadiReceiptCount ===
-                                    'number' &&
-                                fakturBarangJadiReceiptCount > 0 ? (
-                                    <span
-                                        className="spkStoreStockRequestCount"
-                                        aria-hidden="true"
-                                    >
-                                        {fakturReceiptCountLabel}
-                                    </span>
-                                ) : null}
-                            </Button>
-                        </div>
-                    ) : null}
-
-                    {isFakturBarangJadiIndex &&
                     fakturBarangJadiTableAvailable === false ? (
                         <MessageStrip design="Information" hideCloseButton>
                             Penyimpanan faktur barang jadi belum tersedia di
                             database.
                         </MessageStrip>
+                    ) : null}
+
+                    {isFakturBarangJadiIndex ? (
+                        <div className="spkFakturBarangJadiInfoBar">
+                            <MessageStrip design="Information" hideCloseButton>
+                                {FAKTUR_BARANG_JADI_INDEX_INFO}
+                            </MessageStrip>
+                        </div>
                     ) : null}
 
                     {!hideSpkManagementToolbar ? (
@@ -1837,19 +1843,38 @@ export default function SpkIndex({
                                     </th>
                                     <th className="spkTableColDoc--spk">ID</th>
                                     <th>Item</th>
-                                    <th className='spkTableColCenter'>Dibuat Oleh</th>
-                                    <th className="spkTableColCenter">
-                                        Tanggal Permintaan
-                                    </th>
-                                    <th className="spkTableColCenter">
-                                        Target Selesai
-                                    </th>
+                                    {showSpkScheduleColumns ? (
+                                        <>
+                                            <th className="spkTableColCenter">
+                                                Dibuat Oleh
+                                            </th>
+                                            <th className="spkTableColCenter">
+                                                Tanggal Permintaan
+                                            </th>
+                                            <th className="spkTableColCenter">
+                                                Target Selesai
+                                            </th>
+                                        </>
+                                    ) : null}
                                     <th className="spkTableColCenter">
                                         Proses Terakhir
                                     </th>
+                                    <th className="spkTableColStatus spkTableColCenter">
+                                        Status
+                                    </th>
+                                    {showFotoBrjColumn ? (
+                                        <th className="spkTableColCenter spkTableColFotoBrj">
+                                            Foto Barang Jadi
+                                        </th>
+                                    ) : null}
                                     {showStoneStatusColumn ? (
                                         <th className="spkTableColCenter spkTableColMaterialStatus">
                                             Status Batu
+                                        </th>
+                                    ) : null}
+                                    {showLocationColumn ? (
+                                        <th className="spkTableColCenter spkTableColLocation">
+                                            Lokasi
                                         </th>
                                     ) : null}
                                     {showFakturIssuedColumn ? (
@@ -1857,9 +1882,6 @@ export default function SpkIndex({
                                             Status Faktur
                                         </th>
                                     ) : null}
-                                    <th className="spkTableColStatus spkTableColCenter">
-                                        Status
-                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2074,42 +2096,71 @@ export default function SpkIndex({
                                                         />
                                                     </div>
                                                 </td>
-                                                <td>
-                                                    <SpkTableCreatedByCell
-                                                        createdBy={row.createdBy}
-                                                        createdDate={
-                                                            row.createdDate
-                                                        }
-                                                    />
-                                                </td>
-                                                <td className="spkTableColCenter">
-                                                    {displayListDate(
-                                                        row.orderDate,
-                                                    )}
-                                                </td>
-                                                <td className="spkTableColCenter">
-                                                    <div className="flex flex-col">
-                                                        <span>
-                                                            {displayListDate(
-                                                                row.estimatedDelivery,
-                                                            )}
-                                                        </span>
-                                                        {targetHint ? (
-                                                            <span
-                                                                className={`text-xs ${targetHint.className}`}
-                                                            >
-                                                                {
-                                                                    targetHint.label
+                                                {showSpkScheduleColumns ? (
+                                                    <>
+                                                        <td>
+                                                            <SpkTableCreatedByCell
+                                                                createdBy={
+                                                                    row.createdBy
                                                                 }
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
-                                                </td>
+                                                                createdDate={
+                                                                    row.createdDate
+                                                                }
+                                                            />
+                                                        </td>
+                                                        <td className="spkTableColCenter">
+                                                            {displayListDate(
+                                                                row.orderDate,
+                                                            )}
+                                                        </td>
+                                                        <td className="spkTableColCenter">
+                                                            <div className="flex flex-col">
+                                                                <span>
+                                                                    {displayListDate(
+                                                                        row.estimatedDelivery,
+                                                                    )}
+                                                                </span>
+                                                                {targetHint ? (
+                                                                    <span
+                                                                        className={`text-xs ${targetHint.className}`}
+                                                                    >
+                                                                        {
+                                                                            targetHint.label
+                                                                        }
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+                                                        </td>
+                                                    </>
+                                                ) : null}
                                                 <td className="spkTableColCenter">
                                                     <SpkTableLastProcessCell
                                                         row={row}
                                                     />
                                                 </td>
+                                                <td className="spkTableColStatus spkTableColCenter">
+                                                    <SpkTableStatusCell
+                                                        row={row}
+                                                    />
+                                                </td>
+                                                {showFotoBrjColumn ? (
+                                                    <td className="spkTableColCenter spkTableColFotoBrj">
+                                                        <SpkFotoBrjCell
+                                                            rowId={row.rowId}
+                                                            spkNo={
+                                                                row.produksiNo
+                                                            }
+                                                            imageUrl={
+                                                                row.fotoBrjImageUrl ??
+                                                                null
+                                                            }
+                                                            uploadEnabled={
+                                                                fakturBarangJadiFotoBrjAvailable !==
+                                                                false
+                                                            }
+                                                        />
+                                                    </td>
+                                                ) : null}
                                                 {showStoneStatusColumn ? (
                                                     <td className="spkTableColCenter spkTableColMaterialStatus">
                                                         <SpkTableStoneStatusCell
@@ -2119,6 +2170,13 @@ export default function SpkIndex({
                                                         />
                                                     </td>
                                                 ) : null}
+                                                {showLocationColumn ? (
+                                                    <td className="spkTableColCenter spkTableColLocation">
+                                                        {displaySpkLocation(
+                                                            row.location,
+                                                        )}
+                                                    </td>
+                                                ) : null}
                                                 {showFakturIssuedColumn ? (
                                                     <td className="spkTableColCenter">
                                                         <FakturBarangJadiStatusBadge
@@ -2126,11 +2184,6 @@ export default function SpkIndex({
                                                         />
                                                     </td>
                                                 ) : null}
-                                                <td className="spkTableColStatus spkTableColCenter">
-                                                    <SpkTableStatusCell
-                                                        row={row}
-                                                    />
-                                                </td>
                                             </tr>
                                         );
                                     })
@@ -2236,13 +2289,8 @@ export default function SpkIndex({
                         employeeOptions={receiptEmployeeOptions}
                         onSaved={() => {
                             setSelectedIds([]);
-                            visitIndex({ page: productions.current_page });
+                            router.visit(fakturBarangJadiIndex.url());
                         }}
-                    />
-                    <FakturBarangJadiReceiptHistoryDialog
-                        open={fakturReceiptHistoryDialogOpen}
-                        onOpenChange={setFakturReceiptHistoryDialogOpen}
-                        employeeOptions={receiptEmployeeOptions}
                     />
                 </>
             ) : null}

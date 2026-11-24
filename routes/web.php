@@ -87,8 +87,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('analytics/sku-output', [SkuOutputDashboardController::class, 'index'])
         ->name('analytics.sku-output');
     Route::get('reparasi', [ProductionController::class, 'reparasiIndex'])->name('reparasi.index');
-    Route::get('faktur-barang-jadi', [ProductionController::class, 'fakturBarangJadiIndex'])
+    Route::get('faktur-barang-jadi', [FakturBarangJadiController::class, 'index'])
         ->name('faktur-barang-jadi.index');
+    Route::get('faktur-barang-jadi/create', [FakturBarangJadiController::class, 'create'])
+        ->name('faktur-barang-jadi.create');
+    Route::get('faktur-barang-jadi/select/spks', [FakturBarangJadiController::class, 'searchSpks'])
+        ->name('faktur-barang-jadi.select.spks');
+    Route::get('faktur-barang-jadi/import/template', [FakturBarangJadiController::class, 'importTemplate'])
+        ->name('faktur-barang-jadi.import-template');
+    Route::post('faktur-barang-jadi/import', [FakturBarangJadiController::class, 'import'])
+        ->name('faktur-barang-jadi.import');
     Route::get('faktur-barang-jadi/print/receipt', [FakturBarangJadiController::class, 'receiptHistory'])
         ->name('faktur-barang-jadi.print.receipt.index');
     Route::post('faktur-barang-jadi/print/receipt', [FakturBarangJadiController::class, 'storeReceipt'])
@@ -105,6 +113,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('faktur-barang-jadi/print/receipt/{serahTerimaFakturBarangJadi}/receive', [FakturBarangJadiController::class, 'receiveReceipt'])
         ->whereNumber('serahTerimaFakturBarangJadi')
         ->name('faktur-barang-jadi.print.receipt.receive');
+    Route::post('faktur-barang-jadi/spk/{production:row_id}/foto-brj', [FakturBarangJadiController::class, 'updateFotoBrj'])
+        ->name('faktur-barang-jadi.spk.foto-brj.update');
     Route::get('spk-diamond', [SpkDiamondController::class, 'index'])->name('spk-diamond.index');
     Route::get('spk-diamond/{spkDiamond}', [SpkDiamondController::class, 'show'])
         ->whereNumber('spkDiamond')

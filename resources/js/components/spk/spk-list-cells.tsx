@@ -59,6 +59,18 @@ export function displayListDate(value: string | null | undefined): string {
     return trimmed !== '' && trimmed !== '-' ? trimmed : '—';
 }
 
+const DEFAULT_SPK_LOCATION = 'Workshop';
+
+export function displaySpkLocation(value: string | null | undefined): string {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+
+    if (trimmed !== '' && trimmed !== '-') {
+        return trimmed;
+    }
+
+    return DEFAULT_SPK_LOCATION;
+}
+
 /** Tanggal dokumen di atas, pembuat di bawah (index SPK Pasang Batu). */
 export function SpkTableDocumentDateCell({
     date,

@@ -45,4 +45,39 @@ class SpkItemImageUrl
 
         return $base.$path;
     }
+
+    /**
+     * Resolve foto barang jadi dari nilai kolom spk.foto_brj.
+     *
+     * Unggahan baru disimpan di produksi/brj/ (nilai DB: brj/{nama}.jpg).
+     */
+    public static function fromFotoBrj(?string $fileName): ?string
+    {
+        if (! filled($fileName)) {
+            return null;
+        }
+
+        $path = trim(str_replace('\\', '/', (string) $fileName));
+
+        if ($path === '' || $path === '-') {
+            return null;
+        }
+
+        if (
+            str_starts_with($path, 'http://')
+            || str_starts_with($path, 'https://')
+        ) {
+            return $path;
+        }
+
+        $path = ltrim($path, '/');
+
+        if (str_starts_with($path, 'brj/')) {
+            $base = rtrim((string) config('spk.production_image_base_url'), '/').'/';
+
+            return $base.$path;
+        }
+
+        return self::fromFileName($fileName);
+    }
 }

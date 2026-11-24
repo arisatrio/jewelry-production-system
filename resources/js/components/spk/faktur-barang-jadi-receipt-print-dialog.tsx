@@ -1,12 +1,14 @@
 import { useHttp } from '@inertiajs/react';
 import { Button } from '@ui5/webcomponents-react/Button';
-import { ComboBox } from '@ui5/webcomponents-react/ComboBox';
-import { ComboBoxItem } from '@ui5/webcomponents-react/ComboBoxItem';
-import { Option } from '@ui5/webcomponents-react/Option';
-import { Select } from '@ui5/webcomponents-react/Select';
 import type { FormEvent } from 'react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
+import {
+    emptyFakturReceiptForm,
+    FakturBarangJadiReceiptFormFields,
+    isKnownFakturEmployee,
+    type FakturBarangJadiReceiptFormValues,
+} from '@/components/spk/faktur-barang-jadi-receipt-form-fields';
 import {
     Dialog,
     DialogContent,
@@ -15,18 +17,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { store as storeFakturBarangJadiReceipt } from '@/routes/faktur-barang-jadi/print/receipt';
-
-type ReceiptFormValues = {
-    tanggal: string;
-    dari: string;
-    untuk: string;
-    diserahkan_oleh: string;
-    diketahui_oleh: string;
-    diterima_oleh: string;
-};
 
 type ReceiptStoreResponse = {
     id: number;
@@ -43,46 +34,6 @@ type FakturBarangJadiReceiptPrintDialogProps = {
     onSaved?: () => void;
 };
 
-type ReceiptNameField = 'diserahkan_oleh' | 'diketahui_oleh';
-
-const RECEIPT_LOCATIONS = ['Head Office', 'Workshop', 'Store'] as const;
-const DEFAULT_FROM_LOCATION = 'Workshop';
-
-const RECEIPT_LOCATION_FIELDS: Array<{
-    name: 'dari' | 'untuk';
-    label: string;
-}> = [
-    { name: 'dari', label: 'Dari' },
-    { name: 'untuk', label: 'Untuk' },
-];
-
-const RECEIPT_NAME_FIELDS: Array<{
-    name: ReceiptNameField;
-    label: string;
-}> = [
-    { name: 'diserahkan_oleh', label: 'Diserahkan oleh' },
-    { name: 'diketahui_oleh', label: 'Diketahui oleh' },
-];
-
-function todayInputValue(): string {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-
-    return `${now.getFullYear()}-${month}-${day}`;
-}
-
-function emptyReceiptForm(): ReceiptFormValues {
-    return {
-        tanggal: todayInputValue(),
-        dari: DEFAULT_FROM_LOCATION,
-        untuk: '',
-        diserahkan_oleh: '',
-        diketahui_oleh: '',
-        diterima_oleh: '',
-    };
-}
-
 export function FakturBarangJadiReceiptPrintDialog({
     open,
     onOpenChange,
@@ -90,9 +41,10 @@ export function FakturBarangJadiReceiptPrintDialog({
     employeeOptions,
     onSaved,
 }: FakturBarangJadiReceiptPrintDialogProps) {
-    const receiptForm = useHttp<ReceiptFormValues, ReceiptStoreResponse>(
-        emptyReceiptForm(),
-    );
+    const receiptForm = useHttp<
+        FakturBarangJadiReceiptFormValues,
+        ReceiptStoreResponse
+    >(emptyFakturReceiptForm());
     const values = receiptForm.data;
     const errorMessages = Array.from(
         new Set(Object.values(receiptForm.errors).filter(Boolean)),
@@ -103,16 +55,16 @@ export function FakturBarangJadiReceiptPrintDialog({
             return;
         }
 
-        receiptForm.setData(emptyReceiptForm());
+        receiptForm.setData(emptyFakturReceiptForm());
         receiptForm.clearErrors();
     }, [open]);
 
-    const setField = (field: keyof ReceiptFormValues, value: string): void => {
+    const setField = (
+        field: keyof FakturBarangJadiReceiptFormValues,
+        value: string,
+    ): void => {
         receiptForm.setData((current) => ({ ...current, [field]: value }));
     };
-
-    const isKnownEmployee = (name: string): boolean =>
-        name.trim() === '' || employeeOptions.includes(name.trim());
 
     const canSubmit =
         !receiptForm.processing &&
@@ -120,9 +72,11 @@ export function FakturBarangJadiReceiptPrintDialog({
         values.tanggal !== '' &&
         values.dari !== '' &&
         values.untuk !== '' &&
-        RECEIPT_NAME_FIELDS.every((field) =>
-            isKnownEmployee(values[field.name]),
-        );
+        isKnownFakturEmployee(
+            values.diserahkan_oleh,
+            employeeOptions,
+        ) &&
+        isKnownFakturEmployee(values.diketahui_oleh, employeeOptions);
 
     const submitReceipt = (): void => {
         if (!canSubmit) {
@@ -143,7 +97,7 @@ export function FakturBarangJadiReceiptPrintDialog({
             .post(storeFakturBarangJadiReceipt.url(), {
                 onSuccess: (response) => {
                     toast.success(
-                        `Faktur ${response.docNo} disimpan. Status faktur: Faktur dibuat. Untuk mengirim, gunakan Riwayat Faktur Barang Jadi.`,
+                        `Faktur ${response.docNo} disimpan. Status faktur: Faktur dibuat. Untuk mengirim, gunakan daftar Faktur Barang Jadi.`,
                     );
                     onOpenChange(false);
                     onSaved?.();
@@ -176,10 +130,7 @@ export function FakturBarangJadiReceiptPrintDialog({
                         <DialogTitle>Buat Faktur Barang Jadi</DialogTitle>
                         <DialogDescription>
                             {selectedIds.length} SPK selesai terpilih. Nomor
-                            faktur dibuat otomatis. Setelah disimpan, status
-                            faktur menjadi &quot;Faktur dibuat&quot;. Lokasi SPK
-                            baru berubah setelah faktur diterima di Riwayat
-                            Faktur. Kirim dan terima dilakukan dari sana.
+                            faktur dibuat otomatis.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -191,121 +142,12 @@ export function FakturBarangJadiReceiptPrintDialog({
                         </ul>
                     ) : null}
 
-                    <div className="grid gap-3">
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="faktur-bj-receipt-tanggal">
-                                Tanggal
-                            </Label>
-                            <Input
-                                id="faktur-bj-receipt-tanggal"
-                                type="date"
-                                value={values.tanggal}
-                                onChange={(event) =>
-                                    setField('tanggal', event.target.value)
-                                }
-                            />
-                        </div>
-                        {RECEIPT_LOCATION_FIELDS.map((field) => {
-                            const otherLocation =
-                                field.name === 'dari'
-                                    ? values.untuk
-                                    : values.dari;
-
-                            return (
-                                <div key={field.name} className="grid gap-1.5">
-                                    <Label
-                                        htmlFor={`faktur-bj-receipt-${field.name}`}
-                                    >
-                                        {field.label}
-                                    </Label>
-                                    <Select
-                                        id={`faktur-bj-receipt-${field.name}`}
-                                        className="w-full"
-                                        accessibleName={field.label}
-                                        onChange={(event) =>
-                                            setField(
-                                                field.name,
-                                                event.detail.selectedOption
-                                                    ?.value ?? '',
-                                            )
-                                        }
-                                    >
-                                        <Option
-                                            value=""
-                                            selected={values[field.name] === ''}
-                                        >
-                                            Pilih lokasi
-                                        </Option>
-                                        {RECEIPT_LOCATIONS.filter(
-                                            (location) =>
-                                                location !== otherLocation,
-                                        ).map((location) => (
-                                            <Option
-                                                key={location}
-                                                value={location}
-                                                selected={
-                                                    values[field.name] ===
-                                                    location
-                                                }
-                                            >
-                                                {location}
-                                            </Option>
-                                        ))}
-                                    </Select>
-                                </div>
-                            );
-                        })}
-                        {RECEIPT_NAME_FIELDS.map((field) => {
-                            const isInvalid = !isKnownEmployee(
-                                values[field.name],
-                            );
-
-                            return (
-                                <div key={field.name} className="grid gap-1.5">
-                                    <Label
-                                        htmlFor={`faktur-bj-receipt-${field.name}`}
-                                    >
-                                        {field.label}
-                                    </Label>
-                                    <ComboBox
-                                        id={`faktur-bj-receipt-${field.name}`}
-                                        className="w-full"
-                                        filter="Contains"
-                                        placeholder="Cari karyawan"
-                                        value={values[field.name]}
-                                        valueState={
-                                            isInvalid ? 'Negative' : 'None'
-                                        }
-                                        onInput={(event) =>
-                                            setField(
-                                                field.name,
-                                                event.target.value ?? '',
-                                            )
-                                        }
-                                        onChange={(event) =>
-                                            setField(
-                                                field.name,
-                                                event.target.value ?? '',
-                                            )
-                                        }
-                                    >
-                                        {employeeOptions.map((name) => (
-                                            <ComboBoxItem
-                                                key={name}
-                                                text={name}
-                                            />
-                                        ))}
-                                    </ComboBox>
-                                    {isInvalid ? (
-                                        <span className="text-xs text-red-600">
-                                            Pilih nama dari daftar karyawan
-                                            aktif.
-                                        </span>
-                                    ) : null}
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <FakturBarangJadiReceiptFormFields
+                        idPrefix="faktur-bj-dialog"
+                        values={values}
+                        employeeOptions={employeeOptions}
+                        onFieldChange={setField}
+                    />
 
                     <DialogFooter>
                         <Button

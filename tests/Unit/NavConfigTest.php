@@ -130,7 +130,32 @@ test('inventory submenu lists stock and transaction items in order', function ()
         ->and($block)->toContain("text: 'Emas'")
         ->and($block)->toContain("text: 'Rantai & Komponen'")
         ->and($block)->not->toContain('Pembelian Batu')
-        ->and($block)->not->toContain('section:');
+        ->and($block)->not->toContain('section:')
+        ->and($block)->not->toContain('Faktur Barang Jadi')
+        ->and($block)->not->toContain('Barang Jadi');
+});
+
+test('faktur barang jadi is grouped under faktur dropdown', function () {
+    $config = file_get_contents(resource_path('js/components/fiori/nav-config.ts'));
+
+    expect($config)->not->toBeFalse();
+
+    preg_match(
+        '/export const defaultFakturSubmenus: ShellNavItem\[\] = \[(.*?)\];/s',
+        (string) $config,
+        $faktur,
+    );
+    preg_match(
+        '/export const defaultTrailingDropdowns: ShellNavDropdown\[\] = \[(.*?)\];/s',
+        (string) $config,
+        $trailing,
+    );
+
+    expect($faktur[1] ?? '')->toContain('Faktur Barang Jadi')
+        ->and($faktur[1] ?? '')->toContain('fakturBarangJadiIndex.url()')
+        ->and($trailing[1] ?? '')->toContain("'faktur'")
+        ->and($trailing[1] ?? '')->toContain("'Delivery'")
+        ->and($trailing[1] ?? '')->toContain('defaultFakturSubmenus');
 });
 
 test('process report pages are listed under analytics submenu', function () {

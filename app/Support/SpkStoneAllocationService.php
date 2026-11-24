@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\SpkDiamond;
 use App\Models\SpkStone;
+use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -132,6 +133,24 @@ class SpkStoneAllocationService
         return $grouped;
     }
 
+    /**
+     * @return list<string|Expression>
+     */
+    private function diamondCertificateSelectColumns(): array
+    {
+        $schema = Schema::connection('third');
+
+        if ($schema->hasTable('trdiamond') && $schema->hasColumn('trdiamond', 'no_certificate')) {
+            return ['diamond.no_certificate as diamond_no_certificate'];
+        }
+
+        if ($schema->hasTable('trdiamond') && $schema->hasColumn('trdiamond', 'certificate')) {
+            return ['diamond.certificate as diamond_no_certificate'];
+        }
+
+        return [DB::raw('NULL as diamond_no_certificate')];
+    }
+
     private function allocationRowsQuery(): Builder
     {
         return DB::connection('third')
@@ -159,7 +178,7 @@ class SpkStoneAllocationService
                 'allocation.created_by',
                 'diamond.doc_no as diamond_code',
                 'diamond.doc_no as diamond_doc_no',
-                'diamond.certificate as diamond_certificate',
+                ...$this->diamondCertificateSelectColumns(),
                 'diamond.diamond_type',
                 'diamond.color as diamond_color',
                 'diamond.crt as diamond_crt',
@@ -226,8 +245,8 @@ class SpkStoneAllocationService
             ? (string) $row->diamond_color
             : null;
 
-        $certificate = $isDossier
-            ? $this->nullableString($row->diamond_certificate ?? null)
+        $noCertificate = $isDossier
+            ? $this->nullableString($row->diamond_no_certificate ?? null)
             : null;
 
         $reservedCrt = filled($row->reserved_crt ?? null)
@@ -240,6 +259,10 @@ class SpkStoneAllocationService
 
         $allocatedBy = trim((string) ($row->created_by ?? ''));
 
+        $shapeCode = $isDossier
+            ? $this->nullableString($row->diamond_shape_code ?? null)
+            : $this->nullableString($row->micro_shape_code ?? null);
+
         return [
             'id' => (int) $row->row_id,
             'source' => $source,
@@ -247,8 +270,10 @@ class SpkStoneAllocationService
             'label' => $label,
             'code' => $isDossier ? ($displayId ?? $code) : $code,
             'shape' => $shape,
+            'shapeCode' => $shapeCode,
             'displayId' => $displayId,
-            'certificate' => $certificate,
+            'noCertificate' => $noCertificate,
+            'certificate' => $noCertificate,
             'diamondType' => $diamondType,
             'color' => $color,
             'diamondId' => $row->diamond_id !== null ? (int) $row->diamond_id : null,

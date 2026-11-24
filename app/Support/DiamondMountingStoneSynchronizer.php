@@ -170,6 +170,55 @@ class DiamondMountingStoneSynchronizer
     }
 
     /**
+     * Batu terpasang saja (diamondmountingdetail), tanpa baris turunan dari setting batu.
+     *
+     * @return list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>
+     */
+    public function mountedDetailFor(DiamondMounting $document): array
+    {
+        $mountingId = (int) $document->row_id;
+        $mounted = $this->detailMountedLines([$mountingId])[$mountingId] ?? [];
+        $setting = $this->detailStoneLines([$mountingId], self::TRANSTYPE_SETTING)[$mountingId] ?? [];
+
+        return $this->excludeSettingDerivedMountedRows($mounted, $setting);
+    }
+
+    /**
+     * @param  list<array{kode?: string, shape?: string, pcs?: int|float|string|null, crt?: string|null, size?: string}>  $mounted
+     * @param  list<array{batu?: string, notes?: string|null}>  $setting
+     * @return list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>
+     */
+    private function excludeSettingDerivedMountedRows(array $mounted, array $setting): array
+    {
+        if ($setting === []) {
+            return $mounted;
+        }
+
+        $settingLabels = [];
+
+        foreach ($setting as $row) {
+            $batu = trim((string) ($row['batu'] ?? ''));
+
+            if ($batu === '' || $batu === 'Batu') {
+                continue;
+            }
+
+            $notes = trim((string) ($row['notes'] ?? ''));
+
+            $settingLabels[] = $notes !== '' ? $batu.' ('.$notes.')' : $batu;
+        }
+
+        if ($settingLabels === []) {
+            return $mounted;
+        }
+
+        return array_values(array_filter(
+            $mounted,
+            fn (array $row): bool => ! in_array(trim((string) ($row['kode'] ?? '')), $settingLabels, true),
+        ));
+    }
+
+    /**
      * @return array{
      *     setting: list<array{batu: string, pcs: int|float|null, crt: string|null, notes: string|null}>,
      *     return: list<array{batu: string, pcs: int|float|null, crt: string|null, notes: string|null}>,
@@ -217,12 +266,7 @@ class DiamondMountingStoneSynchronizer
         );
         $this->syncDiamondLines($document, $payload['diamonds'] ?? [], $actor);
 
-        $mountedLines = array_merge(
-            $this->mountedLinesFromSetting($settingLines),
-            $payload['mounted'] ?? [],
-        );
-
-        $this->syncMountedLines($document, $mountedLines, $actor);
+        $this->syncMountedLines($document, $payload['mounted'] ?? [], $actor);
     }
 
     /**
@@ -404,7 +448,15 @@ class DiamondMountingStoneSynchronizer
             $query->leftJoin('msshape as s', 's.row_id', '=', 't.shape_id');
         }
 
-        $select = ['t.diamondmounting_id', 't.doc_no', 't.diamond_type', 't.certificate', 't.crt'];
+        $select = ['t.diamondmounting_id', 't.doc_no', 't.diamond_type', 't.crt'];
+
+        if (Schema::connection('third')->hasColumn('trdiamond', 'no_certificate')) {
+            $select[] = 't.no_certificate';
+        }
+
+        if (Schema::connection('third')->hasColumn('trdiamond', 'certificate')) {
+            $select[] = 't.certificate';
+        }
 
         if ($hasShape) {
             $select[] = 's.name as shape_name';
@@ -420,11 +472,15 @@ class DiamondMountingStoneSynchronizer
                 continue;
             }
 
+            $certificate = filled($line->no_certificate ?? null)
+                ? (string) $line->no_certificate
+                : (filled($line->certificate ?? null) ? (string) $line->certificate : null);
+
             $grouped[$mountingId][] = [
                 'kode' => filled($line->doc_no ?? null) ? (string) $line->doc_no : '—',
                 'diamond' => filled($line->diamond_type ?? null) ? (string) $line->diamond_type : '—',
                 'bentuk' => filled($line->shape_name ?? null) ? (string) $line->shape_name : '—',
-                'sertifikat' => filled($line->certificate ?? null) ? (string) $line->certificate : '—',
+                'sertifikat' => filled($certificate) ? $certificate : '—',
                 'crt' => $this->formatCrt($line->crt),
             ];
         }
@@ -466,6 +522,7 @@ class DiamondMountingStoneSynchronizer
 
         if ($hasShape) {
             $select[] = 's.name as shape_name';
+            $select[] = 's.code as shape_code';
         }
 
         $lines = $query->orderBy('d.line_id')->get($select);
@@ -481,6 +538,7 @@ class DiamondMountingStoneSynchronizer
             $grouped[$mountingId][] = [
                 'kode' => filled($line->diamond_code ?? null) ? (string) $line->diamond_code : '—',
                 'shape' => filled($line->shape_name ?? null) ? (string) $line->shape_name : '—',
+                'shapeCode' => filled($line->shape_code ?? null) ? (string) $line->shape_code : null,
                 'pcs' => $this->nullableNumeric($line->pcs),
                 'crt' => $this->formatCrt($line->crt),
                 'size' => filled($line->size ?? null) ? (string) $line->size : '—',

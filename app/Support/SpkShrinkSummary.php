@@ -33,6 +33,7 @@ class SpkShrinkSummary
      *     startWeight: string|null,
      *     endWeight: string|null,
      *     finishedGoodsWithStone: string|null,
+     *     stoneWeight: string|null,
      *     goldIssued: string|null,
      *     goldReturned: string|null,
      *     goldUsed: string|null,
@@ -85,7 +86,12 @@ class SpkShrinkSummary
         $planningWeight = $this->nullableFloat($production->gold_weight);
         $startWeight = $this->resolveCoranStartWeight($spkId);
         $endWeight = $this->nullableFloat($production->last_weight);
-        $finishedGoodsWithStone = $this->resolveFinishedGoodsWithStone($spkId, $endWeight);
+        $stoneWeight = $this->resolveDiamondMountingStoneWeight($spkId);
+        $finishedGoodsWithStone = $this->resolveFinishedGoodsWithStone(
+            $spkId,
+            $endWeight,
+            $stoneWeight,
+        );
         $materialGold = $this->goldReport->totalsForSpk($spkId);
         $totalLost = $planningWeight !== null && $endWeight !== null
             ? round($planningWeight - $endWeight, 2)
@@ -97,6 +103,7 @@ class SpkShrinkSummary
             'startWeight' => $this->formatNullableWeight($startWeight),
             'endWeight' => $this->formatNullableWeight($endWeight),
             'finishedGoodsWithStone' => $this->formatNullableWeight($finishedGoodsWithStone),
+            'stoneWeight' => $this->formatNullableWeight($stoneWeight),
             'goldIssued' => $this->formatNullableWeight($materialGold['issued']),
             'goldReturned' => $this->formatNullableWeight($materialGold['returned']),
             'goldUsed' => $this->formatNullableWeight($materialGold['used']),
@@ -336,13 +343,16 @@ class SpkShrinkSummary
         return $this->nullableFloat($weight);
     }
 
-    private function resolveFinishedGoodsWithStone(int $spkId, ?float $endWeight): ?float
-    {
+    private function resolveFinishedGoodsWithStone(
+        int $spkId,
+        ?float $endWeight,
+        ?float $stoneWeight = null,
+    ): ?float {
         if ($endWeight === null) {
             return null;
         }
 
-        $stoneWeight = $this->resolveDiamondMountingStoneWeight($spkId);
+        $stoneWeight ??= $this->resolveDiamondMountingStoneWeight($spkId);
 
         if ($stoneWeight === null) {
             return null;

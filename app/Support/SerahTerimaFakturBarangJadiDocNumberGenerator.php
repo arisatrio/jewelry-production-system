@@ -8,7 +8,9 @@ use Carbon\CarbonInterface;
 class SerahTerimaFakturBarangJadiDocNumberGenerator
 {
     /**
-     * Format: FAKTUR/{dari}-{untuk}/BJ/{MMYYYY}-{running per bulan}.
+     * Format: FAKTUR/{dari}-{untuk}/BRJ/{MONTH}{YY}/{running per bulan, 4 digit}.
+     *
+     * Example: FAKTUR/WO-HO/BRJ/NOVEMBER26/0002
      */
     public function generate(
         ?CarbonInterface $at = null,
@@ -16,10 +18,10 @@ class SerahTerimaFakturBarangJadiDocNumberGenerator
         ?string $toLocation = null,
     ): string {
         $date = $at ?? now();
-        $period = $date->format('mY');
+        $period = strtoupper($date->format('F')).$date->format('y');
         $fromCode = $this->locationCode($fromLocation);
         $toCode = $this->locationCode($toLocation);
-        $prefix = "FAKTUR/{$fromCode}-{$toCode}/BJ/{$period}-";
+        $prefix = "FAKTUR/{$fromCode}-{$toCode}/BRJ/{$period}/";
 
         $latest = SerahTerimaFakturBarangJadi::query()
             ->withTrashed()
@@ -30,7 +32,7 @@ class SerahTerimaFakturBarangJadiDocNumberGenerator
 
         $next = 1;
 
-        if (is_string($latest) && preg_match('/-(\d+)$/', $latest, $matches) === 1) {
+        if (is_string($latest) && preg_match('/\/(\d{4})$/', $latest, $matches) === 1) {
             $next = (int) $matches[1] + 1;
         }
 

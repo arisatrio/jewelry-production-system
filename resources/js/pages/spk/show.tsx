@@ -21,6 +21,7 @@ import type {
     SpkComponentReceiptSummary,
     SpkDiamondSummary,
     SpkDiamondDocumentRow,
+    SpkMountedStonesDetail,
     SpkStoneItem,
     SpkStoneReport,
 } from '@/components/spk/types';
@@ -55,6 +56,7 @@ type SpkShowProps = {
     componentReceipt: SpkComponentReceiptSummary | null;
     spkDiamond: SpkDiamondSummary | null;
     spkDiamondDocuments: SpkDiamondDocumentRow[];
+    mountedStonesDetail: SpkMountedStonesDetail;
 };
 
 export default function SpkShow({
@@ -81,6 +83,7 @@ export default function SpkShow({
     componentReceipt,
     spkDiamond,
     spkDiamondDocuments,
+    mountedStonesDetail,
 }: SpkShowProps) {
     const productionProcesses = processes.filter(
         (process) =>
@@ -127,6 +130,7 @@ export default function SpkShow({
                     componentReceipt={componentReceipt}
                     spkDiamond={spkDiamond}
                     spkDiamondDocuments={spkDiamondDocuments}
+                    mountedStonesDetail={mountedStonesDetail}
                 >
                     {activeProcess ? (
                         <SpkProcessPanel process={activeProcess} />

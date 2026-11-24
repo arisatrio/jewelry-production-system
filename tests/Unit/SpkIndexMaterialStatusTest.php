@@ -120,6 +120,17 @@ test('spk index material status summarizes partial stone allocation', function (
             continue;
         }
 
+        $hasPasangBatu = Schema::connection('third')->hasTable('diamondmounting')
+            && DB::connection('third')
+                ->table('diamondmounting')
+                ->where('spk_id', (int) $rowId)
+                ->where('is_deleted', 0)
+                ->exists();
+
+        if ($hasPasangBatu) {
+            continue;
+        }
+
         $targetRowId = (int) $rowId;
         $targetStones = $lines->values();
 

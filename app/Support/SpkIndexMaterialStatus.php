@@ -103,6 +103,7 @@ class SpkIndexMaterialStatus
         );
 
         $spkDiamondDocNoByRowId = $this->spkDiamondDocNoByRowId($rowIds);
+        $hasPasangBatuByRowId = $this->hasPasangBatuDocumentByRowId($rowIds);
 
         /** @var Collection<int, Collection<int, SpkStone>> $stonesByRowId */
         $stonesByRowId = $stones->groupBy(static fn (SpkStone $stone): int => (int) $stone->row_id);
@@ -121,6 +122,7 @@ class SpkIndexMaterialStatus
                     $allocatedPcsByLineId,
                     $spkDiamondDocNo,
                     $stockByLineId,
+                    $hasPasangBatuByRowId[$rowId] ?? false,
                 );
             }
 
@@ -149,6 +151,7 @@ class SpkIndexMaterialStatus
         array $allocatedPcsByLineId,
         ?string $spkDiamondDocNo,
         array $stockByLineId,
+        bool $hasPasangBatuDocument = false,
     ): array {
         $stockAvailable = $this->stockLabelForSpk($stones, $stockByLineId, $allocatedPcsByLineId)
             === self::STOCK_AVAILABLE;
@@ -156,6 +159,7 @@ class SpkIndexMaterialStatus
             $stones,
             $allocatedPcsByLineId,
             $spkDiamondDocNo,
+            $hasPasangBatuDocument,
         );
 
         $allocated = $allocation['status'] === 'allocated'
@@ -204,7 +208,18 @@ class SpkIndexMaterialStatus
         Collection $stones,
         array $allocatedPcsByLineId,
         ?string $spkDiamondDocNo,
+        bool $hasPasangBatuDocument = false,
     ): array {
+        $allocatedPcs = $this->summarizedAllocatedPcs($stones, $allocatedPcsByLineId);
+
+        if ($hasPasangBatuDocument) {
+            return [
+                'status' => SpkStoneFulfillment::INSTALLED,
+                'label' => SpkStoneFulfillment::label(SpkStoneFulfillment::INSTALLED),
+                'allocatedPcs' => $allocatedPcs,
+            ];
+        }
+
         $lineStatuses = $stones->map(function (SpkStone $stone) use ($allocatedPcsByLineId): string {
             $lineId = (int) $stone->line_id;
             $allocatedPcs = $allocatedPcsByLineId[$lineId] ?? 0;
@@ -212,8 +227,6 @@ class SpkIndexMaterialStatus
 
             return $this->effectiveStoneStatus($stored, $allocatedPcs);
         });
-
-        $allocatedPcs = $this->summarizedAllocatedPcs($stones, $allocatedPcsByLineId);
 
         if ($lineStatuses->contains(SpkStoneFulfillment::SHIPPING)) {
             return [
@@ -389,6 +402,35 @@ class SpkIndexMaterialStatus
         }
 
         return $totals;
+    }
+
+    /**
+     * @param  list<int>  $rowIds
+     * @return array<int, bool>
+     */
+    private function hasPasangBatuDocumentByRowId(array $rowIds): array
+    {
+        $flags = array_fill_keys($rowIds, false);
+
+        if ($rowIds === [] || ! Schema::connection('third')->hasTable('diamondmounting')) {
+            return $flags;
+        }
+
+        DB::connection('third')
+            ->table('diamondmounting')
+            ->whereIn('spk_id', $rowIds)
+            ->where('is_deleted', 0)
+            ->distinct()
+            ->pluck('spk_id')
+            ->each(function (mixed $spkId) use (&$flags): void {
+                $rowId = (int) $spkId;
+
+                if (array_key_exists($rowId, $flags)) {
+                    $flags[$rowId] = true;
+                }
+            });
+
+        return $flags;
     }
 
     /**

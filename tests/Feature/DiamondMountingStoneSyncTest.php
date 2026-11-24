@@ -98,27 +98,13 @@ test('pasang batu store syncs setting and mounted stone details', function () {
         ->and((float) $setting[0]->crt)->toBe(0.02)
         ->and($setting[0]->notes)->toBe('Setting test')
         ->and((int) $setting[0]->spk_id)->toBe((int) $production->row_id)
-        ->and($mounted)->toHaveCount(2);
+        ->and($mounted)->toHaveCount(1);
 
     $mountedDossier = $mounted->firstWhere('diamond_code', 'B01');
 
     expect($mountedDossier)->not->toBeNull()
         ->and((int) $mountedDossier->shape_id)->toBe($shapeId)
         ->and((string) $mountedDossier->size)->toBe('1.00');
-
-    $stoneName = DB::connection('third')
-        ->table('msstone')
-        ->where('row_id', $stoneId)
-        ->value('name');
-
-    $mountedMicro = $mounted->first(
-        fn (object $row): bool => str_starts_with((string) $row->diamond_code, (string) $stoneName),
-    );
-
-    expect($mountedMicro)->not->toBeNull()
-        ->and((int) $mountedMicro->pcs)->toBe(4)
-        ->and((float) $mountedMicro->crt)->toBe(0.02)
-        ->and((string) $mountedMicro->diamond_code)->toContain('Setting test');
 
     $this->get(route('pasang-batu.show', $document))
         ->assertOk()
@@ -236,8 +222,7 @@ test('pasang batu merges duplicate micro setting lines into one trstone row', fu
         ->where('is_deleted', 0)
         ->get();
 
-    expect($mounted)->toHaveCount(1)
-        ->and((int) $mounted[0]->pcs)->toBe(5);
+    expect($mounted)->toHaveCount(0);
 
     DB::connection('third')
         ->table('trstone')

@@ -18,6 +18,8 @@ return [
 
     'folder' => env('GOOGLE_CLOUD_STORAGE_FOLDER', 'produksi'),
 
+    'foto_brj_folder' => env('GOOGLE_CLOUD_STORAGE_FOTO_BRJ_FOLDER', 'produksi/brj'),
+
     'inventory_chain_folder' => env('GOOGLE_CLOUD_STORAGE_CHAIN_FOLDER', 'inventory/chain'),
 
     'inventory_component_folder' => env('GOOGLE_CLOUD_STORAGE_COMPONENT_FOLDER', 'inventory/component'),

@@ -546,6 +546,42 @@ class SpkService
     }
 
     /**
+     * Upload gambar produksi ke GCS bucket system-mahakarya/produksi.
+     */
+    public function uploadProductionImageFile(UploadedFile $file): string
+    {
+        return $this->storeProductionImage($file);
+    }
+
+    /**
+     * Upload foto barang jadi ke GCS folder produksi/brj; nilai DB = brj/{no-spk}.ext
+     */
+    public function uploadFotoBrjFile(UploadedFile $file, string $spkNo): string
+    {
+        $extension = strtolower((string) ($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'jpg'));
+        $baseName = $this->sanitizeSpkNoForFotoBrjFilename($spkNo);
+        $storedFilename = $extension !== '' ? "{$baseName}.{$extension}" : $baseName;
+        $folder = trim((string) config('gcs.foto_brj_folder', 'produksi/brj'), '/');
+
+        $this->gcs->uploadFile($file, $folder, $storedFilename);
+
+        return 'brj/'.$storedFilename;
+    }
+
+    public function sanitizeSpkNoForFotoBrjFilename(string $spkNo): string
+    {
+        $normalized = str_replace(['/', '\\'], '-', trim($spkNo));
+        $sanitized = preg_replace('/[^A-Za-z0-9._-]+/', '-', $normalized) ?? '';
+        $sanitized = trim($sanitized, '-');
+
+        if ($sanitized !== '') {
+            return $sanitized;
+        }
+
+        return 'spk-'.time();
+    }
+
+    /**
      * Upload gambar SPK ke GCS bucket system-mahakarya/produksi.
      * Nilai file_name disimpan sebagai nama file (kompatibel dengan URL legacy).
      */

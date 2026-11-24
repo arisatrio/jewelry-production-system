@@ -89,6 +89,41 @@ function formatLastWeight(value: string | number | null | undefined): string {
     return `${formatted} g`;
 }
 
+function SpkFakturBarangJadiDeliveryValue({
+    delivery,
+}: {
+    delivery: SpkDetail['fakturBarangJadiDelivery'];
+}) {
+    const hasDate =
+        delivery !== null &&
+        delivery !== undefined &&
+        delivery.tanggal.trim() !== '' &&
+        delivery.tanggal !== '-';
+
+    const docNo = delivery?.docNo.trim() ?? '';
+    const printUrl = delivery?.printUrl.trim() ?? '';
+
+    if (! hasDate) {
+        return <>-</>;
+    }
+
+    return (
+        <div className="spkDetailAsideDelivery">
+            <span>{delivery.tanggal}</span>
+            {printUrl !== '' && docNo !== '' ? (
+                <a
+                    href={printUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="spkDetailFakturIdLink"
+                >
+                    {docNo}
+                </a>
+            ) : null}
+        </div>
+    );
+}
+
 function AsideField({
     label,
     children,
@@ -278,8 +313,20 @@ export function SpkInformasiProduksiAsideSection({
             <div className="spkDetailPageAsideImage">
                 <div className="spkDetailPageAsideSpkHeader">
                     <h3 className="spkShowSectionTitle spkShowSectionTitle--spkNo">
-                        <span className="spkDetailPageAsideSpkLabel">No. SPK</span>
-                        {displayValue(production.produksiNo)}
+                        <span className="spkDetailPageAsideSpkPrimary">
+                            <span className="spkDetailPageAsideSpkLabel">
+                                No. SPK
+                            </span>
+                            {displayValue(production.produksiNo)}
+                        </span>
+                        <span className="spkDetailPageAsideSpkPlu">
+                            <span className="spkDetailPageAsideSpkLabel">
+                                PLU
+                            </span>
+                            <span className="spkDetailPageAsideSpkPluValue">
+                                {displayValue(production.plu)}
+                            </span>
+                        </span>
                     </h3>
                 </div>
                 <SpkItemImageColumn
@@ -365,8 +412,16 @@ export function SpkInformasiProduksiAsideSection({
                         />
                     </div>
                 </AsideField>
-                <AsideField label="Berat Terakhir">
-                    {formatLastWeight(production.lastWeight)}
+                <AsideField label="Berat Emas">
+                    {formatLastWeight(production.emasWeight)}
+                </AsideField>
+                <AsideField label="Berat Barang Jadi">
+                    {formatLastWeight(production.finishedGoodsWeight)}
+                </AsideField>
+                <AsideField label="Tanggal Pengiriman">
+                    <SpkFakturBarangJadiDeliveryValue
+                        delivery={production.fakturBarangJadiDelivery}
+                    />
                 </AsideField>
             </div>
 

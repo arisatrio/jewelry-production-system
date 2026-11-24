@@ -2,27 +2,281 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ImportFakturBarangJadiRequest;
 use App\Http\Requests\PrintFakturBarangJadiRequest;
 use App\Http\Requests\ReceiveFakturBarangJadiReceiptRequest;
+use App\Http\Requests\UploadSpkFotoBrjRequest;
 use App\Models\Employee;
 use App\Models\Production;
 use App\Models\SerahTerimaFakturBarangJadi;
+use App\Support\FakturBarangJadiImporter;
+use App\Support\FakturBarangJadiImportTemplateExport;
+use App\Support\FakturBarangJadiPrintPresenter;
 use App\Support\FakturBarangJadiReceiptService;
 use App\Support\FakturBarangJadiWorkflowStatus;
 use App\Support\SerahTerimaFakturBarangJadiDocNumberGenerator;
 use App\Support\SpkDashboardAnalytics;
+use App\Support\SpkItemImageUrl;
+use App\Support\SpkProcessMapper;
+use App\Support\SpkProductionListItemPresentation;
 use App\Support\SpkService;
+use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class FakturBarangJadiController extends Controller
 {
+    private const INDEX_SORT_COLUMNS = [
+        'id' => 'id',
+        'tanggal' => 'tanggal',
+        'doc_no' => 'doc_no',
+        'jumlah_spk' => 'jumlah_spk',
+        'created' => 'created_at',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    private const RECEIPT_LOCATIONS = ['Head Office', 'Workshop', 'Store'];
+
+    /**
+     * Form buat faktur barang jadi.
+     */
+    public function create(FakturBarangJadiReceiptService $receipts): Response
+    {
+        return Inertia::render('faktur-barang-jadi/create', [
+            'fakturBarangJadiTableAvailable' => $receipts->tableAvailable(),
+            'fakturBarangJadiFotoBrjAvailable' => Schema::connection('third')->hasColumn('spk', 'foto_brj'),
+            'receiptEmployeeOptions' => Inertia::once(fn (): array => self::receiptEmployeeOptions()),
+        ]);
+    }
+
+    /**
+     * Cari SPK selesai untuk modal pilih SPK pada form faktur.
+     */
+    public function searchSpks(Request $request, FakturBarangJadiReceiptService $receipts): JsonResponse
+    {
+        $search = $request->string('search')->trim()->toString();
+        $perPage = max(1, min($request->integer('per_page', 20), 50));
+        $excludeInput = $request->input('exclude', []);
+        $exclude = collect(is_array($excludeInput) ? $excludeInput : explode(',', (string) $excludeInput))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->values()
+            ->all();
+        $fakturBelumOnly = $request->boolean('faktur_belum', true);
+        $blockedIds = $receipts->spkRowIdsOnOpenReceipts();
+        $fotoBrjColumn = Schema::connection('third')->hasColumn('spk', 'foto_brj');
+        $analytics = new SpkDashboardAnalytics;
+
+        $page = Production::query()
+            ->with(['sku', 'categoryPrefix'])
+            ->notDeleted()
+            ->where('spk_type', '!=', SpkService::REPARATION_TYPE)
+            ->tap(fn (Builder $query) => $analytics->constrainToCompletedProduction($query))
+            ->when($fakturBelumOnly, function (Builder $query) use ($blockedIds): void {
+                $issuedIds = array_keys($blockedIds);
+
+                if ($issuedIds !== []) {
+                    $query->whereIntegerNotInRaw('row_id', $issuedIds);
+                }
+            })
+            ->when($exclude !== [], fn (Builder $query) => $query->whereIntegerNotInRaw('row_id', $exclude))
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $query->where(function (Builder $query) use ($search): void {
+                    $query->where('spk_no', 'like', "%{$search}%")
+                        ->orWhere('item_name', 'like', "%{$search}%")
+                        ->orWhere('customer_name', 'like', "%{$search}%")
+                        ->orWhere('plu', 'like', "%{$search}%");
+                });
+            })
+            ->orderByDesc('row_id')
+            ->paginate($perPage);
+
+        $statusLabels = SpkDashboardAnalytics::BACKLOG_STATUS_LABELS;
+        $productions = $page->getCollection();
+        $lastProcessDates = SpkDashboardAnalytics::lastProcessDatesFor($productions);
+        $processMapper = app(SpkProcessMapper::class);
+
+        return response()->json([
+            'data' => $productions
+                ->map(function (Production $production) use ($blockedIds, $fotoBrjColumn, $statusLabels, $lastProcessDates, $processMapper): array {
+                    $rowId = (int) $production->row_id;
+                    $kind = SpkDashboardAnalytics::completedProductionKind($rowId);
+                    $status = $kind !== null
+                        ? ($statusLabels[$kind] ?? 'DONE')
+                        : '—';
+                    $fotoBrj = $fotoBrjColumn ? $production->foto_brj : null;
+                    $item = SpkProductionListItemPresentation::forProduction($production);
+                    $lastProcessBadge = $processMapper->resolveLastProcessBadge(
+                        $rowId,
+                        $production->last_process,
+                    );
+
+                    return [
+                        'rowId' => $rowId,
+                        'spkNo' => (string) $production->spk_no,
+                        'status' => $status,
+                        'location' => $production->location,
+                        'spkImageUrl' => $item['spkImageUrl'],
+                        'typeSkuLabel' => $item['typeSkuLabel'],
+                        'itemDescription' => $item['itemDescription'],
+                        'skuAssigned' => $item['skuAssigned'],
+                        'prosesTerakhir' => trim((string) ($production->last_process ?? '')),
+                        'prosesTerakhirDate' => $lastProcessDates[$rowId] ?? '',
+                        'prosesTerakhirDisplay' => $lastProcessBadge['label'] ?? null,
+                        'prosesTerakhirCompleted' => $lastProcessBadge['completed'] ?? null,
+                        'fotoBrjImageUrl' => $fotoBrjColumn
+                            ? SpkItemImageUrl::fromFotoBrj($fotoBrj)
+                            : null,
+                        'hasFotoBrj' => $fotoBrjColumn ? filled($fotoBrj) : true,
+                        'fakturBarangJadiIssued' => isset($blockedIds[$rowId]),
+                    ];
+                })
+                ->values(),
+            'meta' => [
+                'currentPage' => $page->currentPage(),
+                'lastPage' => $page->lastPage(),
+                'perPage' => $page->perPage(),
+                'total' => $page->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Daftar faktur barang jadi yang sudah dibuat.
+     */
+    public function index(Request $request, FakturBarangJadiReceiptService $receipts): Response
+    {
+        $tableAvailable = $receipts->tableAvailable();
+        $indexFilters = $this->resolveReceiptIndexFilters($request);
+
+        $emptyReceipts = [
+            'data' => [],
+            'total' => 0,
+            'current_page' => 1,
+            'last_page' => 1,
+            'per_page' => $indexFilters['per_page'],
+        ];
+
+        $shared = [
+            'filters' => $indexFilters['filters'],
+            'defaultFilters' => [
+                'status' => [],
+                'dari' => [],
+                'untuk' => [],
+            ],
+            'filterOptions' => $this->receiptIndexFilterOptions(),
+            'fakturBarangJadiTableAvailable' => $tableAvailable,
+            'receiptEmployeeOptions' => Inertia::once(fn (): array => self::receiptEmployeeOptions()),
+        ];
+
+        if (! $tableAvailable) {
+            return Inertia::render('faktur-barang-jadi/index', [
+                ...$shared,
+                'receipts' => $emptyReceipts,
+            ]);
+        }
+
+        $receiptPage = SerahTerimaFakturBarangJadi::query()
+            ->tap(fn (Builder $query): Builder => $this->applyReceiptIndexSearch($query, $indexFilters['search']))
+            ->tap(fn (Builder $query): Builder => $this->applyReceiptIndexFilters(
+                $query,
+                $indexFilters,
+            ))
+            ->tap(fn (Builder $query): Builder => $this->applyReceiptIndexSort(
+                $query,
+                $indexFilters['sort'],
+                $indexFilters['direction'],
+            ))
+            ->paginate($indexFilters['per_page'])
+            ->withQueryString();
+
+        return Inertia::render('faktur-barang-jadi/index', [
+            ...$shared,
+            'receipts' => $receiptPage->through(
+                fn (SerahTerimaFakturBarangJadi $receipt): array => $this->serializeReceiptRow($receipt),
+            ),
+        ]);
+    }
+
+    public function importTemplate(): BinaryFileResponse
+    {
+        return Excel::download(
+            new FakturBarangJadiImportTemplateExport([
+                [
+                    '',
+                    now()->toDateString(),
+                    'Workshop',
+                    'Store',
+                    'NO-SPK-CONTOH',
+                    'PLU-CONTOH',
+                    '',
+                    '',
+                    '',
+                ],
+            ]),
+            'template-import-faktur-barang-jadi.xlsx',
+        );
+    }
+
+    public function import(
+        ImportFakturBarangJadiRequest $request,
+        FakturBarangJadiImporter $importer,
+    ): RedirectResponse {
+        $result = $importer->import(
+            $request->file('file'),
+            $this->actorName($request),
+        );
+
+        if ($result['importedReceipts'] > 0) {
+            $receiptLabel = $result['importedReceipts'] === 1
+                ? '1 faktur'
+                : "{$result['importedReceipts']} faktur";
+
+            $spkLabel = $result['importedSpk'] === 1
+                ? '1 SPK'
+                : "{$result['importedSpk']} SPK";
+
+            Inertia::flash('toast', [
+                'type' => 'success',
+                'message' => "Import berhasil: {$receiptLabel}, {$spkLabel} tercatat.",
+            ]);
+        }
+
+        if ($result['errors'] !== []) {
+            $preview = collect($result['errors'])
+                ->take(3)
+                ->map(function (array $error): string {
+                    $messages = implode(' ', $error['messages']);
+
+                    return "Baris {$error['row']}: {$messages}";
+                })
+                ->implode(' ');
+
+            $remaining = count($result['errors']) - 3;
+            $suffix = $remaining > 0 ? " (+{$remaining} baris lainnya)" : '';
+
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => "Import gagal. {$preview}{$suffix}",
+            ]);
+        }
+
+        return back();
+    }
+
     /**
      * Riwayat faktur barang jadi untuk modal di halaman index.
      */
@@ -43,43 +297,13 @@ class FakturBarangJadiController extends Controller
         $search = $request->string('search')->trim()->toString();
 
         $page = SerahTerimaFakturBarangJadi::query()
-            ->when($search !== '', function (Builder $query) use ($search): void {
-                $query->where(function (Builder $query) use ($search): void {
-                    foreach (['doc_no', 'dari', 'untuk', 'diserahkan_oleh', 'diketahui_oleh', 'diterima_oleh', 'created_by', 'items'] as $column) {
-                        $query->orWhere($column, 'like', "%{$search}%");
-                    }
-                });
-            })
+            ->tap(fn (Builder $query): Builder => $this->applyReceiptIndexSearch($query, $search))
             ->orderByDesc('id')
             ->paginate(20);
 
         return response()->json([
             'data' => $page->getCollection()
-                ->map(function (SerahTerimaFakturBarangJadi $receipt): array {
-                    $workflow = FakturBarangJadiWorkflowStatus::columnAvailable()
-                        ? FakturBarangJadiWorkflowStatus::normalize($receipt->workflow_status)
-                        : FakturBarangJadiWorkflowStatus::CREATED;
-
-                    return [
-                        'id' => $receipt->id,
-                        'docNo' => $receipt->doc_no,
-                        'tanggal' => $receipt->tanggal->format('d-M-Y'),
-                        'dari' => $receipt->dari,
-                        'untuk' => $receipt->untuk,
-                        'jumlahSpk' => $receipt->jumlah_spk,
-                        'spkNos' => array_values(array_column($receipt->items, 'spkNo')),
-                        'diserahkanOleh' => $receipt->diserahkan_oleh,
-                        'diketahuiOleh' => $receipt->diketahui_oleh,
-                        'diterimaOleh' => $receipt->diterima_oleh,
-                        'workflowStatus' => $workflow,
-                        'workflowStatusLabel' => FakturBarangJadiWorkflowStatus::label($workflow),
-                        'canSend' => $workflow === FakturBarangJadiWorkflowStatus::CREATED,
-                        'canReceive' => $workflow === FakturBarangJadiWorkflowStatus::SENT,
-                        'createdBy' => $receipt->created_by,
-                        'createdAt' => $receipt->created_at?->format('d-M-Y H:i'),
-                        'printUrl' => route('faktur-barang-jadi.print.receipt', $receipt),
-                    ];
-                })
+                ->map(fn (SerahTerimaFakturBarangJadi $receipt): array => $this->serializeReceiptRow($receipt))
                 ->values(),
             'meta' => [
                 'currentPage' => $page->currentPage(),
@@ -119,6 +343,7 @@ class FakturBarangJadiController extends Controller
         $receipts->assertEligibleForReceipt(
             $productions,
             $this->nullableTrimmed($request->validated('dari')),
+            $this->actorName($request),
         );
 
         $receiptDate = Carbon::createFromFormat(
@@ -126,12 +351,15 @@ class FakturBarangJadiController extends Controller
             $request->validated('tanggal') ?? now()->toDateString(),
         )->startOfDay();
 
+        $actor = $this->actorName($request);
+        $toLocation = $this->nullableTrimmed($request->validated('untuk'));
+
+        $receipts->relocateProductionsTo($productions, $toLocation, $actor);
+        $productions->each->refresh();
+
         $items = $productions
             ->map(fn (Production $production): array => $receipts->receiptItem($production))
             ->all();
-
-        $actor = $this->actorName($request);
-        $toLocation = $this->nullableTrimmed($request->validated('untuk'));
 
         $receipt = DB::connection('third')->transaction(function () use (
             $docNumberGenerator,
@@ -166,6 +394,8 @@ class FakturBarangJadiController extends Controller
             return SerahTerimaFakturBarangJadi::query()->create($payload);
         });
 
+        $receipts->syncSendToMerchDates($productions, $receiptDate, $actor);
+
         return response()->json([
             'id' => $receipt->id,
             'docNo' => $receipt->doc_no,
@@ -179,8 +409,10 @@ class FakturBarangJadiController extends Controller
     /**
      * Halaman print faktur barang jadi.
      */
-    public function printReceipt(SerahTerimaFakturBarangJadi $serahTerimaFakturBarangJadi): View
-    {
+    public function printReceipt(
+        SerahTerimaFakturBarangJadi $serahTerimaFakturBarangJadi,
+        FakturBarangJadiPrintPresenter $printPresenter,
+    ): View {
         $header = [
             ...$this->receiptDocumentHeader(),
             'formTitle' => 'Faktur Barang Jadi',
@@ -200,7 +432,7 @@ class FakturBarangJadiController extends Controller
                 ['title' => 'Diketahui oleh', 'name' => (string) $serahTerimaFakturBarangJadi->diketahui_oleh],
                 ['title' => 'Diterima oleh', 'name' => (string) $serahTerimaFakturBarangJadi->diterima_oleh],
             ],
-            'rows' => $serahTerimaFakturBarangJadi->items,
+            'groups' => $printPresenter->groupsForReceipt($serahTerimaFakturBarangJadi),
         ]);
     }
 
@@ -438,6 +670,312 @@ class FakturBarangJadiController extends Controller
             'issueNo' => (string) config('spk.issue_no', '01'),
             'revision' => (string) config('spk.faktur_barang_jadi_receipt_revision', '00'),
             'issueDate' => (string) config('spk.faktur_barang_jadi_receipt_issue_date', '12/11/2026'),
+        ];
+    }
+
+    public function updateFotoBrj(
+        UploadSpkFotoBrjRequest $request,
+        Production $production,
+        SpkService $spkService,
+    ): RedirectResponse {
+        if (! Schema::connection('third')->hasColumn('spk', 'foto_brj')) {
+            throw new HttpException(422, 'Kolom foto barang jadi belum tersedia di database.');
+        }
+
+        if ((int) $production->is_deleted === 1) {
+            abort(404);
+        }
+
+        if (SpkDashboardAnalytics::completedProductionKind((int) $production->row_id) === null) {
+            throw new HttpException(422, 'Foto barang jadi hanya dapat diunggah untuk SPK selesai.');
+        }
+
+        $filename = $spkService->uploadFotoBrjFile(
+            $request->file('foto'),
+            (string) ($production->spk_no ?? ''),
+        );
+
+        $production->forceFill([
+            'foto_brj' => $filename,
+            'modified_date' => now(),
+            'modified_by' => $this->actorName($request),
+        ])->save();
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Foto barang jadi untuk SPK '.($production->spk_no ?? '').' disimpan.',
+        ]);
+
+        return back();
+    }
+
+    /**
+     * @return array{
+     *     search: string,
+     *     sort: string,
+     *     direction: string,
+     *     per_page: int,
+     *     status: list<string>,
+     *     dari: list<string>,
+     *     untuk: list<string>,
+     *     date_from: string|null,
+     *     date_to: string|null,
+     *     filters: array{
+     *         search: string,
+     *         sort: string,
+     *         direction: string,
+     *         per_page: int,
+     *         status: list<string>,
+     *         dari: list<string>,
+     *         untuk: list<string>,
+     *         date_from: string|null,
+     *         date_to: string|null
+     *     }
+     * }
+     */
+    private function resolveReceiptIndexFilters(Request $request): array
+    {
+        $search = $request->string('search')->trim()->toString();
+        $sort = $request->string('sort')->toString();
+        $sort = array_key_exists($sort, self::INDEX_SORT_COLUMNS) ? $sort : 'id';
+        $direction = $request->string('direction')->toString();
+        $direction = in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+        $perPage = $request->integer('per_page', 20);
+        $perPage = in_array($perPage, [10, 20, 50, 100], true) ? $perPage : 20;
+
+        $workflowStatuses = [
+            FakturBarangJadiWorkflowStatus::CREATED,
+            FakturBarangJadiWorkflowStatus::SENT,
+            FakturBarangJadiWorkflowStatus::RECEIVED,
+        ];
+
+        $statusFilters = $this->resolveReceiptMultiFilter($request->input('status'), $workflowStatuses);
+        $dariFilters = $this->resolveReceiptMultiFilter($request->input('dari'), self::RECEIPT_LOCATIONS);
+        $untukFilters = $this->resolveReceiptMultiFilter($request->input('untuk'), self::RECEIPT_LOCATIONS);
+        $dateFrom = $this->resolveReceiptIndexDate($request->string('date_from')->toString());
+        $dateTo = $this->resolveReceiptIndexDate($request->string('date_to')->toString());
+
+        if ($dateFrom !== null && $dateTo !== null && $dateTo < $dateFrom) {
+            $dateTo = $dateFrom;
+        }
+
+        $filters = [
+            'search' => $search,
+            'sort' => $sort,
+            'direction' => $direction,
+            'per_page' => $perPage,
+            'status' => $statusFilters,
+            'dari' => $dariFilters,
+            'untuk' => $untukFilters,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+        ];
+
+        return [
+            'search' => $search,
+            'sort' => $sort,
+            'direction' => $direction,
+            'per_page' => $perPage,
+            'status' => $statusFilters,
+            'dari' => $dariFilters,
+            'untuk' => $untukFilters,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'filters' => $filters,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     * @return list<string>
+     */
+    private function resolveReceiptMultiFilter(mixed $value, array $allowed): array
+    {
+        return collect(is_array($value) ? $value : (filled($value) ? [$value] : []))
+            ->filter(fn (mixed $item): bool => is_scalar($item))
+            ->map(fn (mixed $item): string => trim((string) $item))
+            ->filter(fn (string $item): bool => in_array($item, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function resolveReceiptIndexDate(string $date): ?string
+    {
+        $trimmed = trim($date);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $trimmed);
+
+        if ($parsed === false || $parsed->format('Y-m-d') !== $trimmed) {
+            return null;
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * @return array{
+     *     status: list<array{value: string, label: string}>,
+     *     dari: list<array{value: string, label: string}>,
+     *     untuk: list<array{value: string, label: string}>,
+     *     sort: list<array{value: string, label: string}>,
+     *     direction: list<array{value: string, label: string}>,
+     *     per_page: list<array{value: string, label: string}>
+     * }
+     */
+    private function receiptIndexFilterOptions(): array
+    {
+        return [
+            'status' => collect(FakturBarangJadiWorkflowStatus::LABELS)
+                ->map(fn (string $label, string $value): array => [
+                    'value' => $value,
+                    'label' => $label,
+                ])
+                ->values()
+                ->all(),
+            'dari' => collect(self::RECEIPT_LOCATIONS)
+                ->map(fn (string $location): array => [
+                    'value' => $location,
+                    'label' => $location,
+                ])
+                ->all(),
+            'untuk' => collect(self::RECEIPT_LOCATIONS)
+                ->map(fn (string $location): array => [
+                    'value' => $location,
+                    'label' => $location,
+                ])
+                ->all(),
+            'sort' => [
+                ['value' => 'id', 'label' => 'ID'],
+                ['value' => 'tanggal', 'label' => 'Tanggal Faktur'],
+                ['value' => 'doc_no', 'label' => 'No. Faktur'],
+                ['value' => 'jumlah_spk', 'label' => 'Jumlah SPK'],
+                ['value' => 'created', 'label' => 'Dibuat'],
+            ],
+            'direction' => [
+                ['value' => 'asc', 'label' => 'A–Z / Lama ke baru'],
+                ['value' => 'desc', 'label' => 'Z–A / Baru ke lama'],
+            ],
+            'per_page' => [
+                ['value' => '10', 'label' => '10'],
+                ['value' => '20', 'label' => '20'],
+                ['value' => '50', 'label' => '50'],
+                ['value' => '100', 'label' => '100'],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     status: list<string>,
+     *     dari: list<string>,
+     *     untuk: list<string>,
+     *     date_from: string|null,
+     *     date_to: string|null
+     * }  $indexFilters
+     */
+    private function applyReceiptIndexFilters(Builder $query, array $indexFilters): Builder
+    {
+        if (
+            $indexFilters['status'] !== []
+            && FakturBarangJadiWorkflowStatus::columnAvailable()
+        ) {
+            $query->whereIn('workflow_status', $indexFilters['status']);
+        }
+
+        if ($indexFilters['dari'] !== []) {
+            $query->whereIn('dari', $indexFilters['dari']);
+        }
+
+        if ($indexFilters['untuk'] !== []) {
+            $query->whereIn('untuk', $indexFilters['untuk']);
+        }
+
+        if ($indexFilters['date_from'] !== null) {
+            $query->whereDate('tanggal', '>=', $indexFilters['date_from']);
+        }
+
+        if ($indexFilters['date_to'] !== null) {
+            $query->whereDate('tanggal', '<=', $indexFilters['date_to']);
+        }
+
+        return $query;
+    }
+
+    private function applyReceiptIndexSort(Builder $query, string $sort, string $direction): Builder
+    {
+        $column = self::INDEX_SORT_COLUMNS[$sort] ?? 'id';
+        $query->orderBy($column, $direction);
+
+        if ($sort !== 'id') {
+            $query->orderByDesc('id');
+        }
+
+        return $query;
+    }
+
+    private function applyReceiptIndexSearch(Builder $query, string $search): Builder
+    {
+        if ($search === '') {
+            return $query;
+        }
+
+        return $query->where(function (Builder $query) use ($search): void {
+            foreach (['doc_no', 'dari', 'untuk', 'diserahkan_oleh', 'diketahui_oleh', 'diterima_oleh', 'created_by', 'items'] as $column) {
+                $query->orWhere($column, 'like', "%{$search}%");
+            }
+        });
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     docNo: string,
+     *     tanggal: string,
+     *     dari: string|null,
+     *     untuk: string|null,
+     *     jumlahSpk: int,
+     *     spkNos: list<string>,
+     *     diserahkanOleh: string|null,
+     *     diketahuiOleh: string|null,
+     *     diterimaOleh: string|null,
+     *     workflowStatus: string,
+     *     workflowStatusLabel: string,
+     *     canSend: bool,
+     *     canReceive: bool,
+     *     createdBy: string|null,
+     *     createdAt: string|null,
+     *     printUrl: string
+     * }
+     */
+    private function serializeReceiptRow(SerahTerimaFakturBarangJadi $receipt): array
+    {
+        $workflow = FakturBarangJadiWorkflowStatus::columnAvailable()
+            ? FakturBarangJadiWorkflowStatus::normalize($receipt->workflow_status)
+            : FakturBarangJadiWorkflowStatus::CREATED;
+
+        return [
+            'id' => $receipt->id,
+            'docNo' => $receipt->doc_no,
+            'tanggal' => $receipt->tanggal->format('d-M-Y'),
+            'dari' => $receipt->dari,
+            'untuk' => $receipt->untuk,
+            'jumlahSpk' => $receipt->jumlah_spk,
+            'spkNos' => array_values(array_column($receipt->items, 'spkNo')),
+            'diserahkanOleh' => $receipt->diserahkan_oleh,
+            'diketahuiOleh' => $receipt->diketahui_oleh,
+            'diterimaOleh' => $receipt->diterima_oleh,
+            'workflowStatus' => $workflow,
+            'workflowStatusLabel' => FakturBarangJadiWorkflowStatus::label($workflow),
+            'canSend' => $workflow === FakturBarangJadiWorkflowStatus::CREATED,
+            'canReceive' => $workflow === FakturBarangJadiWorkflowStatus::SENT,
+            'createdBy' => $receipt->created_by,
+            'createdAt' => $receipt->created_at?->format('d-M-Y H:i'),
+            'printUrl' => route('faktur-barang-jadi.print.receipt', $receipt),
         ];
     }
 

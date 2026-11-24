@@ -5,6 +5,7 @@ use App\Models\SerahTerimaFakturBarangJadi;
 use App\Models\User;
 use App\Support\FakturBarangJadiWorkflowStatus;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 beforeEach(function () {
     if (! Schema::connection('third')->hasTable('serah_terima_faktur_barang_jadi')) {
@@ -17,8 +18,11 @@ beforeEach(function () {
 });
 
 test('api returns spk with faktur barang jadi status sent', function () {
+    $spkSuffix = Str::upper(Str::random(6));
+    $sentSpkNo = 'TEST-API-FBJ-SENT-'.$spkSuffix;
+
     $sentProduction = Production::factory()->create([
-        'spk_no' => 'TEST-API-FBJ-SENT',
+        'spk_no' => $sentSpkNo,
         'spk_type' => 'Exchange',
         'item_name' => 'Cincin API Sent',
         'location' => 'Workshop',
@@ -71,18 +75,14 @@ test('api returns spk with faktur barang jadi status sent', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->getJson(route('api.faktur-barang-jadi.spk.sent', ['search' => 'TEST-API-FBJ-SENT']))
+        ->getJson(route('api.faktur-barang-jadi.spk.sent', ['search' => $sentSpkNo]))
         ->assertOk()
         ->assertJsonPath('meta.total', 1)
         ->assertJsonPath('data.0.rowId', (int) $sentProduction->row_id)
-        ->assertJsonPath('data.0.spkNo', 'TEST-API-FBJ-SENT')
+        ->assertJsonPath('data.0.spkNo', $sentSpkNo)
         ->assertJsonPath('data.0.fakturBarangJadiStatus', FakturBarangJadiWorkflowStatus::SENT)
         ->assertJsonPath('data.0.faktur.docNo', $sentReceipt->doc_no)
         ->assertJsonPath('data.0.faktur.workflowStatus', FakturBarangJadiWorkflowStatus::SENT);
-
-    $sentReceipt->forceDelete();
-    $sentProduction->delete();
-    $otherProduction->delete();
 });
 
 test('api faktur sent spk requires authentication', function () {

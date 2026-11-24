@@ -39,6 +39,8 @@ export function stoneAllocationStatusBadgeClass(
             return `${base} spkChainFulfillmentBadge--progress`;
         case 'shipping':
             return `${base} spkChainFulfillmentBadge--shipping`;
+        case 'installed':
+            return `${base} is-available`;
         case 'partial':
             return `${base} spkStoneIndexStatusBadge--partial`;
         case 'not_allocated':
@@ -55,7 +57,8 @@ function stoneAllocationStatusLabel(
     }
 
     const allocated =
-        allocation.status === 'allocated' && allocation.allocatedPcs > 0;
+        allocation.status === 'installed' ||
+        (allocation.status === 'allocated' && allocation.allocatedPcs > 0);
 
     const text =
         allocation.label.trim() !== ''

@@ -72,6 +72,79 @@ function emptyState(message: string) {
     );
 }
 
+export function PasangBatuMountedStonesSection({
+    mounted,
+    mountedTotals,
+    emptyMessage = 'Belum ada batu terpasang pada dokumen ini.',
+}: {
+    mounted: PasangBatuMountedDetailRow[];
+    mountedTotals: PasangBatuBatuDetail['mountedTotals'];
+    emptyMessage?: string;
+}) {
+    return (
+        <section className="spkShowSection spkBatuPanelSection">
+            <div className="spkBatuPanelSectionHeader">
+                <h3 className="spkFioriDetailBlockTitle">Batu terpasang</h3>
+                <Text className="spkFioriDetailBlockMeta">
+                    {mounted.length.toLocaleString('id-ID')} baris
+                </Text>
+            </div>
+            <div className="spkStoneTableWrap">
+                <table className="spkStoneTable spkStoneAllocatedFlatTable">
+                    <thead>
+                        <tr>
+                            <th>Kode / Nama batu</th>
+                            <th>Bentuk</th>
+                            <th>Jumlah butir (pcs)</th>
+                            <th>Total CRT</th>
+                            <th>Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {mounted.length === 0 ? (
+                            <tr>
+                                <td colSpan={5}>
+                                    {emptyState(emptyMessage)}
+                                </td>
+                            </tr>
+                        ) : (
+                            mounted.map((row, index) => (
+                                <tr key={`mounted-${row.kode}-${index}`}>
+                                    <td>{displayCell(row.kode)}</td>
+                                    <td>{displayCell(row.shape)}</td>
+                                    <td className="tabular-nums">
+                                        {displayCell(row.pcs)}
+                                    </td>
+                                    <td className="tabular-nums">
+                                        {displayCrt(row.crt)}
+                                    </td>
+                                    <td className="tabular-nums">
+                                        {displayCell(row.size)}
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                    {mounted.length > 0 ? (
+                        <tfoot>
+                            <tr className="spkStoneTableTotal spkStoneTableTotal--allocated">
+                                <td colSpan={2}>Total terpasang</td>
+                                <td className="spkStoneTableTotalValue">
+                                    {mountedTotals.pcs.toLocaleString('id-ID')}
+                                </td>
+                                <td className="spkStoneTableTotalValue">
+                                    {formatTotalCarat(mountedTotals.carat)}
+                                </td>
+                                <td />
+                            </tr>
+                        </tfoot>
+                    ) : null}
+                </table>
+            </div>
+        </section>
+    );
+}
+
 export function PasangBatuDetailBatuSection({
     batuDetail,
 }: {
@@ -265,70 +338,10 @@ export function PasangBatuDetailBatuSection({
                 )}
             </section>
 
-            <section className="spkShowSection spkBatuPanelSection">
-                <div className="spkBatuPanelSectionHeader">
-                    <h3 className="spkFioriDetailBlockTitle">Batu terpasang</h3>
-                    <Text className="spkFioriDetailBlockMeta">
-                        {mounted.length.toLocaleString('id-ID')} baris
-                    </Text>
-                </div>
-                <div className="spkStoneTableWrap">
-                    <table className="spkStoneTable spkStoneAllocatedFlatTable">
-                        <thead>
-                            <tr>
-                                <th>Kode / Nama batu</th>
-                                <th>Bentuk</th>
-                                <th>Jumlah butir (pcs)</th>
-                                <th>Total CRT</th>
-                                <th>Size</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {mounted.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5}>
-                                        {emptyState(
-                                            'Belum ada batu terpasang pada dokumen ini.',
-                                        )}
-                                    </td>
-                                </tr>
-                            ) : (
-                                mounted.map((row, index) => (
-                                    <tr key={`mounted-${row.kode}-${index}`}>
-                                        <td>{displayCell(row.kode)}</td>
-                                        <td>{displayCell(row.shape)}</td>
-                                        <td className="tabular-nums">
-                                            {displayCell(row.pcs)}
-                                        </td>
-                                        <td className="tabular-nums">
-                                            {displayCrt(row.crt)}
-                                        </td>
-                                        <td className="tabular-nums">
-                                            {displayCell(row.size)}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                        {mounted.length > 0 ? (
-                            <tfoot>
-                                <tr className="spkStoneTableTotal spkStoneTableTotal--allocated">
-                                    <td colSpan={2}>Total terpasang</td>
-                                    <td className="spkStoneTableTotalValue">
-                                        {mountedTotals.pcs.toLocaleString(
-                                            'id-ID',
-                                        )}
-                                    </td>
-                                    <td className="spkStoneTableTotalValue">
-                                        {formatTotalCarat(mountedTotals.carat)}
-                                    </td>
-                                    <td />
-                                </tr>
-                            </tfoot>
-                        ) : null}
-                    </table>
-                </div>
-            </section>
+            <PasangBatuMountedStonesSection
+                mounted={mounted}
+                mountedTotals={mountedTotals}
+            />
         </div>
     );
 }

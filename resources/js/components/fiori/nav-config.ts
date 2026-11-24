@@ -91,6 +91,10 @@ export const defaultPengerjaanLanjutanSubmenus: ShellNavItem[] = [
     { text: 'Modifikasi Barang Jadi' },
 ];
 
+export const defaultFakturSubmenus: ShellNavItem[] = [
+    { text: 'Faktur Barang Jadi', href: fakturBarangJadiIndex.url() },
+];
+
 export const defaultInventorySubmenus: ShellNavItem[] = [
     {
         text: 'Batu',
@@ -132,15 +136,6 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
             {
                 text: 'Stok Rangka',
                 href: frameStocksIndex.url(),
-            },
-        ],
-    },
-    {
-        text: 'Barang Jadi',
-        items: [
-            {
-                text: 'Faktur Barang Jadi',
-                href: fakturBarangJadiIndex.url(),
             },
         ],
     },
@@ -190,6 +185,7 @@ export const defaultPostSpkDropdowns: ShellNavDropdown[] = [
 /** Dropdown menus rendered after trailing module links. */
 export const defaultTrailingDropdowns: ShellNavDropdown[] = [
     { id: 'inventory', text: 'Inventory', items: defaultInventorySubmenus },
+    { id: 'faktur', text: 'Delivery', items: defaultFakturSubmenus },
     {
         id: 'master-data',
         text: 'Master Data',

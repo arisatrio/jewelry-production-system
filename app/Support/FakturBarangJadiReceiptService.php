@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Production;
 use App\Models\SerahTerimaFakturBarangJadi;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -104,6 +105,7 @@ class FakturBarangJadiReceiptService
      * @return array<int, array{
      *     receiptId: int,
      *     docNo: string,
+     *     tanggal: string,
      *     dari: string|null,
      *     untuk: string|null,
      *     workflowStatus: string,
@@ -119,7 +121,7 @@ class FakturBarangJadiReceiptService
         /** @var array<int, true> $wanted */
         $wanted = array_fill_keys(array_map(intval(...), $rowIds), true);
         $details = [];
-        $columns = ['id', 'doc_no', 'dari', 'untuk', 'spk_row_ids'];
+        $columns = ['id', 'doc_no', 'tanggal', 'dari', 'untuk', 'spk_row_ids'];
 
         if (FakturBarangJadiWorkflowStatus::columnAvailable()) {
             $columns[] = 'workflow_status';
@@ -145,6 +147,7 @@ class FakturBarangJadiReceiptService
                     $details[$rowId] = [
                         'receiptId' => (int) $receipt->id,
                         'docNo' => $receipt->doc_no,
+                        'tanggal' => $receipt->tanggal?->format('d-M-Y') ?? '-',
                         'dari' => $receipt->dari,
                         'untuk' => $receipt->untuk,
                         'workflowStatus' => $workflow,
@@ -162,12 +165,10 @@ class FakturBarangJadiReceiptService
     public function assertEligibleForReceipt(
         Collection $productions,
         ?string $fromLocation,
+        string $actor = 'system',
     ): void {
-        $completedIds = array_flip(
-            SpkDashboardAnalytics::completedProductionSpkIds(
-                $productions->pluck('row_id')->map(intval(...))->all(),
-            ),
-        );
+        app(FakturBarangJadiProductionCompletion::class)
+            ->completeForFakturIfNeeded($productions, $actor);
 
         $blockedIds = $this->spkRowIdsOnOpenReceipts();
         $from = trim((string) ($fromLocation ?? Production::DEFAULT_LOCATION));
@@ -175,10 +176,10 @@ class FakturBarangJadiReceiptService
         foreach ($productions as $production) {
             $rowId = (int) $production->row_id;
 
-            if (! isset($completedIds[$rowId])) {
+            if (SpkDashboardAnalytics::completedProductionKind($rowId) === null) {
                 throw new HttpException(
                     422,
-                    "SPK {$production->spk_no} belum DONE Rangka atau DONE Barang Jadi.",
+                    "SPK {$production->spk_no} belum dapat ditandai selesai untuk faktur barang jadi.",
                 );
             }
 
@@ -193,6 +194,16 @@ class FakturBarangJadiReceiptService
                 throw new HttpException(
                     422,
                     "SPK {$production->spk_no} sudah tercantum pada faktur barang jadi aktif.",
+                );
+            }
+
+            if (
+                Schema::connection('third')->hasColumn('spk', 'foto_brj')
+                && blank($production->foto_brj)
+            ) {
+                throw new HttpException(
+                    422,
+                    "SPK {$production->spk_no} wajib memiliki foto barang jadi.",
                 );
             }
 
@@ -273,5 +284,148 @@ class FakturBarangJadiReceiptService
     public function applyCompletedScope(Builder $query): void
     {
         (new SpkDashboardAnalytics)->constrainToCompletedProduction($query);
+    }
+
+    /**
+     * @param  array{
+     *     doc_no: string|null,
+     *     tanggal: string,
+     *     dari: string,
+     *     untuk: string,
+     *     workflow: string,
+     *     diserahkan_oleh: string|null,
+     *     diketahui_oleh: string|null,
+     *     diterima_oleh: string|null,
+     *     productions: Collection<int, Production>,
+     *     plu_by_row_id?: array<int, string>,
+     * }  $group
+     */
+    public function createReceiptFromImport(
+        array $group,
+        string $actor,
+        SerahTerimaFakturBarangJadiDocNumberGenerator $docNumberGenerator,
+    ): SerahTerimaFakturBarangJadi {
+        $receiptDate = Carbon::createFromFormat('Y-m-d', $group['tanggal'])->startOfDay();
+
+        app(FakturBarangJadiProductionCompletion::class)
+            ->completeForFakturIfNeeded($group['productions'], $actor);
+
+        /** @var array<int, string> $pluByRowId */
+        $pluByRowId = $group['plu_by_row_id'] ?? [];
+
+        $this->syncPluFromImport($group['productions'], $pluByRowId, $actor);
+        $this->relocateProductionsTo($group['productions'], $group['untuk'], $actor);
+        $group['productions']->each->refresh();
+
+        $items = $group['productions']
+            ->map(fn (Production $production): array => $this->receiptItem($production))
+            ->all();
+
+        $docNo = filled($group['doc_no'])
+            ? (string) $group['doc_no']
+            : $docNumberGenerator->generate($receiptDate, $group['dari'], $group['untuk']);
+
+        $workflow = FakturBarangJadiWorkflowStatus::normalize($group['workflow']);
+
+        $payload = [
+            'doc_no' => $docNo,
+            'tanggal' => $receiptDate->toDateString(),
+            'dari' => $group['dari'],
+            'untuk' => $group['untuk'],
+            'diserahkan_oleh' => $group['diserahkan_oleh'],
+            'diterima_oleh' => $workflow === FakturBarangJadiWorkflowStatus::RECEIVED
+                ? $group['diterima_oleh']
+                : null,
+            'diketahui_oleh' => $group['diketahui_oleh'],
+            'jumlah_spk' => count($items),
+            'spk_row_ids' => array_column($items, 'spkRowId'),
+            'items' => $items,
+            'created_by' => $actor,
+        ];
+
+        if (FakturBarangJadiWorkflowStatus::columnAvailable()) {
+            $payload['workflow_status'] = $workflow;
+        }
+
+        $receipt = SerahTerimaFakturBarangJadi::query()->create($payload);
+
+        $this->syncSendToMerchDates($group['productions'], $receiptDate, $actor);
+
+        return $receipt;
+    }
+
+    /**
+     * @param  Collection<int, Production>  $productions
+     * @param  array<int, string>  $pluByRowId
+     */
+    public function syncPluFromImport(
+        Collection $productions,
+        array $pluByRowId,
+        string $actor,
+    ): void {
+        if ($pluByRowId === [] || ! Schema::connection('third')->hasColumn('spk', 'plu')) {
+            return;
+        }
+
+        $now = now();
+
+        foreach ($productions as $production) {
+            $rowId = (int) $production->row_id;
+            $plu = $pluByRowId[$rowId] ?? null;
+
+            if (! filled($plu)) {
+                continue;
+            }
+
+            $payload = [
+                'plu' => trim((string) $plu),
+            ];
+
+            if (Schema::connection('third')->hasColumn('spk', 'modified_date')) {
+                $payload['modified_date'] = $now;
+            }
+
+            if (Schema::connection('third')->hasColumn('spk', 'modified_by')) {
+                $payload['modified_by'] = $actor;
+            }
+
+            $production->update($payload);
+            $production->setAttribute('plu', $payload['plu']);
+        }
+    }
+
+    /**
+     * @param  Collection<int, Production>|iterable<int, Production>  $productions
+     */
+    public function syncSendToMerchDates(
+        iterable $productions,
+        Carbon|string $date,
+        string $actor,
+    ): void {
+        if (! Schema::connection('third')->hasColumn('spk', 'send_to_merch_date')) {
+            return;
+        }
+
+        $dateString = $date instanceof Carbon
+            ? $date->toDateString()
+            : Carbon::parse($date)->toDateString();
+
+        $now = now();
+
+        foreach ($productions as $production) {
+            $payload = [
+                'send_to_merch_date' => $dateString,
+            ];
+
+            if (Schema::connection('third')->hasColumn('spk', 'modified_date')) {
+                $payload['modified_date'] = $now;
+            }
+
+            if (Schema::connection('third')->hasColumn('spk', 'modified_by')) {
+                $payload['modified_by'] = $actor;
+            }
+
+            $production->update($payload);
+        }
     }
 }

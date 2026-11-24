@@ -51,7 +51,6 @@ export const PROCESS_HIDDEN_COLUMNS: Record<string, Set<string>> = {
         'setting_id',
         'qc_id',
         'mounting_return',
-        'weight_diamond',
         'polish_shrink',
         'trans_date',
     ]),

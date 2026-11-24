@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $spk_no
  * @property string|null $location
  * @property string|null $plu
+ * @property Carbon|null $send_to_merch_date
  * @property string|null $spk_type
  * @property string|null $request_order_no
  * @property string|null $request_stock_no
@@ -47,6 +48,7 @@ use Illuminate\Support\Carbon;
  * @property float|null $last_weight
  * @property string|null $frame_id
  * @property string|null $file_name
+ * @property string|null $foto_brj
  * @property string|null $last_process
  * @property int $is_coran
  * @property int $is_finishinghandmade
@@ -68,6 +70,7 @@ use Illuminate\Support\Carbon;
     'spk_no',
     'location',
     'plu',
+    'send_to_merch_date',
     'spk_type',
     'request_order_no',
     'request_stock_no',
@@ -99,6 +102,7 @@ use Illuminate\Support\Carbon;
     'last_weight',
     'frame_id',
     'file_name',
+    'foto_brj',
     'last_process',
     'is_coran',
     'is_finishinghandmade',
@@ -251,6 +255,7 @@ class Production extends Model
     {
         return [
             'order_date' => 'date',
+            'send_to_merch_date' => 'date',
             'estimated_delivery_time' => 'date',
             'work_estimated' => 'integer',
             'ref_spk_id' => 'integer',
