@@ -402,7 +402,12 @@ export function SpkInformasiProduksiAsideSection({
                 </AsideField>
                 {showProsesTerakhir ? (
                     <AsideField label="Proses Terakhir">
-                        <SpkProsesTerakhirDisplay row={production} />
+                        <div className="spkDetailAsideStoneStatus">
+                            <SpkProsesTerakhirDisplay
+                                row={production}
+                                emptyLabel="Belum diproses"
+                            />
+                        </div>
                     </AsideField>
                 ) : null}
                 <AsideField label="Status Batu">

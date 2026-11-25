@@ -3,6 +3,8 @@
 use App\Models\Coran;
 use App\Models\CoranSpk;
 use App\Models\Production;
+use App\Support\CoranSpkEligibility;
+use App\Support\ResinSpkEligibility;
 use Illuminate\Support\Str;
 
 test('coran create page is accessible', function () {
@@ -69,6 +71,39 @@ test('coran store creates document with spk details', function () {
 
     CoranSpk::query()->where('row_id', $coran->row_id)->delete();
     $coran->delete();
+    $production->delete();
+});
+
+test('coran store updates spk last process from resin to coran', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/CORPROC'.Str::upper(Str::random(3)),
+        'last_process' => ResinSpkEligibility::PROCESS_KEY,
+        'is_inprocess' => 1,
+    ]);
+
+    $this->post(route('coran.store'), [
+        'trans_date' => now()->format('Y-m-d'),
+        'details' => [
+            [
+                'spk_id' => $production->row_id,
+                'weight' => '1.20',
+                'status' => 'OK',
+            ],
+        ],
+    ])->assertRedirect();
+
+    $production->refresh();
+
+    expect($production->last_process)->toBe(CoranSpkEligibility::PROCESS_KEY)
+        ->and($production->is_inprocess)->toBe(1);
+
+    CoranSpk::query()
+        ->where('spk_id', $production->row_id)
+        ->get()
+        ->each(function (CoranSpk $detail): void {
+            Coran::query()->where('row_id', $detail->row_id)->delete();
+            $detail->delete();
+        });
     $production->delete();
 });
 

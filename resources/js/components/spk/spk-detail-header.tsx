@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import barCodeIcon from '@ui5/webcomponents-icons/dist/bar-code.js';
+import paperPlaneIcon from '@ui5/webcomponents-icons/dist/paper-plane.js';
 import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
@@ -28,6 +29,7 @@ import {
     type SpkApprovalTimelineEvent,
 } from '@/components/spk/spk-approval-timeline-panel';
 import { SpkBarcodeDialog } from '@/components/spk/spk-barcode-dialog';
+import { SpkShareLinkDialog } from '@/components/spk/spk-share-link-dialog';
 import { SpkCraftsmanReportSection } from '@/components/spk/spk-craftsman-report-section';
 import { SpkGoldReportTable } from '@/components/spk/spk-gold-report-table';
 import {
@@ -94,6 +96,7 @@ type SpkDetailLayoutProps = {
     item: SpkItemDetail;
     navigation: SpkNavigation;
     detailUrl: string;
+    publicShareUrl?: string;
     stones?: SpkStoneItem[];
     chains?: SpkChainItem[];
     components?: SpkComponentItem[];
@@ -128,6 +131,7 @@ export function SpkDetailLayout({
     item,
     navigation,
     detailUrl,
+    publicShareUrl,
     stones = [],
     chains = [],
     components = [],
@@ -160,6 +164,7 @@ export function SpkDetailLayout({
         normalizeMainSection(initialMainSection),
     );
     const [barcodeOpen, setBarcodeOpen] = useState(false);
+    const [shareOpen, setShareOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [completingPolesChrome, setCompletingPolesChrome] = useState(false);
@@ -414,6 +419,20 @@ export function SpkDetailLayout({
                             >
                                 <Icon name={barCodeIcon} mode="Decorative" />
                             </button>
+                            {publicShareUrl ? (
+                                <button
+                                    type="button"
+                                    className="spkHeaderActionBtn"
+                                    aria-label="Bagikan tautan"
+                                    title="Bagikan tautan publik"
+                                    onClick={() => setShareOpen(true)}
+                                >
+                                    <Icon
+                                        name={paperPlaneIcon}
+                                        mode="Decorative"
+                                    />
+                                </button>
+                            ) : null}
                             <button
                                 type="button"
                                 className="spkHeaderActionBtn"
@@ -459,6 +478,16 @@ export function SpkDetailLayout({
                 value={detailUrl}
                 label={production.produksiNo}
             />
+
+            {publicShareUrl ? (
+                <SpkShareLinkDialog
+                    open={shareOpen}
+                    onOpenChange={setShareOpen}
+                    shareUrl={publicShareUrl}
+                    production={production}
+                    item={item}
+                />
+            ) : null}
 
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <DialogContent className="spkDeleteDialog">

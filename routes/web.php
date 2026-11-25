@@ -40,6 +40,7 @@ use App\Http\Controllers\StokRangkaController;
 use App\Http\Controllers\StoneTransactionController;
 use App\Http\Controllers\TrxChainController;
 use App\Http\Controllers\TrxComponentController;
+use App\Http\Controllers\YearlyKpiDashboardController;
 use App\Models\SerahTerimaFakturBarangJadi;
 use App\Models\SpkComponent;
 use App\Models\SpkDiamond;
@@ -66,6 +67,10 @@ Route::post('login/quick', [QuickLoginController::class, 'store'])
     ->middleware(['guest:web', 'throttle:login'])
     ->name('login.quick');
 
+Route::get('share/spk/{token}', [ProductionController::class, 'publicShare'])
+    ->where('token', '[0-9]+(?:\.[0-9]+)?\.[a-f0-9]{16}')
+    ->name('spk.public.share');
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('home');
     Route::redirect('dashboard', '/')->name('dashboard');
@@ -87,6 +92,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('analytics.craftsman-performance.jobs');
     Route::get('analytics/sku-output', [SkuOutputDashboardController::class, 'index'])
         ->name('analytics.sku-output');
+    Route::get('analytics/yearly-kpi', [YearlyKpiDashboardController::class, 'index'])
+        ->name('analytics.yearly-kpi');
     Route::get('reparasi', [ProductionController::class, 'reparasiIndex'])->name('reparasi.index');
     Route::get('faktur-barang-jadi', [FakturBarangJadiController::class, 'index'])
         ->name('faktur-barang-jadi.index');

@@ -819,6 +819,7 @@ class CoranController extends Controller
                 ->first();
 
             if ($production !== null) {
+                $spkEligibility->markProcessStarted($production, $actor);
                 $spkEligibility->syncLastWeight($production, $detail['weight'] ?? null, $actor);
             }
 

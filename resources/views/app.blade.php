@@ -30,9 +30,8 @@
             }
         </style>
 
-        <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+        <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
 
         <script data-ui5-config type="application/json">
             {!! json_encode(['theme' => 'sap_horizon']) !!}

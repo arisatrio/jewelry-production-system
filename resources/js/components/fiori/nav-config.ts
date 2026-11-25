@@ -5,6 +5,7 @@ import {
     shopFloor,
     skuOutput,
     workOrder,
+    yearlyKpi,
 } from '@/routes/analytics';
 import { index as coranIndex, report as coranReport } from '@/routes/coran';
 import {
@@ -66,6 +67,7 @@ export const defaultModuleNavItems: ShellNavItem[] = [
 
 export const defaultAnalyticsSubmenus: ShellNavItem[] = [
     { text: 'Work Order', href: workOrder.url() },
+    { text: 'Yearly KPI', href: yearlyKpi.url() },
     { text: 'Dashboard Kanban', href: home.url() },
     { text: 'Shop Floor', href: shopFloor.url() },
     { text: 'Material & Yield', href: materialYield.url() },

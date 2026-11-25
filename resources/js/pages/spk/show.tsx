@@ -47,6 +47,7 @@ type SpkShowProps = {
     productionControlReport: SpkProductionControlReport;
     navigation: SpkNavigation;
     detailUrl: string;
+    publicShareUrl: string;
     approval: SpkApprovalAbilities;
     approvalTimeline: SpkApprovalTimelineEvent[];
     approvalFooter: SpkApprovalFooterColumn[];
@@ -74,6 +75,7 @@ export default function SpkShow({
     productionControlReport,
     navigation,
     detailUrl,
+    publicShareUrl,
     approval,
     approvalTimeline,
     approvalFooter,
@@ -109,6 +111,7 @@ export default function SpkShow({
                     item={item}
                     navigation={navigation}
                     detailUrl={detailUrl}
+                    publicShareUrl={publicShareUrl}
                     stones={stones}
                     chains={chains}
                     components={components}

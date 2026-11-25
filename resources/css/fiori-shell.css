@@ -1026,6 +1026,117 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     line-height: 1.25;
 }
 
+.dashKpiCard.is-today.is-yearly-kpi {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.55rem;
+    padding-inline-end: 0.85rem;
+    min-height: 5.5rem;
+    overflow: visible;
+    height: auto;
+}
+
+.dashKpiGrid.is-yearly-kpi {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+}
+
+.dashKpiCard.is-today.is-yearly-kpi .dashKpiMain {
+    flex: 0 0 auto;
+    min-width: 5.5rem;
+    max-width: 38%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    justify-content: center;
+}
+
+.dashKpiCard.is-today.is-yearly-kpi .dashKpiNestedStack {
+    margin-top: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: auto;
+    align-self: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+    align-content: start;
+    padding-block: 0.1rem;
+    overflow: visible;
+}
+
+.dashKpiCard.is-today.is-yearly-kpi .dashKpiNestedStack:not(.is-one-per-row) {
+    max-height: 13rem;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.dashKpiCard.is-today.is-yearly-kpi .dashKpiNestedStack.is-one-per-row {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: none;
+    overflow: visible;
+}
+
+.dashKpiCard.is-today.is-yearly-kpi .dashKpiNestedCard {
+    flex: none;
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    justify-content: center;
+    overflow: visible;
+}
+
+.dashKpiCard.is-today .dashKpiNestedCard {
+    margin-top: 0;
+    flex: 1 1 0;
+    min-width: 5.25rem;
+    padding: 0.4rem 0.45rem 0.45rem;
+    border-radius: 0.4rem;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: rgba(255, 255, 255, 0.55);
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+}
+
+.dashKpiCard.is-today.is-done .dashKpiNestedCard {
+    border-color: rgba(22, 101, 52, 0.22);
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.dashKpiCard.is-today .dashKpiNestedCard .dashKpiLabel {
+    font-size: 0.6rem;
+}
+
+.dashKpiCard.is-today .dashKpiNestedCard .dashKpiValue {
+    font-size: 0.85rem;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.dashKpiCard.is-today .dashKpiNestedCard .dashKpiHint {
+    font-size: 0.65rem;
+}
+
+.dashKpiCard.is-today .dashKpiNestedCard.is-target-critical {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.dashKpiCard.is-today .dashKpiNestedCard.is-target-warning {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #b45309;
+}
+
+.dashKpiCard.is-today .dashKpiNestedCard.is-target-good {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+}
+
 .dashKpiCard.is-today .dashKpiSubvalue {
     font-size: 0.72rem;
     font-weight: 700;
@@ -1833,6 +1944,10 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     .dashKpiGrid.is-eight {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .dashKpiGrid.is-yearly-kpi {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 800px) {
@@ -1842,6 +1957,23 @@ ui5-shellbar ui5-avatar.shellProfileAvatar {
     .dashStatusStack,
     .dashTodayKpis {
         grid-template-columns: 1fr;
+    }
+
+    .dashKpiGrid.is-yearly-kpi {
+        grid-template-columns: 1fr;
+    }
+
+    .dashKpiCard.is-today.is-yearly-kpi {
+        flex-direction: column;
+    }
+
+    .dashKpiCard.is-today.is-yearly-kpi .dashKpiMain {
+        max-width: none;
+    }
+
+    .dashKpiCard.is-today.is-yearly-kpi .dashKpiNestedStack {
+        margin-left: 0;
+        width: 100%;
     }
 }
 

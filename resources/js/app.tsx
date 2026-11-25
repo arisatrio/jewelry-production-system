@@ -7,6 +7,7 @@ import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import FioriLayout from '@/layouts/fiori-layout';
+import PublicLayout from '@/layouts/public-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import '@/lib/ui5-shell-assets';
 
@@ -33,6 +34,8 @@ createInertiaApp({
             case name.startsWith('inventory/'):
             case name.startsWith('master-data/'):
                 return FioriLayout;
+            case name.startsWith('public/'):
+                return PublicLayout;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):

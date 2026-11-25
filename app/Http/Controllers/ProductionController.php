@@ -27,6 +27,7 @@ use App\Models\SkuPrefixCategory;
 use App\Models\SpkChain;
 use App\Models\SpkComponent;
 use App\Models\SpkStone;
+use App\Models\User;
 use App\Policies\ProductionPolicy;
 use App\Support\CoranSpkEligibility;
 use App\Support\DiamondMountingSpkEligibility;
@@ -66,6 +67,7 @@ use App\Support\SpkOrderReference;
 use App\Support\SpkProcessMapper;
 use App\Support\SpkProductionControlReport;
 use App\Support\SpkProductionWeightDisplay;
+use App\Support\SpkPublicShareToken;
 use App\Support\SpkQtyUnit;
 use App\Support\SpkService;
 use App\Support\SpkShrinkSummary;
@@ -2137,6 +2139,7 @@ class ProductionController extends Controller
             'productionControlReport' => $productionControlReport->forProduction($production, $goldReport),
             'navigation' => $navigation,
             'detailUrl' => route('spk.show', $production, absolute: true),
+            'publicShareUrl' => $this->publicShareUrl($request, $production),
             'approval' => $approval,
             'approvalTimeline' => $approvalService->mergeTimeline($approval['history'], $processes),
             'approvalFooter' => $approvalService->footerColumns(
@@ -2159,6 +2162,80 @@ class ProductionController extends Controller
             'mountedStonesDetail' => app(SpkMountedStonesDetail::class)
                 ->forProduction($production),
         ]);
+    }
+
+    /**
+     * Tampilkan ringkasan informasi produksi SPK untuk tautan publik (tanpa login).
+     */
+    public function publicShare(
+        string $token,
+        SpkStatusMapper $statusMapper,
+    ): Response {
+        $resolved = SpkPublicShareToken::resolve($token);
+
+        abort_if($resolved === null, 404);
+
+        $production = Production::query()
+            ->notDeleted()
+            ->where('row_id', $resolved['rowId'])
+            ->whereNotNull('spk_no')
+            ->first();
+
+        abort_if($production === null, 404);
+
+        $production->loadMissing(['item', 'sku', 'categoryPrefix']);
+        $approvalService = app(SpkApprovalService::class);
+
+        return Inertia::render('public/spk-share', [
+            'production' => $this->toDetail($production, $statusMapper),
+            'item' => $this->toItemDetail($production),
+            'approvalFooter' => $approvalService->footerColumns(
+                $production,
+                '-',
+                'd-M-Y H:i:s',
+            ),
+            'sharedBy' => $this->publicShareActor($resolved['sharedByUserId']),
+        ]);
+    }
+
+    private function publicShareUrl(Request $request, Production $production): string
+    {
+        $sharedByUserId = $request->user()?->id;
+
+        return route('spk.public.share', [
+            'token' => SpkPublicShareToken::forProduction(
+                $production,
+                is_int($sharedByUserId) ? $sharedByUserId : null,
+            ),
+        ], absolute: true);
+    }
+
+    /**
+     * @return array{key: string, name: string}|null
+     */
+    private function publicShareActor(?int $sharedByUserId): ?array
+    {
+        if ($sharedByUserId === null || $sharedByUserId <= 0) {
+            return null;
+        }
+
+        $user = User::query()->find($sharedByUserId);
+
+        if ($user === null) {
+            return null;
+        }
+
+        $key = trim((string) $user->user_id);
+        $name = trim((string) $user->name);
+
+        if ($key === '' && $name === '') {
+            return null;
+        }
+
+        return [
+            'key' => $key !== '' ? $key : '-',
+            'name' => $name !== '' ? $name : $key,
+        ];
     }
 
     /**

@@ -792,6 +792,163 @@ class SpkDashboardAnalytics
     }
 
     /**
+     * Ringkasan KPI tahunan: dibuat, selesai (tanggal proses), terbit PLU.
+     *
+     * @return array{
+     *     period: array{label: string, year: int, start: string, end: string},
+     *     summary: array{
+     *         createdSpk: int,
+     *         createdQty: int,
+     *         completedSpk: int,
+     *         completedQty: int,
+     *         doneRangkaSpk: int,
+     *         doneBarangJadiSpk: int,
+     *         pluIssuedSpk: int,
+     *         pluDatedBy: 'send_to_merch_date'|'production_completion'|null,
+     *         inProgressSpk: int,
+     *         waitingApprovalSpk: int,
+     *         approvedNotProcessedSpk: int,
+     *         pendingProcessSpk: int
+     *     },
+     *     breakdown: array{
+     *         createdByProductionType: list<array{label: string, count: int, percent: string}>,
+     *         pending: list<array{label: string, count: int, percent: string}>,
+     *         inProgressByProcess: list<array{label: string, count: int, percent: string}>,
+     *         completedPlu: list<array{label: string, count: int, percent: string}>
+     *     }
+     * }
+     */
+    public function summarizeYearlyKpi(int $year): array
+    {
+        $start = Carbon::create($year, 1, 1)->startOfDay();
+        $end = Carbon::create($year, 12, 31)->endOfDay();
+
+        $emptySummary = [
+            'createdSpk' => 0,
+            'createdQty' => 0,
+            'completedSpk' => 0,
+            'completedQty' => 0,
+            'doneRangkaSpk' => 0,
+            'doneBarangJadiSpk' => 0,
+            'pluIssuedSpk' => 0,
+            'pluDatedBy' => null,
+            'inProgressSpk' => 0,
+            'waitingApprovalSpk' => 0,
+            'approvedNotProcessedSpk' => 0,
+            'pendingProcessSpk' => 0,
+        ];
+
+        $emptyBreakdown = [
+            'createdByProductionType' => [],
+            'pending' => [],
+            'inProgressByProcess' => [],
+            'completedPlu' => [],
+        ];
+
+        if (! Schema::connection('third')->hasTable('spk')) {
+            return [
+                'period' => [
+                    'label' => (string) $year,
+                    'year' => $year,
+                    'start' => $start->toDateString(),
+                    'end' => $end->toDateString(),
+                ],
+                'summary' => $emptySummary,
+                'breakdown' => $emptyBreakdown,
+            ];
+        }
+
+        $createdQuery = $this->spkCreatedInYearBase($year);
+
+        $createdSpk = (clone $createdQuery)->count();
+        $createdQty = $this->sumSpkQty((clone $createdQuery));
+
+        $statusCounts = $this->resolveStatusCounts(clone $createdQuery);
+        $waitingApprovalSpk = $statusCounts['draft'];
+        $approvedNotProcessedSpk = $statusCounts['confirmed'];
+        $inProgressSpk = $statusCounts['inProgress'];
+        $pendingProcessSpk = $waitingApprovalSpk + $approvedNotProcessedSpk;
+
+        $completedQuery = $this->applyProductionCompletedBetweenFilter(
+            $this->spkBase(),
+            $start,
+            $end,
+        );
+        $completedSpk = (clone $completedQuery)->count();
+        $completedQty = $this->sumSpkQty((clone $completedQuery));
+
+        $doneBarangJadiExpr = $this->doneBarangJadiExpression();
+        $doneRangkaExpr = $this->doneRangkaExpression();
+        $doneBarangJadiSpk = (clone $completedQuery)
+            ->whereRaw("({$doneBarangJadiExpr})")
+            ->count();
+        $doneRangkaSpk = (clone $completedQuery)
+            ->whereRaw("({$doneRangkaExpr})")
+            ->whereRaw('NOT ('.$doneBarangJadiExpr.')')
+            ->count();
+
+        [$pluIssuedSpk, $pluDatedBy] = $this->resolveYearlyPluIssuedMetrics($start, $end);
+
+        $createdByProductionType = $this->aggregateSpkDistribution(
+            clone $createdQuery,
+            'spk_type',
+            12,
+            $createdSpk,
+        );
+
+        $pendingBreakdown = $this->labeledCountsWithPercent([
+            ['label' => 'Belum Approved', 'count' => $waitingApprovalSpk],
+            ['label' => 'Belum Proses', 'count' => $approvedNotProcessedSpk],
+        ], $pendingProcessSpk);
+
+        $inProgressByProcess = $this->resolveInProgressByProcessForQuery(clone $createdQuery, $inProgressSpk);
+
+        $completedWithPlu = 0;
+        $completedWithoutPlu = 0;
+
+        if (Schema::connection('third')->hasColumn('spk', 'plu')) {
+            $completedWithPlu = $this->applyPluSetScopeOnSpk(clone $completedQuery)->count();
+            $completedWithoutPlu = $this->applyPluUnsetScopeOnSpk(clone $completedQuery)->count();
+        } else {
+            $completedWithoutPlu = $completedSpk;
+        }
+
+        $completedPlu = $this->labeledCountsWithPercent([
+            ['label' => 'Sudah PLU', 'count' => $completedWithPlu],
+            ['label' => 'Belum PLU', 'count' => $completedWithoutPlu],
+        ], $completedSpk);
+
+        return [
+            'period' => [
+                'label' => (string) $year,
+                'year' => $year,
+                'start' => $start->toDateString(),
+                'end' => $end->toDateString(),
+            ],
+            'summary' => [
+                'createdSpk' => $createdSpk,
+                'createdQty' => $createdQty,
+                'completedSpk' => $completedSpk,
+                'completedQty' => $completedQty,
+                'doneRangkaSpk' => $doneRangkaSpk,
+                'doneBarangJadiSpk' => $doneBarangJadiSpk,
+                'pluIssuedSpk' => $pluIssuedSpk,
+                'pluDatedBy' => $pluDatedBy,
+                'inProgressSpk' => $inProgressSpk,
+                'waitingApprovalSpk' => $waitingApprovalSpk,
+                'approvedNotProcessedSpk' => $approvedNotProcessedSpk,
+                'pendingProcessSpk' => $pendingProcessSpk,
+            ],
+            'breakdown' => [
+                'createdByProductionType' => $createdByProductionType,
+                'pending' => $pendingBreakdown,
+                'inProgressByProcess' => $inProgressByProcess,
+                'completedPlu' => $completedPlu,
+            ],
+        ];
+    }
+
+    /**
      * Snapshot operasional untuk hari kalender berjalan,
      * terbatas pada SPK scope bulan (dibuat ATAU estimasi delivery).
      *
@@ -4377,8 +4534,31 @@ class SpkDashboardAnalytics
      */
     private function yearScopedSpkBase(): Builder
     {
+        return $this->spkCreatedInYearBase((int) now()->format('Y'));
+    }
+
+    /**
+     * SPK dibuat di tahun kalender tertentu (kohort backlog yearly KPI / dashboard).
+     */
+    private function spkCreatedInYearBase(int $year): Builder
+    {
+        $start = Carbon::create($year, 1, 1)->startOfDay();
+        $end = Carbon::create($year, 12, 31)->endOfDay();
+
         $query = $this->spkBase();
-        $this->applyCurrentYearFilter($query);
+
+        if (Schema::connection('third')->hasColumn('spk', 'created_date')) {
+            $query
+                ->whereNotNull('created_date')
+                ->whereBetween('created_date', [
+                    $start->toDateTimeString(),
+                    $end->toDateTimeString(),
+                ]);
+
+            return $query;
+        }
+
+        $query->where('spk_no', 'like', "{$year}/%");
 
         return $query;
     }
@@ -4761,5 +4941,175 @@ class SpkDashboardAnalytics
     private function formatWeight(float $value): string
     {
         return number_format($value, 2, '.', '');
+    }
+
+    /**
+     * @return list<array{label: string, count: int, percent: string}>
+     */
+    private function aggregateSpkDistribution(
+        Builder $base,
+        string $column,
+        int $limit,
+        ?int $totalOverride = null,
+    ): array {
+        if (
+            $column !== 'spk_type'
+            || ! Schema::connection('third')->hasColumn('spk', $column)
+        ) {
+            return [];
+        }
+
+        $rows = (clone $base)
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->selectRaw("TRIM(`{$column}`) as label, COUNT(*) as aggregate_count")
+            ->groupByRaw("TRIM(`{$column}`)")
+            ->orderByDesc('aggregate_count')
+            ->limit($limit)
+            ->get();
+
+        $total = $totalOverride ?? (int) $rows->sum('aggregate_count');
+
+        return $rows->map(function (object $row) use ($total): array {
+            $count = (int) $row->aggregate_count;
+            $label = trim((string) $row->label);
+
+            return [
+                'label' => $label !== '' ? $label : 'Lainnya',
+                'count' => $count,
+                'percent' => $total > 0
+                    ? number_format(($count / $total) * 100, 1, '.', '')
+                    : '0.0',
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @param  list<array{label: string, count: int}>  $rows
+     * @return list<array{label: string, count: int, percent: string}>
+     */
+    private function labeledCountsWithPercent(array $rows, int $total): array
+    {
+        return collect($rows)->map(function (array $row) use ($total): array {
+            $count = (int) ($row['count'] ?? 0);
+
+            return [
+                'label' => (string) ($row['label'] ?? ''),
+                'count' => $count,
+                'percent' => $total > 0
+                    ? number_format(($count / $total) * 100, 1, '.', '')
+                    : '0.0',
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @return list<array{label: string, count: int, percent: string}>
+     */
+    private function resolveInProgressByProcessForQuery(Builder $yearBase, int $inProgressTotal): array
+    {
+        if (
+            ! Schema::connection('third')->hasColumn('spk', 'last_process')
+            || $inProgressTotal === 0
+        ) {
+            return [];
+        }
+
+        ['inProgress' => $inProgressExpr, 'confirmed' => $confirmedExpr] = $this->statusExpressions();
+
+        $processExpr = "CASE
+            WHEN last_process IS NULL OR TRIM(last_process) = '' THEN 'Tanpa Proses'
+            ELSE TRIM(last_process)
+        END";
+
+        $rows = (clone $yearBase)
+            ->whereRaw('NOT ('.$this->doneExpression().')')
+            ->whereRaw("NOT ({$confirmedExpr})")
+            ->whereRaw("({$inProgressExpr})")
+            ->selectRaw("{$processExpr} as process_label, COUNT(*) as aggregate_count")
+            ->groupByRaw($processExpr)
+            ->orderByDesc('aggregate_count')
+            ->get();
+
+        return $rows->map(function (object $row) use ($inProgressTotal): array {
+            $count = (int) $row->aggregate_count;
+            $label = trim((string) $row->process_label);
+
+            return [
+                'label' => $label !== '' ? $label : 'Tanpa Proses',
+                'count' => $count,
+                'percent' => $inProgressTotal > 0
+                    ? number_format(($count / $inProgressTotal) * 100, 1, '.', '')
+                    : '0.0',
+            ];
+        })->values()->all();
+    }
+
+    private function applyPluSetScopeOnSpk(Builder $query): Builder
+    {
+        $query->whereNotNull('plu')
+            ->where('plu', '!=', '')
+            ->whereRaw("TRIM(plu) <> ''");
+
+        return $query;
+    }
+
+    private function applyPluUnsetScopeOnSpk(Builder $query): Builder
+    {
+        $query->where(function (Builder $builder): void {
+            $builder->whereNull('plu')
+                ->orWhere('plu', '')
+                ->orWhereRaw("TRIM(plu) = ''");
+        });
+
+        return $query;
+    }
+
+    private function sumSpkQty(Builder $query): int
+    {
+        if (! Schema::connection('third')->hasColumn('spk', 'qty')) {
+            return (clone $query)->count();
+        }
+
+        return (int) round((float) (clone $query)->sum(DB::raw('COALESCE(qty, 1)')));
+    }
+
+    /**
+     * @return array{0: int, 1: 'send_to_merch_date'|'production_completion'|null}
+     */
+    private function resolveYearlyPluIssuedMetrics(
+        CarbonInterface $start,
+        CarbonInterface $end,
+    ): array {
+        if (! Schema::connection('third')->hasColumn('spk', 'plu')) {
+            return [0, null];
+        }
+
+        $base = $this->spkBase()
+            ->whereNotNull('plu')
+            ->where('plu', '!=', '')
+            ->whereRaw("TRIM(plu) <> ''");
+
+        if (Schema::connection('third')->hasColumn('spk', 'send_to_merch_date')) {
+            return [
+                (clone $base)
+                    ->whereNotNull('send_to_merch_date')
+                    ->whereBetween('send_to_merch_date', [
+                        $start->toDateString(),
+                        $end->toDateString(),
+                    ])
+                    ->count(),
+                'send_to_merch_date',
+            ];
+        }
+
+        return [
+            $this->applyProductionCompletedBetweenFilter(
+                clone $base,
+                $start,
+                $end,
+            )->count(),
+            'production_completion',
+        ];
     }
 }
