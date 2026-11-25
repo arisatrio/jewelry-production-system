@@ -248,7 +248,7 @@ export function FakturBarangJadiReceiptList({
                                         }
                                     >
                                         <td
-                                            className="spkTableColCenter spkFakturBarangJadiReceiptHistoryColAction"
+                                            className="spkTableColCenter spkChainTableActionCell spkFakturBarangJadiReceiptHistoryColAction"
                                             onClick={(event) =>
                                                 event.stopPropagation()
                                             }
@@ -317,7 +317,7 @@ export function FakturBarangJadiReceiptList({
                                                     {row.canSend ? (
                                                         <button
                                                             type="button"
-                                                            className="spkChainFulfillmentReceiveBtn"
+                                                            className="spkChainFulfillmentActionBtn"
                                                             disabled={
                                                                 sendingId !==
                                                                     null ||
@@ -328,9 +328,12 @@ export function FakturBarangJadiReceiptList({
                                                                 sendReceipt(row)
                                                             }
                                                         >
-                                                            {sendingId === row.id
-                                                                ? 'Mengirim…'
-                                                                : 'Kirim'}
+                                                            <span className="spkChainFulfillmentActionBtnLabel">
+                                                                {sendingId ===
+                                                                row.id
+                                                                    ? 'Mengirim…'
+                                                                    : 'Kirim'}
+                                                            </span>
                                                         </button>
                                                     ) : null}
                                                     {row.canReceive ? (

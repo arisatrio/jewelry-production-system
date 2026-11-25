@@ -32,6 +32,7 @@ class FakturBarangJadiImporter
         'untuk',
         'no spk',
         'plu',
+        'berat akhir barang jadi (emas + batu)',
         'diserahkan oleh',
         'diketahui oleh',
         'diterima oleh',
@@ -67,13 +68,13 @@ class FakturBarangJadiImporter
             ]);
         }
 
-        $this->assertHeaderRow($worksheet->rangeToArray('A1:I1', null, true, false)[0] ?? []);
+        $this->assertHeaderRow($worksheet->rangeToArray('A1:J1', null, true, false)[0] ?? []);
 
         $parsedRows = [];
         $errors = [];
 
         for ($rowNumber = 2; $rowNumber <= $highestRow; $rowNumber++) {
-            $cells = $worksheet->rangeToArray("A{$rowNumber}:I{$rowNumber}", null, true, false)[0] ?? [];
+            $cells = $worksheet->rangeToArray("A{$rowNumber}:J{$rowNumber}", null, true, false)[0] ?? [];
 
             if ($this->isBlankRow($cells)) {
                 continue;
@@ -299,16 +300,22 @@ class FakturBarangJadiImporter
                 ->values();
 
             $pluByRowId = [];
+            $lastWeightByRowId = [];
 
             foreach ($bucket as $entry) {
                 $plu = $entry['data']['plu'] ?? null;
 
-                if (! filled($plu)) {
-                    continue;
+                if (filled($plu)) {
+                    $production = $productions->get((string) $entry['data']['spk_no']);
+                    $pluByRowId[(int) $production->row_id] = trim((string) $plu);
                 }
 
-                $production = $productions->get((string) $entry['data']['spk_no']);
-                $pluByRowId[(int) $production->row_id] = trim((string) $plu);
+                $lastWeight = $entry['data']['last_weight'] ?? null;
+
+                if (filled($lastWeight)) {
+                    $production = $productions->get((string) $entry['data']['spk_no']);
+                    $lastWeightByRowId[(int) $production->row_id] = (string) $lastWeight;
+                }
             }
 
             $groups[] = [
@@ -322,6 +329,7 @@ class FakturBarangJadiImporter
                 'diterima_oleh' => $header['diterima_oleh'],
                 'productions' => $orderedProductions,
                 'plu_by_row_id' => $pluByRowId,
+                'last_weight_by_row_id' => $lastWeightByRowId,
             ];
         }
 
@@ -420,6 +428,16 @@ class FakturBarangJadiImporter
             $messages[] = 'PLU maksimal 50 karakter.';
         }
 
+        if ($mapped['last_weight'] === null) {
+            $weightRaw = $this->cellString($cells[6] ?? null);
+
+            if ($weightRaw === '') {
+                $messages[] = 'Berat Akhir Barang Jadi (Emas + Batu) wajib diisi.';
+            } else {
+                $messages[] = 'Berat Akhir Barang Jadi (Emas + Batu) harus berupa angka (maks. 2 desimal).';
+            }
+        }
+
         foreach (['diserahkan_oleh' => 'Diserahkan Oleh', 'diketahui_oleh' => 'Diketahui Oleh', 'diterima_oleh' => 'Diterima Oleh'] as $field => $label) {
             $value = $mapped[$field];
 
@@ -457,6 +475,7 @@ class FakturBarangJadiImporter
      *     untuk: string,
      *     spk_no: string,
      *     plu: string|null,
+     *     last_weight: string|null,
      *     workflow: string,
      *     diserahkan_oleh: string|null,
      *     diketahui_oleh: string|null,
@@ -472,11 +491,34 @@ class FakturBarangJadiImporter
             'untuk' => $this->cellString($cells[3] ?? null),
             'spk_no' => $this->cellString($cells[4] ?? null),
             'plu' => $this->nullableCellString($cells[5] ?? null),
+            'last_weight' => $this->parseLastWeight($cells[6] ?? null),
             'workflow' => self::DEFAULT_IMPORT_WORKFLOW,
-            'diserahkan_oleh' => $this->nullableCellString($cells[6] ?? null),
-            'diketahui_oleh' => $this->nullableCellString($cells[7] ?? null),
-            'diterima_oleh' => $this->nullableCellString($cells[8] ?? null),
+            'diserahkan_oleh' => $this->nullableCellString($cells[7] ?? null),
+            'diketahui_oleh' => $this->nullableCellString($cells[8] ?? null),
+            'diterima_oleh' => $this->nullableCellString($cells[9] ?? null),
         ];
+    }
+
+    private function parseLastWeight(mixed $value): ?string
+    {
+        $string = $this->cellString($value);
+
+        if ($string === '') {
+            return null;
+        }
+
+        $normalized = str_replace(',', '.', $string);
+
+        $validator = Validator::make(
+            ['last_weight' => $normalized],
+            ['last_weight' => ['numeric', 'min:0', 'decimal:0,2']],
+        );
+
+        if ($validator->fails()) {
+            return null;
+        }
+
+        return number_format((float) $normalized, 2, '.', '');
     }
 
     /**
@@ -496,8 +538,10 @@ class FakturBarangJadiImporter
     private function normalizeHeader(?string $value): string
     {
         $normalized = mb_strtolower(trim((string) $value));
+        $normalized = str_replace('  ', ' ', $normalized);
+        $normalized = preg_replace('/\s*\(opsional\)\s*$/u', '', $normalized) ?? $normalized;
 
-        return str_replace('  ', ' ', $normalized);
+        return trim($normalized);
     }
 
     private function cellString(mixed $value): string

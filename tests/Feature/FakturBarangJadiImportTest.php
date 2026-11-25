@@ -5,6 +5,7 @@ use App\Models\SerahTerimaFakturBarangJadi;
 use App\Models\User;
 use App\Support\FakturBarangJadiImportTemplateExport;
 use App\Support\FakturBarangJadiWorkflowStatus;
+use App\Support\InventorySpkSync;
 use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkProcessMapper;
 use Illuminate\Http\UploadedFile;
@@ -92,6 +93,7 @@ test('faktur barang jadi import creates receipt and send_to_merch_date from exce
             'Store',
             $spkNo,
             $importPlu,
+            '4,66',
             '',
             '',
             '',
@@ -125,6 +127,25 @@ test('faktur barang jadi import creates receipt and send_to_merch_date from exce
     if (Schema::connection('third')->hasColumn('spk', 'send_to_merch_date')) {
         expect($production->send_to_merch_date?->toDateString())->toBe('2026-09-18');
     }
+
+    if (Schema::connection('third')->hasColumn('spk', 'last_weight')) {
+        expect((float) $production->last_weight)->toBe(4.66);
+    }
+
+    $inventorySpk = app(InventorySpkSync::class);
+
+    if (
+        $inventorySpk->tableAvailable()
+        && $inventorySpk->hasColumn('plu')
+        && $inventorySpk->hasColumn('spk_no')
+    ) {
+        $inventoryRow = DB::connection('second')
+            ->table('spk')
+            ->where('plu', $importPlu)
+            ->value('spk_no');
+
+        expect($inventoryRow)->toBe($spkNo);
+    }
 });
 
 test('faktur barang jadi import completes in progress production', function () {
@@ -147,6 +168,8 @@ test('faktur barang jadi import completes in progress production', function () {
             'Workshop',
             'Store',
             $spkNo,
+            '',
+            '3.10',
             '',
             '',
             '',

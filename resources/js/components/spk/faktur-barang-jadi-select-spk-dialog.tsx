@@ -30,6 +30,7 @@ export type FakturBarangJadiSelectedSpk = {
     prosesTerakhirCompleted?: boolean | null;
     fotoBrjImageUrl: string | null;
     hasFotoBrj: boolean;
+    lastWeight: string | null;
 };
 
 type FakturBarangJadiSpkOption = FakturBarangJadiSelectedSpk;
@@ -66,8 +67,8 @@ export function FakturBarangJadiSelectSpkDialog({
                 <DialogHeader>
                     <DialogTitle>Pilih SPK</DialogTitle>
                     <DialogDescription>
-                        Pilih satu SPK selesai. Setelah itu unggah atau
-                        konfirmasi foto barang jadi.
+                        Pilih satu SPK selesai. Setelah itu isi berat akhir dan
+                        unggah atau konfirmasi foto barang jadi.
                     </DialogDescription>
                 </DialogHeader>
                 {open ? (

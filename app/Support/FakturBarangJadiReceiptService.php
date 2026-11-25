@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\HttpKernel\Exception\HttpException;
+use Illuminate\Validation\ValidationException;
 
 class FakturBarangJadiReceiptService
 {
@@ -177,43 +177,48 @@ class FakturBarangJadiReceiptService
             $rowId = (int) $production->row_id;
 
             if (SpkDashboardAnalytics::completedProductionKind($rowId) === null) {
-                throw new HttpException(
-                    422,
-                    "SPK {$production->spk_no} belum dapat ditandai selesai untuk faktur barang jadi.",
-                );
+                throw ValidationException::withMessages([
+                    'ids' => [
+                        "SPK {$production->spk_no} belum dapat ditandai selesai untuk faktur barang jadi.",
+                    ],
+                ]);
             }
 
             if ($production->spk_type === SpkService::REPARATION_TYPE) {
-                throw new HttpException(
-                    422,
-                    "SPK {$production->spk_no} bertipe Reparasi tidak bisa difakturkan di sini.",
-                );
+                throw ValidationException::withMessages([
+                    'ids' => [
+                        "SPK {$production->spk_no} bertipe Reparasi tidak bisa difakturkan di sini.",
+                    ],
+                ]);
             }
 
             if (isset($blockedIds[$rowId])) {
-                throw new HttpException(
-                    422,
-                    "SPK {$production->spk_no} sudah tercantum pada faktur barang jadi aktif.",
-                );
+                throw ValidationException::withMessages([
+                    'ids' => [
+                        "SPK {$production->spk_no} sudah tercantum pada faktur barang jadi aktif.",
+                    ],
+                ]);
             }
 
             if (
                 Schema::connection('third')->hasColumn('spk', 'foto_brj')
                 && blank($production->foto_brj)
             ) {
-                throw new HttpException(
-                    422,
-                    "SPK {$production->spk_no} wajib memiliki foto barang jadi.",
-                );
+                throw ValidationException::withMessages([
+                    'ids' => [
+                        "SPK {$production->spk_no} wajib memiliki foto barang jadi.",
+                    ],
+                ]);
             }
 
             $currentLocation = trim((string) ($production->location ?? Production::DEFAULT_LOCATION));
 
             if ($from !== '' && strcasecmp($currentLocation, $from) !== 0) {
-                throw new HttpException(
-                    422,
-                    "SPK {$production->spk_no} tidak berada di lokasi {$from}.",
-                );
+                throw ValidationException::withMessages([
+                    'ids' => [
+                        "SPK {$production->spk_no} tidak berada di lokasi {$from}.",
+                    ],
+                ]);
             }
         }
     }
@@ -298,6 +303,7 @@ class FakturBarangJadiReceiptService
      *     diterima_oleh: string|null,
      *     productions: Collection<int, Production>,
      *     plu_by_row_id?: array<int, string>,
+     *     last_weight_by_row_id?: array<int, string>,
      * }  $group
      */
     public function createReceiptFromImport(
@@ -314,8 +320,15 @@ class FakturBarangJadiReceiptService
         $pluByRowId = $group['plu_by_row_id'] ?? [];
 
         $this->syncPluFromImport($group['productions'], $pluByRowId, $actor);
+
+        /** @var array<int, string> $lastWeightByRowId */
+        $lastWeightByRowId = $group['last_weight_by_row_id'] ?? [];
+
+        $this->syncLastWeightFromImport($group['productions'], $lastWeightByRowId, $actor);
         $this->relocateProductionsTo($group['productions'], $group['untuk'], $actor);
         $group['productions']->each->refresh();
+
+        app(InventorySpkSync::class)->syncSpkNumbers($group['productions'], $actor);
 
         $items = $group['productions']
             ->map(fn (Production $production): array => $this->receiptItem($production))
@@ -391,6 +404,46 @@ class FakturBarangJadiReceiptService
 
             $production->update($payload);
             $production->setAttribute('plu', $payload['plu']);
+        }
+    }
+
+    /**
+     * @param  Collection<int, Production>  $productions
+     * @param  array<int, string>  $lastWeightByRowId
+     */
+    public function syncLastWeightFromImport(
+        Collection $productions,
+        array $lastWeightByRowId,
+        string $actor,
+    ): void {
+        if ($lastWeightByRowId === [] || ! Schema::connection('third')->hasColumn('spk', 'last_weight')) {
+            return;
+        }
+
+        $now = now();
+
+        foreach ($productions as $production) {
+            $rowId = (int) $production->row_id;
+            $lastWeight = $lastWeightByRowId[$rowId] ?? null;
+
+            if (! filled($lastWeight)) {
+                continue;
+            }
+
+            $payload = [
+                'last_weight' => number_format((float) $lastWeight, 2, '.', ''),
+            ];
+
+            if (Schema::connection('third')->hasColumn('spk', 'modified_date')) {
+                $payload['modified_date'] = $now;
+            }
+
+            if (Schema::connection('third')->hasColumn('spk', 'modified_by')) {
+                $payload['modified_by'] = $actor;
+            }
+
+            $production->update($payload);
+            $production->setAttribute('last_weight', (float) $payload['last_weight']);
         }
     }
 

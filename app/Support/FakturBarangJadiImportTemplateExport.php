@@ -24,15 +24,16 @@ class FakturBarangJadiImportTemplateExport implements FromArray, ShouldAutoSize,
     public function headings(): array
     {
         return [
-            'No Faktur',
+            'No Faktur (opsional)',
             'Tanggal',
             'Dari',
             'Untuk',
             'No SPK',
-            'PLU',
-            'Diserahkan Oleh',
-            'Diketahui Oleh',
-            'Diterima Oleh',
+            'PLU (opsional)',
+            'Berat Akhir Barang Jadi (Emas + Batu)',
+            'Diserahkan Oleh (opsional)',
+            'Diketahui Oleh (opsional)',
+            'Diterima Oleh (opsional)',
         ];
     }
 

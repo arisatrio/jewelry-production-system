@@ -85,8 +85,14 @@ export function FakturBarangJadiImportDialog({
                                     Unduh template Excel
                                 </Button>
                                 <p className="text-muted-foreground text-sm">
-                                    Wajib: Tanggal, Dari, Untuk, No SPK. PLU
-                                    opsional. SPK yang belum selesai produksi
+                                    Wajib: Tanggal, Dari, Untuk, No SPK, Berat
+                                    Akhir Barang Jadi (Emas + Batu).                                     Opsional:
+                                    No Faktur, PLU, Diserahkan Oleh, Diketahui
+                                    Oleh, Diterima Oleh. Jika PLU diisi, nomor
+                                    SPK produksi disinkronkan ke tabel spk
+                                    inventori dengan PLU yang sama. SPK yang
+                                    belum selesai
+                                    produksi
                                     akan ditandai DONE otomatis saat import.
                                     Import
                                     otomatis menandai faktur{' '}

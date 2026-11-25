@@ -190,5 +190,6 @@ test('faktur barang jadi receipt store rejects spk without foto barang jadi', fu
             'diserahkan_oleh' => $handedBy->nama_lengkap,
             'diketahui_oleh' => $acknowledgedBy->nama_lengkap,
         ])
-        ->assertStatus(422);
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['ids']);
 });

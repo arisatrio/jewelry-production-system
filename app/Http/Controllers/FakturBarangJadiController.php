@@ -28,6 +28,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -78,6 +79,7 @@ class FakturBarangJadiController extends Controller
         $fakturBelumOnly = $request->boolean('faktur_belum', true);
         $blockedIds = $receipts->spkRowIdsOnOpenReceipts();
         $fotoBrjColumn = Schema::connection('third')->hasColumn('spk', 'foto_brj');
+        $lastWeightColumn = Schema::connection('third')->hasColumn('spk', 'last_weight');
         $analytics = new SpkDashboardAnalytics;
 
         $page = Production::query()
@@ -111,7 +113,7 @@ class FakturBarangJadiController extends Controller
 
         return response()->json([
             'data' => $productions
-                ->map(function (Production $production) use ($blockedIds, $fotoBrjColumn, $statusLabels, $lastProcessDates, $processMapper): array {
+                ->map(function (Production $production) use ($blockedIds, $fotoBrjColumn, $lastWeightColumn, $statusLabels, $lastProcessDates, $processMapper): array {
                     $rowId = (int) $production->row_id;
                     $kind = SpkDashboardAnalytics::completedProductionKind($rowId);
                     $status = $kind !== null
@@ -141,6 +143,9 @@ class FakturBarangJadiController extends Controller
                             ? SpkItemImageUrl::fromFotoBrj($fotoBrj)
                             : null,
                         'hasFotoBrj' => $fotoBrjColumn ? filled($fotoBrj) : true,
+                        'lastWeight' => $lastWeightColumn && filled($production->last_weight)
+                            ? number_format((float) $production->last_weight, 2, '.', '')
+                            : null,
                         'fakturBarangJadiIssued' => isset($blockedIds[$rowId]),
                     ];
                 })
@@ -222,6 +227,7 @@ class FakturBarangJadiController extends Controller
                     'Store',
                     'NO-SPK-CONTOH',
                     'PLU-CONTOH',
+                    '4.66',
                     '',
                     '',
                     '',
@@ -323,7 +329,9 @@ class FakturBarangJadiController extends Controller
         FakturBarangJadiReceiptService $receipts,
     ): JsonResponse {
         if (! $receipts->tableAvailable()) {
-            throw new HttpException(422, 'Penyimpanan faktur barang jadi belum tersedia di database.');
+            throw ValidationException::withMessages([
+                'receipt' => ['Penyimpanan faktur barang jadi belum tersedia di database.'],
+            ]);
         }
 
         /** @var list<int> $ids */
@@ -690,20 +698,36 @@ class FakturBarangJadiController extends Controller
             throw new HttpException(422, 'Foto barang jadi hanya dapat diunggah untuk SPK selesai.');
         }
 
-        $filename = $spkService->uploadFotoBrjFile(
-            $request->file('foto'),
-            (string) ($production->spk_no ?? ''),
-        );
-
-        $production->forceFill([
-            'foto_brj' => $filename,
+        $updates = [
             'modified_date' => now(),
             'modified_by' => $this->actorName($request),
-        ])->save();
+        ];
+
+        if ($request->hasFile('foto')) {
+            $filename = $spkService->uploadFotoBrjFile(
+                $request->file('foto'),
+                (string) ($production->spk_no ?? ''),
+            );
+
+            $updates['foto_brj'] = $filename;
+        }
+
+        if (
+            $request->filled('last_weight')
+            && Schema::connection('third')->hasColumn('spk', 'last_weight')
+        ) {
+            $updates['last_weight'] = number_format((float) $request->input('last_weight'), 2, '.', '');
+        }
+
+        if (count($updates) <= 2) {
+            throw new HttpException(422, 'Tidak ada data foto atau berat akhir untuk disimpan.');
+        }
+
+        $production->forceFill($updates)->save();
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Foto barang jadi untuk SPK '.($production->spk_no ?? '').' disimpan.',
+            'message' => 'Data barang jadi untuk SPK '.($production->spk_no ?? '').' disimpan.',
         ]);
 
         return back();

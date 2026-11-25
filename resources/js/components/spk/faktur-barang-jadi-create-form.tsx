@@ -20,8 +20,16 @@ import {
 import { SpkFotoBrjCell } from '@/components/spk/spk-foto-brj-cell';
 import { SpkFotoBrjUploadDialog } from '@/components/spk/spk-foto-brj-upload-dialog';
 import { SpkTableItemCell } from '@/components/spk/spk-table-item-cell';
+import {
+    firstFormErrorMessage,
+    formErrorMessages,
+    httpExceptionPayloadMessage,
+} from '@/lib/http-form-errors';
 import { index as fakturBarangJadiIndex } from '@/routes/faktur-barang-jadi';
 import { store as storeFakturBarangJadiReceipt } from '@/routes/faktur-barang-jadi/print/receipt';
+
+const SAVE_FAKTUR_FALLBACK_ERROR =
+    'Gagal menyimpan faktur barang jadi. Silakan coba lagi.';
 
 export type FakturBarangJadiCreateFormProps = {
     receiptEmployeeOptions: string[];
@@ -62,9 +70,14 @@ export function FakturBarangJadiCreateForm({
         fakturBarangJadiFotoBrjAvailable === false ||
         selectedSpks.every((row) => row.hasFotoBrj);
 
-    const errorMessages = Array.from(
-        new Set(Object.values(receiptForm.errors).filter(Boolean)),
+    const allHaveLastWeight = selectedSpks.every(
+        (row) =>
+            row.lastWeight !== null &&
+            row.lastWeight.trim() !== '' &&
+            Number.isFinite(Number(row.lastWeight.replace(',', '.'))),
     );
+
+    const errorMessages = formErrorMessages(receiptForm.errors);
 
     const setField = (
         field: keyof FakturBarangJadiReceiptFormValues,
@@ -78,6 +91,7 @@ export function FakturBarangJadiCreateForm({
         !receiptForm.processing &&
         selectedIds.length > 0 &&
         allHaveFotoBrj &&
+        allHaveLastWeight &&
         values.tanggal !== '' &&
         values.dari !== '' &&
         values.untuk !== '' &&
@@ -90,11 +104,13 @@ export function FakturBarangJadiCreateForm({
     const addSpkToDraft = (
         row: FakturBarangJadiSelectedSpk,
         imageUrl: string | null,
+        lastWeight: string | null,
     ): void => {
         const entry: FakturBarangJadiSelectedSpk = {
             ...row,
             hasFotoBrj: true,
             fotoBrjImageUrl: imageUrl ?? row.fotoBrjImageUrl,
+            lastWeight: lastWeight ?? row.lastWeight,
         };
 
         setSelectedSpks((current) => {
@@ -109,14 +125,6 @@ export function FakturBarangJadiCreateForm({
     };
 
     const handleSpkPicked = (row: FakturBarangJadiSelectedSpk): void => {
-        const fotoUploadEnabled = fakturBarangJadiFotoBrjAvailable !== false;
-
-        if (!fotoUploadEnabled) {
-            addSpkToDraft(row, row.fotoBrjImageUrl);
-
-            return;
-        }
-
         setFotoStepSpk(row);
     };
 
@@ -164,9 +172,20 @@ export function FakturBarangJadiCreateForm({
                     setSelectedSpks([]);
                     router.visit(fakturBarangJadiIndex.url());
                 },
-                onHttpException: () => {
+                onError: (errors) => {
                     toast.error(
-                        'Gagal menyimpan faktur barang jadi. Silakan coba lagi.',
+                        firstFormErrorMessage(
+                            errors,
+                            SAVE_FAKTUR_FALLBACK_ERROR,
+                        ),
+                    );
+                },
+                onHttpException: (response) => {
+                    toast.error(
+                        httpExceptionPayloadMessage(
+                            response,
+                            SAVE_FAKTUR_FALLBACK_ERROR,
+                        ),
                     );
                 },
                 onNetworkError: () => {
@@ -201,7 +220,7 @@ export function FakturBarangJadiCreateForm({
                                 <p className="spkFioriFormCardSubtitle">
                                     Nomor faktur dibuat otomatis setelah
                                     disimpan. Tambahkan SPK satu per satu dengan
-                                    foto barang jadi.
+                                    berat akhir serta foto barang jadi.
                                 </p>
                             </div>
                             <div className="spkFioriFormCardActions">
@@ -296,6 +315,9 @@ export function FakturBarangJadiCreateForm({
                                                 <th className="spkTableColCenter">
                                                     Foto BRJ
                                                 </th>
+                                                <th className="spkTableColRight">
+                                                    Berat Akhir Barang Jadi (Emas + Batu)
+                                                </th>
                                                 <th className="spkTableColCenter">
                                                     Lokasi
                                                 </th>
@@ -348,6 +370,9 @@ export function FakturBarangJadiCreateForm({
                                                             }
                                                         />
                                                     </td>
+                                                    <td className="spkTableColRight whitespace-nowrap tabular-nums">
+                                                        {row.lastWeight ?? '—'}
+                                                    </td>
                                                     <td className="spkTableColCenter">
                                                         {row.location ?? '—'}
                                                     </td>
@@ -394,6 +419,7 @@ export function FakturBarangJadiCreateForm({
                     rowId={fotoStepSpk.rowId}
                     spkNo={fotoStepSpk.spkNo}
                     imageUrl={fotoStepSpk.fotoBrjImageUrl}
+                    lastWeight={fotoStepSpk.lastWeight}
                     uploadEnabled={fotoUploadEnabled}
                     addMode
                     onConfirmed={(result) => {
@@ -404,6 +430,7 @@ export function FakturBarangJadiCreateForm({
                         addSpkToDraft(
                             fotoStepSpk,
                             result.imageUrl ?? fotoStepSpk.fotoBrjImageUrl,
+                            result.lastWeight,
                         );
                         setFotoStepSpk(null);
                     }}

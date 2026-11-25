@@ -111,6 +111,7 @@ test('faktur barang jadi search spks returns only completed non reparasi spk', f
                 'skuAssigned',
                 'prosesTerakhir',
                 'prosesTerakhirDate',
+                'lastWeight',
             ]],
         ]);
 });

@@ -17,7 +17,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    firstFormErrorMessage,
+    formErrorMessages,
+    httpExceptionPayloadMessage,
+} from '@/lib/http-form-errors';
 import { store as storeFakturBarangJadiReceipt } from '@/routes/faktur-barang-jadi/print/receipt';
+
+const SAVE_FAKTUR_FALLBACK_ERROR =
+    'Gagal menyimpan faktur barang jadi. Silakan coba lagi.';
 
 type ReceiptStoreResponse = {
     id: number;
@@ -46,9 +54,7 @@ export function FakturBarangJadiReceiptPrintDialog({
         ReceiptStoreResponse
     >(emptyFakturReceiptForm());
     const values = receiptForm.data;
-    const errorMessages = Array.from(
-        new Set(Object.values(receiptForm.errors).filter(Boolean)),
-    );
+    const errorMessages = formErrorMessages(receiptForm.errors);
 
     useEffect(() => {
         if (!open) {
@@ -102,9 +108,20 @@ export function FakturBarangJadiReceiptPrintDialog({
                     onOpenChange(false);
                     onSaved?.();
                 },
-                onHttpException: () => {
+                onError: (errors) => {
                     toast.error(
-                        'Gagal menyimpan faktur barang jadi. Silakan coba lagi.',
+                        firstFormErrorMessage(
+                            errors,
+                            SAVE_FAKTUR_FALLBACK_ERROR,
+                        ),
+                    );
+                },
+                onHttpException: (response) => {
+                    toast.error(
+                        httpExceptionPayloadMessage(
+                            response,
+                            SAVE_FAKTUR_FALLBACK_ERROR,
+                        ),
                     );
                 },
                 onNetworkError: () => {
