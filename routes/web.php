@@ -11,6 +11,7 @@ use App\Http\Controllers\FakturBarangJadiController;
 use App\Http\Controllers\FinishingController;
 use App\Http\Controllers\FinishingShrinkAllowanceController;
 use App\Http\Controllers\GoldMaterialTransactionController;
+use App\Http\Controllers\InventoryBarangJadiController;
 use App\Http\Controllers\JewelCadRequestController;
 use App\Http\Controllers\MaterialGoldController;
 use App\Http\Controllers\MaterialYieldDashboardController;
@@ -546,6 +547,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('stok-rangka/{stokRangka}', [StokRangkaController::class, 'show'])
             ->whereNumber('stokRangka')
             ->name('frame-stocks.show');
+
+        Route::get('barang-jadi', [InventoryBarangJadiController::class, 'index'])
+            ->name('barang-jadi.index');
     });
 
     Route::prefix('master-data')->name('master-data.')->group(function () {

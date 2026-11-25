@@ -132,7 +132,7 @@ test('inventory submenu lists stock and transaction items in order', function ()
         ->and($block)->not->toContain('Pembelian Batu')
         ->and($block)->not->toContain('section:')
         ->and($block)->not->toContain('Faktur Barang Jadi')
-        ->and($block)->not->toContain('Barang Jadi');
+        ->and($block)->toContain("text: 'Barang Jadi'");
 });
 
 test('faktur barang jadi is grouped under faktur dropdown', function () {

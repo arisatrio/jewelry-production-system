@@ -19,6 +19,7 @@ import { index as diamondDossierTransactionsIndex } from '@/routes/inventory/dia
 import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossiers';
 import { index as goldMaterialTransactionsIndex } from '@/routes/inventory/gold-material-transactions';
 import { index as goldMaterialsIndex } from '@/routes/inventory/gold-materials';
+import { index as barangJadiIndex } from '@/routes/inventory/barang-jadi';
 import { index as frameStocksIndex } from '@/routes/inventory/frame-stocks';
 import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
 import { index as stoneTransactionsIndex } from '@/routes/inventory/stone-transactions';
@@ -138,6 +139,10 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
                 href: frameStocksIndex.url(),
             },
         ],
+    },
+    {
+        text: 'Barang Jadi',
+        href: barangJadiIndex.url(),
     },
     {
         text: 'Rantai & Komponen',

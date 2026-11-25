@@ -2099,6 +2099,49 @@ class SpkDashboardAnalytics
     }
 
     /**
+     * Batasi query ke DONE (Rangka) saja, DONE (Barang Jadi) saja, atau keduanya (default).
+     */
+    public function constrainToCompletedProductionKind(
+        \Illuminate\Contracts\Database\Query\Builder $query,
+        ?string $kind = null,
+    ): void {
+        if ($kind === self::KEY_DONE_BARANG_JADI) {
+            $expression = $this->doneBarangJadiExpression();
+
+            if ($expression === '0') {
+                $query->whereRaw('0 = 1');
+
+                return;
+            }
+
+            $query->whereRaw($expression);
+
+            return;
+        }
+
+        if ($kind === self::KEY_DONE_RANGKA) {
+            $doneRangka = $this->doneRangkaExpression();
+            $doneBarangJadi = $this->doneBarangJadiExpression();
+
+            if ($doneRangka === '0') {
+                $query->whereRaw('0 = 1');
+
+                return;
+            }
+
+            $query->whereRaw($doneRangka);
+
+            if ($doneBarangJadi !== '0') {
+                $query->whereRaw('NOT ('.$doneBarangJadi.')');
+            }
+
+            return;
+        }
+
+        $this->constrainToCompletedProduction($query);
+    }
+
+    /**
      * @return array{inProgress: string, confirmed: string, unsentDraft: string, managerApproved: string}
      */
     private function statusExpressions(): array
