@@ -1,1 +1,0 @@
-import{wa as e}from"./app-DQbXGQtj.js";var t=e(`ui5-title`,[`level`,`size`,`wrappingType`],[],[],[]);t.displayName=`Title`;export{t};
