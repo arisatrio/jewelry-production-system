@@ -1,1 +1,0 @@
-import{wa as e}from"./app-BaGvC2vx.js";var t=e(`ui5-label`,[`for`,`wrappingType`],[`required`,`showColon`],[],[]);t.displayName=`Label`;export{t};
