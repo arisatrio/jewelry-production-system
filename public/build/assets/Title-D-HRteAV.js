@@ -1,1 +1,0 @@
-import{Ta as e}from"./app-BdpnPPGt.js";var t=e(`ui5-title`,[`level`,`size`,`wrappingType`],[],[],[]);t.displayName=`Title`;export{t};
