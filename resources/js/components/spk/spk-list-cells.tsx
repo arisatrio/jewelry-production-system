@@ -71,6 +71,16 @@ export function displaySpkLocation(value: string | null | undefined): string {
     return DEFAULT_SPK_LOCATION;
 }
 
+export function displaySpkDeliveryStatus(row: SpkIndexRow): string {
+    if (row.fakturBarangJadiIssued !== true) {
+        return '-';
+    }
+
+    const plu = row.plu?.trim() ?? '';
+
+    return `Sudah Dikirim (PLU: ${plu !== '' ? plu : '-'})`;
+}
+
 /** Tanggal dokumen di atas, pembuat di bawah (index SPK Pasang Batu). */
 export function SpkTableDocumentDateCell({
     date,

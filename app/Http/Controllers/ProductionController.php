@@ -317,10 +317,23 @@ class ProductionController extends Controller
             ))
             : null;
 
+        $indexFakturBarangJadiIssuedIds = $fakturBarangJadiIssuedIds;
+
+        if ($indexFakturBarangJadiIssuedIds === null && ! $reparasiOnly) {
+            $pageRowIds = array_values(
+                $productions->getCollection()->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+            );
+            $indexFakturBarangJadiIssuedIds = $pageRowIds === []
+                ? []
+                : array_fill_keys(array_keys(
+                    app(FakturBarangJadiReceiptService::class)->latestFakturDetailsBySpkRowIds($pageRowIds),
+                ), true);
+        }
+
         $productions = $productions->through(
             $this->indexRowMapper(
                 $productions->getCollection(),
-                $fakturBarangJadiIssuedIds,
+                $indexFakturBarangJadiIssuedIds,
                 $fakturBarangJadiStatusByRowId,
                 $fakturDetailsByRowId,
             ),

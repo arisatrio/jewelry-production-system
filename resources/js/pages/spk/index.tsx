@@ -34,6 +34,7 @@ import {
     SpkTableStoneStatusCell,
     SpkTableStatusCell,
     displayListDate,
+    displaySpkDeliveryStatus,
     displaySpkLocation,
     isListRowIncomplete,
     isPendingManagerApproval,
@@ -284,10 +285,13 @@ export default function SpkIndex({
     const showFakturIssuedColumn = isFakturBarangJadiIndex;
     const showLocationColumn = isFakturBarangJadiIndex;
     const showFotoBrjColumn = isFakturBarangJadiIndex;
+    const showDeliveryStatusColumn =
+        !isFakturBarangJadiIndex && !isReparasiIndex;
     const tableColSpan =
         5 +
         (showSpkScheduleColumns ? 3 : 0) +
         (showStoneStatusColumn ? 1 : 0) +
+        (showDeliveryStatusColumn ? 1 : 0) +
         (showLocationColumn ? 1 : 0) +
         (showFakturIssuedColumn ? 1 : 0) +
         (showFotoBrjColumn ? 1 : 0);
@@ -1872,6 +1876,11 @@ export default function SpkIndex({
                                             Status Batu
                                         </th>
                                     ) : null}
+                                    {showDeliveryStatusColumn ? (
+                                        <th className="spkTableColCenter">
+                                            Status Delivery
+                                        </th>
+                                    ) : null}
                                     {showLocationColumn ? (
                                         <th className="spkTableColCenter spkTableColLocation">
                                             Lokasi
@@ -2168,6 +2177,13 @@ export default function SpkIndex({
                                                                 row.stoneIndexStatus
                                                             }
                                                         />
+                                                    </td>
+                                                ) : null}
+                                                {showDeliveryStatusColumn ? (
+                                                    <td className="spkTableColCenter">
+                                                        {displaySpkDeliveryStatus(
+                                                            row,
+                                                        )}
                                                     </td>
                                                 ) : null}
                                                 {showLocationColumn ? (

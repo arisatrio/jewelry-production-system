@@ -1500,6 +1500,59 @@ test('spk show page displays the request stock number when the spk came from a s
     $production->delete();
 });
 
+test('spk index marks rows with faktur as issued for delivery status', function () {
+    if (! Schema::connection('third')->hasTable('serah_terima_faktur_barang_jadi')) {
+        $this->markTestSkipped('Table serah_terima_faktur_barang_jadi is not available.');
+    }
+
+    $withoutFaktur = Production::factory()->create([
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(96000, 96999)),
+        'is_deleted' => 0,
+    ]);
+
+    $withFaktur = Production::factory()->create([
+        'spk_no' => sprintf('%s/PRD/%05d', now()->format('Y'), random_int(97000, 97999)),
+        'plu' => 'PLU-TEST-123',
+        'is_deleted' => 0,
+    ]);
+
+    SerahTerimaFakturBarangJadi::query()->create([
+        'doc_no' => 'FAKTUR/TEST-INDEX/'.$withFaktur->row_id,
+        'tanggal' => '2026-09-18',
+        'dari' => 'Workshop',
+        'untuk' => 'Store',
+        'jumlah_spk' => 1,
+        'spk_row_ids' => [(int) $withFaktur->row_id],
+        'items' => [],
+        'created_by' => 'system',
+    ]);
+
+    $this->get(route('spk.index', ['search' => $withFaktur->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->has('productions.data', 1)
+            ->where('productions.data.0.rowId', (int) $withFaktur->row_id)
+            ->where('productions.data.0.fakturBarangJadiIssued', true)
+            ->where('productions.data.0.plu', 'PLU-TEST-123')
+        );
+
+    $this->get(route('spk.index', ['search' => $withoutFaktur->spk_no]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('spk/index')
+            ->has('productions.data', 1)
+            ->where('productions.data.0.rowId', (int) $withoutFaktur->row_id)
+            ->where('productions.data.0.fakturBarangJadiIssued', false)
+        );
+
+    SerahTerimaFakturBarangJadi::query()
+        ->where('doc_no', 'FAKTUR/TEST-INDEX/'.$withFaktur->row_id)
+        ->delete();
+    $withFaktur->delete();
+    $withoutFaktur->delete();
+});
+
 test('spk show page exposes tanggal pengiriman from latest faktur barang jadi', function () {
     if (! Schema::connection('third')->hasTable('serah_terima_faktur_barang_jadi')) {
         $this->markTestSkipped('Table serah_terima_faktur_barang_jadi is not available.');
