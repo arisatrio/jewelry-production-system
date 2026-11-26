@@ -31,3 +31,28 @@ test('spk show page includes mapped workflow status', function () {
             ->has('approvalFooter', 3)
         );
 });
+
+test('spk show exposes reference spk number when set', function () {
+    $reference = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPKDONE',
+        'is_deleted' => 0,
+    ]);
+
+    $child = Production::factory()->create([
+        'spk_type' => 'Reparasi',
+        'ref_spk_id' => $reference->row_id,
+        'is_deleted' => 0,
+    ]);
+
+    try {
+        $this->get(route('spk.show', $child))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('production.refSpkNo', (string) $reference->spk_no)
+            );
+    } finally {
+        $child->delete();
+        $reference->delete();
+    }
+});

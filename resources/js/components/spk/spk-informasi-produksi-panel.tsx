@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { show as spkShow } from '@/routes/spk';
 import { SpkTableStoneStatusCell } from '@/components/spk/spk-list-cells';
 import { SpkProsesTerakhirDisplay } from '@/components/spk/spk-proses-terakhir-display';
 import { SpkChainListCard } from '@/components/spk/spk-chain-list';
@@ -365,7 +366,16 @@ export function SpkInformasiProduksiAsideSection({
                     </AsideField>
                 ) : null}
                 {refSpkNo !== '-' ? (
-                    <AsideField label="SPK Referensi">{refSpkNo}</AsideField>
+                    <AsideField label="SPK Referensi">
+                        <a
+                            href={spkShow.url(refSpkNo)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="spkProduksiLink"
+                        >
+                            {refSpkNo}
+                        </a>
+                    </AsideField>
                 ) : null}
                 {spkType === 'Pesanan' ? (
                     <AsideField label="Tanggal SPK Dibuat">
