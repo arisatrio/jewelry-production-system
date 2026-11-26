@@ -33,6 +33,9 @@ test('inventory barang jadi lists done rangka spk', function (string $processSta
         'status' => 'SPK010',
         'status_order' => 'NO',
         'last_process' => 'Poles Rangka',
+        'gold_weight' => 4.5,
+        'last_weight' => 3.25,
+        'send_to_merch_date' => '2026-08-15',
         'is_inprocess' => 1,
         'is_deleted' => 0,
         'plu' => 'PLU-TEST-'.fake()->numerify('####'),
@@ -52,7 +55,51 @@ test('inventory barang jadi lists done rangka spk', function (string $processSta
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('items.data.0.spkNo', (string) $production->spk_no)
+                ->where('items.data.0.tipeProduksi', 'Stock')
                 ->where('items.data.0.plu', $production->plu)
+                ->where('items.data.0.goldWeight', '4.50')
+                ->where('items.data.0.lastWeight', '3.25')
+                ->where('items.data.0.prosesTerakhir', 'Poles Rangka')
+                ->where('items.data.0.deliveryDate', '15-Aug-2026')
+            );
+    } finally {
+        DB::connection('third')->table('polishframe')->where('row_id', $processId)->delete();
+        $production->delete();
+    }
+})->with([
+    'poles rangka completed' => ['PRKDONE'],
+    'serahkan jb poles rangka' => ['PRK040'],
+]);
+
+test('inventory barang jadi shows request stock number for stock spk', function (string $processStatus) {
+    $requestStockNo = 'RS-BJ-'.strtoupper(fake()->unique()->bothify('????????'));
+
+    $production = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'request_stock_no' => $requestStockNo,
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+        'plu' => 'PLU-TEST-'.fake()->numerify('####'),
+    ]);
+
+    $processId = DB::connection('third')->table('polishframe')->insertGetId([
+        'doc_no' => 'INV-BJ-RS-'.$production->row_id,
+        'spk_id' => $production->row_id,
+        'status' => $processStatus,
+        'is_deleted' => 0,
+        'created_date' => now(),
+        'created_by' => 'system',
+    ], 'row_id');
+
+    try {
+        $this->get(route('inventory.barang-jadi.index', ['search' => $production->spk_no]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('items.data.0.requestStockNo', $requestStockNo)
+                ->where('items.data.0.orderReference', null)
             );
     } finally {
         DB::connection('third')->table('polishframe')->where('row_id', $processId)->delete();
@@ -196,6 +243,40 @@ test('inventory barang jadi plu summary counts set vs unset plu', function (stri
                 ->where('filters.plu_status', 'belum')
                 ->where('items.data.0.plu', null)
             );
+
+        $deliveredWithoutPlu = Production::factory()->create([
+            'spk_type' => 'Stock',
+            'status' => 'SPK010',
+            'status_order' => 'NO',
+            'last_process' => 'Poles Rangka',
+            'is_inprocess' => 1,
+            'is_deleted' => 0,
+            'plu' => null,
+            'send_to_merch_date' => '2026-08-20',
+        ]);
+
+        $deliveredProcessId = DB::connection('third')->table('polishframe')->insertGetId([
+            'doc_no' => 'INV-BJ-DELIVERY-'.$deliveredWithoutPlu->row_id,
+            'spk_id' => $deliveredWithoutPlu->row_id,
+            'status' => $processStatus,
+            'is_deleted' => 0,
+            'created_date' => now(),
+            'created_by' => 'system',
+        ], 'row_id');
+
+        $this->get(route('inventory.barang-jadi.index', [
+            'search' => (string) $deliveredWithoutPlu->spk_no,
+            'plu_status' => 'sudah',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.plu_status', 'sudah')
+                ->where('items.data.0.plu', null)
+                ->where('items.data.0.deliveryDate', '20-Aug-2026')
+            );
+
+        DB::connection('third')->table('polishframe')->where('row_id', $deliveredProcessId)->delete();
+        $deliveredWithoutPlu->delete();
     } finally {
         DB::connection('third')->table('polishframe')->whereIn('row_id', $processIds)->delete();
         $withPlu->delete();

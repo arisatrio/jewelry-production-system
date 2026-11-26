@@ -3,13 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Production;
+use App\Support\FakturBarangJadiReceiptService;
 use App\Support\InventoryPluSkuLookup;
+use App\Support\RequestOrderRepository;
 use App\Support\SpkDashboardAnalytics;
+use App\Support\SpkOrderReference;
+use App\Support\SpkProcessMapper;
 use App\Support\SpkProductionListItemPresentation;
 use App\Support\SpkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,9 +40,9 @@ class InventoryBarangJadiController extends Controller
             ->with(['sku', 'categoryPrefix'])
             ->tap(function (Builder $query) use ($pluStatus): void {
                 if ($pluStatus === 'belum') {
-                    $this->applyPluUnsetScope($query);
+                    $this->applyBelumDeliveryAndPluScope($query);
                 } elseif ($pluStatus === 'sudah') {
-                    $this->applyPluSetScope($query);
+                    $this->applySudahDeliveryOrPluSetScope($query);
                 }
             })
             ->tap(function (Builder $query) use ($skuStatus, $lookup): void {
@@ -65,8 +70,25 @@ class InventoryBarangJadiController extends Controller
                 ? trim((string) $production->plu)
                 : null),
         );
+        $requestOrdersByDocNo = app(RequestOrderRepository::class)->rowsByDocNos(array_values(
+            $productions
+                ->where('spk_type', 'Pesanan')
+                ->pluck('request_order_no')
+                ->map(fn (mixed $docNo): string => trim((string) $docNo))
+                ->filter(fn (string $docNo): bool => $docNo !== '')
+                ->all(),
+        ));
+        $lastProcessDates = SpkDashboardAnalytics::lastProcessDatesFor($productions);
+        $processMapper = app(SpkProcessMapper::class);
+        $doneKinds = SpkDashboardAnalytics::completedProductionKinds(
+            $productions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+        );
+        $statusLabels = SpkDashboardAnalytics::BACKLOG_STATUS_LABELS;
+        $fakturDetailsByRowId = app(FakturBarangJadiReceiptService::class)->latestFakturDetailsBySpkRowIds(
+            $productions->pluck('row_id')->map(fn (mixed $id): int => (int) $id)->all(),
+        );
 
-        $page->through(function (Production $production) use ($skuFromPluByPlu): array {
+        $page->through(function (Production $production) use ($skuFromPluByPlu, $requestOrdersByDocNo, $lastProcessDates, $processMapper, $doneKinds, $statusLabels, $fakturDetailsByRowId): array {
             $item = SpkProductionListItemPresentation::forProduction($production);
 
             $plu = filled($production->plu) ? trim((string) $production->plu) : null;
@@ -79,9 +101,23 @@ class InventoryBarangJadiController extends Controller
                 ])
                 : null;
 
+            $rowId = (int) $production->row_id;
+            $completedKind = $doneKinds[$rowId] ?? null;
+            $lastProcessBadge = $processMapper->resolveLastProcessBadge(
+                $rowId,
+                $production->last_process,
+            );
+
             return [
-                'rowId' => (int) $production->row_id,
+                'rowId' => $rowId,
                 'spkNo' => (string) ($production->spk_no ?? ''),
+                'tipeProduksi' => filled($production->spk_type)
+                    ? trim((string) $production->spk_type)
+                    : '-',
+                ...$this->listOrderFields(
+                    $production,
+                    $requestOrdersByDocNo[trim((string) $production->request_order_no)] ?? null,
+                ),
                 'plu' => $plu,
                 'skuFromPlu' => $skuFromPlu !== null
                     ? [
@@ -99,6 +135,23 @@ class InventoryBarangJadiController extends Controller
                 'typeSkuLabel' => $item['typeSkuLabel'],
                 'itemDescription' => $item['itemDescription'],
                 'skuAssigned' => $item['skuAssigned'],
+                'goldWeight' => filled($production->gold_weight)
+                    ? number_format((float) $production->gold_weight, 2, '.', '')
+                    : null,
+                'lastWeight' => filled($production->last_weight)
+                    ? number_format((float) $production->last_weight, 2, '.', '')
+                    : null,
+                'prosesTerakhir' => trim((string) ($production->last_process ?? '')),
+                'prosesTerakhirDate' => $lastProcessDates[$rowId] ?? '',
+                'prosesTerakhirDisplay' => $lastProcessBadge['label'] ?? null,
+                'prosesTerakhirCompleted' => $lastProcessBadge['completed'] ?? null,
+                'status' => $completedKind !== null
+                    ? ($statusLabels[$completedKind] ?? 'DONE')
+                    : '—',
+                'deliveryDate' => $this->deliveryDateForListRow(
+                    $production,
+                    $fakturDetailsByRowId[$rowId] ?? null,
+                ),
             ];
         });
 
@@ -141,8 +194,8 @@ class InventoryBarangJadiController extends Controller
         $base = $this->baseCompletedProductionQuery($analytics, []);
 
         return [
-            'belumDisetPlu' => (clone $base)->tap(fn (Builder $query) => $this->applyPluUnsetScope($query))->count(),
-            'sudahDisetPlu' => (clone $base)->tap(fn (Builder $query) => $this->applyPluSetScope($query))->count(),
+            'belumDisetPlu' => (clone $base)->tap(fn (Builder $query) => $this->applyBelumDeliveryAndPluScope($query))->count(),
+            'sudahDisetPlu' => (clone $base)->tap(fn (Builder $query) => $this->applySudahDeliveryOrPluSetScope($query))->count(),
         ];
     }
 
@@ -203,6 +256,70 @@ class InventoryBarangJadiController extends Controller
             $query->whereNull('plu')
                 ->orWhere('plu', '')
                 ->orWhereRaw("TRIM(plu) = ''");
+        });
+    }
+
+    /**
+     * @param  Builder<Production>  $query
+     */
+    private function applySudahDeliveryOrPluSetScope(Builder $query): void
+    {
+        $query->where(function (Builder $query): void {
+            $query->where(function (Builder $pluQuery): void {
+                $this->applyPluSetScope($pluQuery);
+            })->orWhere(function (Builder $deliveryQuery): void {
+                $this->applyHasDeliveryScope($deliveryQuery);
+            });
+        });
+    }
+
+    /**
+     * @param  Builder<Production>  $query
+     */
+    private function applyBelumDeliveryAndPluScope(Builder $query): void
+    {
+        $query->whereNot(function (Builder $sub): void {
+            $this->applySudahDeliveryOrPluSetScope($sub);
+        });
+    }
+
+    /**
+     * @param  Builder<Production>  $query
+     */
+    private function applyHasDeliveryScope(Builder $query): void
+    {
+        $receipts = app(FakturBarangJadiReceiptService::class);
+        $hasSendToMerchDate = Schema::connection('third')->hasColumn('spk', 'send_to_merch_date');
+        $hasFakturTable = $receipts->tableAvailable();
+
+        if (! $hasSendToMerchDate && ! $hasFakturTable) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query->where(function (Builder $query) use ($hasSendToMerchDate, $hasFakturTable): void {
+            $hasClause = false;
+
+            if ($hasSendToMerchDate) {
+                $query->whereNotNull('send_to_merch_date');
+                $hasClause = true;
+            }
+
+            if ($hasFakturTable) {
+                $exists = function ($sub): void {
+                    $sub->selectRaw('1')
+                        ->from('serah_terima_faktur_barang_jadi as fbj_delivery_scope')
+                        ->whereNull('fbj_delivery_scope.deleted_at')
+                        ->whereRaw('JSON_CONTAINS(fbj_delivery_scope.spk_row_ids, CAST(spk.row_id AS JSON), \'$\')');
+                };
+
+                if ($hasClause) {
+                    $query->orWhereExists($exists);
+                } else {
+                    $query->whereExists($exists);
+                }
+            }
         });
     }
 
@@ -296,6 +413,85 @@ class InventoryBarangJadiController extends Controller
     /**
      * @param  array{typeSkuLabel: string|null, itemDescription: string|null, skuAssigned: bool, skuId?: int}|null  $skuFromPlu
      */
+    /**
+     * @return array{
+     *     customer: string,
+     *     orderReference: string|null,
+     *     requestStockNo: string|null,
+     *     requestStockDrkNo: string|null,
+     *     orderType: string|null
+     * }
+     */
+    private function listOrderFields(Production $production, mixed $requestOrder = null): array
+    {
+        $customer = $this->customerListLabel($production);
+        $orderReference = null;
+        $orderType = null;
+
+        if (SpkOrderReference::label($production) !== null) {
+            $requestOrders = app(RequestOrderRepository::class);
+            $customerName = filled($production->customer_name)
+                ? (string) $production->customer_name
+                : (filled($requestOrder?->customer_name) ? (string) $requestOrder->customer_name : '-');
+
+            $orderReference = $requestOrders->pesananDisplayLabel(
+                trim((string) $production->request_order_no),
+                $customerName,
+            );
+            $orderType = $requestOrders->typeOrderLabel($requestOrder?->type_order ?? null);
+        }
+
+        return [
+            'customer' => $customer,
+            'orderReference' => $orderReference,
+            'requestStockNo' => filled($production->request_stock_no)
+                ? (string) $production->request_stock_no
+                : null,
+            'requestStockDrkNo' => filled($production->request_stock_drk_no)
+                ? (string) $production->request_stock_drk_no
+                : null,
+            'orderType' => $orderType,
+        ];
+    }
+
+    /**
+     * @param  array{receiptId: int, docNo: string, tanggal: string, dari: string|null, untuk: string|null, workflowStatus: string, workflowStatusLabel: string}|null  $fakturDetail
+     */
+    private function deliveryDateForListRow(Production $production, ?array $fakturDetail): ?string
+    {
+        if (filled($production->send_to_merch_date)) {
+            return $production->send_to_merch_date->format('d-M-Y');
+        }
+
+        $fakturDate = trim((string) ($fakturDetail['tanggal'] ?? ''));
+
+        if ($fakturDate !== '' && $fakturDate !== '-') {
+            return $fakturDate;
+        }
+
+        return null;
+    }
+
+    private function customerListLabel(Production $production): string
+    {
+        $customerName = filled($production->customer_name) ? (string) $production->customer_name : '';
+
+        if ($production->spk_type !== 'Pesanan') {
+            return $customerName;
+        }
+
+        $orderNo = filled($production->request_order_no) ? (string) $production->request_order_no : '';
+
+        if ($orderNo === '') {
+            return $customerName !== '' ? $customerName : '-';
+        }
+
+        return app(RequestOrderRepository::class)->displayLabelByDocNo(
+            $orderNo,
+            $customerName !== '' ? $customerName : null,
+        );
+    }
+
     private function resolvePluSkuKeterangan(
         bool $spkSkuAssigned,
         ?int $spkSkuId,

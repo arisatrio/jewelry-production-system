@@ -16,7 +16,12 @@ import {
     haveSameFilterValues,
 } from '@/components/filter-multi-select';
 import { SpkItemThumbnail } from '@/components/spk/spk-item-thumbnail';
-import { SpkTableDescriptionCell } from '@/components/spk/spk-list-cells';
+import {
+    displayListDate,
+    SpkTableDescriptionCell,
+    SpkTableLastProcessCell,
+    tipeProduksiBadgeClass,
+} from '@/components/spk/spk-list-cells';
 import { SpkRowPrintButton } from '@/components/spk/spk-row-print-button';
 import {
     DropdownMenu,
@@ -34,6 +39,12 @@ type FilterOption = {
 type BarangJadiRow = {
     rowId: number;
     spkNo: string;
+    tipeProduksi: string;
+    customer: string;
+    orderReference: string | null;
+    requestStockNo: string | null;
+    requestStockDrkNo: string | null;
+    orderType: string | null;
     plu: string | null;
     skuFromPlu: {
         typeSkuLabel: string | null;
@@ -45,7 +56,36 @@ type BarangJadiRow = {
     itemDescription: string | null;
     skuAssigned: boolean;
     keterangan: string | null;
+    goldWeight: string | null;
+    lastWeight: string | null;
+    prosesTerakhir: string;
+    prosesTerakhirDate: string;
+    prosesTerakhirDisplay: string | null;
+    prosesTerakhirCompleted: boolean | null;
+    status: string;
+    deliveryDate: string | null;
 };
+
+function isDelivered(row: BarangJadiRow): boolean {
+    return (row.deliveryDate?.trim() ?? '') !== '';
+}
+
+function formatWeightGram(value: string | null): string {
+    if (value === null || value.trim() === '') {
+        return '—';
+    }
+
+    const numeric = Number.parseFloat(value);
+
+    if (!Number.isFinite(numeric)) {
+        return value;
+    }
+
+    return numeric.toLocaleString('id-ID', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
 
 type ItemsPaginator = {
     data: BarangJadiRow[];
@@ -90,14 +130,14 @@ const PLU_STATUS_ALERTS = [
         key: 'belumDisetPlu' as const,
         filter: 'belum' as const,
         label: 'Belum Diset PLU',
-        hint: 'SPK selesai yang belum memiliki PLU',
+        hint: 'SPK selesai yang belum delivery dan belum memiliki PLU',
         design: 'Critical' as const,
     },
     {
         key: 'sudahDisetPlu' as const,
         filter: 'sudah' as const,
-        label: 'Sudah Diset PLU',
-        hint: 'SPK selesai yang sudah memiliki PLU',
+        label: 'Sudah Delivery/Set PLU',
+        hint: 'SPK selesai yang sudah delivery atau sudah memiliki PLU',
         design: 'Positive' as const,
     },
 ];
@@ -652,7 +692,7 @@ export default function InventoryBarangJadiIndex({
                             filters.plu_status === 'sudah' && {
                                 key: 'plu_status',
                                 label: 'PLU',
-                                value: 'Sudah diset',
+                                value: 'Sudah delivery/set PLU',
                                 onRemove: () =>
                                     visitIndex({ plu_status: null, page: 1 }),
                             },
@@ -686,6 +726,18 @@ export default function InventoryBarangJadiIndex({
                                     <th className="spkTableColCenter">PLU</th>
                                     <th>SKU (dari PLU)</th>
                                     <th className="spkTableColCenter">
+                                        Berat Emas (g)
+                                    </th>
+                                    <th className="spkTableColCenter">
+                                        Berat Barang Jadi (g)
+                                    </th>
+                                    <th className="spkTableColCenter">
+                                        Proses Terakhir
+                                    </th>
+                                    <th className="spkTableColCenter">
+                                        Tanggal Delivery
+                                    </th>
+                                    <th className="spkTableColCenter">
                                         Keterangan
                                     </th>
                                 </tr>
@@ -693,13 +745,43 @@ export default function InventoryBarangJadiIndex({
                             <tbody>
                                 {items.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5}>
+                                        <td colSpan={9}>
                                             Tidak ada data SPK.
                                         </td>
                                     </tr>
                                 ) : (
-                                    items.data.map((row) => (
-                                        <tr key={row.rowId}>
+                                    items.data.map((row) => {
+                                        const reference =
+                                            row.orderReference?.trim() ?? '';
+                                        const requestStockNo =
+                                            row.requestStockNo?.trim() ?? '';
+                                        const requestStockDrkNo =
+                                            row.requestStockDrkNo?.trim() ??
+                                            '';
+                                        const customer =
+                                            row.customer?.trim() ?? '';
+                                        const orderInfo =
+                                            reference !== ''
+                                                ? reference
+                                                : requestStockNo !== ''
+                                                  ? requestStockNo
+                                                  : requestStockDrkNo !== ''
+                                                    ? requestStockDrkNo
+                                                    : customer !== '-'
+                                                      ? customer
+                                                      : '';
+
+                                        const delivered = isDelivered(row);
+
+                                        return (
+                                        <tr
+                                            key={row.rowId}
+                                            className={
+                                                delivered
+                                                    ? undefined
+                                                    : 'is-inventory-barang-jadi-belum-delivery'
+                                            }
+                                        >
                                             <td className="spkTableColDoc spkTableColDoc--spk">
                                                 <div className="spkTableDocRow">
                                                     <div className="spkTableRowActions">
@@ -720,6 +802,27 @@ export default function InventoryBarangJadiIndex({
                                                         >
                                                             {row.spkNo}
                                                         </button>
+                                                        <div className="flex flex-nowrap items-center gap-1">
+                                                            <span
+                                                                className={`spkTableBadge ${tipeProduksiBadgeClass(row.tipeProduksi)}`}
+                                                            >
+                                                                {
+                                                                    row.tipeProduksi
+                                                                }
+                                                            </span>
+                                                            {row.orderType ? (
+                                                                <span className="spkTableBadge spkTableBadge--orderType">
+                                                                    {
+                                                                        row.orderType
+                                                                    }
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                        {orderInfo !== '' ? (
+                                                            <span className="spkTableDocMeta">
+                                                                {orderInfo}
+                                                            </span>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             </td>
@@ -748,11 +851,38 @@ export default function InventoryBarangJadiIndex({
                                                     <span>—</span>
                                                 )}
                                             </td>
+                                            <td className="spkTableColCenter tabular-nums whitespace-nowrap">
+                                                {formatWeightGram(
+                                                    row.goldWeight,
+                                                )}
+                                            </td>
+                                            <td className="spkTableColCenter tabular-nums whitespace-nowrap">
+                                                {formatWeightGram(
+                                                    row.lastWeight,
+                                                )}
+                                            </td>
+                                            <td className="spkTableColCenter">
+                                                <SpkTableLastProcessCell
+                                                    row={row}
+                                                />
+                                            </td>
+                                            <td className="spkTableColCenter whitespace-nowrap">
+                                                {delivered ? (
+                                                    displayListDate(
+                                                        row.deliveryDate,
+                                                    )
+                                                ) : (
+                                                    <span className="spkTableBadge spkTableBadge--deliveryPending">
+                                                        Belum delivery
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td className="spkTableColCenter whitespace-nowrap">
                                                 {row.keterangan ?? '—'}
                                             </td>
                                         </tr>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
