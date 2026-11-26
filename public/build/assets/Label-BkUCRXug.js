@@ -1,0 +1,1 @@
+import{ka as e}from"./app-CPHZ26N4.js";var t=e(`ui5-label`,[`for`,`wrappingType`],[`required`,`showColon`],[],[]);t.displayName=`Label`;export{t};
