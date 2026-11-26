@@ -29,7 +29,7 @@ class FakturBarangJadiReceiptService
     /**
      * @return array{issued: array<int, true>, statuses: array<int, string>}
      */
-    public function spkRowFakturWorkflowMaps(): array
+    public function spkRowFakturWorkflowMaps(?int $exceptReceiptId = null): array
     {
         if (! $this->tableAvailable()) {
             return ['issued' => [], 'statuses' => []];
@@ -37,7 +37,7 @@ class FakturBarangJadiReceiptService
 
         $issued = [];
         $statuses = [];
-        $columns = ['spk_row_ids'];
+        $columns = ['id', 'spk_row_ids'];
 
         if (FakturBarangJadiWorkflowStatus::columnAvailable()) {
             $columns[] = 'workflow_status';
@@ -46,7 +46,10 @@ class FakturBarangJadiReceiptService
         SerahTerimaFakturBarangJadi::query()
             ->orderByDesc('id')
             ->get($columns)
-            ->each(function (SerahTerimaFakturBarangJadi $receipt) use (&$issued, &$statuses): void {
+            ->each(function (SerahTerimaFakturBarangJadi $receipt) use (&$issued, &$statuses, $exceptReceiptId): void {
+                if ($exceptReceiptId !== null && (int) $receipt->id === $exceptReceiptId) {
+                    return;
+                }
                 $workflow = FakturBarangJadiWorkflowStatus::normalize(
                     FakturBarangJadiWorkflowStatus::columnAvailable()
                         ? $receipt->workflow_status
@@ -74,9 +77,9 @@ class FakturBarangJadiReceiptService
     /**
      * @return array<int, true>
      */
-    public function spkRowIdsOnOpenReceipts(): array
+    public function spkRowIdsOnOpenReceipts(?int $exceptReceiptId = null): array
     {
-        return $this->spkRowFakturWorkflowMaps()['issued'];
+        return $this->spkRowFakturWorkflowMaps($exceptReceiptId)['issued'];
     }
 
     /**
@@ -166,11 +169,12 @@ class FakturBarangJadiReceiptService
         Collection $productions,
         ?string $fromLocation,
         string $actor = 'system',
+        ?int $exceptReceiptId = null,
     ): void {
         app(FakturBarangJadiProductionCompletion::class)
             ->completeForFakturIfNeeded($productions, $actor);
 
-        $blockedIds = $this->spkRowIdsOnOpenReceipts();
+        $blockedIds = $this->spkRowIdsOnOpenReceipts($exceptReceiptId);
         $from = trim((string) ($fromLocation ?? Production::DEFAULT_LOCATION));
 
         foreach ($productions as $production) {
@@ -450,6 +454,157 @@ class FakturBarangJadiReceiptService
     /**
      * @param  Collection<int, Production>|iterable<int, Production>  $productions
      */
+    public function assertReceiptAllowsSpkChanges(SerahTerimaFakturBarangJadi $receipt): void
+    {
+        if (FakturBarangJadiWorkflowStatus::allowsSpkChanges($receipt->workflow_status)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'receipt' => ['Daftar SPK tidak dapat diubah pada faktur ini.'],
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, Production>  $productions
+     */
+    public function attachProductionsToReceipt(
+        SerahTerimaFakturBarangJadi $receipt,
+        Collection $productions,
+        string $actor,
+    ): void {
+        $this->assertReceiptAllowsSpkChanges($receipt);
+
+        /** @var array<int, true> $existingIds */
+        $existingIds = array_fill_keys(
+            array_map(intval(...), $receipt->spk_row_ids ?? []),
+            true,
+        );
+
+        foreach ($productions as $production) {
+            $rowId = (int) $production->row_id;
+
+            if (isset($existingIds[$rowId])) {
+                throw ValidationException::withMessages([
+                    'ids' => [
+                        "SPK {$production->spk_no} sudah tercantum pada faktur ini.",
+                    ],
+                ]);
+            }
+        }
+
+        $this->assertEligibleForReceipt(
+            $productions,
+            $receipt->dari,
+            $actor,
+            (int) $receipt->id,
+        );
+
+        $this->relocateProductionsTo($productions, $receipt->untuk, $actor);
+        $productions->each->refresh();
+
+        $newItems = $productions
+            ->map(fn (Production $production): array => $this->receiptItem($production))
+            ->all();
+
+        /** @var list<array<string, mixed>> $mergedItems */
+        $mergedItems = [...($receipt->items ?? []), ...$newItems];
+
+        $receipt->forceFill([
+            'items' => $mergedItems,
+            'spk_row_ids' => array_column($mergedItems, 'spkRowId'),
+            'jumlah_spk' => count($mergedItems),
+        ])->save();
+
+        $this->syncSendToMerchDates($productions, $receipt->tanggal, $actor);
+    }
+
+    public function detachProductionFromReceipt(
+        SerahTerimaFakturBarangJadi $receipt,
+        Production $production,
+        string $actor,
+    ): void {
+        $this->assertReceiptAllowsSpkChanges($receipt);
+
+        $rowId = (int) $production->row_id;
+        /** @var list<int> $currentIds */
+        $currentIds = array_values(array_filter(
+            array_map(intval(...), $receipt->spk_row_ids ?? []),
+            fn (int $id): bool => $id > 0,
+        ));
+
+        if (! in_array($rowId, $currentIds, true)) {
+            throw ValidationException::withMessages([
+                'spk' => ['SPK tidak tercantum pada faktur ini.'],
+            ]);
+        }
+
+        if (count($currentIds) <= 1) {
+            throw ValidationException::withMessages([
+                'spk' => ['Faktur harus memuat minimal satu SPK.'],
+            ]);
+        }
+
+        /** @var list<array<string, mixed>> $remainingItems */
+        $remainingItems = collect($receipt->items ?? [])
+            ->reject(fn (array $item): bool => (int) ($item['spkRowId'] ?? 0) === $rowId)
+            ->values()
+            ->all();
+
+        $receipt->forceFill([
+            'items' => $remainingItems,
+            'spk_row_ids' => array_column($remainingItems, 'spkRowId'),
+            'jumlah_spk' => count($remainingItems),
+        ])->save();
+
+        $productions = collect([$production]);
+
+        app(InventorySpkSync::class)->clearSpkNumbers($productions, $actor);
+        $this->clearPluAndSendToMerchDate($productions, $actor);
+        $this->relocateProductionsTo($productions, $receipt->dari, $actor);
+    }
+
+    /**
+     * @param  Collection<int, Production>  $productions
+     */
+    public function clearPluAndSendToMerchDate(Collection $productions, string $actor): void
+    {
+        $hasPlu = Schema::connection('third')->hasColumn('spk', 'plu');
+        $hasSendToMerchDate = Schema::connection('third')->hasColumn('spk', 'send_to_merch_date');
+
+        if (! $hasPlu && ! $hasSendToMerchDate) {
+            return;
+        }
+
+        $now = now();
+
+        foreach ($productions as $production) {
+            $payload = [];
+
+            if ($hasPlu) {
+                $payload['plu'] = null;
+            }
+
+            if ($hasSendToMerchDate) {
+                $payload['send_to_merch_date'] = null;
+            }
+
+            if ($payload === []) {
+                continue;
+            }
+
+            if (Schema::connection('third')->hasColumn('spk', 'modified_date')) {
+                $payload['modified_date'] = $now;
+            }
+
+            if (Schema::connection('third')->hasColumn('spk', 'modified_by')) {
+                $payload['modified_by'] = $actor;
+            }
+
+            $production->update($payload);
+        }
+    }
+
     public function syncSendToMerchDates(
         iterable $productions,
         Carbon|string $date,

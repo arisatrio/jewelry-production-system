@@ -1,4 +1,4 @@
-import { useHttp } from '@inertiajs/react';
+import { router, useHttp } from '@inertiajs/react';
 import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import deleteIcon from '@ui5/webcomponents-icons/dist/delete.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
@@ -15,6 +15,7 @@ import {
     receive as receiveFakturBarangJadiReceipt,
     send as sendFakturBarangJadiReceipt,
 } from '@/routes/faktur-barang-jadi/print/receipt';
+import { show as showFakturBarangJadi } from '@/routes/faktur-barang-jadi';
 
 export type FakturBarangJadiReceiptRow = {
     id: number;
@@ -34,6 +35,7 @@ export type FakturBarangJadiReceiptRow = {
     createdBy: string | null;
     createdAt: string | null;
     printUrl: string;
+    showUrl?: string;
 };
 
 export type FakturBarangJadiReceiptMeta = {
@@ -98,6 +100,10 @@ export function FakturBarangJadiReceiptList({
 
     const openPrint = (row: FakturBarangJadiReceiptRow): void => {
         window.open(row.printUrl, '_blank', 'noopener,noreferrer');
+    };
+
+    const openDetail = (row: FakturBarangJadiReceiptRow): void => {
+        router.visit(row.showUrl ?? showFakturBarangJadi.url(row.id));
     };
 
     const deleteReceipt = (row: FakturBarangJadiReceiptRow): void => {
@@ -394,7 +400,11 @@ export function FakturBarangJadiReceiptList({
                                                 className={docLinkClassName}
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    openPrint(row);
+                                                    if (isPage) {
+                                                        openDetail(row);
+                                                    } else {
+                                                        openPrint(row);
+                                                    }
                                                 }}
                                             >
                                                 {row.docNo}

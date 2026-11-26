@@ -123,8 +123,10 @@ export type SpkDetail = SpkRow & {
 };
 
 export type SpkFakturBarangJadiDelivery = {
+    receiptId: number;
     tanggal: string;
     docNo: string;
+    showUrl: string;
     printUrl: string;
 };
 

@@ -97,6 +97,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('reparasi', [ProductionController::class, 'reparasiIndex'])->name('reparasi.index');
     Route::get('faktur-barang-jadi', [FakturBarangJadiController::class, 'index'])
         ->name('faktur-barang-jadi.index');
+    Route::get('faktur-barang-jadi/{serahTerimaFakturBarangJadi}', [FakturBarangJadiController::class, 'show'])
+        ->whereNumber('serahTerimaFakturBarangJadi')
+        ->name('faktur-barang-jadi.show');
+    Route::post('faktur-barang-jadi/{serahTerimaFakturBarangJadi}/spk', [FakturBarangJadiController::class, 'attachSpk'])
+        ->whereNumber('serahTerimaFakturBarangJadi')
+        ->name('faktur-barang-jadi.spk.attach');
+    Route::delete('faktur-barang-jadi/{serahTerimaFakturBarangJadi}/spk/{spk_row_id}', [FakturBarangJadiController::class, 'detachSpk'])
+        ->whereNumber('serahTerimaFakturBarangJadi')
+        ->whereNumber('spk_row_id')
+        ->name('faktur-barang-jadi.spk.detach');
     Route::get('faktur-barang-jadi/create', [FakturBarangJadiController::class, 'create'])
         ->name('faktur-barang-jadi.create');
     Route::get('faktur-barang-jadi/select/spks', [FakturBarangJadiController::class, 'searchSpks'])

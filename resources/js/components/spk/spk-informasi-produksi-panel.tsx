@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import { SpkTableStoneStatusCell } from '@/components/spk/spk-list-cells';
 import { SpkProsesTerakhirDisplay } from '@/components/spk/spk-proses-terakhir-display';
 import { SpkChainListCard } from '@/components/spk/spk-chain-list';
@@ -101,7 +102,7 @@ function SpkFakturBarangJadiDeliveryValue({
         delivery.tanggal !== '-';
 
     const docNo = delivery?.docNo.trim() ?? '';
-    const printUrl = delivery?.printUrl.trim() ?? '';
+    const showUrl = delivery?.showUrl.trim() ?? '';
 
     if (! hasDate) {
         return <>-</>;
@@ -110,15 +111,14 @@ function SpkFakturBarangJadiDeliveryValue({
     return (
         <div className="spkDetailAsideDelivery">
             <span>{delivery.tanggal}</span>
-            {printUrl !== '' && docNo !== '' ? (
-                <a
-                    href={printUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="spkDetailFakturIdLink"
+            {showUrl !== '' && docNo !== '' ? (
+                <button
+                    type="button"
+                    className="spkDetailFakturIdLink spkProduksiLink"
+                    onClick={() => router.visit(showUrl)}
                 >
                     {docNo}
-                </a>
+                </button>
             ) : null}
         </div>
     );

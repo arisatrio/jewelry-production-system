@@ -36,6 +36,27 @@ class FakturBarangJadiWorkflowStatus
         };
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function spkEditableStatuses(): array
+    {
+        return [
+            self::CREATED,
+            self::SENT,
+            self::RECEIVED,
+        ];
+    }
+
+    public static function allowsSpkChanges(mixed $workflow): bool
+    {
+        if (! self::columnAvailable()) {
+            return true;
+        }
+
+        return in_array(self::normalize($workflow), self::spkEditableStatuses(), true);
+    }
+
     public static function label(?string $status): string
     {
         $normalized = self::normalize($status);

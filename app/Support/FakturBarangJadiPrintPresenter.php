@@ -15,6 +15,7 @@ class FakturBarangJadiPrintPresenter
 
     /**
      * @return list<array{
+     *     spkRowId: int,
      *     spkNo: string,
      *     categorySkuPrimary: string,
      *     skuCode: string,
@@ -70,6 +71,7 @@ class FakturBarangJadiPrintPresenter
 
     /**
      * @return array{
+     *     spkRowId: int,
      *     spkNo: string,
      *     categorySkuPrimary: string,
      *     skuCode: string,
@@ -98,6 +100,7 @@ class FakturBarangJadiPrintPresenter
         $categorySku = $this->categorySkuFields($production);
 
         return [
+            'spkRowId' => (int) $production->row_id,
             'spkNo' => filled($production->spk_no) ? (string) $production->spk_no : '-',
             'categorySkuPrimary' => $categorySku['primary'],
             'skuCode' => $categorySku['skuCode'],

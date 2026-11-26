@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AttachFakturBarangJadiSpkRequest;
 use App\Http\Requests\ImportFakturBarangJadiRequest;
 use App\Http\Requests\PrintFakturBarangJadiRequest;
 use App\Http\Requests\ReceiveFakturBarangJadiReceiptRequest;
@@ -77,7 +78,9 @@ class FakturBarangJadiController extends Controller
             ->values()
             ->all();
         $fakturBelumOnly = $request->boolean('faktur_belum', true);
-        $blockedIds = $receipts->spkRowIdsOnOpenReceipts();
+        $receiptId = max(0, $request->integer('receipt_id'));
+        $exceptReceiptId = $receiptId > 0 ? $receiptId : null;
+        $blockedIds = $receipts->spkRowIdsOnOpenReceipts($exceptReceiptId);
         $fotoBrjColumn = Schema::connection('third')->hasColumn('spk', 'foto_brj');
         $lastWeightColumn = Schema::connection('third')->hasColumn('spk', 'last_weight');
         $analytics = new SpkDashboardAnalytics;
@@ -281,6 +284,108 @@ class FakturBarangJadiController extends Controller
         }
 
         return back();
+    }
+
+    /**
+     * Detail faktur barang jadi beserta daftar SPK.
+     */
+    public function show(
+        SerahTerimaFakturBarangJadi $serahTerimaFakturBarangJadi,
+        FakturBarangJadiReceiptService $receipts,
+        FakturBarangJadiPrintPresenter $printPresenter,
+    ): Response {
+        if (! $receipts->tableAvailable()) {
+            abort(404);
+        }
+
+        return Inertia::render('faktur-barang-jadi/show', [
+            'receipt' => $this->serializeReceiptDetail($serahTerimaFakturBarangJadi),
+            'printGroups' => $printPresenter->groupsForReceipt($serahTerimaFakturBarangJadi),
+            'fakturBarangJadiFotoBrjAvailable' => Schema::connection('third')->hasColumn('spk', 'foto_brj'),
+        ]);
+    }
+
+    public function attachSpk(
+        AttachFakturBarangJadiSpkRequest $request,
+        SerahTerimaFakturBarangJadi $serahTerimaFakturBarangJadi,
+        FakturBarangJadiReceiptService $receipts,
+    ): RedirectResponse {
+        if (! $receipts->tableAvailable()) {
+            throw new HttpException(422, 'Penyimpanan faktur barang jadi belum tersedia di database.');
+        }
+
+        /** @var list<int> $ids */
+        $ids = array_map(intval(...), $request->validated('ids'));
+
+        $productions = Production::query()
+            ->with(['sku', 'categoryPrefix'])
+            ->notDeleted()
+            ->whereIn('row_id', $ids)
+            ->where('spk_type', '!=', SpkService::REPARATION_TYPE)
+            ->get()
+            ->sortBy(fn (Production $production): int|false => array_search((int) $production->row_id, $ids, true))
+            ->values();
+
+        abort_if($productions->isEmpty(), 404);
+
+        DB::connection('third')->transaction(function () use (
+            $request,
+            $serahTerimaFakturBarangJadi,
+            $receipts,
+            $productions,
+        ): void {
+            $receipts->attachProductionsToReceipt(
+                $serahTerimaFakturBarangJadi,
+                $productions,
+                $this->actorName($request),
+            );
+        });
+
+        $count = $productions->count();
+        $label = $count === 1 ? '1 SPK' : "{$count} SPK";
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => "{$label} ditambahkan ke faktur {$serahTerimaFakturBarangJadi->doc_no}.",
+        ]);
+
+        return redirect()->route('faktur-barang-jadi.show', $serahTerimaFakturBarangJadi);
+    }
+
+    public function detachSpk(
+        Request $request,
+        SerahTerimaFakturBarangJadi $serahTerimaFakturBarangJadi,
+        int $spk_row_id,
+        FakturBarangJadiReceiptService $receipts,
+    ): RedirectResponse {
+        if (! $receipts->tableAvailable()) {
+            throw new HttpException(422, 'Penyimpanan faktur barang jadi belum tersedia di database.');
+        }
+
+        $production = Production::query()
+            ->notDeleted()
+            ->where('row_id', $spk_row_id)
+            ->firstOrFail();
+
+        DB::connection('third')->transaction(function () use (
+            $request,
+            $serahTerimaFakturBarangJadi,
+            $receipts,
+            $production,
+        ): void {
+            $receipts->detachProductionFromReceipt(
+                $serahTerimaFakturBarangJadi,
+                $production,
+                $this->actorName($request),
+            );
+        });
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => "SPK {$production->spk_no} dikeluarkan dari faktur {$serahTerimaFakturBarangJadi->doc_no}.",
+        ]);
+
+        return redirect()->route('faktur-barang-jadi.show', $serahTerimaFakturBarangJadi);
     }
 
     /**
@@ -997,9 +1102,51 @@ class FakturBarangJadiController extends Controller
             'workflowStatusLabel' => FakturBarangJadiWorkflowStatus::label($workflow),
             'canSend' => $workflow === FakturBarangJadiWorkflowStatus::CREATED,
             'canReceive' => $workflow === FakturBarangJadiWorkflowStatus::SENT,
+            'canEditSpk' => FakturBarangJadiWorkflowStatus::allowsSpkChanges($workflow),
             'createdBy' => $receipt->created_by,
             'createdAt' => $receipt->created_at?->format('d-M-Y H:i'),
             'printUrl' => route('faktur-barang-jadi.print.receipt', $receipt),
+            'showUrl' => route('faktur-barang-jadi.show', $receipt),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     docNo: string,
+     *     tanggal: string,
+     *     dari: string|null,
+     *     untuk: string|null,
+     *     jumlahSpk: int,
+     *     spkNos: list<string>,
+     *     items: list<array{
+     *         spkRowId: int,
+     *         spkNo: string,
+     *         type: string,
+     *         status: string,
+     *         item: string,
+     *         plu: string|null,
+     *         location: string
+     *     }>,
+     *     diserahkanOleh: string|null,
+     *     diketahuiOleh: string|null,
+     *     diterimaOleh: string|null,
+     *     workflowStatus: string,
+     *     workflowStatusLabel: string,
+     *     canSend: bool,
+     *     canReceive: bool,
+     *     canEditSpk: bool,
+     *     createdBy: string|null,
+     *     createdAt: string|null,
+     *     printUrl: string,
+     *     showUrl: string
+     * }
+     */
+    private function serializeReceiptDetail(SerahTerimaFakturBarangJadi $receipt): array
+    {
+        return [
+            ...$this->serializeReceiptRow($receipt),
+            'items' => array_values($receipt->items ?? []),
         ];
     }
 

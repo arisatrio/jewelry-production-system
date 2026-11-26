@@ -19,7 +19,11 @@ test('inventory barang jadi index page is accessible', function () {
             ->has('filterOptions.per_page')
             ->has('pluSummary.belumDisetPlu')
             ->has('pluSummary.sudahDisetPlu')
+            ->has('skuSummary.skuTidakSama')
+            ->has('skuSummary.skuSesuai')
+            ->has('skuCompareAvailable')
             ->where('filters.plu_status', null)
+            ->where('filters.sku_status', null)
         );
 });
 
@@ -279,6 +283,118 @@ test('inventory barang jadi shows keterangan when spk sku differs from plu inven
         DB::connection('second')->table('inventory')->where('row_id', $inventoryRowId)->delete();
         $spkSku->delete();
         $inventorySku->delete();
+    }
+})->with([
+    'poles rangka completed' => ['PRKDONE'],
+    'serahkan jb poles rangka' => ['PRK040'],
+]);
+
+test('inventory barang jadi sku summary and beda filter', function (string $processStatus) {
+    $lookup = app(InventoryPluSkuLookup::class);
+
+    if (! $lookup->canCompareSkuByPlu()) {
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $pluColumn = $lookup->pluColumnName();
+
+    $pluMismatch = 'PLU-SKU-BEDA-'.fake()->numerify('######');
+    $pluMatch = 'PLU-SKU-OK-'.fake()->numerify('######');
+
+    $spkSkuMismatch = SkuMaster::factory()->create();
+    $inventorySkuMismatch = SkuMaster::factory()->create();
+    $sharedSku = SkuMaster::factory()->create();
+
+    $rows = [];
+
+    foreach ([
+        [$pluMismatch, $sharedSku->id, $inventorySkuMismatch->id],
+        [$pluMatch, $sharedSku->id, $sharedSku->id],
+    ] as [$plu, $spkSkuId, $inventorySkuId]) {
+        $insert = [
+            $pluColumn => $plu,
+            'sku_id' => $inventorySkuId,
+        ];
+
+        if ($lookup->hasColumn('is_deleted')) {
+            $insert['is_deleted'] = 0;
+        }
+
+        if ($lookup->hasColumn('company_id')) {
+            $insert['company_id'] = 1;
+        }
+
+        foreach (['calc_price' => 0, 'production_cost' => 0, 'markup' => 0] as $column => $value) {
+            if ($lookup->hasColumn($column)) {
+                $insert[$column] = $value;
+            }
+        }
+
+        $rows[] = DB::connection('second')->table('inventory')->insertGetId($insert);
+    }
+
+    $mismatchProduction = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+        'plu' => $pluMismatch,
+        'sku_id' => $spkSkuMismatch->id,
+    ]);
+
+    $matchProduction = Production::factory()->create([
+        'spk_type' => 'Stock',
+        'status' => 'SPK010',
+        'status_order' => 'NO',
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+        'plu' => $pluMatch,
+        'sku_id' => $sharedSku->id,
+    ]);
+
+    $processIds = [];
+
+    foreach ([$mismatchProduction, $matchProduction] as $production) {
+        $processIds[] = DB::connection('third')->table('polishframe')->insertGetId([
+            'doc_no' => 'INV-BJ-SKU-FLT-'.$production->row_id,
+            'spk_id' => $production->row_id,
+            'status' => $processStatus,
+            'is_deleted' => 0,
+            'created_date' => now(),
+            'created_by' => 'system',
+        ], 'row_id');
+    }
+
+    try {
+        $this->get(route('inventory.barang-jadi.index', ['search' => 'PLU-SKU-']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('skuSummary.skuTidakSama', fn (int $count): bool => $count >= 1)
+                ->where('skuSummary.skuSesuai', fn (int $count): bool => $count >= 1)
+            );
+
+        $this->get(route('inventory.barang-jadi.index', [
+            'search' => (string) $mismatchProduction->spk_no,
+            'sku_status' => 'beda',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.sku_status', 'beda')
+                ->where('items.data.0.keterangan', 'SKU Tidak Sama')
+            );
+    } finally {
+        DB::connection('third')->table('polishframe')->whereIn('row_id', $processIds)->delete();
+        $mismatchProduction->delete();
+        $matchProduction->delete();
+        DB::connection('second')->table('inventory')->whereIn('row_id', $rows)->delete();
+        $spkSkuMismatch->delete();
+        $inventorySkuMismatch->delete();
+        $sharedSku->delete();
     }
 })->with([
     'poles rangka completed' => ['PRKDONE'],

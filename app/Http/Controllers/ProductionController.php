@@ -3476,8 +3476,10 @@ class ProductionController extends Controller
         if ($faktur !== null) {
             $detail['location'] = $this->indexDisplayLocation($production, $faktur);
             $detail['fakturBarangJadiDelivery'] = [
+                'receiptId' => $faktur['receiptId'],
                 'tanggal' => $faktur['tanggal'],
                 'docNo' => $faktur['docNo'],
+                'showUrl' => route('faktur-barang-jadi.show', $faktur['receiptId']),
                 'printUrl' => route(
                     'faktur-barang-jadi.print.receipt',
                     $faktur['receiptId'],

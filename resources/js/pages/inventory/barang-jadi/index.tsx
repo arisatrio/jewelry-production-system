@@ -60,7 +60,30 @@ type PluSummary = {
     sudahDisetPlu: number;
 };
 
+type SkuSummary = {
+    skuTidakSama: number;
+    skuSesuai: number;
+};
+
 type PluStatusFilter = 'belum' | 'sudah' | null;
+type SkuStatusFilter = 'beda' | 'sesuai' | null;
+
+const SKU_STATUS_ALERTS = [
+    {
+        key: 'skuTidakSama' as const,
+        filter: 'beda' as const,
+        label: 'SKU Tidak Sama',
+        hint: 'SKU SPK berbeda dengan SKU inventory dari PLU',
+        design: 'Critical' as const,
+    },
+    {
+        key: 'skuSesuai' as const,
+        filter: 'sesuai' as const,
+        label: 'SKU Sesuai',
+        hint: 'SKU SPK sama dengan SKU inventory dari PLU',
+        design: 'Positive' as const,
+    },
+];
 
 const PLU_STATUS_ALERTS = [
     {
@@ -82,10 +105,13 @@ const PLU_STATUS_ALERTS = [
 type InventoryBarangJadiIndexProps = {
     items: ItemsPaginator;
     pluSummary: PluSummary;
+    skuSummary: SkuSummary;
+    skuCompareAvailable: boolean;
     filters: {
         search: string;
         per_page: number;
         plu_status: PluStatusFilter;
+        sku_status: SkuStatusFilter;
         status: string[];
     };
     filterOptions: {
@@ -100,6 +126,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 export default function InventoryBarangJadiIndex({
     items,
     pluSummary,
+    skuSummary,
+    skuCompareAvailable,
     filters,
     filterOptions,
 }: InventoryBarangJadiIndexProps) {
@@ -146,6 +174,7 @@ export default function InventoryBarangJadiIndex({
         search?: string;
         status?: string[];
         plu_status?: PluStatusFilter;
+        sku_status?: SkuStatusFilter;
         per_page?: number;
         page?: number;
     }) => {
@@ -153,6 +182,8 @@ export default function InventoryBarangJadiIndex({
         const nextStatus = params.status ?? filters.status;
         const nextPluStatus =
             'plu_status' in params ? params.plu_status : filters.plu_status;
+        const nextSkuStatus =
+            'sku_status' in params ? params.sku_status : filters.sku_status;
         const nextPerPage = params.per_page ?? filters.per_page;
         const nextPage = params.page ?? 1;
 
@@ -162,6 +193,7 @@ export default function InventoryBarangJadiIndex({
                     search: nextSearch || undefined,
                     status: buildDefaultableFilterQuery(nextStatus, []),
                     plu_status: nextPluStatus ?? undefined,
+                    sku_status: nextSkuStatus ?? undefined,
                     per_page:
                         nextPerPage !== DEFAULT_PER_PAGE
                             ? nextPerPage
@@ -189,13 +221,27 @@ export default function InventoryBarangJadiIndex({
 
     const clearAllFilters = () => {
         setSearchQuery('');
-        visitIndex({ search: '', status: [], plu_status: null, page: 1 });
+        visitIndex({
+            search: '',
+            status: [],
+            plu_status: null,
+            sku_status: null,
+            page: 1,
+        });
     };
 
     const togglePluStatusFilter = (pluStatus: 'belum' | 'sudah') => {
         visitIndex({
             plu_status:
                 filters.plu_status === pluStatus ? null : pluStatus,
+            page: 1,
+        });
+    };
+
+    const toggleSkuStatusFilter = (skuStatus: 'beda' | 'sesuai') => {
+        visitIndex({
+            sku_status:
+                filters.sku_status === skuStatus ? null : skuStatus,
             page: 1,
         });
     };
@@ -292,6 +338,65 @@ export default function InventoryBarangJadiIndex({
                                     );
                                 })}
                             </div>
+                            {skuCompareAvailable ? (
+                                <>
+                                    <span
+                                        className="spkTableHeaderDivider--finishing"
+                                        aria-hidden="true"
+                                    />
+                                    <div
+                                        className="spkTableStatusAlerts--finishing"
+                                        role="group"
+                                        aria-label="Ringkasan SKU"
+                                    >
+                                        {SKU_STATUS_ALERTS.map((alert) => {
+                                            const count =
+                                                skuSummary[alert.key] ?? 0;
+                                            const isActive =
+                                                filters.sku_status ===
+                                                alert.filter;
+
+                                            return (
+                                                <button
+                                                    key={alert.key}
+                                                    type="button"
+                                                    className={[
+                                                        'spkTableStatusAlertBtn--finishing',
+                                                        isActive
+                                                            ? 'is-active'
+                                                            : '',
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' ')}
+                                                    onClick={() =>
+                                                        toggleSkuStatusFilter(
+                                                            alert.filter,
+                                                        )
+                                                    }
+                                                    aria-pressed={isActive}
+                                                    aria-label={`${count.toLocaleString('id-ID')} ${alert.hint}. Klik untuk filter tabel.`}
+                                                    title={alert.hint}
+                                                >
+                                                    <MessageStrip
+                                                        design={alert.design}
+                                                        hideCloseButton
+                                                        className="spkTableStatusAlertStrip--finishing"
+                                                    >
+                                                        <span className="spkTableStatusAlertLabel--finishing">
+                                                            {alert.label}
+                                                        </span>
+                                                        <strong className="spkTableStatusAlertCount--finishing">
+                                                            {count.toLocaleString(
+                                                                'id-ID',
+                                                            )}
+                                                        </strong>
+                                                    </MessageStrip>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            ) : null}
                             <span
                                 className="spkTableHeaderDivider--finishing"
                                 aria-hidden="true"
@@ -550,6 +655,20 @@ export default function InventoryBarangJadiIndex({
                                 value: 'Sudah diset',
                                 onRemove: () =>
                                     visitIndex({ plu_status: null, page: 1 }),
+                            },
+                            filters.sku_status === 'beda' && {
+                                key: 'sku_status',
+                                label: 'SKU',
+                                value: 'Tidak sama',
+                                onRemove: () =>
+                                    visitIndex({ sku_status: null, page: 1 }),
+                            },
+                            filters.sku_status === 'sesuai' && {
+                                key: 'sku_status',
+                                label: 'SKU',
+                                value: 'Sesuai',
+                                onRemove: () =>
+                                    visitIndex({ sku_status: null, page: 1 }),
                             },
                         ]}
                         sort={false}

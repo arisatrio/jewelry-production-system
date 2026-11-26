@@ -9,6 +9,7 @@ use App\Support\SpkProductionListItemPresentation;
 use App\Support\SpkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,8 +25,11 @@ class InventoryBarangJadiController extends Controller
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 50;
         $statusKinds = $this->resolveStatusKinds($request->input('status'));
         $pluStatus = $this->resolvePluStatus($request->input('plu_status'));
+        $skuStatus = $this->resolveSkuStatus($request->input('sku_status'));
         $analytics = new SpkDashboardAnalytics;
+        $lookup = app(InventoryPluSkuLookup::class);
         $pluSummary = $this->pluSummaryCounts($analytics);
+        $skuSummary = $this->skuSummaryCounts($analytics, $lookup);
 
         $page = $this->baseCompletedProductionQuery($analytics, $statusKinds)
             ->with(['sku', 'categoryPrefix'])
@@ -34,6 +38,13 @@ class InventoryBarangJadiController extends Controller
                     $this->applyPluUnsetScope($query);
                 } elseif ($pluStatus === 'sudah') {
                     $this->applyPluSetScope($query);
+                }
+            })
+            ->tap(function (Builder $query) use ($skuStatus, $lookup): void {
+                if ($skuStatus === 'beda') {
+                    $this->applySkuBedaScope($query, $lookup);
+                } elseif ($skuStatus === 'sesuai') {
+                    $this->applySkuSesuaiScope($query, $lookup);
                 }
             })
             ->when($search !== '', function (Builder $query) use ($search): void {
@@ -99,10 +110,13 @@ class InventoryBarangJadiController extends Controller
         return Inertia::render('inventory/barang-jadi/index', [
             'items' => $page,
             'pluSummary' => $pluSummary,
+            'skuSummary' => $skuSummary,
+            'skuCompareAvailable' => $lookup->canCompareSkuByPlu(),
             'filters' => [
                 'search' => $search,
                 'per_page' => $perPage,
                 'plu_status' => $pluStatus,
+                'sku_status' => $skuStatus,
                 'status' => collect($statusKinds)
                     ->map(fn (string $kind): string => SpkDashboardAnalytics::BACKLOG_STATUS_LABELS[$kind] ?? $kind)
                     ->values()
@@ -129,6 +143,26 @@ class InventoryBarangJadiController extends Controller
         return [
             'belumDisetPlu' => (clone $base)->tap(fn (Builder $query) => $this->applyPluUnsetScope($query))->count(),
             'sudahDisetPlu' => (clone $base)->tap(fn (Builder $query) => $this->applyPluSetScope($query))->count(),
+        ];
+    }
+
+    /**
+     * @return array{skuTidakSama: int, skuSesuai: int}
+     */
+    private function skuSummaryCounts(SpkDashboardAnalytics $analytics, InventoryPluSkuLookup $lookup): array
+    {
+        if (! $lookup->canCompareSkuByPlu()) {
+            return [
+                'skuTidakSama' => 0,
+                'skuSesuai' => 0,
+            ];
+        }
+
+        $base = $this->baseCompletedProductionQuery($analytics, []);
+
+        return [
+            'skuTidakSama' => (clone $base)->tap(fn (Builder $query) => $this->applySkuBedaScope($query, $lookup))->count(),
+            'skuSesuai' => (clone $base)->tap(fn (Builder $query) => $this->applySkuSesuaiScope($query, $lookup))->count(),
         ];
     }
 
@@ -173,6 +207,93 @@ class InventoryBarangJadiController extends Controller
     }
 
     /**
+     * @param  Builder<Production>  $query
+     */
+    private function applySkuComparableBaseScope(Builder $query): void
+    {
+        $this->applyPluSetScope($query);
+
+        $query->whereNotNull('sku_id')
+            ->where('sku_id', '>', 0);
+    }
+
+    /**
+     * @param  Builder<Production>  $query
+     */
+    private function applySkuBedaScope(Builder $query, InventoryPluSkuLookup $lookup): void
+    {
+        if (! $lookup->canCompareSkuByPlu()) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $this->applySkuComparableBaseScope($query);
+
+        $this->applyInventorySkuCompareExists($query, $lookup, false);
+    }
+
+    /**
+     * @param  Builder<Production>  $query
+     */
+    private function applySkuSesuaiScope(Builder $query, InventoryPluSkuLookup $lookup): void
+    {
+        if (! $lookup->canCompareSkuByPlu()) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $this->applySkuComparableBaseScope($query);
+
+        $this->applyInventorySkuCompareExists($query, $lookup, true);
+    }
+
+    /**
+     * @param  Builder<Production>  $query
+     */
+    private function applyInventorySkuCompareExists(
+        Builder $query,
+        InventoryPluSkuLookup $lookup,
+        bool $mustMatch,
+    ): void {
+        $qualifiedTable = $lookup->qualifiedTableName();
+        $pluColumn = $lookup->pluColumnName();
+
+        if ($qualifiedTable === null || $pluColumn === null) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        [$database, $table] = array_pad(explode('.', $qualifiedTable, 2), 2, null);
+
+        if ($database === null || $table === null) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query->whereExists(function ($sub) use ($database, $table, $pluColumn, $lookup, $mustMatch): void {
+            $sub->selectRaw('1')
+                ->from(DB::raw("`{$database}`.`{$table}` as inv"))
+                ->whereRaw("TRIM(inv.`{$pluColumn}`) = TRIM(spk.plu)")
+                ->whereNotNull('inv.sku_id')
+                ->where('inv.sku_id', '>', 0);
+
+            if ($lookup->hasColumn('is_deleted')) {
+                $sub->where('inv.is_deleted', 0);
+            }
+
+            if ($mustMatch) {
+                $sub->whereColumn('inv.sku_id', 'spk.sku_id');
+            } else {
+                $sub->whereColumn('inv.sku_id', '!=', 'spk.sku_id');
+            }
+        });
+    }
+
+    /**
      * @param  array{typeSkuLabel: string|null, itemDescription: string|null, skuAssigned: bool, skuId?: int}|null  $skuFromPlu
      */
     private function resolvePluSkuKeterangan(
@@ -202,6 +323,17 @@ class InventoryBarangJadiController extends Controller
         $value = trim($input);
 
         return in_array($value, ['belum', 'sudah'], true) ? $value : null;
+    }
+
+    private function resolveSkuStatus(mixed $input): ?string
+    {
+        if (! is_string($input)) {
+            return null;
+        }
+
+        $value = trim($input);
+
+        return in_array($value, ['beda', 'sesuai'], true) ? $value : null;
     }
 
     /**

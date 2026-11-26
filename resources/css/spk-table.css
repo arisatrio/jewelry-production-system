@@ -10543,3 +10543,305 @@ button.spkItemImagePreview--clickable:focus-visible {
         white-space: normal;
     }
 }
+
+.spkFbjDetailTableWrap {
+    width: 100%;
+    max-width: 100%;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable {
+    min-width: 52rem;
+    table-layout: fixed;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable th,
+.spkTableScroll--finishing .spkFbjDetailTable td {
+    white-space: normal;
+    line-height: 1.35;
+    vertical-align: top;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable td.spkTableColCenter,
+.spkTableScroll--finishing .spkFbjDetailTable th.spkTableColCenter {
+    vertical-align: middle;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable td.spkFbjColAction {
+    vertical-align: middle;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable tbody tr.spkFbjDetailGroupRow > td {
+    border-top: 1px solid var(--sapList_BorderColor, #e5e5e5);
+}
+
+.spkTableScroll--finishing
+    .spkFbjDetailTable
+    tbody
+    tr.spkFbjDetailGroupRow:first-child
+    > td {
+    border-top: none;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable th.spkFbjColAction,
+.spkTableScroll--finishing .spkFbjDetailTable td.spkFbjColAction {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--sapList_Background, #fff);
+    box-shadow: inset -1px 0 0 var(--sapList_BorderColor, #e5e5e5);
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable th.spkFbjColAction {
+    z-index: 3;
+    background: var(--sapList_HeaderBackground, #f7f8f9);
+}
+
+.spkFbjCategorySkuCode {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--sapContent_LabelColor, #556b82);
+    word-break: break-word;
+}
+
+.spkFbjProductionType {
+    white-space: pre-line;
+    line-height: 1.35;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColAction {
+    width: 4.25rem;
+    min-width: 4.25rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColPrd {
+    width: 9rem;
+    min-width: 9rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColCategory {
+    width: 12rem;
+    min-width: 12rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColType {
+    width: 6.5rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColGoldColor {
+    width: 5.5rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColStoneDetail {
+    width: 14rem;
+    min-width: 12rem;
+    padding: 0.35rem 0.5rem;
+    vertical-align: top;
+}
+
+.spkFbjDetailStoneSubTable {
+    min-width: 0;
+    width: 100%;
+    table-layout: auto;
+}
+
+.spkFbjDetailStoneSubTable th,
+.spkFbjDetailStoneSubTable td {
+    padding: 0.35rem 0.4rem;
+    font-size: 0.75rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailStoneSubTable thead th {
+    position: static;
+    top: auto;
+    box-shadow: none;
+    background: var(--sapList_HeaderBackground, #f7f8f9);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.spkFbjDetailStoneSubTable tbody td {
+    border-bottom: 1px solid var(--sapList_BorderColor, #e5e5e5);
+}
+
+.spkFbjDetailStoneSubTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColDone {
+    width: 6.5rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColImage {
+    width: 4.75rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColGoldWt,
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColFinalWt {
+    width: 4.5rem;
+}
+
+.spkTableScroll--finishing .spkFbjDetailTable .spkFbjColNotes {
+    width: 9rem;
+    min-width: 8rem;
+}
+
+.spkFbjItemImage {
+    display: block;
+    max-width: 3.25rem;
+    max-height: 3.25rem;
+    margin: 0 auto;
+    object-fit: contain;
+    border-radius: 0.25rem;
+    border: 1px solid var(--sapList_BorderColor, #e5e5e5);
+    background: var(--sapList_Background, #fff);
+}
+
+.spkFbjDetailTableWrap--desktop {
+    display: block;
+}
+
+.spkFbjDetailMobileList {
+    display: none;
+}
+
+.spkFbjDetailMobileEmpty {
+    margin: 0;
+    padding: 0.75rem 1rem 1rem;
+    color: var(--sapContent_LabelColor, #556b82);
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.spkFbjDetailMobileCard {
+    border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    border-radius: 0.5rem;
+    background: var(--sapGroup_ContentBackground, #fff);
+    padding: 1rem;
+}
+
+.spkFbjDetailMobileCardHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--sapList_BorderColor, #e5e5e5);
+}
+
+.spkFbjDetailMobileNo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.25rem;
+    background: var(--sapAccentBackgroundColor6, #e8f2fc);
+    color: var(--sapTextColor, #131e29);
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.spkFbjDetailMobileCardHeader .spkProduksiLink {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+    word-break: break-word;
+}
+
+.spkFbjDetailMobileGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    margin: 0;
+}
+
+.spkFbjDetailMobileImage {
+    display: block;
+    width: 100%;
+    max-width: 10rem;
+    max-height: 10rem;
+    margin: 0.65rem 0 0;
+    object-fit: contain;
+    border: 1px solid var(--sapList_BorderColor, #e5e5e5);
+    border-radius: 0.375rem;
+    background: var(--sapList_Background, #fff);
+}
+
+.spkFbjDetailMobileStones {
+    margin-top: 0.85rem;
+}
+
+.spkFbjDetailMobileStonesTitle {
+    margin: 0 0 0.45rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--sapContent_LabelColor, #556b82);
+}
+
+.spkFbjDetailMobileStones .spkFbjDetailStoneSubTable thead th {
+    position: static;
+    box-shadow: none;
+}
+
+@media (max-width: 768px) {
+    .spkFbjDetailTableWrap--desktop {
+        display: none;
+    }
+
+    .spkFbjDetailMobileList {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem 1rem;
+    }
+
+    .spkTableScroll--finishing:has(.spkFbjDetailMobileList) {
+        overflow-x: visible;
+    }
+
+    .spkFakturBarangJadiShow .spkTableHeaderBar--finishing {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .spkFakturBarangJadiShow .spkTableToolbarRight {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .spkFakturBarangJadiShow .spkTableHeaderActions--finishing {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .spkFakturBarangJadiShow
+        .spkTableHeaderActions--finishing
+        > .spkCreateBtn {
+        flex: 1 1 calc(50% - 0.25rem);
+        justify-content: center;
+        min-width: 8.5rem;
+    }
+
+    .spkFakturBarangJadiShow .spkTableHeaderTitle--finishing,
+    .spkFakturBarangJadiShow .spkTableHeaderSubtitle--finishing {
+        white-space: normal;
+    }
+
+    .spkFakturBarangJadiShow .spkFakturBarangJadiShowMeta {
+        padding-inline: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .spkFakturBarangJadiShow
+        .spkTableHeaderActions--finishing
+        > .spkCreateBtn {
+        flex: 1 1 100%;
+    }
+}

@@ -149,6 +149,36 @@ class InventoryPluSkuLookup
         ];
     }
 
+    public function canCompareSkuByPlu(): bool
+    {
+        return $this->tableAvailable()
+            && $this->hasColumn('sku_id')
+            && $this->pluColumn() !== null;
+    }
+
+    public function pluColumnName(): ?string
+    {
+        return $this->pluColumn();
+    }
+
+    /**
+     * Nama tabel inventory terkualifikasi (database.table) untuk subquery lintas koneksi.
+     */
+    public function qualifiedTableName(): ?string
+    {
+        if (! $this->tableAvailable()) {
+            return null;
+        }
+
+        $database = config('database.connections.'.self::CONNECTION.'.database');
+
+        if (! is_string($database) || $database === '') {
+            return null;
+        }
+
+        return $database.'.'.self::TABLE;
+    }
+
     public function tableAvailable(): bool
     {
         if ($this->tableAvailable !== null) {

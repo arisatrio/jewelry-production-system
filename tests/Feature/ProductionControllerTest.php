@@ -1530,6 +1530,14 @@ test('spk show page exposes tanggal pengiriman from latest faktur barang jadi', 
             ->where('production.fakturBarangJadiDelivery.tanggal', '18-Sep-2026')
             ->where('production.fakturBarangJadiDelivery.docNo', $docNo)
             ->where(
+                'production.fakturBarangJadiDelivery.receiptId',
+                $receipt->id,
+            )
+            ->where(
+                'production.fakturBarangJadiDelivery.showUrl',
+                route('faktur-barang-jadi.show', $receipt),
+            )
+            ->where(
                 'production.fakturBarangJadiDelivery.printUrl',
                 route('faktur-barang-jadi.print.receipt', $receipt, absolute: true),
             )

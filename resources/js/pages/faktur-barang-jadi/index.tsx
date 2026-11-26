@@ -82,7 +82,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_PER_PAGE = 20;
 
 const FAKTUR_INDEX_INFO =
-    'Klik nomor faktur atau ikon cetak untuk preview. Kirim ke tujuan setelah faktur dibuat; lokasi SPK berubah setelah diterima.';
+    'Klik nomor faktur untuk detail (kelola SPK) atau ikon cetak untuk preview. Kirim ke tujuan setelah faktur dibuat; lokasi SPK berubah setelah diterima.';
 
 function buildFilterDraft(filters: FakturBarangJadiIndexProps['filters']) {
     return {

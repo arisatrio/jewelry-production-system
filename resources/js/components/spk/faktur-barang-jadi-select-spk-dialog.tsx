@@ -46,6 +46,7 @@ type FakturBarangJadiSelectSpkDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     excludeSpkIds?: number[];
+    receiptId?: number;
     onSelected: (row: FakturBarangJadiSelectedSpk) => void;
 };
 
@@ -55,6 +56,7 @@ export function FakturBarangJadiSelectSpkDialog({
     open,
     onOpenChange,
     excludeSpkIds = [],
+    receiptId,
     onSelected,
 }: FakturBarangJadiSelectSpkDialogProps) {
     return (
@@ -74,6 +76,7 @@ export function FakturBarangJadiSelectSpkDialog({
                 {open ? (
                     <FakturBarangJadiSelectSpkBody
                         excludeKey={excludeSpkIds.join(',')}
+                        receiptId={receiptId}
                         onCancel={() => onOpenChange(false)}
                         onSelected={(row) => {
                             onSelected(row);
@@ -88,10 +91,12 @@ export function FakturBarangJadiSelectSpkDialog({
 
 function FakturBarangJadiSelectSpkBody({
     excludeKey,
+    receiptId,
     onCancel,
     onSelected,
 }: {
     excludeKey: string;
+    receiptId?: number;
     onCancel: () => void;
     onSelected: (row: FakturBarangJadiSelectedSpk) => void;
 }) {
@@ -105,7 +110,7 @@ function FakturBarangJadiSelectSpkBody({
     const [selectedRow, setSelectedRow] =
         useState<FakturBarangJadiSpkOption | null>(null);
 
-    const requestKey = `${excludeKey}|${page}|${search}`;
+    const requestKey = `${excludeKey}|${receiptId ?? ''}|${page}|${search}`;
 
     useEffect(() => {
         if (searchInput.trim() !== search) {
@@ -128,6 +133,10 @@ function FakturBarangJadiSelectSpkBody({
                     page: page > 1 ? page : undefined,
                     search: search !== '' ? search : undefined,
                     exclude: excludeKey !== '' ? excludeKey : undefined,
+                    receipt_id:
+                        receiptId !== undefined && receiptId > 0
+                            ? receiptId
+                            : undefined,
                     faktur_belum: 1,
                 },
             }),
@@ -167,7 +176,7 @@ function FakturBarangJadiSelectSpkBody({
             .finally(() => setLoading(false));
 
         return () => controller.abort();
-    }, [excludeKey, page, search, requestKey]);
+    }, [excludeKey, page, receiptId, search, requestKey]);
 
     return (
         <>
