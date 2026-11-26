@@ -1,1 +1,0 @@
-import{ka as e}from"./app-CPHZ26N4.js";var t=e(`ui5-title`,[`level`,`size`,`wrappingType`],[],[],[]);t.displayName=`Title`;export{t};
