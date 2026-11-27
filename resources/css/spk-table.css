@@ -2062,6 +2062,16 @@
     color: #92400e;
 }
 
+.spkTableBadge--action {
+    cursor: pointer;
+    border: none;
+    font: inherit;
+}
+
+.spkTableBadge--action:hover {
+    filter: brightness(0.97);
+}
+
 .spkTableBadge--fakturPending {
     background: #fef9c3;
     color: #854d0e;

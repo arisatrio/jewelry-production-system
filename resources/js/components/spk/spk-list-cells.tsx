@@ -260,8 +260,10 @@ export function SpkTableTipeProduksiCell({
 
 export function SpkTableDescriptionCell({
     row,
+    onMissingSkuClick,
 }: {
     row: SpkListDescriptionFields;
+    onMissingSkuClick?: () => void;
 }) {
     const typeSkuLabel = row.typeSkuLabel?.trim() ?? '';
     const itemDescription = row.itemDescription?.trim() ?? '';
@@ -276,9 +278,22 @@ export function SpkTableDescriptionCell({
     return (
         <div className="spkTableDescription">
             {showMissingSku ? (
-                <span className="spkTableBadge spkTableBadge--missingSku">
-                    Belum assign SKU
-                </span>
+                onMissingSkuClick ? (
+                    <button
+                        type="button"
+                        className="spkTableBadge spkTableBadge--missingSku spkTableBadge--action"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onMissingSkuClick();
+                        }}
+                    >
+                        Belum assign SKU
+                    </button>
+                ) : (
+                    <span className="spkTableBadge spkTableBadge--missingSku">
+                        Belum assign SKU
+                    </span>
+                )
             ) : showTypeSku ? (
                 <span className="spkTableDescriptionTypeSku">
                     {typeSkuLabel}

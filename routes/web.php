@@ -160,6 +160,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('spk.print');
     Route::get('spk/print/template', [ProductionController::class, 'printTemplate'])
         ->name('spk.print.template');
+    Route::get('spk/assign-sku/options', [ProductionController::class, 'assignSkuOptions'])
+        ->name('spk.assign-sku.options');
+    Route::post('spk/{rowId}/assign-sku', [ProductionController::class, 'assignSku'])
+        ->whereNumber('rowId')
+        ->name('spk.assign-sku');
     Route::get('spk/store-stock-requests', [ProductionController::class, 'storeStockRequests'])
         ->name('spk.store-stock-requests');
     Route::post('spk/store-stock-requests', [ProductionController::class, 'assignStoreStockSpk'])

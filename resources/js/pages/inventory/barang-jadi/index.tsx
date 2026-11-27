@@ -1,11 +1,17 @@
 import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import filterIcon from '@ui5/webcomponents-icons/dist/filter.js';
 import listIcon from '@ui5/webcomponents-icons/dist/list.js';
 import searchIcon from '@ui5/webcomponents-icons/dist/search.js';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import {
+    SpkAssignSkuDialog,
+    type SpkAssignSkuDialogRow,
+} from '@/components/spk/spk-assign-sku-dialog';
 import {
     ActiveFilterSummary,
     describeFilterOptions,
@@ -147,6 +153,7 @@ type InventoryBarangJadiIndexProps = {
     pluSummary: PluSummary;
     skuSummary: SkuSummary;
     skuCompareAvailable: boolean;
+    canAssignSku: boolean;
     filters: {
         search: string;
         per_page: number;
@@ -168,9 +175,12 @@ export default function InventoryBarangJadiIndex({
     pluSummary,
     skuSummary,
     skuCompareAvailable,
+    canAssignSku,
     filters,
     filterOptions,
 }: InventoryBarangJadiIndexProps) {
+    const [assignSkuRow, setAssignSkuRow] =
+        useState<SpkAssignSkuDialogRow | null>(null);
     const [searchQuery, setSearchQuery] = useState(filters.search);
     const [syncedSearch, setSyncedSearch] = useState(filters.search);
 
@@ -836,6 +846,21 @@ export default function InventoryBarangJadiIndex({
                                                     />
                                                     <SpkTableDescriptionCell
                                                         row={row}
+                                                        onMissingSkuClick={
+                                                            canAssignSku &&
+                                                            row.skuAssigned ===
+                                                                false
+                                                                ? () =>
+                                                                      setAssignSkuRow(
+                                                                          {
+                                                                              rowId: row.rowId,
+                                                                              spkNo: row.spkNo,
+                                                                              itemDescription:
+                                                                                  row.itemDescription,
+                                                                          },
+                                                                      )
+                                                                : undefined
+                                                        }
                                                     />
                                                 </div>
                                             </td>
@@ -929,6 +954,20 @@ export default function InventoryBarangJadiIndex({
                     </div>
                 </div>
             </div>
+
+            <SpkAssignSkuDialog
+                row={assignSkuRow}
+                open={assignSkuRow !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setAssignSkuRow(null);
+                    }
+                }}
+                reloadOnly={['items', 'pluSummary', 'skuSummary']}
+                onAssigned={(message) => {
+                    toast.success(message);
+                }}
+            />
         </>
     );
 }

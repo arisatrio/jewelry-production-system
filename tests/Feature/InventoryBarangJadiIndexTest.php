@@ -22,6 +22,7 @@ test('inventory barang jadi index page is accessible', function () {
             ->has('skuSummary.skuTidakSama')
             ->has('skuSummary.skuSesuai')
             ->has('skuCompareAvailable')
+            ->has('canAssignSku')
             ->where('filters.plu_status', null)
             ->where('filters.sku_status', null)
         );

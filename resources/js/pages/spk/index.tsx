@@ -14,6 +14,7 @@ import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { MessageStrip } from '@ui5/webcomponents-react/MessageStrip';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import {
     ActiveFilterSummary,
     describeDateRange,
@@ -51,6 +52,10 @@ import {
     SpkRowManagerApproveButton,
     SpkRowSendButton,
 } from '@/components/spk/spk-row-approval-buttons';
+import {
+    SpkAssignSkuDialog,
+    type SpkAssignSkuDialogRow,
+} from '@/components/spk/spk-assign-sku-dialog';
 import { SpkRowPrintButton } from '@/components/spk/spk-row-print-button';
 import { SpkStatusListDialog } from '@/components/spk/spk-status-list-dialog';
 import { SpkStoreOrderRequestDialog } from '@/components/spk/spk-store-order-request-dialog';
@@ -157,6 +162,7 @@ type SpkIndexProps = {
         canApprove: boolean;
         canManagerApprove: boolean;
         canDelete: boolean;
+        canAssignSku?: boolean;
     };
     fakturBarangJadiTableAvailable?: boolean | null;
     fakturBarangJadiFotoBrjAvailable?: boolean | null;
@@ -318,6 +324,10 @@ export default function SpkIndex({
             : '–';
     const [storeOrderRequestDialogOpen, setStoreOrderRequestDialogOpen] =
         useState(false);
+    const [assignSkuRow, setAssignSkuRow] =
+        useState<SpkAssignSkuDialogRow | null>(null);
+    const canAssignSku =
+        bulkActions.canAssignSku === true && !isFakturBarangJadiIndex;
     const storeOrderRequestCountLabel =
         typeof storeOrderRequestCount === 'number'
             ? storeOrderRequestCount.toLocaleString('id-ID')
@@ -2102,6 +2112,21 @@ export default function SpkIndex({
                                                         />
                                                         <SpkTableDescriptionCell
                                                             row={row}
+                                                            onMissingSkuClick={
+                                                                canAssignSku &&
+                                                                row.skuAssigned ===
+                                                                    false
+                                                                    ? () =>
+                                                                          setAssignSkuRow(
+                                                                              {
+                                                                                  rowId: row.rowId,
+                                                                                  spkNo: row.produksiNo,
+                                                                                  itemDescription:
+                                                                                      row.itemDescription,
+                                                                              },
+                                                                          )
+                                                                    : undefined
+                                                            }
                                                         />
                                                     </div>
                                                 </td>
@@ -2294,6 +2319,19 @@ export default function SpkIndex({
             <SpkStoreStockRequestDialog
                 open={storeStockRequestDialogOpen}
                 onOpenChange={setStoreStockRequestDialogOpen}
+            />
+
+            <SpkAssignSkuDialog
+                row={assignSkuRow}
+                open={assignSkuRow !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setAssignSkuRow(null);
+                    }
+                }}
+                onAssigned={(message) => {
+                    toast.success(message);
+                }}
             />
 
             {isFakturBarangJadiIndex ? (

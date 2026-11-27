@@ -501,6 +501,48 @@ class SpkService
         });
     }
 
+    public function assignSku(
+        Production $production,
+        int $categoryPrefixId,
+        int $skuId,
+        string $actor,
+    ): Production {
+        return DB::connection('third')->transaction(function () use (
+            $production,
+            $categoryPrefixId,
+            $skuId,
+            $actor,
+        ): Production {
+            $category = SkuPrefixCategory::query()
+                ->active()
+                ->where('id', $categoryPrefixId)
+                ->firstOrFail();
+
+            $sku = SkuMaster::query()
+                ->active()
+                ->where('id', $skuId)
+                ->where('category_prefix_id', $category->id)
+                ->firstOrFail();
+
+            $attributes = [
+                'category_prefix_id' => $category->id,
+                'sku_id' => $sku->id,
+                'status_order' => $this->statusOrder->code($sku->id, $production->row_id),
+                'modified_date' => now(),
+                'modified_by' => $actor,
+            ];
+
+            if (blank($production->request_order_no)) {
+                $attributes['item_id'] = null;
+                $attributes['item_name'] = $category->category;
+            }
+
+            $production->update($attributes);
+
+            return $production->refresh();
+        });
+    }
+
     /**
      * Update gold fields and stone list on an existing SPK (master).
      *

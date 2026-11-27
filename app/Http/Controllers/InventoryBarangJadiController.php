@@ -6,6 +6,7 @@ use App\Models\Production;
 use App\Support\FakturBarangJadiReceiptService;
 use App\Support\InventoryPluSkuLookup;
 use App\Support\RequestOrderRepository;
+use App\Support\SpkApprovalRoles;
 use App\Support\SpkDashboardAnalytics;
 use App\Support\SpkOrderReference;
 use App\Support\SpkProcessMapper;
@@ -165,6 +166,7 @@ class InventoryBarangJadiController extends Controller
             'pluSummary' => $pluSummary,
             'skuSummary' => $skuSummary,
             'skuCompareAvailable' => $lookup->canCompareSkuByPlu(),
+            'canAssignSku' => SpkApprovalRoles::canEditDraft($request->user()),
             'filters' => [
                 'search' => $search,
                 'per_page' => $perPage,

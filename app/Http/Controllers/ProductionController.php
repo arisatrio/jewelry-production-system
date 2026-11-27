@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\StoreStockSpkSyncException;
+use App\Http\Requests\AssignProductionSkuRequest;
 use App\Http\Requests\AssignStoreStockSpkRequest;
 use App\Http\Requests\BulkUpdateSpkStatusRequest;
 use App\Http\Requests\PrintSpkChainReceiptRequest;
@@ -414,12 +415,14 @@ class ProductionController extends Controller
                     'canApprove' => false,
                     'canManagerApprove' => false,
                     'canDelete' => false,
+                    'canAssignSku' => false,
                 ]
                 : [
                     'canSubmit' => SpkApprovalRoles::canSubmit($user),
                     'canApprove' => SpkApprovalRoles::canApprove($user),
                     'canManagerApprove' => SpkApprovalRoles::canManagerApprove($user),
                     'canDelete' => SpkApprovalRoles::canEditDraft($user),
+                    'canAssignSku' => SpkApprovalRoles::canEditDraft($user),
                 ],
             'fakturBarangJadiTableAvailable' => $fakturBarangJadiOnly
                 ? app(FakturBarangJadiReceiptService::class)->tableAvailable()
@@ -1064,6 +1067,53 @@ class ProductionController extends Controller
             'message' => "SPK {$production->spk_no} berhasil dihubungkan ke {$production->request_stock_no}.",
             'spkNo' => $production->spk_no,
             'requestStockNo' => $production->request_stock_no,
+        ]);
+    }
+
+    /**
+     * Opsi tipe item & SKU untuk modal assign dari index SPK.
+     */
+    public function assignSkuOptions(): JsonResponse
+    {
+        $options = $this->formOptions();
+
+        return response()->json([
+            'categories' => $options['categories'],
+            'skus' => $options['skus'],
+        ]);
+    }
+
+    /**
+     * Assign SKU pada SPK yang belum memiliki SKU (dari index).
+     */
+    public function assignSku(
+        AssignProductionSkuRequest $request,
+        int $rowId,
+        SpkService $spkService,
+        ProductionPolicy $policy,
+    ): JsonResponse {
+        $production = $this->findActiveProduction($rowId);
+
+        if (! $policy->update($request->user(), $production)) {
+            abort(403, 'Anda tidak memiliki izin untuk meng-assign SKU pada SPK ini.');
+        }
+
+        if ($this->listHasAssignedSku($production)) {
+            throw ValidationException::withMessages([
+                'sku_id' => ['SPK ini sudah memiliki SKU.'],
+            ]);
+        }
+
+        $production = $spkService->assignSku(
+            $production,
+            (int) $request->validated('category_prefix_id'),
+            (int) $request->validated('sku_id'),
+            $this->actorName($request),
+        );
+
+        return response()->json([
+            'message' => "SKU berhasil di-assign ke SPK {$production->spk_no}.",
+            'rowId' => (int) $production->row_id,
         ]);
     }
 
