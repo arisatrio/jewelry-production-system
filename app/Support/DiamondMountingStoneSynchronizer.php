@@ -170,7 +170,8 @@ class DiamondMountingStoneSynchronizer
     }
 
     /**
-     * Batu terpasang saja (diamondmountingdetail), tanpa baris turunan dari setting batu.
+     * Batu terpasang untuk tampilan SPK: baris {@see diamondmountingdetail} plus mikro yang
+     * disimpan sebagai setting (transtype 7) setelah ditandai Terpasang di form Pasang Batu.
      *
      * @return list<array{kode: string, shape: string, pcs: int|float|null, crt: string|null, size: string}>
      */
@@ -180,7 +181,7 @@ class DiamondMountingStoneSynchronizer
         $mounted = $this->detailMountedLines([$mountingId])[$mountingId] ?? [];
         $setting = $this->detailStoneLines([$mountingId], self::TRANSTYPE_SETTING)[$mountingId] ?? [];
 
-        return $this->excludeSettingDerivedMountedRows($mounted, $setting);
+        return $this->mergeMountedDetailWithSetting($mounted, $setting);
     }
 
     /**
@@ -266,7 +267,12 @@ class DiamondMountingStoneSynchronizer
         );
         $this->syncDiamondLines($document, $payload['diamonds'] ?? [], $actor);
 
-        $this->syncMountedLines($document, $payload['mounted'] ?? [], $actor);
+        $mountedLines = array_values(array_merge(
+            $payload['mounted'] ?? [],
+            $this->mountedLinesFromSetting($settingLines),
+        ));
+
+        $this->syncMountedLines($document, $mountedLines, $actor);
     }
 
     /**

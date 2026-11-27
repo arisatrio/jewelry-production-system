@@ -84,7 +84,7 @@ export function displayStoneWithNotes(
     );
 }
 
-function StoneBatchTable({
+export function StoneBatchTable({
     title,
     columns,
     rows,

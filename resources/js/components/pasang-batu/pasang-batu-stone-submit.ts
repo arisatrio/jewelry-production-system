@@ -170,7 +170,12 @@ export function buildPasangBatuStoneSubmitPayload(formData: {
             mounted.crt.trim() !== '' ||
             mounted.size.trim() !== '';
 
-        if (!hasDetail) {
+        const linkedDiamond =
+            diamond !== undefined &&
+            Number.isFinite(Number(diamond.diamond_id.trim())) &&
+            Number(diamond.diamond_id.trim()) > 0;
+
+        if (!hasDetail && !linkedDiamond) {
             continue;
         }
 
@@ -178,9 +183,13 @@ export function buildPasangBatuStoneSubmitPayload(formData: {
             diamond_code:
                 mounted.diamond_code.trim() !== ''
                     ? mounted.diamond_code.trim()
-                    : null,
+                    : linkedDiamond
+                      ? `Dossier #${Number(diamond.diamond_id.trim())}`
+                      : null,
             shape_id: normalizeOptionalId(mounted.shape_id),
-            pcs: normalizeNullableNumber(mounted.pcs),
+            pcs:
+                normalizeNullableNumber(mounted.pcs) ??
+                (linkedDiamond ? '1' : null),
             crt: normalizeNullableNumber(mounted.crt),
             size: mounted.size.trim() !== '' ? mounted.size.trim() : null,
         });

@@ -517,3 +517,22 @@ test('inventory barang jadi filters by done rangka status', function () {
         $production->delete();
     }
 });
+
+test('spk detail route resolves by spk number not row id', function () {
+    $production = Production::factory()->create([
+        'status' => 'SPK010',
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+        'is_deleted' => 0,
+    ]);
+
+    try {
+        $this->get(route('spk.show', $production->spk_no))
+            ->assertOk();
+
+        $this->get('/spk/'.(int) $production->row_id)
+            ->assertNotFound();
+    } finally {
+        $production->delete();
+    }
+});

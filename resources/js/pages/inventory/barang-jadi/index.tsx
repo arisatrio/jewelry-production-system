@@ -319,7 +319,13 @@ export default function InventoryBarangJadiIndex({
     };
 
     const openSpkDetail = (row: BarangJadiRow) => {
-        router.visit(spkShow.url(row.rowId));
+        const spkNo = row.spkNo?.trim() ?? '';
+
+        if (spkNo === '') {
+            return;
+        }
+
+        router.visit(spkShow.url(spkNo));
     };
 
     return (

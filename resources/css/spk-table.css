@@ -3845,6 +3845,7 @@
     line-height: 1.4;
 }
 
+
 .spkDetailAsideDelivery {
     display: flex;
     flex-direction: column;
@@ -8366,6 +8367,23 @@ button.spkItemImagePreview--clickable:focus-visible {
     height: 1rem;
     color: #fff;
     flex-shrink: 0;
+}
+
+.spkHeaderActionBtn--brand {
+    background: var(--sap-fiori-brand, #0070f2);
+}
+
+.spkHeaderActionBtn--brand:hover {
+    background: #0057d2;
+}
+
+.spkHeaderActionBtn--brand:active {
+    background: #0040b0;
+}
+
+.spkHeaderActionBtn--brand:disabled:hover,
+.spkHeaderActionBtn--brand:disabled:active {
+    background: var(--sap-fiori-brand, #0070f2);
 }
 
 .spkHeaderActionBtn--positive {

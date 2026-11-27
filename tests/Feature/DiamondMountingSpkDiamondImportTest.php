@@ -63,7 +63,8 @@ test('pasang batu can search and import eligible spk diamond payload', function 
             'search' => $spkDiamond->doc_no,
         ]))
         ->assertOk()
-        ->assertJsonPath('data.0.rowId', (int) $spkDiamond->row_id);
+        ->assertJsonPath('data.0.rowId', (int) $spkDiamond->row_id)
+        ->assertJsonPath('data.0.stoneCountLabel', 'Micro 2 Pcs, Dossier 0 Pcs');
 
     $this->actingAs($user)
         ->getJson(route('pasang-batu.select.spk-diamonds.import', $spkDiamond))

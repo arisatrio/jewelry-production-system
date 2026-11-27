@@ -3,7 +3,6 @@ import navBackIcon from '@ui5/webcomponents-icons/dist/nav-back.js';
 import printIcon from '@ui5/webcomponents-icons/dist/print.js';
 import { Icon } from '@ui5/webcomponents-react/Icon';
 import { Text } from '@ui5/webcomponents-react/Text';
-import { toast } from 'sonner';
 import { SpkItemNoLink } from '@/components/spk/spk-item-no-link';
 import { SpkDiamondStatusBadge } from '@/components/spk/spk-diamond-status-badge';
 import { displayListDate } from '@/components/spk/spk-list-cells';
@@ -21,6 +20,7 @@ export type SpkDiamondDetailItem = SpkDiamondDetailStoneRow & {
 
 export type SpkDiamondDetailDocument = {
     id: number;
+    printUrl: string;
     docNo: string;
     tanggal: string;
     spkRowId: number;
@@ -61,9 +61,7 @@ type SpkDiamondDetailProps = {
 
 export function SpkDiamondDetail({ document }: SpkDiamondDetailProps) {
     const openPrint = (): void => {
-        toast.info(
-            `Cetak SPK Pasang Batu ${document.docNo} akan menyusul.`,
-        );
+        window.open(document.printUrl, '_blank', 'noopener,noreferrer');
     };
 
     return (

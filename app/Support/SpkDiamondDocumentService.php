@@ -591,7 +591,7 @@ class SpkDiamondDocumentService
         $document->load([
             'production' => fn ($query) => $query
                 ->notDeleted()
-                ->select(['row_id', 'spk_no', 'item_name']),
+                ->with(['categoryPrefix', 'sku']),
         ]);
 
         $spkNo = filled($document->spk_no)
@@ -623,12 +623,16 @@ class SpkDiamondDocumentService
             }
         }
 
+        $itemPresentation = SpkProductionListItemPresentation::forProduction($document->production);
+
         return [
             'id' => (int) $document->row_id,
+            'printUrl' => route('spk-diamond.print', $document),
             'docNo' => (string) $document->doc_no,
             'tanggal' => $document->tanggal->toDateString(),
             'spkRowId' => (int) $document->spk_row_id,
             'spkNo' => $spkNo,
+            ...$itemPresentation,
             'itemName' => $document->production !== null && filled($document->production->item_name)
                 ? (string) $document->production->item_name
                 : null,

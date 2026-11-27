@@ -12,6 +12,7 @@ import {
     SpkTableDescriptionCell,
     SpkTableDocumentDateCell,
 } from '@/components/spk/spk-list-cells';
+import { SpkDiamondRowPrintButton } from '@/components/spk/spk-diamond-row-print-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { show as spkDiamondShow } from '@/routes/spk-diamond';
 import { show as pasangBatuShow } from '@/routes/pasang-batu';
@@ -142,12 +143,22 @@ export function SpkDiamondIndexDocumentRows({
                 rowSpan={rowSpan}
                 className="spkTableColDoc spkTableColDoc--spk spkTableColDoc--spkDiamond"
             >
-                <Link
-                    href={spkDiamondShow.url(row.id)}
-                    className="spkProduksiLink"
-                >
-                    {emptyDash(row.docNo)}
-                </Link>
+                <div className="spkTableDocRow">
+                    <div className="spkTableRowActions">
+                        <SpkDiamondRowPrintButton
+                            documentId={row.id}
+                            docNo={emptyDash(row.docNo)}
+                        />
+                    </div>
+                    <div className="spkTableDocMetaBlock">
+                        <Link
+                            href={spkDiamondShow.url(row.id)}
+                            className="spkProduksiLink"
+                        >
+                            {emptyDash(row.docNo)}
+                        </Link>
+                    </div>
+                </div>
             </td>
             <td
                 rowSpan={rowSpan}

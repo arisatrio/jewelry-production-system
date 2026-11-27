@@ -544,6 +544,155 @@ class SpkService
     }
 
     /**
+     * Ubah tipe produksi SPK beserta nomor pesanan / referensi terkait.
+     *
+     * @param  array{
+     *     request_order_no?: string|null,
+     *     request_stock_no?: string|null,
+     *     ref_spk_id?: int|null,
+     * }  $payload
+     */
+    public function updateProductionType(
+        Production $production,
+        string $spkType,
+        array $payload,
+        string $actor,
+    ): Production {
+        if (! in_array($spkType, self::TYPES, true)) {
+            throw ValidationException::withMessages([
+                'spk_type' => 'Tipe produksi tidak valid.',
+            ]);
+        }
+
+        return DB::connection('third')->transaction(function () use (
+            $production,
+            $spkType,
+            $payload,
+            $actor,
+        ): Production {
+            $cleared = [
+                'request_order_no' => null,
+                'request_stock_no' => null,
+                'request_stock_drk_no' => null,
+                'ref_spk_id' => null,
+            ];
+
+            try {
+                $typeAttributes = match ($spkType) {
+                    'Pesanan' => $this->attributesFromRequestOrder((string) $payload['request_order_no']),
+                    'Exchange', 'Refund', 'Reparasi' => $this->attributesFromReference(
+                        (int) $payload['ref_spk_id'],
+                        $spkType,
+                    ),
+                    'Stock' => $this->resolveStockTypeAttributes(
+                        $production,
+                        $payload['request_stock_no'] ?? null,
+                    ),
+                    default => throw new InvalidArgumentException("Tipe produksi tidak dikenali: {$spkType}"),
+                };
+            } catch (InvalidArgumentException $exception) {
+                throw ValidationException::withMessages([
+                    'spk_type' => $exception->getMessage(),
+                ]);
+            }
+
+            $attributes = [
+                ...$cleared,
+                ...$typeAttributes,
+                'modified_date' => now(),
+                'modified_by' => $actor,
+            ];
+
+            if ($spkType === 'Pesanan') {
+                $docNo = (string) $payload['request_order_no'];
+                $orderDate = $this->requestOrders->orderDateByDocNo($docNo);
+                $estimatedDate = $this->requestOrders->estimatedDateByDocNo($docNo);
+
+                if ($orderDate !== null) {
+                    $attributes['order_date'] = $orderDate;
+                }
+
+                if ($estimatedDate !== null) {
+                    $attributes['estimated_delivery_time'] = $estimatedDate;
+                }
+            }
+
+            $requestStockNo = $attributes['request_stock_no'] ?? null;
+
+            if ($spkType === 'Stock' && filled($requestStockNo)) {
+                $estimatedDate = $this->storeStockRequests->estimatedDateByDocNo((string) $requestStockNo);
+
+                if ($estimatedDate !== null) {
+                    $attributes['estimated_delivery_time'] = $estimatedDate;
+                }
+            }
+
+            $production->update($attributes);
+            $production->refresh();
+
+            if ($spkType === 'Stock' && filled($production->request_stock_no) && filled($production->spk_no)) {
+                $this->storeStockRequests->assignSpkNumber(
+                    (string) $production->request_stock_no,
+                    (string) $production->spk_no,
+                    $actor,
+                );
+            }
+
+            return $production;
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveStockTypeAttributes(Production $production, ?string $requestStockNo): array
+    {
+        $attributes = ['spk_type' => 'Stock'];
+
+        if (filled($requestStockNo)) {
+            $docNo = strtoupper(trim($requestStockNo));
+
+            $otherSpkNo = Production::query()
+                ->notDeleted()
+                ->where('request_stock_no', $docNo)
+                ->where('row_id', '!=', $production->row_id)
+                ->value('spk_no');
+
+            if (filled($otherSpkNo)) {
+                throw ValidationException::withMessages([
+                    'request_stock_no' => "Permintaan stok {$docNo} sudah terhubung ke SPK {$otherSpkNo}.",
+                ]);
+            }
+
+            $attributes['request_stock_no'] = $docNo;
+            $attributes['request_stock_drk_no'] = null;
+
+            return $attributes;
+        }
+
+        if ($production->spk_type === 'Stock' && filled($production->request_stock_no)) {
+            $attributes['request_stock_no'] = $production->request_stock_no;
+            $attributes['request_stock_drk_no'] = null;
+
+            return $attributes;
+        }
+
+        $attributes['request_stock_no'] = null;
+
+        if (
+            $production->spk_type === 'Stock'
+            && blank($production->request_stock_no)
+            && filled($production->request_stock_drk_no)
+        ) {
+            $attributes['request_stock_drk_no'] = $production->request_stock_drk_no;
+        } else {
+            $attributes['request_stock_drk_no'] = $this->generateRequestStockDrkNo();
+        }
+
+        return $attributes;
+    }
+
+    /**
      * Update gold fields and stone list on an existing SPK (master).
      *
      * @param  array{

@@ -9,6 +9,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { SpkTableItemCell } from '@/components/spk/spk-table-item-cell';
 import { Input as UiInput } from '@/components/ui/input';
 import { spkDiamonds as searchPasangBatuSpkDiamonds } from '@/routes/pasang-batu/select';
 
@@ -21,9 +22,12 @@ type SpkDiamondSelectorOption = {
     rowId: number;
     docNo: string;
     spkNo: string | null;
-    itemName: string;
+    spkImageUrl: string | null;
+    typeSkuLabel: string | null;
+    itemDescription: string | null;
+    skuAssigned: boolean;
     statusLabel: string;
-    lineCount: number;
+    stoneCountLabel: string;
 };
 
 type PasangBatuSelectSpkDiamondDialogProps = {
@@ -170,7 +174,7 @@ export function PasangBatuSelectSpkDiamondDialog({
                                     <th>No. SPK</th>
                                     <th>Item</th>
                                     <th>Status</th>
-                                    <th>Baris</th>
+                                    <th>Jumlah batu</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -211,9 +215,25 @@ export function PasangBatuSelectSpkDiamondDialog({
                                             >
                                                 <td>{row.docNo}</td>
                                                 <td>{row.spkNo ?? '—'}</td>
-                                                <td>{row.itemName}</td>
+                                                <td className="spkCreateDialogTableItemCell">
+                                                    <SpkTableItemCell
+                                                        spkNo={row.spkNo ?? '—'}
+                                                        spkImageUrl={
+                                                            row.spkImageUrl
+                                                        }
+                                                        typeSkuLabel={
+                                                            row.typeSkuLabel
+                                                        }
+                                                        itemDescription={
+                                                            row.itemDescription
+                                                        }
+                                                        skuAssigned={
+                                                            row.skuAssigned
+                                                        }
+                                                    />
+                                                </td>
                                                 <td>{row.statusLabel}</td>
-                                                <td>{row.lineCount}</td>
+                                                <td>{row.stoneCountLabel}</td>
                                             </tr>
                                         );
                                     })

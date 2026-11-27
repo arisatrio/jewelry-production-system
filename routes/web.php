@@ -137,6 +137,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('spk-diamond/{spkDiamond}', [SpkDiamondController::class, 'show'])
         ->whereNumber('spkDiamond')
         ->name('spk-diamond.show');
+    Route::get('spk-diamond/{spkDiamond}/print', [SpkDiamondController::class, 'printDocument'])
+        ->whereNumber('spkDiamond')
+        ->name('spk-diamond.print');
     Route::get('spk-diamond/print/receipt', [SpkDiamondController::class, 'receiptHistory'])
         ->name('spk-diamond.print.receipt.index');
     Route::post('spk-diamond/print/receipt', [SpkDiamondController::class, 'storeReceipt'])
@@ -165,6 +168,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('spk/{rowId}/assign-sku', [ProductionController::class, 'assignSku'])
         ->whereNumber('rowId')
         ->name('spk.assign-sku');
+    Route::post('spk/{rowId}/production-type', [ProductionController::class, 'updateProductionType'])
+        ->whereNumber('rowId')
+        ->name('spk.production-type.update');
     Route::get('spk/store-stock-requests', [ProductionController::class, 'storeStockRequests'])
         ->name('spk.store-stock-requests');
     Route::post('spk/store-stock-requests', [ProductionController::class, 'assignStoreStockSpk'])

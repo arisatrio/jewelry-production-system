@@ -132,7 +132,14 @@ test('spk diamond show renders document detail', function () {
             ->where('document.spkRowId', (int) $production->row_id)
             ->where('document.status', 'draft')
             ->where('document.statusLabel', 'Draft')
+            ->where('document.printUrl', route('spk-diamond.print', $documentId))
             ->has('document.items', 1));
+
+    $this->get(route('spk-diamond.print', $documentId))
+        ->assertOk()
+        ->assertSee($docNo, false)
+        ->assertSee('SPK Pasang Batu', false)
+        ->assertSee((string) config('spk.spk_diamond_form_document_no'), false);
 });
 
 test('spk diamond store rejects duplicate document for same production', function () {

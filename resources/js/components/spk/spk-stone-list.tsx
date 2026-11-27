@@ -48,7 +48,7 @@ import { index as diamondDossiersIndex } from '@/routes/inventory/diamond-dossie
 import { index as microStonesIndex } from '@/routes/inventory/micro-stones';
 import { fulfillment as advanceStoneFulfillment } from '@/routes/spk/stones';
 import { revoke as revokeStoneAllocationItem } from '@/routes/spk/stones/allocations/items';
-import { show as spkDiamondShow } from '@/routes/spk-diamond';
+import { print as spkDiamondPrint, show as spkDiamondShow } from '@/routes/spk-diamond';
 
 type SpkItemStoneCardProps = {
     item: SpkItemDetail;
@@ -1299,8 +1299,18 @@ export function SpkStoneListCard({
             return;
         }
 
-        toast.info(
-            `Dokumen ${spkDiamond?.docNo ?? ''} tersimpan. Cetak SPK Pasang Batu akan menyusul.`,
+        const documentId = spkDiamondDocuments[0]?.id ?? null;
+
+        if (documentId === null || documentId <= 0) {
+            toast.warning('Dokumen SPK Pasang Batu tidak ditemukan.');
+
+            return;
+        }
+
+        window.open(
+            spkDiamondPrint.url(documentId),
+            '_blank',
+            'noopener,noreferrer',
         );
     };
     const totalButir = stones.reduce(

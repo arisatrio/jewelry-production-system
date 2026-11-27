@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\SerahTerimaSpkDiamond;
 use App\Models\SpkDiamond;
 use App\Support\SerahTerimaSpkDiamondDocNumberGenerator;
+use App\Support\SpkDiamondDocumentPrintPresenter;
 use App\Support\SpkDiamondDocumentService;
 use App\Support\SpkDiamondStatus;
 use App\Support\SpkStoneAllocationService;
@@ -111,6 +112,30 @@ class SpkDiamondController extends Controller
 
         return Inertia::render('spk-diamond/show', [
             'document' => $documents->detailPayload($spkDiamond),
+        ]);
+    }
+
+    /**
+     * Halaman cetak dokumen SPK Pasang Batu.
+     */
+    public function printDocument(
+        Request $request,
+        SpkDiamond $spkDiamond,
+        SpkDiamondDocumentService $documents,
+        SpkDiamondDocumentPrintPresenter $presenter,
+    ): View {
+        if (! $documents->tableAvailable()) {
+            abort(404);
+        }
+
+        $detail = $documents->detailPayload($spkDiamond);
+
+        return view('spk.spk-diamond-document', [
+            'title' => "SPK Pasang Batu {$spkDiamond->doc_no} — Print",
+            'header' => $this->spkDiamondFormDocumentHeader(),
+            'document' => $presenter->fromDetailPayload($detail),
+            'printedAt' => now()->format('d-M-Y H:i'),
+            'printedBy' => $this->actorName($request),
         ]);
     }
 
@@ -453,6 +478,30 @@ class SpkDiamondController extends Controller
             'issueNo' => (string) config('spk.issue_no', '01'),
             'revision' => (string) config('spk.spk_diamond_receipt_revision', '00'),
             'issueDate' => (string) config('spk.spk_diamond_receipt_issue_date', '05/11/2026'),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     logoUrl: string,
+     *     companyName: string,
+     *     formTitle: string,
+     *     docNo: string,
+     *     issueNo: string,
+     *     revision: string,
+     *     issueDate: string
+     * }
+     */
+    private function spkDiamondFormDocumentHeader(): array
+    {
+        return [
+            'logoUrl' => asset((string) config('spk.logo', 'images/logo.jpg')),
+            'companyName' => (string) config('spk.company_name', 'Wanda House of Jewels'),
+            'formTitle' => 'SPK Pasang Batu',
+            'docNo' => (string) config('spk.spk_diamond_form_document_no', 'WHOJ-PRD-FRM-008'),
+            'issueNo' => (string) config('spk.issue_no', '01'),
+            'revision' => (string) config('spk.spk_diamond_form_revision', '00'),
+            'issueDate' => (string) config('spk.spk_diamond_form_issue_date', '05/11/2026'),
         ];
     }
 

@@ -25,6 +25,8 @@ test('spk show page includes mapped workflow status', function () {
             ->where('production.workflowStatus.stages.2.key', 'inProgress')
             ->where('production.workflowStatus.stages.3.key', 'done')
             ->has('production.refSpkNo')
+            ->where('production.rowId', (int) $production->row_id)
+            ->has('production.skuId')
             ->has('detailUrl')
             ->has('approval')
             ->has('approvalTimeline')

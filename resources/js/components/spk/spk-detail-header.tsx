@@ -29,6 +29,7 @@ import {
     type SpkApprovalTimelineEvent,
 } from '@/components/spk/spk-approval-timeline-panel';
 import { SpkBarcodeDialog } from '@/components/spk/spk-barcode-dialog';
+import { SpkChangeProductionTypeDialog } from '@/components/spk/spk-change-production-type-dialog';
 import { SpkShareLinkDialog } from '@/components/spk/spk-share-link-dialog';
 import { SpkCraftsmanReportSection } from '@/components/spk/spk-craftsman-report-section';
 import { SpkGoldReportTable } from '@/components/spk/spk-gold-report-table';
@@ -167,6 +168,7 @@ export function SpkDetailLayout({
     const [shareOpen, setShareOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [productionTypeOpen, setProductionTypeOpen] = useState(false);
     const [completingPolesChrome, setCompletingPolesChrome] = useState(false);
     const workflowStatus = production.workflowStatus;
     const activeStageIndex = workflowStatus?.stageIndex ?? 0;
@@ -370,6 +372,17 @@ export function SpkDetailLayout({
                                     approval={approval}
                                 />
                             ) : null}
+                            {approval?.canEdit === true &&
+                            production.tipeProduksi === 'Stock' ? (
+                                <button
+                                    type="button"
+                                    className="spkHeaderActionBtn spkHeaderActionBtn--brand spkHeaderTextActionBtn"
+                                    title="Ubah tipe produksi ke Pesanan"
+                                    onClick={() => setProductionTypeOpen(true)}
+                                >
+                                    Ubah ke Pesanan
+                                </button>
+                            ) : null}
                             {polesChromeComplete ? (
                                 <button
                                     type="button"
@@ -488,6 +501,15 @@ export function SpkDetailLayout({
                     item={item}
                 />
             ) : null}
+
+            <SpkChangeProductionTypeDialog
+                production={production}
+                item={item}
+                targetSpkType="Pesanan"
+                open={productionTypeOpen}
+                onOpenChange={setProductionTypeOpen}
+                onUpdated={(message) => toast.success(message)}
+            />
 
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <DialogContent className="spkDeleteDialog">

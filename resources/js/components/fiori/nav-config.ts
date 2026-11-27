@@ -44,6 +44,7 @@ import {
 import { index as resinIndex } from '@/routes/resin';
 import { index as fakturBarangJadiIndex } from '@/routes/faktur-barang-jadi';
 import { index as spkIndex } from '@/routes/spk';
+import { index as spkDiamondIndex } from '@/routes/spk-diamond';
 
 export type ShellNavItem = {
     text: string;
@@ -117,6 +118,10 @@ export const defaultInventorySubmenus: ShellNavItem[] = [
             {
                 text: 'Transaksi Batu Mikro',
                 href: stoneTransactionsIndex.url(),
+            },
+            {
+                text: 'SPK Diamond',
+                href: spkDiamondIndex.url(),
             },
         ],
     },

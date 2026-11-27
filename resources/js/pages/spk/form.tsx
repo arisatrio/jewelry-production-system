@@ -59,6 +59,10 @@ import {
     referenceSpks as searchReferenceSpks,
     requestOrders as searchRequestOrders,
 } from '@/routes/spk/select';
+import {
+    spkRequestOrderSelectorItemCell,
+    type SpkRequestOrderSelectorItemFields,
+} from '@/lib/spk-request-order-selector-item';
 
 type OptionItem = {
     value: string;
@@ -107,7 +111,7 @@ function spkTypeDisplayLabel(type: string | null | undefined): string {
     return type?.trim() || '';
 }
 
-type RequestOrderOption = {
+type RequestOrderOption = SpkRequestOrderSelectorItemFields & {
     rowId: number;
     docNo: string;
     customer: string;
@@ -2589,27 +2593,13 @@ export default function SpkFormPage({
                         cellClassName: 'spkCreateDialogTableItemCell',
                     },
                 ]}
-                rows={requestOrders.map((row) => {
-                    const skuCode = row.skuCode?.trim() ?? '';
-
-                    return {
-                        id: String(row.rowId),
-                        docNo: row.docNo,
-                        customer: row.customer,
-                        paymentStatus: row.paymentStatusLabel ?? '-',
-                        item:
-                            skuCode === '' ? (
-                                row.item
-                            ) : (
-                                <span className="spkCreateSelectorItemCell">
-                                    <span>{row.item}</span>
-                                    <span className="spkCreateSelectorItemSku">
-                                        {skuCode}
-                                    </span>
-                                </span>
-                            ),
-                    };
-                })}
+                rows={requestOrders.map((row) => ({
+                    id: String(row.rowId),
+                    docNo: row.docNo,
+                    customer: row.customer,
+                    paymentStatus: row.paymentStatusLabel ?? '-',
+                    item: spkRequestOrderSelectorItemCell(row),
+                }))}
                 onSelect={(id) => {
                     const selected = requestOrders.find(
                         (row) => String(row.rowId) === id,

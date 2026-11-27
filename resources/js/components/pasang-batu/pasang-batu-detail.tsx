@@ -2,15 +2,15 @@ import acceptIcon from '@ui5/webcomponents-icons/dist/accept.js';
 import declineIcon from '@ui5/webcomponents-icons/dist/decline.js';
 import editIcon from '@ui5/webcomponents-icons/dist/edit.js';
 import paperPlaneIcon from '@ui5/webcomponents-icons/dist/paper-plane.js';
-import { router } from '@inertiajs/react';
+import { router, Link } from '@inertiajs/react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@ui5/webcomponents-react/Button';
 import { Icon } from '@ui5/webcomponents-react/Icon';
-import type { PasangBatuStones } from '@/components/pasang-batu/pasang-batu-stone-tables';
 import {
-    PasangBatuDetailBatuSection,
-    type PasangBatuBatuDetail,
-} from '@/components/pasang-batu/pasang-batu-detail-batu-section';
+    PasangBatuStoneTables,
+    type PasangBatuStones,
+} from '@/components/pasang-batu/pasang-batu-stone-tables';
+import type { PasangBatuBatuDetail } from '@/components/pasang-batu/pasang-batu-detail-batu-section';
 import { SpkItemSkuColumn } from '@/components/spk/spk-item-sku-column';
 import { SpkOrderTypeColumn } from '@/components/spk/spk-order-type-column';
 import {
@@ -602,10 +602,28 @@ export function PasangBatuDetail({
                                     <h3 className="spkShowSectionTitle">
                                         Detail Batu
                                     </h3>
-                                    <PasangBatuDetailBatuSection
-                                        batuDetail={
-                                            diamondMountingItem.batuDetail
-                                        }
+                                    {diamondMountingItem.batuDetail
+                                        .spkDiamond ? (
+                                        <p className="spkPasangBatuDetailBatuDocLink">
+                                            SPK Diamond:{' '}
+                                            <Link
+                                                href={
+                                                    diamondMountingItem
+                                                        .batuDetail.spkDiamond
+                                                        .showUrl
+                                                }
+                                                className="spkProduksiLink"
+                                            >
+                                                {
+                                                    diamondMountingItem
+                                                        .batuDetail.spkDiamond
+                                                        .docNo
+                                                }
+                                            </Link>
+                                        </p>
+                                    ) : null}
+                                    <PasangBatuStoneTables
+                                        stones={diamondMountingItem.stones}
                                     />
                                 </section>
 

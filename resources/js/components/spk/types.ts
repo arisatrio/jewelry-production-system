@@ -97,6 +97,9 @@ export type SpkDetail = SpkRow & {
     pesananHeading?: string;
     requestOrderCreatedDate?: string;
     refSpkNo: string;
+    refSpkId?: number | null;
+    rowId?: number;
+    skuId?: number | null;
     description: string;
     qty: number | string;
     goldWeight: string | number;

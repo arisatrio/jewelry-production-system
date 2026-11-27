@@ -293,7 +293,7 @@ export function PasangBatuForm({
                     spk_diamond_doc_no: imported.spkDiamondDocNo,
                     spk: nextSpk,
                     weight_frame: imported.spk.lastWeight?.trim() ?? '',
-                    weight_diamond: imported.weightDiamond?.trim() ?? '',
+                    weight_diamond: '',
                     setting_stones: imported.settingStones.map((line) => ({
                         key: newLineKey('setting'),
                         stone_id: String(line.stoneId),

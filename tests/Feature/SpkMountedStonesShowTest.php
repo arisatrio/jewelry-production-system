@@ -95,14 +95,91 @@ test('spk show includes mounted stones from latest pasang batu document', functi
             ->has('mountedStonesDetail.pasangBatu')
             ->where('mountedStonesDetail.pasangBatu.id', (int) $document->row_id)
             ->where('mountedStonesDetail.pasangBatu.docNo', (string) $document->doc_no)
-            ->has('mountedStonesDetail.mounted', 1)
+            ->has('mountedStonesDetail.mounted', 2)
             ->where(
                 'mountedStonesDetail.mounted',
                 fn ($rows) => collect($rows)->contains(
                     fn (array $row): bool => ($row['kode'] ?? '') === 'B01',
                 ),
+            ));
+
+    DB::connection('third')
+        ->table('trstone')
+        ->where('ref_row_id', $document->row_id)
+        ->delete();
+    DB::connection('third')
+        ->table('diamondmountingdetail')
+        ->where('row_id', $document->row_id)
+        ->delete();
+    $document->delete();
+    $production->delete();
+});
+
+test('spk show mounted stones includes mikro from setting stones without explicit mounted rows', function () {
+    $production = Production::factory()->create([
+        'spk_no' => '2026/PRD/SMTMIK'.Str::upper(Str::random(3)),
+        'last_process' => 'Poles Rangka',
+        'is_inprocess' => 1,
+    ]);
+
+    $stoneName = (string) DB::connection('third')
+        ->table('msstone')
+        ->when(
+            Schema::connection('third')->hasColumn('msstone', 'is_deleted'),
+            fn ($query) => $query->where('is_deleted', 0),
+        )
+        ->whereNotNull('name')
+        ->where('name', '!=', '')
+        ->orderBy('row_id')
+        ->value('name');
+
+    $stoneId = (int) DB::connection('third')
+        ->table('msstone')
+        ->when(
+            Schema::connection('third')->hasColumn('msstone', 'is_deleted'),
+            fn ($query) => $query->where('is_deleted', 0),
+        )
+        ->where('name', $stoneName)
+        ->value('row_id');
+
+    expect($stoneId)->toBeGreaterThan(0);
+
+    $this->actingAs(User::factory()->create());
+
+    $this->post(route('pasang-batu.store'), [
+        'spk_id' => $production->row_id,
+        'weight_frame' => '2.70',
+        'weight_diamond' => '0.05',
+        'setting_stones' => [
+            [
+                'stone_id' => $stoneId,
+                'pcs' => '155',
+                'crt' => '3.196',
+                'notes' => '',
+            ],
+        ],
+        'return_stones' => [],
+        'diamonds' => [],
+        'mounted_stones' => [],
+    ])->assertSessionHasNoErrors();
+
+    $document = DiamondMounting::query()
+        ->notDeleted()
+        ->where('spk_id', $production->row_id)
+        ->orderByDesc('row_id')
+        ->first();
+
+    expect($document)->not->toBeNull();
+
+    $this->get(route('spk.show', $production))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('mountedStonesDetail.mounted', 1)
+            ->where(
+                'mountedStonesDetail.mounted.0.kode',
+                $stoneName,
             )
-        );
+            ->where('mountedStonesDetail.mountedTotals.pcs', 155));
 
     DB::connection('third')
         ->table('trstone')

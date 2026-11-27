@@ -13,6 +13,7 @@ use App\Http\Requests\SpkApprovalDecisionRequest;
 use App\Http\Requests\StoreProductionRequest;
 use App\Http\Requests\StoreSpkDiamondRequest;
 use App\Http\Requests\UpdateProductionRequest;
+use App\Http\Requests\UpdateProductionTypeRequest;
 use App\Models\Employee;
 use App\Models\MsChain;
 use App\Models\MsComponent;
@@ -1113,6 +1114,41 @@ class ProductionController extends Controller
 
         return response()->json([
             'message' => "SKU berhasil di-assign ke SPK {$production->spk_no}.",
+            'rowId' => (int) $production->row_id,
+        ]);
+    }
+
+    /**
+     * Ubah tipe produksi SPK dari halaman detail (Pesanan, Stock, referensi, dll).
+     */
+    public function updateProductionType(
+        UpdateProductionTypeRequest $request,
+        int $rowId,
+        SpkService $spkService,
+        ProductionPolicy $policy,
+    ): JsonResponse {
+        $production = $this->findActiveProduction($rowId);
+
+        if (! $policy->update($request->user(), $production)) {
+            abort(403, 'Anda tidak memiliki izin untuk mengubah tipe produksi SPK ini.');
+        }
+
+        $validated = $request->validated();
+        $spkType = (string) $validated['spk_type'];
+
+        $production = $spkService->updateProductionType(
+            $production,
+            $spkType,
+            [
+                'request_order_no' => $validated['request_order_no'] ?? null,
+                'request_stock_no' => $validated['request_stock_no'] ?? null,
+                'ref_spk_id' => $validated['ref_spk_id'] ?? null,
+            ],
+            $this->actorName($request),
+        );
+
+        return response()->json([
+            'message' => "Tipe produksi SPK {$production->spk_no} berhasil diperbarui.",
             'rowId' => (int) $production->row_id,
         ]);
     }
@@ -3477,6 +3513,8 @@ class ProductionController extends Controller
 
         $detail = [
             ...$this->toListItem($production, $completedKind ?? false, $lastProcessDate),
+            'rowId' => (int) $production->row_id,
+            'skuId' => filled($production->sku_id) ? (int) $production->sku_id : null,
             'orderDate' => $this->displayOrderDate($production),
             'customer' => $this->customerName($production),
             'paymentStatus' => $paymentStatus,
@@ -3493,6 +3531,7 @@ class ProductionController extends Controller
             'pesananHeading' => app(RequestOrderRepository::class)->pesananHeading($salesName),
             'requestOrderCreatedDate' => $this->requestOrderCreatedDate($production),
             'refSpkNo' => $refSpkNo,
+            'refSpkId' => filled($production->ref_spk_id) ? (int) $production->ref_spk_id : null,
             'description' => $production->description ?? '-',
             'qty' => $production->qty ?? '-',
             'goldWeight' => filled($production->gold_weight)

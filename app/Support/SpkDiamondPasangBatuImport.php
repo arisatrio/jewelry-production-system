@@ -24,10 +24,13 @@ class SpkDiamondPasangBatuImport
      *     docNo: string,
      *     spkNo: string|null,
      *     spkRowId: int,
-     *     itemName: string,
+     *     spkImageUrl: string|null,
+     *     typeSkuLabel: string|null,
+     *     itemDescription: string|null,
+     *     skuAssigned: bool,
      *     status: string,
      *     statusLabel: string,
-     *     lineCount: int
+     *     stoneCountLabel: string
      * }>
      */
     public function search(string $search, int $limit, array $excludeIds = [], ?int $allowLinkedId = null): array
@@ -48,7 +51,21 @@ class SpkDiamondPasangBatuImport
             ->with([
                 'production' => fn ($productionQuery) => $productionQuery
                     ->notDeleted()
-                    ->select(['row_id', 'spk_no', 'item_name']),
+                    ->select([
+                        'row_id',
+                        'spk_no',
+                        'item_name',
+                        'file_name',
+                        'sku_id',
+                        'description',
+                        'category_prefix_id',
+                    ])
+                    ->with([
+                        'categoryPrefix' => fn ($prefixQuery) => $prefixQuery
+                            ->select(['id', 'prefix']),
+                        'sku' => fn ($skuQuery) => $skuQuery
+                            ->select(['id', 'sku_code', 'item_original']),
+                    ]),
             ])
             ->when($excludeIds !== [], fn (Builder $builder) => $builder->whereNotIn('row_id', $excludeIds))
             ->tap(fn (Builder $builder) => $this->applyEligibleForPasangBatuScope($builder, $allowLinkedId))
@@ -76,9 +93,9 @@ class SpkDiamondPasangBatuImport
             ->map(function (SpkDiamond $document): array {
                 $statusPayload = SpkDiamondStatus::payloadForDocument($document);
                 $production = $document->production;
-                $itemName = $production !== null && filled($production->item_name)
-                    ? (string) $production->item_name
-                    : '—';
+                $itemPresentation = SpkProductionListItemPresentation::forProduction($production);
+                $storedItems = is_array($document->items) ? $document->items : [];
+                $stoneTotals = $this->stonePcsTotalsBySource($storedItems);
 
                 return [
                     'rowId' => (int) $document->row_id,
@@ -87,10 +104,13 @@ class SpkDiamondPasangBatuImport
                         ? (string) $document->spk_no
                         : ($production !== null ? $production->spk_no : null),
                     'spkRowId' => (int) $document->spk_row_id,
-                    'itemName' => $itemName,
+                    ...$itemPresentation,
                     'status' => $statusPayload['status'],
                     'statusLabel' => $statusPayload['label'],
-                    'lineCount' => (int) ($document->jumlah_baris ?? 0),
+                    'stoneCountLabel' => $this->formatStoneCountLabel(
+                        $stoneTotals['microPcs'],
+                        $stoneTotals['dossierPcs'],
+                    ),
                 ];
             })
             ->values()
@@ -461,6 +481,46 @@ class SpkDiamondPasangBatuImport
             ->where('row_id', $spkDiamondId)
             ->where('is_deleted', 0)
             ->update($updates);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $storedItems
+     * @return array{microPcs: int, dossierPcs: int}
+     */
+    private function stonePcsTotalsBySource(array $storedItems): array
+    {
+        $microPcs = 0;
+        $dossierPcs = 0;
+
+        foreach ($storedItems as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $pcs = (int) round((float) str_replace(',', '.', (string) ($item['reservedPcs'] ?? '0')));
+
+            if ($pcs <= 0) {
+                continue;
+            }
+
+            $source = (string) ($item['source'] ?? '');
+
+            if ($source === SpkStoneAllocationService::SOURCE_MICRO) {
+                $microPcs += $pcs;
+            } elseif ($source === SpkStoneAllocationService::SOURCE_DOSSIER) {
+                $dossierPcs += $pcs;
+            }
+        }
+
+        return [
+            'microPcs' => $microPcs,
+            'dossierPcs' => $dossierPcs,
+        ];
+    }
+
+    private function formatStoneCountLabel(int $microPcs, int $dossierPcs): string
+    {
+        return sprintf('Micro %d Pcs, Dossier %d Pcs', $microPcs, $dossierPcs);
     }
 
     /**

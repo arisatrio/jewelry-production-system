@@ -20,7 +20,7 @@ class RequestOrderRepository
      * Uses the same joins as legacy vw_request_orderlist because the view
      * may be unavailable when the MySQL definer account is missing.
      *
-     * @return Collection<int, array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, skuCode: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null, notes: string|null, skuId: int|null, categoryPrefixId: int|null}>
+     * @return Collection<int, array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, skuCode: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null, notes: string|null, skuId: int|null, categoryPrefixId: int|null, typeSkuLabel: string|null, itemDescription: string|null, skuAssigned: bool}>
      */
     public function search(string $search = '', int $limit = 25): Collection
     {
@@ -330,9 +330,11 @@ class RequestOrderRepository
 
         if (Schema::connection('second')->hasColumn('request_order', 'sku_id')) {
             $query->leftJoin('sku_master as sm', 'sm.id', '=', 'ro.sku_id');
+            $query->leftJoin('sku_prefix_categories as spc', 'spc.id', '=', 'sm.category_prefix_id');
             $select[] = 'ro.sku_id';
             $select[] = 'sm.category_prefix_id as sku_category_prefix_id';
             $select[] = 'sm.sku_code as sku_code';
+            $select[] = 'spc.prefix as category_prefix';
         }
 
         return $query->select($select);
@@ -368,7 +370,53 @@ class RequestOrderRepository
     }
 
     /**
-     * @return array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, skuCode: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null, notes: string|null, skuId: int|null, categoryPrefixId: int|null}
+     * @return array{typeSkuLabel: string|null, itemDescription: string|null, skuAssigned: bool}
+     */
+    private function selectorItemPresentation(stdClass $row): array
+    {
+        $skuId = isset($row->sku_id) ? (int) $row->sku_id : 0;
+        $skuAssigned = $skuId > 0;
+
+        $typeSkuLabel = null;
+
+        if ($skuAssigned) {
+            $typeCode = trim((string) ($row->category_prefix ?? ''));
+            $skuCode = trim((string) ($row->sku_code ?? ''));
+
+            if ($skuCode === '' && filled($row->ref_sku ?? null)) {
+                $skuCode = trim((string) $row->ref_sku);
+            }
+
+            $parts = array_values(array_filter(
+                [$typeCode, $skuCode],
+                fn (string $part): bool => $part !== '',
+            ));
+
+            $typeSkuLabel = $parts !== [] ? implode(' | ', $parts) : null;
+        }
+
+        $itemDescription = null;
+        $customName = trim((string) ($row->name ?? ''));
+
+        if ($customName !== '') {
+            $itemDescription = $customName;
+        } else {
+            $itemName = trim((string) ($row->item_name ?? ''));
+
+            if ($itemName !== '') {
+                $itemDescription = $itemName;
+            }
+        }
+
+        return [
+            'typeSkuLabel' => $typeSkuLabel,
+            'itemDescription' => $itemDescription,
+            'skuAssigned' => $skuAssigned,
+        ];
+    }
+
+    /**
+     * @return array{rowId: int, docNo: string, customer: string, item: string, sales: string, refSku: string|null, skuCode: string|null, paymentStatusLabel: string|null, displayLabel: string, transDate: string|null, estimatedDate: string|null, notes: string|null, skuId: int|null, categoryPrefixId: int|null, typeSkuLabel: string|null, itemDescription: string|null, skuAssigned: bool}
      */
     private function toSelectorItem(stdClass $row): array
     {
@@ -390,6 +438,7 @@ class RequestOrderRepository
             'estimatedDate' => $this->orderDate($row->estimated_date ?? null),
             'notes' => filled($row->notes ?? null) ? (string) $row->notes : null,
             ...$this->selectorSkuFields($row),
+            ...$this->selectorItemPresentation($row),
         ];
     }
 
